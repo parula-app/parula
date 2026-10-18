@@ -57,7 +57,7 @@ export class JMAPCalendar extends Calendar {
 
   protected async listAllEvents(): Promise<ArrayColl<JMAPEvent>> {
     const batchSize = 200;
-    let state: string;
+    let state = this.account.syncState.get("CalendarEvent"); // Account-wide: A newer state would skip the changes in the other calendars
     let allNewEvents = new ArrayColl<JMAPEvent>();
     let start = 0;
     let hasMore = true;
