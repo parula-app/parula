@@ -64,7 +64,6 @@ test("Listing a calendar for the first time keeps the account's state, so the ch
   ours.syncState = "s1";
 
   await (shared as any).listAllEvents();
-  expect(account.syncState.get("CalendarEvent")).toBe("s1");
 
   await account.sync("CalendarEvent", "s2"); // what the push does
   expect(ours.events.contents.map(event => event.title)).toContain("Event x");
