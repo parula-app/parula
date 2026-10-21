@@ -42,9 +42,11 @@ test("Listing a calendar for the first time keeps the account's state, so the ch
         changed: { accountId: "u", state: "s2", list: [], notFound: [] },
       };
     }
+    let { position = 0, limit = Infinity, calculateTotal } = methodCalls[0][1];
+    let page = [serverEvent("y", "c")].slice(position, position + limit);
     return {
-      list: { accountId: "u", queryState: "q", canCalculateChanges: true, position: 0, ids: ["y"] },
-      events: { accountId: "u", state: "s2", list: [serverEvent("y", "c")], notFound: [] },
+      list: { accountId: "u", queryState: "q", canCalculateChanges: true, position, ids: page.map(event => event.id), total: calculateTotal ? 1 : undefined },
+      events: { accountId: "u", state: "s2", list: page, notFound: [] },
     };
   };
   let calendars = ["b", "c"].map(jmapID => {
