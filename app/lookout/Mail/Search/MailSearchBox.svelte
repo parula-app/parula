@@ -14,8 +14,8 @@
       placeholder={$t`Search`} spellcheck={false}
       role="combobox" aria-expanded={suggestions.length > 0} aria-autocomplete="list"
       on:input={onInput} on:keydown={onKeyDown}
-      on:focus={() => { isInputFocused = true; }}
-      on:blur={() => { isInputFocused = false; }} />
+      on:focus={() => { isInputFocused = true; $isMailSearchFocused = true; }}
+      on:blur={() => { isInputFocused = false; $isMailSearchFocused = false; }} />
     {#if typed}
       <button type="button" class="icon-button" title={$t`Clear`} aria-label={$t`Clear`}
         on:click={onClear}>
@@ -62,17 +62,11 @@
 </vbox>
 <svelte:window on:mousedown={onClickOutside} />
 
-<script lang="ts" context="module">
-  import { writable } from "svelte/store";
-
-  export const mailSearchInput = writable<HTMLInputElement | null>(null);
-</script>
-
 <script lang="ts">
   import { globalSearchTerm } from "../../../frontend/AppsBar/selectedApp";
   import { selectedAccount, selectedFolder } from "../../../frontend/Mail/Selected";
   import { isScopeAvailable, effectiveScope, scopeLabel, scopeIcon, SearchScope } from "./MailSearch";
-  import { isAdvancedSearchOpen, searchOptions } from "../Selected";
+  import { isAdvancedSearchOpen, isMailSearchFocused, mailSearchInput, searchOptions } from "../Selected";
   import { AdvancedSearchDraft } from "./AdvancedSearchDraft";
   import SearchCriteria from "./SearchCriteria.svelte";
   import { searchPersons } from "../Composer/SelectNames";
@@ -95,7 +89,10 @@
   let boxEl: HTMLElement;
   let inputEl: HTMLInputElement;
   $: $mailSearchInput = inputEl ?? null;
-  onDestroy(() => $mailSearchInput = null);
+  onDestroy(() => {
+    $mailSearchInput = null;
+    $isMailSearchFocused = false;
+  });
   let scopeButton: HTMLButtonElement;
   let isScopeOpen = false;
   let draft: AdvancedSearchDraft = null;

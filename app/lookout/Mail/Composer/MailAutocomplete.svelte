@@ -95,7 +95,7 @@
   {/if}
 </hbox>
 {#if isListOpen}
-  <AutocompleteList {suggestions} bind:highlighted anchor={fieldEl} id={listID} on:select={event => choose(event.detail)} />
+  <AutocompleteList {suggestions} bind:highlighted anchor={fieldEl} id={listID} bind:this={list} on:select={event => choose(event.detail)} />
 {/if}
 <svelte:window on:click|capture={event => catchErrors(() => onClickOutside(event))} />
 <ContextMenu bind:this={contextMenu}>
@@ -148,6 +148,7 @@
   const dispatch = createEventDispatcher<{ add: PersonUID }>();
   const listID = "address-suggestions-" + Math.random().toString(36).slice(2);
   let fieldEl: HTMLElement;
+  let list: AutocompleteList;
   let typedPersonEl: HTMLElement;
   let inputEl: HTMLInputElement;
   let contextMenu: ContextMenu;
@@ -430,7 +431,7 @@
     if (editedRecipient && !editedEl?.contains(target)) {
       await saveEditedName();
     }
-    if (!hasNameField || typedPersonEl.contains(target) || document.getElementById(listID)?.contains(target)) {
+    if (!hasNameField || typedPersonEl.contains(target) || list?.contains(target)) {
       return;
     }
     if (isListOpen && suggestions[highlighted]) {

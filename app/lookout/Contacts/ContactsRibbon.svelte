@@ -1,4 +1,4 @@
-<Ribbon>
+<Ribbon id="contacts">
   <RibbonTab label={$t`Home *=> Ribbon tab with the most-used commands`}>
     <RibbonGroup label={$t`New`}>
       <RibbonButton label={$t`New Contact`} icon={NewContactIcon}
@@ -176,9 +176,8 @@
   import type { Contact } from "../../logic/Abstract/Contact";
   import { Person, type ContactEntry } from "../../logic/Abstract/Person";
   import type { Addressbook } from "../../logic/Contacts/Addressbook";
-  import { contactSearchOptions } from "./Person/Selected";
+  import { contactSearchOptions, contactSearchInput } from "./Person/Selected";
   import { defaultContactSearchOptions } from "./ContactSearch";
-  import { contactSearchInput } from "./Search/ContactSearchBox.svelte";
   import { ContactActions } from "./ContactActions";
   import { openSettingsDialog } from "../Settings/SettingsDialogs";
   import { ContactColumn, defaultContactGroupBy, defaultContactColumns, shownContactColumns, allContactColumns, contactColumnSets, contactColumnLabel, ContactView, type ContactSort } from "./Person/ContactColumns";

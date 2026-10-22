@@ -9,14 +9,8 @@
   </vbox>
 </Dialog>
 
-<script lang="ts" context="module">
-  import type { SearchEMail } from "../../../logic/Mail/Store/SearchEMail";
-  import { writable } from "svelte/store";
-
-  export const openSaveSearch = writable<SearchEMail | null>(null);
-</script>
-
 <script lang="ts">
+  import type { SearchEMail } from "../../../logic/Mail/Store/SearchEMail";
   import { SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
   import { allAccountsAccount } from "../../../logic/Mail/AccountsList/ShowAccounts";
   import { selectedAccount, selectedFolder } from "../../../frontend/Mail/Selected";

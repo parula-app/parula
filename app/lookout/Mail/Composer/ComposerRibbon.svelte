@@ -1,9 +1,9 @@
-<Ribbon>
-  <ComposerMessageTab {mail} {editor} />
+<Ribbon id="mail-write">
+  <ComposerMessageTab {mail} {editor} {onSelectNames} {onCheckNames} onOpenTool={tool => openedTool = tool} {onEditSignatures} />
   <InsertTab {editor} bind:openedTool onAttachFile={onAddAttachment} {onInsertPicture} bind:showEmojis>
     <svelte:fragment slot="include">
       <RibbonMenuButton label={$t`Signature`} icon={SignatureIcon}>
-        <SignatureMenuItems {identity} {editor} on:editSignatures={() => { $openSignatures = mail; }} />
+        <SignatureMenuItems {identity} {editor} on:editSignatures={onEditSignatures} />
       </RibbonMenuButton>
     </svelte:fragment>
     <svelte:fragment slot="groups">
@@ -36,7 +36,7 @@
   import EncryptionButtons from "./EncryptionButtons.svelte";
   import SignatureMenuItems from "./SignatureMenuItems.svelte";
   import PollsGroup from "./PollsGroup.svelte";
-  import { openSignatures } from "./SignaturesDialog.svelte";
+  import type { RecipientField } from "./SelectNamesDialog.svelte";
   import FileSelector from "../../../frontend/Mail/Composer/Attachments/FileSelector.svelte";
   import SignatureIcon from "lucide-svelte/icons/pen-line";
   import { t } from "../../../l10n/l10n";
@@ -46,6 +46,9 @@
   export let editor: Editor | null;
   export let showEmojis = false;
   export let openedTool: EditorTool | null = null;
+  export let onSelectNames: (field: RecipientField) => void;
+  export let onCheckNames: () => Promise<void>;
+  export let onEditSignatures: () => void;
 
   $: identity = mail.identity;
 

@@ -5,7 +5,7 @@ import type { MailAccount } from "../../../../logic/Mail/MailAccount";
 import { Folder } from "../../../../logic/Mail/Folder";
 import { RulesTestAccount } from "../Rules/RulesTestAccount";
 import LeftPane from "../../../Mail/LeftPane/LeftPane.svelte";
-import { renamingFolder } from "../../../Mail/LeftPane/FolderLine.svelte";
+import { renamingFolder } from "../../../Mail/Selected";
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeAll, beforeEach, expect, test } from "vitest";
 
