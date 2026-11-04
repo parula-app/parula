@@ -7,6 +7,7 @@ import { type TGraphFolder, type TGraphEMail, TGraphEMailHeaderProperties } from
 import { Semaphore } from "../../util/flow/Semaphore";
 import { PromiseAllDone } from "../../util/flow/PromiseAllDone";
 import { Lock } from "../../util/flow/Lock";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import type { URLString } from "../../util/util";
 import { ArrayColl, Collection } from "svelte-collections";
@@ -371,9 +372,9 @@ export class GraphFolder extends Folder {
   async markAllRead(): Promise<void> {
     await super.markAllRead();
     const kMaxEMails = 1000000;
-    let maxRounds = Math.ceil(kMaxEMails / kMaxFetchCount);
-    let previousIDs: string | null = null;
-    for (let round = 1; round <= maxRounds; round++) {
+    let loop = new LoopGuard(Math.ceil(kMaxEMails / kMaxFetchCount), () =>
+      this.account.errorCallback(new Error(`${this.name}: Mark all as read: The server keeps returning unread emails. Stopped.`)));
+    while (loop.nextRound()) {
       let unread = await this.account.graphGet<TGraphEMail>(
         `${this.path}/messages?$filter=${encodeURIComponent("isRead eq false")}&$select=id`,
         { top: kMaxFetchCount });
@@ -381,16 +382,13 @@ export class GraphFolder extends Folder {
         return;
       }
       let ids = unread.map(json => sanitize.nonemptystring(json.id));
-      let joinedIDs = ids.join(" ");
-      if (joinedIDs == previousIDs) {
+      if (loop.isSameAsLastRound(ids.join(" "))) {
         break;
       }
-      previousIDs = joinedIDs;
       for (let id of ids) {
         await this.account.graphPatch(`messages/${id}`, { isRead: true });
       }
     }
-    this.account.errorCallback(new Error(`${this.name}: Mark all as read: The server keeps returning unread emails. Stopped.`));
   }
 
   setSpecialUse(wellKnownName: string): void {

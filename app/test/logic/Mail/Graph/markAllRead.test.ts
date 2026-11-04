@@ -76,3 +76,20 @@ test("Mark all as read stops when the server keeps returning the same unread ema
   expect(patches.length).toBeLessThanOrEqual(4);
   expect(errors.length).toBe(1);
 });
+
+test("Mark all as read stops after a maximum number of rounds, when the server always returns other unread emails", async () => {
+  /** More rounds than any real folder needs. A client that goes on longer is stuck. */
+  const kSaneMaxRounds = 10000;
+  let { folder, errors } = setUpFolder([]);
+  let gets = 0;
+  let ky = {
+    get: () => ({ value: [{ id: "new-" + gets++ }] }),
+    patch: (url: string) => ({ id: url.split("/messages/")[1], isRead: true }),
+  };
+  appGlobal.remoteApp = { kyCreate: () => ky } as any;
+
+  await folder.markAllRead();
+
+  expect(gets).toBeLessThanOrEqual(kSaneMaxRounds);
+  expect(errors.length).toBe(1);
+});
