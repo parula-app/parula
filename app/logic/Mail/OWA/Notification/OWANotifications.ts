@@ -22,9 +22,9 @@ export class OWANotifications {
 
   /** Runs until it fails or we stop it, so don't `await` it.
    * @throws only errors that won't go away by themselves */
-  async listen(): Promise<void> {
+  async start(): Promise<void> {
     try {
-      await this.start();
+      await this.listen();
     } catch (ex) {
       if (this.abort.signal.aborted) {
         return;
@@ -38,7 +38,7 @@ export class OWANotifications {
     }
   }
 
-  async start(): Promise<never> {
+  protected async listen(): Promise<never> {
     throw new AbstractFunction();
   }
 

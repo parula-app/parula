@@ -5,7 +5,7 @@ import { URLPart } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 
 export class OWAOffice365Notifications extends OWANotifications {
-  async start(): Promise<never> {
+  protected async listen(): Promise<never> {
     let cid = "00000000-0000-0000-0000-000000000000".replace(/0/g, () => Math.floor(Math.random() * 16).toString(16));
     let json: any;
     let timerOptions: { headers: { Authorization: string } };

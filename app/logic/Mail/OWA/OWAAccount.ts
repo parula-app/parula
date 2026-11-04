@@ -246,7 +246,7 @@ export class OWAAccount extends ExchangeMailAccount {
     this.notifications = this.provider() == Provider.Office365
       ? new OWAOffice365Notifications(this, isReconnect)
       : new OWAExchangeNotifications(this, isReconnect);
-    this.notifications.listen()
+    this.notifications.start()
       .catch(this.errorCallback);
   }
 

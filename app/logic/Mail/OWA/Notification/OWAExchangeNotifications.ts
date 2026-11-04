@@ -2,7 +2,7 @@ import { OWANotifications } from "./OWANotifications";
 import { appGlobal } from "../../../app";
 
 export class OWAExchangeNotifications extends OWANotifications {
-  async start(): Promise<never> {
+  protected async listen(): Promise<never> {
     // handle logout
     // add throttle
     let url = this.account.url + "ev.owa2?ns=PendingRequest&ev=FinishNotificationRequest&UA=0";
