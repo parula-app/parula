@@ -32,7 +32,7 @@ export class OWAFolder extends ExchangeFolder {
   // Whether a folder scan or notification changed the counts
   dirty: boolean = false;
   // Whether this folder has been subscribed to RowNotification events
-  subscribed: boolean = false;
+  listening: boolean = false;
   // Mapping from OWA InstanceKey to ItemId
   instanceMap = new Map<string, string>;
 
@@ -94,9 +94,9 @@ export class OWAFolder extends ExchangeFolder {
     await this.readFolder();
     let lock = await this.listMessagesLock.lock();
     try {
-      if (!this.subscribed) {
+      if (!this.listening) {
         await this.account.callOWA(new OWASubscribeToRowNotificationRequest(this.id));
-        this.subscribed = true;
+        this.listening = true;
       }
       if (!await this.folderCountsChanged()) {
         // Avoid unnecessarily rereading the message list.

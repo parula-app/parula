@@ -243,7 +243,7 @@ export class OWAAccount extends ExchangeMailAccount {
       appGlobal.searchOnlyAddressbooks.remove(galAB);
     }
     for (let folder of this.folderMap.values()) {
-      folder.subscribed = false;
+      folder.listening = false;
     }
   }
 
@@ -562,7 +562,7 @@ export class OWAAccount extends ExchangeMailAccount {
           this.handleHierarchyNotification(notification);
           break;
         case "RowNotification":
-          this.handleRowNotification(notification, newMessageIDsByFolder);
+          this.handleEMailNotification(notification, newMessageIDsByFolder);
           break;
         default:
           //console.log(notification);
@@ -618,13 +618,13 @@ export class OWAAccount extends ExchangeMailAccount {
       // We get hierachy notifications for e.g. flag changes,
       // so we should always refresh a folder after a notification,
       // unless we're already getting row notifications for it.
-      folder.dirty ||= !folder.subscribed;
+      folder.dirty ||= !folder.listening;
     } catch (ex) {
       this.errorCallback(ex);
     }
   }
 
-  protected async handleRowNotification(notification: any, newMessageIDsByFolder: Record<string, string[]>) {
+  protected async handleEMailNotification(notification: any, newMessageIDsByFolder: Record<string, string[]>) {
     let folder = this.folderMap.get(notification.FolderId);
     if (!folder) {
       return null;
