@@ -23,9 +23,9 @@ export class OWAIncomingInvitation extends IncomingInvitation {
     this.itemID = event?.itemID;
   }
 
-  async respondToInvitationFromMail(response: InvitationResponseInMessage) {
+  async respondToInvitationFromMail(response: InvitationResponseInMessage, sendReply = true) {
     assert(this.invitationMessage == InvitationMessage.Invitation, "Only invitations can be responded to");
-    let request = new OWACreateItemRequest({MessageDisposition: "SendAndSaveCopy"});
+    let request = new OWACreateItemRequest({MessageDisposition: sendReply ? "SendAndSaveCopy" : "SaveOnly"});
     request.addField(ResponseTypes[response], "ReferenceItemId", {
       __type: "ItemId:#Exchange",
       Id: this.message.itemID,
@@ -43,6 +43,9 @@ export class OWAIncomingInvitation extends IncomingInvitation {
     await this.updateFromOtherInvitationMessage();
   }
   async updateParticipantReply() {
+    await this.updateFromOtherInvitationMessage();
+  }
+  async updateChangedMeeting() {
     await this.updateFromOtherInvitationMessage();
   }
   /** Exchange server auto-processes these */

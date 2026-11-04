@@ -7,6 +7,7 @@ import { InvitationResponse } from '../../../logic/Calendar/Invitation/Invitatio
 import { OutgoingInvitation } from '../../../logic/Calendar/Invitation/OutgoingInvitation';
 import { DummyCalendarStorage } from '../../../logic/Calendar/SQL/DummyCalendarStorage';
 import { Frequency, Weekday } from '../../../logic/Calendar/RecurrenceRule';
+import type { Collection } from 'svelte-collections';
 
 /** A weekly meeting series that our user organizes, every Monday at 9:00 */
 function meetingSeries(): Event {
@@ -106,4 +107,54 @@ test("A new series end keeps the exceptions within the series", async () => {
   expect(master.exceptions.length).toBe(1);
   expect(master.exceptions.contains(early)).toBe(true);
   expect(master.exceptions.contains(late)).toBe(false);
+});
+
+// "This and following" and "Delete this and following" shortened the old series
+// outside of an editing session, so `hasChanged()` was false, and the attendees
+// kept the removed occurrences in their calendars.
+test.each([
+  ["no end"],
+  ["10 times"],
+  ["1 March"],
+])("Attendees get an update when a series with %s is truncated", async (before) => {
+  let master = meetingSeries();
+  await kSeriesEnds[before](master);
+  let early = addException(master, 1);
+  let sendInvitations = spyOnInvitations();
+
+  let instance = master.getOccurrenceByDate(master.recurrenceRule.getOccurrenceByIndex(3));
+  await instance.truncateRecurrence();
+
+  expect(sendInvitations).toHaveBeenCalledTimes(1);
+  expect(master.recurrenceRule.count).toBe(3);
+  expect(master.unedited).toBeNull();
+  expect(master.exceptions.contains(early)).toBe(true);
+});
+
+/** Records the invitation emails that the organizer sends, instead of sending them */
+function spyOnSentInvitations() {
+  let sent: { method: string, event: Event, to: string[] }[] = [];
+  vi.spyOn(OutgoingInvitation.prototype as any, "send").mockImplementation(async function (this: OutgoingInvitation, method: string, participants: Collection<Participant>) {
+    sent.push({ method, event: this.event, to: participants.contents.map(participant => participant.emailAddress) });
+  });
+  return sent;
+}
+
+// The last occurrence was changed, so the series keeps its end, and truncating
+// it only adds exclusions. `hasChanged()` and `changesNeedToNotify()` ignored
+// the exclusions, so the attendees kept the removed occurrences in their calendars.
+test("Attendees get an update when truncating a series only excludes occurrences", async () => {
+  let master = meetingSeries();
+  await master.setRecurrenceCount(10);
+  let rule = master.recurrenceRule;
+  addException(master, 9);
+  let sent = spyOnSentInvitations();
+
+  let instance = master.getOccurrenceByDate(master.recurrenceRule.getOccurrenceByIndex(5));
+  await instance.truncateRecurrence();
+
+  expect(master.recurrenceRule).toBe(rule);
+  let excluded = master.exclusions.contents.map(exclusion => rule.getIndexOfOccurrence(exclusion));
+  expect(excluded.sort((a, b) => a - b)).toEqual([5, 6, 7, 8]);
+  expect(sent).toEqual([{ method: "REQUEST", event: master, to: ["attendee@example.com"] }]);
 });

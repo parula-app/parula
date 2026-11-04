@@ -1,5 +1,6 @@
 import type { MailAccount } from "../MailAccount";
 import { readConfigFromXML } from "./readConfig";
+import { getConfigDir } from "../../util/backend-wrapper";
 import { appGlobal } from "../../app";
 import { PriorityAbortable, makeAbortable } from "../../util/flow/Abortable";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
@@ -15,6 +16,7 @@ export async function fetchConfig(domain: string, emailAddress: string, abort: A
   console.log("AutoConfig for", domain);
 
   let priorityOrder = new PriorityAbortable(abort, [
+    fetchConfigFromDisk(domain, abort),
     fetchConfigFromISPDB(domain, abort),
     fetchConfigFromISP(domain, emailAddress, abort),
     fetchConfigForMX(domain, abort),
@@ -55,6 +57,16 @@ async function fetchConfigFromISP(domain: string, emailAddress: string | null, a
   let xmlStr = await priorityOrder.run();
   console.log("Fetch from ISP results:\n" + priorityOrder.printResults);
   return readConfigFromXML(xmlStr, domain, "autoconfig-isp");
+}
+
+async function fetchConfigFromDisk(domain: string, abort: AbortController) {
+  let fileName = await appGlobal.remoteApp.path.join(await getConfigDir(), "autoconfig", sanitize.filename(domain) + ".xml");
+  let xmlArray = await appGlobal.remoteApp.readFile(fileName, { encoding: "utf-8" });
+  let xmlStr = new TextDecoder().decode(xmlArray);
+  if (!xmlStr) {
+    return null;
+  }
+  return readConfigFromXML(xmlStr, domain, "harddisk");
 }
 
 async function fetchConfigForMX(domain, abort: AbortController): Promise<ArrayColl<MailAccount>> {

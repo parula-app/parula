@@ -1,5 +1,5 @@
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
-import { sleep } from "./util";
+import { sleep, waitTime } from "./util";
 import psl from "psl";
 
 export function getDomainForEmailAddress(emailAddress: string): string {
@@ -49,7 +49,7 @@ export async function retryOnTransientError<T>(func: () => Promise<T>, attempts 
         throw ex;
       }
       console.log(`Failed (attempt ${attempt} of ${attempts}), trying again in ${delaySeconds * attempt}s:`, ex?.message);
-      await sleep(delaySeconds * attempt);
+      await sleep(delaySeconds * attempt * waitTime.factor); // tests wait less
     }
   }
 }

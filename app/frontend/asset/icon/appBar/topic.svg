@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lucide "graph-star", ISC license -->
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <style>
+      .cls-2 {
+        stroke: #27c1aa;
+        stroke-width: 8px;
+      }
+
+      .cls-2, .cls-1 {
+        fill: none;
+        stroke-linecap: round;
+      }
+
+      .cls-1 {
+        stroke: #000;
+        stroke-width: 8px;
+      }
+    </style>
+  </defs>
+  <line class="cls-1" x1="65.82" y1="49.69" x2="75.23" y2="30.87"/>
+  <line class="cls-1" x1="67.15" y1="77.57" x2="79.68" y2="97.62"/>
+  <line class="cls-1" x1="74.57" y1="65.77" x2="96.06" y2="68.15"/>
+  <line class="cls-1" x1="28.87" y1="93.79" x2="47.36" y2="75.31"/>
+  <line class="cls-1" x1="48.13" y1="51.96" x2="28.36" y2="29.36"/>
+  <circle class="cls-2" cx="58.67" cy="64" r="16"/>
+  <circle class="cls-2" cx="80" cy="21.33" r="10.67"/>
+  <circle class="cls-2" cx="85.33" cy="106.67" r="10.67"/>
+  <circle class="cls-2" cx="106.67" cy="69.33" r="10.67"/>
+  <circle class="cls-2" cx="21.33" cy="101.33" r="10.67"/>
+  <circle class="cls-2" cx="21.33" cy="21.33" r="10.67"/>
+</svg>

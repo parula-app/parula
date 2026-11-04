@@ -32,6 +32,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
 import type { RSAPublicKey, RSAPrivateKey } from "./SMIMEASN1";
+import { uint8ArrayToHex } from "../../../util/blob";
 
 export enum BlockType {
   Signed = 0x01,
@@ -120,7 +121,7 @@ export function encrypt(data: Uint8Array, key: RSAPublicKey): Uint8Array {
   }
 
   // Convert the message to an integer message representative m.
-  let m = UbigintFromHex(Uint8ArrayToHex(data));
+  let m = UbigintFromHex(uint8ArrayToHex(data));
 
   // Apply the RASEP encryption primitive to the RSA public key and
   // message representative m to produce a ciphertext representative c.
@@ -138,7 +139,7 @@ export function decrypt(data: Uint8Array, key: RSAPrivateKey) {
   }
 
   // Convert the ciphertext to an integer ciphertext representative c.
-  let c = UbigintFromHex(Uint8ArrayToHex(data));
+  let c = UbigintFromHex(uint8ArrayToHex(data));
   if (c >= key.n) {
     throw new Error("Decryption error");
   }
@@ -191,14 +192,7 @@ function Uint8ArrayFromHex(hex: string): Uint8Array {
   return Uint8Array.fromHex?.(hex) ?? Uint8Array.from(hex.match(/../g), s => parseInt(s, 16));
 }
 
-export function Uint8ArrayToHex(data: Uint8Array): string {
-  return data.toHex?.() ?? Array.from(data, n => n.toString(16).padStart(2, "0")).join("");
-}
-
 declare global {
-  interface Uint8Array {
-    toHex(): string;
-  }
   interface Uint8ArrayConstructor {
     fromHex(hex: string): Uint8Array;
   }

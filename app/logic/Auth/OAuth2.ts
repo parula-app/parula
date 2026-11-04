@@ -10,7 +10,7 @@ import { notifyChangedProperty } from "../util/Observable";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { RunOnce } from "../util/flow/RunOnce";
 import { assert, type URLString } from "../util/util";
-import { fetchJSON, HTTPError } from "../util/netUtil";
+import { fetchJSON, HTTPError, isTransientError } from "../util/netUtil";
 import pkceChallenge from "pkce-challenge";
 
 /**
@@ -104,6 +104,9 @@ export class OAuth2 extends WebBasedAuth {
         try {
           return await this.getAccessTokenFromRefreshToken(this.refreshToken);
         } catch (ex) {
+          if (isTransientError(ex)) {
+            throw ex; // e.g. the network or the VPN is down. The refresh token is still good.
+          }
           console.error(ex);
           this.refreshToken = null;
           await this.deleteRefreshTokenFromStorage();
