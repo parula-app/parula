@@ -363,7 +363,8 @@ export class JSCalendarEvent {
     return new Date(endOfDays.getTime() + (seconds - calendarDays * k1DayS) * 1000);
   }
 
-  /** The server's duration, or days, only if they give our end, because a day may have 23 or 25 hours */
+  /** The duration to save: the server's duration, if it gives the event's end time as the app has it (`event.endTime`),
+   * else days, if they give that end time (a day may have 23 or 25 hours), else exact hours. */
   static fromEndTime(event: Event, jmap: TJMAPCalendarEvent): string {
     if (jmap.duration && this.toEndTime(jmap).getTime() == event.endTime.getTime()) {
       return jmap.duration;
