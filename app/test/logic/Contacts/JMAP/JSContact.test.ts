@@ -34,6 +34,20 @@ test("Malformed email address keeps the rest of the contact", () => {
   expect(person.phoneNumbers.contents.map(entry => entry.value)).toEqual(["0123456789"]);
 });
 
+test("When the last phone number was deleted on the server, it's removed here, too", () => {
+  // Stalwart removes the whole `phones` property, when the last one is gone
+  let person = new Person();
+  JSContact.toPerson(makeContact({ e1: "support@stripe.com" }), person);
+  expect(person.phoneNumbers.length).toBe(1);
+
+  let jscontact = makeContact({ e1: "support@stripe.com" });
+  delete jscontact.phones;
+  jscontact.name.full = "Stripe Support Team";
+  JSContact.toPerson(jscontact, person);
+  expect(person.phoneNumbers.length).toBe(0);
+  expect(person.name).toBe("Stripe Support Team");
+});
+
 test("Addresses deleted on the server are all removed, not only every other one", () => {
   let person = new Person();
   JSContact.toPerson(makeContact({
