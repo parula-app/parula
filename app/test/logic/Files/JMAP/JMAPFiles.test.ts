@@ -97,6 +97,13 @@ function setCalls(server: FakeFileNodeServer): Record<string, any>[] {
   return server.calls.filter(([method]) => method == "FileNode/set").map(([, args]) => args);
 }
 
+function callsOf(server: FakeFileNodeServer, method: string): Record<string, any>[] {
+  return server.calls.filter(([name]) => name == method).map(([, args]) => args);
+}
+
+/** More rounds than any real listing or sync needs. A client that goes on longer is stuck. */
+const kSaneMaxRounds = 10000;
+
 test("Lists the top level nodes and the contents of a directory, in pages", async () => {
   let { server, files, errors } = await setup();
   let docsID = server.addDirectory("Docs");
@@ -122,6 +129,49 @@ test("Lists the top level nodes and the contents of a directory, in pages", asyn
   expect(docs.files.first.size).toBe(5);
   expect(server.calls.filter(([method]) => method == "FileNode/query").length).toBeGreaterThan(2); // maxObjectsInGet is 3
   expect(errors).toEqual([]);
+});
+
+/** A server with `/Docs/` that has 4 files, and whose page size is 3 */
+async function setupWithDirectory() {
+  let { server, files, errors } = await setup();
+  let docsID = server.addDirectory("Docs");
+  let fileIDs = ["1.txt", "2.txt", "3.txt", "4.txt"].map(name => server.addFile(name, name, docsID));
+  await files.sync();
+  let docs = files.rootDir.subDirs.find(dir => dir.nodeID == docsID);
+  let queries = () => callsOf(server, "FileNode/query").filter(args => args.filter?.parentId == docsID);
+  return { server, files, errors, docs, docsID, fileIDs, queries };
+}
+
+test("A server that keeps listing the same files is stopped, and that is reported", async () => {
+  let { server, errors, docs, docsID, fileIDs, queries } = await setupWithDirectory();
+  server.changeResponse = (method, args, response) => {
+    if (method == "FileNode/query" && args.filter?.parentId == docsID) {
+      // Ignores the position, and claims that there are more
+      response.ids = fileIDs.slice(0, 3);
+      response.total = 100;
+    }
+  };
+
+  await docs.listContents();
+  expect(queries().length).toBeLessThanOrEqual(3);
+  expect(errors.length).toBe(1);
+});
+
+test("A server that keeps listing more files is stopped, and that is reported", async () => {
+  let { server, errors, docs, docsID, queries } = await setupWithDirectory();
+  let nextID = 1;
+  server.changeResponse = (method, args, response) => {
+    if (method == "FileNode/query" && args.filter?.parentId == docsID) {
+      // Other IDs on each page, and always a full page, without an end
+      response.ids = [1, 2, 3].map(() => "endless" + nextID++);
+      delete response.total;
+    }
+  };
+
+  await docs.listContents();
+  expect(queries().length).toBeGreaterThan(1);
+  expect(queries().length).toBeLessThanOrEqual(kSaneMaxRounds);
+  expect(errors.length).toBe(1);
 });
 
 test("Ignores symbolic links", async () => {
@@ -234,6 +284,22 @@ test("Without draft-ietf-jmap-conditional, `ifInState` guards the upload, and we
   expect(errors).toEqual([]);
 });
 
+test("Without draft-ietf-jmap-conditional, when other files change before each upload, we stop after a few tries, and report it", async () => {
+  let { server, files, file, fileID, errors } = await setupWithFile({ conditional: false });
+  let otherID = server.addFile("other.txt", "other");
+  await file.download();
+  await editOnDisk(file, "changed on disk");
+  server.beforeSet = () => server.changeFile(otherID, "changed by somebody else");
+
+  await files.syncLocalCopies();
+  expect(server.contents(fileID)).toBe("original");
+  expect(await readDisk(file.filepathLocal)).toBe("changed on disk");
+  expect(setCalls(server).length).toBeGreaterThan(1);
+  // More than a real server needs. A client that tries more often is stuck.
+  expect(setCalls(server).length).toBeLessThanOrEqual(20);
+  expect(errors.length).toBe(1);
+});
+
 test("Both changed: the file on disk is renamed to -modified-, and gets the server version. Both are on the server.", async () => {
   let { server, files, docs, file, fileID, errors } = await setupWithFile();
   await file.download();
@@ -298,6 +364,30 @@ test("Both changed, and another app has the file locked: The server version goes
   expect(docs.files.contents.map(file => file.name).sort()).toEqual([serverName, "a.txt"]);
   expect(await file.isLocalFileChanged()).toBe(false);
   expect(errors).toEqual([]);
+});
+
+test("Both keep changing, and another app has the file locked: We stop after a few rounds, report it, and keep the user's version", async () => {
+  let { server, files, file, fileID, errors } = await setupWithFile();
+  await file.download();
+  let originalPath = file.filepathLocal;
+  await editOnDisk(file, "my version");
+  let change = 0;
+  server.beforeSet = () => {
+    change++;
+    server.changeFile(fileID, "their version " + change, new Date(2026, 9, 20, 9, 8, change).toISOString());
+  };
+  lockedPaths.add(originalPath);
+  try {
+    await files.syncLocalCopies();
+  } finally {
+    lockedPaths.delete(originalPath);
+  }
+
+  expect(await readDisk(originalPath)).toBe("my version");
+  expect(setCalls(server).length).toBeGreaterThan(1);
+  // More than a real server needs. A client that tries more often is stuck.
+  expect(setCalls(server).length).toBeLessThanOrEqual(20);
+  expect(errors.length).toBe(1);
 });
 
 test("While another app has the file locked, a change on the server waits", async () => {
@@ -620,6 +710,36 @@ test("When the server lost our sync state, we list again all directories that we
   expect(docs.files.contents.map(file => file.nodeID).sort()).toEqual([file.nodeID, newID].sort());
   expect(files.jmapAccount.syncState.get("FileNode")).toBe("s" + server.state);
   expect(errors).toEqual([]);
+});
+
+test("A server that keeps reporting more changes, each time with a new state, is stopped, and that is reported", async () => {
+  let { server, files, errors } = await setupWithFile();
+  let state = 1000;
+  server.changeResponse = (method, args, response) => {
+    if (method == "FileNode/changes") {
+      response.hasMoreChanges = true;
+      response.newState = "s" + state++;
+    }
+  };
+
+  await files.fetchChanges();
+  expect(callsOf(server, "FileNode/changes").length).toBeGreaterThan(1);
+  expect(callsOf(server, "FileNode/changes").length).toBeLessThanOrEqual(kSaneMaxRounds);
+  expect(errors.length).toBe(1);
+});
+
+test("A server that keeps reporting more changes, without a new state, is stopped, and that is reported", async () => {
+  let { server, files, errors } = await setupWithFile();
+  server.changeResponse = (method, args, response) => {
+    if (method == "FileNode/changes") {
+      response.hasMoreChanges = true;
+      response.newState = args.sinceState;
+    }
+  };
+
+  await files.fetchChanges();
+  expect(callsOf(server, "FileNode/changes").length).toBeLessThanOrEqual(3);
+  expect(errors.length).toBe(1);
 });
 
 test("A server that makes a directory its own subdirectory doesn't break our tree", async () => {

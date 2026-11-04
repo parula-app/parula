@@ -6,6 +6,7 @@ import type { TJMAPGetResponse } from "../../Mail/JMAP/TJMAPGeneric";
 import { appGlobal } from "../../app";
 import { getFilesDir } from "../../util/backend-wrapper";
 import { Lock } from "../../util/flow/Lock";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../util/util";
 
@@ -98,12 +99,14 @@ export class JMAPFile extends File {
     let lock = await this.syncLock.lock();
     try {
       const kMaxRounds = 5;
-      for (let round = 1; round <= kMaxRounds; round++) {
+      let loop = new LoopGuard(kMaxRounds, () => {
+        throw new Error(`${this.name}: The file keeps changing on the server. We'll try again later.`);
+      });
+      while (loop.nextRound()) {
         if (await this.syncLocalCopyStep()) {
           return;
         }
       }
-      throw new Error(`${this.name}: The file keeps changing on the server. We'll try again later.`);
     } finally {
       lock.release();
     }

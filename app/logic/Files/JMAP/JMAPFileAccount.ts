@@ -5,6 +5,7 @@ import type { JMAPAccount } from "../../Mail/JMAP/JMAPAccount";
 import type { TJMAPFileNode } from "./TJMAPFileNode";
 import type { TJMAPChangeResponse, TJMAPGetResponse, TJMAPQueryResponse } from "../../Mail/JMAP/TJMAPGeneric";
 import { checkChangeError } from "../../Mail/JMAP/JMAPError";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { UserError, assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
@@ -105,11 +106,16 @@ export class JMAPFileAccount extends FileSharingAccount {
     let lock = await this.jmapAccount.stateLock.lock();
     try {
       const kMaxRounds = 1000;
-      for (let round = 1; round <= kMaxRounds; round++) {
+      let loop = new LoopGuard(kMaxRounds, () =>
+        this.errorCallback(new Error(`${this.name}: File changes: The server keeps reporting more changes. Stopped.`)));
+      while (loop.nextRound()) {
         let sinceState = this.jmapAccount.syncState.get("FileNode");
         if (!sinceState) {
           await this.listKnownDirectories();
           return;
+        }
+        if (loop.isSameAsLastRound(sinceState)) {
+          break;
         }
         let response: Record<string, any>;
         try {
@@ -176,10 +182,6 @@ export class JMAPFileAccount extends FileSharingAccount {
         this.jmapAccount.syncState.set("FileNode", changes.newState);
         await this.jmapAccount.save();
         if (!changes.hasMoreChanges) {
-          break;
-        }
-        if (changes.newState == sinceState || round == kMaxRounds) {
-          this.errorCallback(new Error(`${this.name}: File changes: The server keeps reporting more changes. Stopped.`));
           break;
         }
       }
@@ -323,9 +325,10 @@ export class JMAPFileAccount extends FileSharingAccount {
     let nodes = new ArrayColl<TJMAPFileNode>();
     let state: string = null;
     let pageSize = this.jmapAccount.maxObjectsInGet;
-    let previousIDs = "";
     const kMaxRounds = 1000; // 500 000 entries in one directory
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.errorCallback(new Error(`${this.name}: The server keeps listing more files. Stopped.`)));
+    while (loop.nextRound()) {
       let response = await this.jmapAccount.makeCombinedCall([
         [
           "FileNode/query", {
@@ -355,18 +358,13 @@ export class JMAPFileAccount extends FileSharingAccount {
       if (!ids) {
         break;
       }
-      if (ids == previousIDs) {
-        this.errorCallback(new Error(`${this.name}: The server keeps listing the same files. Stopped.`));
+      if (loop.isSameAsLastRound(ids)) {
         break;
       }
-      previousIDs = ids;
       nodes.addAll(get.list);
       let total = sanitize.integer(query.total, null);
       if (total != null ? nodes.length >= total : query.ids.length < pageSize) {
         break;
-      }
-      if (round == kMaxRounds) {
-        this.errorCallback(new Error(`${this.name}: The server keeps listing more files. Stopped.`));
       }
     }
     return { nodes, state };
@@ -408,14 +406,17 @@ export class JMAPFileAccount extends FileSharingAccount {
     // Without draft-ietf-jmap-conditional, only `ifInState` can protect the update.
     // It fails also when other nodes changed, so we try again.
     const kMaxRounds = 5;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () => {
+      throw new Error(`${this.name}: The files keep changing on the server. We'll try again later.`);
+    });
+    while (loop.nextRound()) {
       let response = await this.jmapAccount.makeSingleCall("FileNode/get", {
         accountId: this.jmapAccount.accountID,
         ids: [nodeID],
         properties: ["blobId"],
       }) as TJMAPGetResponse<TJMAPFileNode>;
       if (response.list.find(json => json.id == nodeID)?.blobId != blobID) {
-        return false;
+        break;
       }
       try {
         await this.setNodes({
@@ -431,7 +432,7 @@ export class JMAPFileAccount extends FileSharingAccount {
         }
       }
     }
-    throw new Error(`${this.name}: The files keep changing on the server. We'll try again later.`);
+    return false;
   }
 
   /** @returns blob ID */

@@ -31,6 +31,8 @@ export class FakeFileNodeServer {
   calls: [string, Record<string, any>][] = [];
   /** Called before each `FileNode/set`, to simulate another client */
   beforeSet: (() => void) | null = null;
+  /** Called with the response of each method call, to simulate a buggy or hostile server */
+  changeResponse: ((method: string, args: Record<string, any>, response: Record<string, any>) => void) | null = null;
   protected nextID = 1;
 
   session(): TJMAPSession {
@@ -194,6 +196,7 @@ export class FakeFileNodeServer {
       this.calls.push([method, args]);
       try {
         let result = this.call(method, this.resolveReferences(args, results));
+        this.changeResponse?.(method, args, result);
         results[callID] = result;
         methodResponses.push([method, result, callID]);
       } catch (ex) {
