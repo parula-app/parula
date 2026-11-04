@@ -22,6 +22,8 @@ class FakeServer {
   limit: number | null = null;
   /** The listing breaks off at this position */
   failAtPosition: number | null = null;
+  /** Answers every `Email/query` with the first page, like a buggy server */
+  repeatFirstPage = false;
 
   email(id: string, mailboxID: string, keywords: Record<string, boolean> = {}) {
     return {
@@ -52,7 +54,7 @@ class FakeServer {
         result = { accountId: "e", state: "sni", list: this.mailboxes, notFound: [] };
       } else if (method == "Email/query") {
         let matching = this.emails.filter(email => email.mailboxIds[args.filter.inMailbox]);
-        let position = args.position ?? 0;
+        let position = this.repeatFirstPage ? 0 : args.position ?? 0;
         if (this.failAtPosition != null && position >= this.failAtPosition) {
           methodResponses.push(["error", { type: "serverFail", description: "Something went wrong" }, callID]);
           continue;
@@ -140,5 +142,19 @@ test("A listing that breaks off doesn't remove local emails", async () => {
   await expect(inbox.listMessages()).rejects.toThrow("Something went wrong");
 
   // e1 and e2 are gone on the server, but an incomplete listing doesn't prove that
+  expect(ids(inbox)).toEqual(expect.arrayContaining(["e1", "e2"]));
+});
+
+test("A listing that the loop guard stops doesn't remove local emails", async () => {
+  let { server, account, inbox } = await setup();
+  let errors: Error[] = [];
+  account.errorCallback = ex => errors.push(ex);
+  server.limit = 1;
+  server.repeatFirstPage = true;
+
+  await inbox.listMessages();
+
+  expect(errors.map(ex => ex.message).join("\n")).toMatch(/keeps returning more emails/);
+  // e1 and e2 are gone on the server, but a stopped listing doesn't prove that
   expect(ids(inbox)).toEqual(expect.arrayContaining(["e1", "e2"]));
 });
