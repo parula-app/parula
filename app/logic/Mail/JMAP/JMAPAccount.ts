@@ -649,6 +649,7 @@ export class JMAPAccount extends MailAccount {
     let moveToSentResponse = responses.find(response => response[0] == "Email/set")?.[1];
     let error = sendResponse["notCreated"] as any;
     if (error) {
+      await this.deleteUnsentEMail(email);
       error = error["sendMessage"];
       throw new Error("Upload of message to server failed: " + (error?.description ?? "") + " " + (error?.properties?.join(", ") ?? ""));
     }
@@ -658,6 +659,19 @@ export class JMAPAccount extends MailAccount {
       } catch (ex) {
         this.errorCallback(ex); // Not thrown: The email was sent, and the user should not send it again
       }
+    }
+  }
+
+  /** The copy that `send()` uploaded, when the server refused to send it */
+  protected async deleteUnsentEMail(email: EMail) {
+    try {
+      let response = await this.makeSingleCall("Email/set", {
+        accountId: this.accountID,
+        destroy: [email.pID],
+      }) as TJMAPChangeResponse<any>;
+      checkChangeError(response);
+    } catch (ex) {
+      this.errorCallback(ex);
     }
   }
 
