@@ -279,7 +279,7 @@ export class JSCalendarEvent {
           calendarAddress: p.emailAddress ? "mailto:" + p.emailAddress : undefined,
           ...isOrganizer ? { roles: { owner: true } } : { expectReply: true },
           participationStatus:
-            isOrganizer || p.response == InvitationResponse.Accept ? "accepted" :
+            p.response == InvitationResponse.Accept || isOrganizer ? "accepted" :
             p.response == InvitationResponse.Decline ? "declined" :
             p.response == InvitationResponse.Tentative ? "tentative" :
             "needs-action",
