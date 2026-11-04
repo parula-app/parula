@@ -352,6 +352,18 @@
     return coll.contents.findIndex(a => a == item);
   }
 
+  /** The `selectedItem` that this list set itself, to tell it apart from one that the caller set */
+  let ownSelectedItem: T = null;
+  $: selectedItem != ownSelectedItem && selectItemFromCaller();
+  function selectItemFromCaller() {
+    let item = selectedItem; // `clear()` below clears it
+    if (!item || selectedItems.includes(item) || !items.includes(item)) {
+      return;
+    }
+    selectedItems.clear();
+    selectedItems.add(item);
+  }
+
   /**
    * Convenience class which returns just the first selected item
    */
@@ -374,6 +386,7 @@
 
   const singleSelectionObserver = new SingleSelectionObserver<T>();
   singleSelectionObserver.onSelectedItem = (item: T) => {
+    ownSelectedItem = item;
     selectedItem = item;
   };
 </script>

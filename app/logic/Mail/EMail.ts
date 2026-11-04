@@ -700,6 +700,38 @@ export class EMail extends Message {
     return this.threadID;
   }
 
+  /** The latest reply that the user sent to this email, preferably its copy in the Sent folder */
+  async findMyReply(): Promise<EMail | null> {
+    let account = this.folder?.account;
+    if (!this.messageID || !account) {
+      return null;
+    }
+    let isInSent = (email: EMail) => email.folder?.specialFolder == SpecialFolder.Sent;
+    let isMyReply = (email: EMail) => email.inReplyTo == this.messageID &&
+      (email.outgoing || isInSent(email));
+    let replies = new ArrayColl<EMail>();
+    for (let folder of account.getAllFolders()) {
+      replies.addAll(folder.messages.filterOnce(isMyReply));
+    }
+    if (!replies.find(isInSent) && !webMail) {
+      const { newLocalSearchEMail } = await import("./Store/setStorage"); // avoid circular import: setStorage imports the EMail subclasses
+      let dbSearch = newLocalSearchEMail();
+      dbSearch.account = account;
+      dbSearch.inReplyTo = this.messageID;
+      replies.addAll((await dbSearch.startSearch()).filterOnce(isMyReply));
+    }
+    // A reply that was just sent is only on the server, until the next sync of the Sent folder
+    let serverSearch = replies.isEmpty ? account.newSearch() : null;
+    if (serverSearch) {
+      serverSearch.folder = account.getSpecialFolder(SpecialFolder.Sent);
+      serverSearch.inReplyTo = this.messageID;
+      replies.addAll((await serverSearch.startSearch()).filterOnce(isMyReply));
+    }
+    let latestFirst = replies.contents.sort((a, b) =>
+      (b.sent?.getTime() ?? 0) - (a.sent?.getTime() ?? 0));
+    return latestFirst.find(isInSent) ?? latestFirst[0] ?? null;
+  }
+
   copyFrom(other: EMail): void {
     super.copyFrom(other, true);
     // <copied to="SendEncrypted.cloneEMail()">
