@@ -159,12 +159,6 @@ export interface TAddress {
   coordinates?: string;
   /** 2-letter ISO 3166-1 alpha-2 country code */
   countryCode?: string;
-  country?: string;
-  /** City */
-  locality?: string;
-  /** State */
-  region?: string;
-  postcode?: string;
   /** Contexts in which to use this address */
   contexts?: Record<"billing" | "delivery" | "private" | "work", true>;
   /** Preference order */

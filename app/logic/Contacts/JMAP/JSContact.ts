@@ -1,5 +1,6 @@
 import { type Person, ContactEntry } from '../../Abstract/Person';
-import type { TEmailAddress, TJSContact, TLink, TNameComponent, TOnlineService, TPhone, TPhoneFeature, TOrganization, TOrgUnit } from './TJSContact';
+import { StreetAddress } from '../StreetAddress';
+import type { TAddress, TAddressComponent, TAddressComponentKind, TEmailAddress, TJSContact, TLink, TNameComponent, TOnlineService, TPhone, TPhoneFeature, TOrganization, TOrgUnit } from './TJSContact';
 import type { JMAPPerson } from './JMAPPerson';
 import type { TID } from '../../Mail/JMAP/TJMAPGeneric';
 import { sanitize } from '../../../../lib/util/sanitizeDatatypes';
@@ -33,6 +34,8 @@ export class JSContact {
       let url = sanitize.url(e.uri, null, ["https", "http", "mailto", "tel", "fax"]); // ["*"] ?
       return new ContactEntry(url, null, url ? new URL(url).protocol.slice(0, -1) : null);
     });
+    JSContact.toContactEntries(person.streetAddresses, jscontact.addresses, address => new ContactEntry(
+      JSContact.toStreetAddress(address).toString(), null, null));
 
     person.picture = sanitize.url(jscontact.media?.avatar?.uri, null, ["https", "data", "blob"]);
 
@@ -118,8 +121,12 @@ export class JSContact {
       });
     JSContact.fromContactEntries<TLink>(jscontact.links, person.urls, "uri",
       () => { });
+    jscontact.addresses ??= {};
+    JSContact.fromContactEntries<TAddress>(jscontact.addresses, person.streetAddresses, null,
+      (entry: TAddress, personEntry: ContactEntry) => {
+        JSContact.fromStreetAddress(new StreetAddress(personEntry.value), entry);
+      });
     // TODO
-    // person.streetAddresses
     // person.popularity
 
     if (person.picture) {
@@ -203,7 +210,9 @@ export class JSContact {
         setJMAPID(personEntry, jmapID);
       }
       let jscontactEntry = jscontactEntries[jmapID] ??= {} as T;
-      jscontactEntry[valueProp] = personEntry.value;
+      if (valueProp) {
+        jscontactEntry[valueProp] = personEntry.value;
+      }
       jscontactEntry.pref = personEntry.preference;
       jscontactEntry.contexts = JSContact.fromPurposeToContext(personEntry.purpose);
       otherPropsFunc(jscontactEntry, personEntry);
@@ -215,6 +224,70 @@ export class JSContact {
       }
       delete jscontactEntries[jmapID];
     }
+  }
+
+  protected static readonly streetAddressKinds: Record<"instructions" | "street" | "city" | "postalCode" | "state" | "country", TAddressComponentKind[]> = {
+    instructions: ["apartment", "room", "floor", "building", "postOfficeBox"],
+    street: ["name", "number"],
+    city: ["locality"],
+    postalCode: ["postcode"],
+    state: ["region"],
+    country: ["country"],
+  };
+
+  protected static toStreetAddress(address: TAddress): StreetAddress {
+    let kinds = JSContact.streetAddressKinds;
+    let streetAddress = new StreetAddress();
+    streetAddress.instructions = JSContact.getAddressComponents(address, kinds.instructions);
+    streetAddress.street = JSContact.getAddressComponents(address, kinds.street);
+    streetAddress.city = JSContact.getAddressComponents(address, kinds.city);
+    streetAddress.postalCode = JSContact.getAddressComponents(address, kinds.postalCode);
+    streetAddress.state = JSContact.getAddressComponents(address, kinds.state);
+    streetAddress.country = JSContact.getAddressComponents(address, kinds.country);
+    if (!address.components?.length) {
+      streetAddress.street = sanitize.nonemptylabel(address.full, null);
+    }
+    return streetAddress;
+  }
+
+  /** Updates `address` with the fields of `streetAddress`.
+   * Leaves components unchanged, if their field didn't change, e.g. a separate street name and number. */
+  protected static fromStreetAddress(streetAddress: StreetAddress, address: TAddress) {
+    let fields = Object.entries(JSContact.streetAddressKinds);
+    let shown = JSContact.toStreetAddress(address);
+    if (fields.every(([field]) => (streetAddress[field] || null) == shown[field])) {
+      return;
+    }
+    let old = address.components?.length ? shown : new StreetAddress();
+    for (let [field, kinds] of fields) {
+      if ((streetAddress[field] || null) != old[field]) {
+        JSContact.setAddressComponents(address, kinds, streetAddress[field]);
+      }
+    }
+    delete address.full; // would be outdated
+    if (!address.components.length) {
+      delete address.components;
+    }
+  }
+
+  protected static getAddressComponents(address: TAddress, kinds: TAddressComponentKind[]): string | null {
+    return ensureArray(address.components)
+      .filter(component => kinds.includes(component.kind))
+      .map(component => sanitize.label(component.value, ""))
+      .filter(value => value)
+      .join(" ") || null;
+  }
+
+  /** Replaces the components of these `kinds` with one component of the first kind, at the same position */
+  protected static setAddressComponents(address: TAddress, kinds: TAddressComponentKind[], value: string | null) {
+    let components = address.components ?? [];
+    let position = components.findIndex(component => kinds.includes(component.kind));
+    components = components.filter(component => !kinds.includes(component.kind));
+    if (value) {
+      let component: TAddressComponent = { kind: kinds[0], value };
+      components.splice(position >= 0 ? position : components.length, 0, component);
+    }
+    address.components = components;
   }
 }
 
