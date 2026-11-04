@@ -4,7 +4,7 @@ import { Provider } from "../../Auth/OAuth2URLs";
 import { GraphFolder } from "./GraphFolder";
 import { GraphSearchEMail } from "./GraphSearchEMail";
 import type { TGraphFolder } from "./TGraphMail";
-import type { UUID } from "./TGraphGeneric";
+import type { UUID, TGraphBatchRequest, TGraphBatchResponse } from "./TGraphGeneric";
 import type { EMail } from "../EMail";
 import { ConnectError, LoginError } from "../../Abstract/Account";
 import type { GraphChatAccount } from "../../Chat/Graph/GraphChatAccount";
@@ -18,7 +18,7 @@ import { appName, appVersion } from "../../build";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { Semaphore } from "../../util/flow/Semaphore";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { assert, type URLString } from "../../util/util";
+import { assert, sleep, waitTime, type URLString } from "../../util/util";
 import { blobToBase64 } from "../../util/blob";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
@@ -188,6 +188,100 @@ export class GraphAccount extends ExchangeMailAccount {
   }
 
   /**
+   * Sends many requests in a few HTTP calls, using JSON batching.
+   * The requests run one after the other, in order.
+   * @returns The response bodies, in the order of the requests
+   * @throws The error of the first request that failed. The requests after it did not run.
+   */
+  async graphBatch(requests: TGraphBatchRequest[]): Promise<any[]> {
+    if (this.oAuth2 && !this.oAuth2.isLoggedIn) {
+      await this.oAuth2.login(false);
+    }
+    const kMaxRequestsPerBatch = 20;
+    let results: any[] = [];
+    for (let i = 0; i < requests.length; i += kMaxRequestsPerBatch) {
+      results.push(...await this.graphBatchInOrder(requests.slice(i, i + kMaxRequestsPerBatch)));
+    }
+    return results;
+  }
+
+  /**
+   * One `$batch` call, in which each request depends on the previous one.
+   * Graph then runs them one at a time, so the batch takes only 1 of the 4 slots of `requestSemaphore`.
+   * <https://learn.microsoft.com/en-us/graph/throttling-limits#outlook-service-limits>
+   */
+  protected async graphBatchInOrder(requests: TGraphBatchRequest[]): Promise<any[]> {
+    const kMaxRounds = 5;
+    const kDefaultBackoffSec = 5;
+    const kMaxBackoffSec = 20;
+    let results: any[] = [];
+    let pending = requests;
+    let waitSeconds = 0;
+    let throttledError: Error;
+    for (let round = 1; round <= kMaxRounds; round++) {
+      if (round > 1) {
+        await sleep(waitSeconds * waitTime.factor);
+      }
+      let batch = pending.map((request, i) => {
+        let batchRequest: any = {
+          id: String(i + 1),
+          method: request.method,
+          url: "/me/" + request.path,
+        };
+        if (i > 0) {
+          batchRequest.dependsOn = [String(i)];
+        }
+        if (request.body) {
+          batchRequest.headers = { "Content-Type": "application/json" };
+          batchRequest.body = request.body;
+        }
+        return batchRequest;
+      });
+      let json = await this.httpCall(`${this.url}/v1.0/$batch`, {
+        method: "post",
+        json: { requests: batch },
+        timeout: kRequestTimeoutMS * batch.length,
+      });
+      let responses = sanitize.array(json?.responses, []) as TGraphBatchResponse[];
+      let succeeded = 0;
+      for (; succeeded < pending.length; succeeded++) {
+        let response = responses.find(response => response?.id == String(succeeded + 1));
+        let status = sanitize.integer(response?.status, 0);
+        if (status == 429) {
+          throttledError = this.batchResponseError(status, response, pending[succeeded]);
+          let headers = sanitize.object(response.headers, {});
+          let retryAfter = Object.entries(headers).find(([name]) => name.toLowerCase() == "retry-after")?.[1];
+          waitSeconds = Math.min(sanitize.integer(retryAfter, kDefaultBackoffSec), kMaxBackoffSec);
+          break;
+        }
+        if (status < 200 || status > 299) {
+          throw this.batchResponseError(status, response, pending[succeeded]);
+        }
+        results.push(response.body);
+      }
+      if (succeeded == pending.length) {
+        return results;
+      }
+      pending = pending.slice(succeeded);
+    }
+    throw throttledError;
+  }
+
+  protected batchResponseError(status: number, response: TGraphBatchResponse, request: TGraphBatchRequest): Error {
+    let message = sanitize.label(response?.body?.error?.message, null);
+    let ex = new Error(`HTTP ${request.method} ${request.path} failed with ${status}` + (message ? `: ${message}` : "")) as any;
+    ex.code = sanitize.string(response?.body?.error?.code, null);
+    ex.httpCode = status;
+    if (status == 401) {
+      return new LoginError(ex, null);
+    } else if (status >= 400 && status < 500) {
+      return ex;
+    } else {
+      return new ConnectError(ex, null);
+    }
+  }
+
+  /**
    * @param path The function and object to call. This is the part of the URL path *after* the user.
    * @param options {
    *   user: string - ID of other user to access the resource of. Optional, defaults to self (logged-in user).
@@ -232,7 +326,7 @@ export class GraphAccount extends ExchangeMailAccount {
     // return ky.create({
       result: options.result ?? "json",
       headers: headers,
-      timeout: 3000,
+      timeout: options.timeout ?? kRequestTimeoutMS,
     });
   }
 
@@ -244,6 +338,7 @@ export class GraphAccount extends ExchangeMailAccount {
    *   body: any, // send binary as HTTP request body
    *   method: string = "get", // "post", "patch", "put", "head", ...
    *   result: string = "json", // "text", "..."
+   *   timeout: number, // in milliseconds. Optional, defaults to 3 seconds.
    * }
    * @returns
    */
@@ -440,3 +535,4 @@ export class GraphAccount extends ExchangeMailAccount {
 }
 
 export const kMaxFetchCount = 1000;
+const kRequestTimeoutMS = 3000;
