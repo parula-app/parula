@@ -47,6 +47,7 @@ export class JMAPAccount extends MailAccount {
   syncState = new MapColl<TJMAPObjectType, string>(); /** JMAP state is account-global. Use stateLock. */
   readonly stateLock = new Lock(); /** Protects syncState */
   protected loginRunOnce = new RunOnce();
+  protected sessionRunOnce = new RunOnce();
   protected startupRunOnce = new RunOnce();
   protected readonly requestSemaphore = new Semaphore(4);
   protected pushAbort: AbortController | null = null;
@@ -182,6 +183,23 @@ export class JMAPAccount extends MailAccount {
     if (maxConcurrentRequests > 0) {
       this.requestSemaphore.maxParallel = maxConcurrentRequests;
     }
+  }
+
+  /** The server changed the session, e.g. another user shared their account with us.
+   * <https://www.rfc-editor.org/rfc/rfc8620#section-2> `state` */
+  async refetchSession(): Promise<void> {
+    if (this.isDependentAccount) {
+      await (this.mainAccount as JMAPAccount).refetchSession();
+      return;
+    }
+    await this.sessionRunOnce.runOnce(async () => {
+      await this.getSession();
+      for (let account of this.dependentAccounts()) {
+        if (account instanceof JMAPAccount) {
+          account.session = this.session;
+        }
+      }
+    });
   }
 
   /** An account shared with us may offer less than our own, e.g. a calendar, but no mail.
@@ -327,6 +345,10 @@ export class JMAPAccount extends MailAccount {
       throw ex;
     }
     responsesJSON = responsesJSON as TJMAPAPIResponse;
+    if (this.session && responsesJSON.sessionState && responsesJSON.sessionState != this.session.state) {
+      this.refetchSession()
+        .catch(this.errorCallback);
+    }
 
     let callNumbers = requestJSON.methodCalls.map(call => call[2]);
     for (let resp of responsesJSON.methodResponses) {
@@ -996,7 +1018,7 @@ export class JMAPAccount extends MailAccount {
       return;
     }
 
-    await this.getSession(); // The new account appears in the session only now
+    await this.refetchSession(); // The new account appears in the session only now
     for (let notification of notifications) {
       let granted = Object.values(notification.newRights ?? {}).some(right => right);
       let known = this.accountForID(notification.objectAccountId);
