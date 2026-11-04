@@ -14,14 +14,22 @@ test("getOwnProperty() returns only properties of the object itself", () => {
   expect(getOwnProperty("text" as any, "0")).toBeUndefined();
 });
 
-test("setOwnProperty() with the key `__proto__` changes no prototype", () => {
+test("setOwnProperty() sets a property of the object itself", () => {
   let obj: Record<string, any> = {};
 
-  let value = setOwnProperty(obj, "__proto__", { polluted: true });
+  let value = setOwnProperty(obj, "constructor", { a: 1 });
 
-  expect(value).toEqual({ polluted: true });
+  expect(value).toEqual({ a: 1 });
+  expect(Object.keys(obj)).toEqual(["constructor"]);
   expect(Object.getPrototypeOf(obj)).toBe(Object.prototype);
+});
+
+test("setOwnProperty() refuses the key `__proto__`", () => {
+  let obj: Record<string, any> = {};
+
+  expect(() => setOwnProperty(obj, "__proto__", { polluted: true })).toThrow();
+
+  expect(Object.getPrototypeOf(obj)).toBe(Object.prototype);
+  expect(Object.keys(obj)).toEqual([]);
   expect(obj.polluted).toBeUndefined();
-  expect(Object.keys(obj)).toEqual(["__proto__"]);
-  expect(JSON.stringify(obj)).toBe(`{"__proto__":{"polluted":true}}`);
 });
