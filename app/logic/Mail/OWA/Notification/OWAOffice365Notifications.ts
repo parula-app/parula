@@ -75,9 +75,9 @@ export class OWAOffice365Notifications extends OWANotifications {
         this.connected();
         let eventStream = stream.body.pipeThrough(new TextDecoderStream()).pipeThrough(new TransformStream(new EventDecoder()));
         for await (let event of eventStream) {
-          this.watchdog.restart();
           // Ignore the initial event and any heartbeat events
           if (event.data == "initialized" || event.data == "{}") {
+            this.watchdog.restart();
             continue;
           }
           this.watchdog.fulfilled(); // processing the notifications may take longer
