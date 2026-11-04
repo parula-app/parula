@@ -350,21 +350,30 @@ export class JSCalendarEvent {
     return local;
   }
 
-  /** A day of the duration ends at the same time of day in the event's time zone, so it may have 23 or 25 hours.
-   * The hours, minutes and seconds are exact. */
+  /**
+   * @returns The end of the event: the days of `duration` move the date of `jmap.start` and keep its time of day
+   * in the event's time zone, so a day may have 23 or 25 hours. Then the hours, minutes and seconds are added exactly.
+   * E.g. "2026-10-24T10:00:00" in Europe/Berlin + "P2DT1H" = Monday 2026-10-26 11:00 in Berlin, 50 hours later.
+   */
   static toEndTime(jmap: TJMAPCalendarEvent, duration = jmap.duration): Date {
     duration = sanitize.nonemptystring(duration, "PT0S");
     let seconds = toSeconds(duration);
     // The weeks and days are before the "T": "P2DT3H" → "P2D" = 2 days, "PT25H" → "P" = 0 days, "P1W" = 7 days, "-P1D" = -1 day
     let calendarDays = toSeconds(duration.split("T")[0]) / k1DayS;
-    let end = new Date(jmap.start.replace(/Z$/, "") + "Z"); // the local date and time of the start, in the UTC fields
-    end.setUTCDate(end.getUTCDate() + calendarDays);
-    let endOfDays = this.toDate(end.toISOString().substring(0, 19) + (jmap.start.endsWith("Z") ? "Z" : ""), jmap);
+    let [startDate, startTime] = jmap.start.split("T"); // "2026-10-24" and "10:00:00", or "08:00:00Z" for a start in UTC
+    let [year, month, day] = startDate.split("-").map(Number);
+    let endDate = new Date(Date.UTC(year, month - 1, day + calendarDays)).toISOString().substring(0, 10);
+    let endOfDays = this.toDate(endDate + "T" + startTime, jmap);
     return new Date(endOfDays.getTime() + (seconds - calendarDays * k1DayS) * 1000);
   }
 
-  /** The duration to save: the server's duration, if it gives the event's end time as the app has it (`event.endTime`),
-   * else days, if they give that end time (a day may have 23 or 25 hours), else exact hours. */
+  /**
+   * @returns The JMAP duration to save:
+   * 1. the duration that the server has, if it still gives `event.endTime`, e.g. "P2D" from another client
+   * 2. else whole days, if `event.duration` is a multiple of 24 hours and the days give `event.endTime`,
+   *    e.g. "P1D" for 10:00 to 10:00 on the next day without a clock change
+   * 3. else exact hours, minutes or seconds, e.g. "PT49H" for Saturday 10:00 to Monday 10:00 over the clock change, or "PT90M"
+   */
   static fromEndTime(event: Event, jmap: TJMAPCalendarEvent): string {
     if (jmap.duration && this.toEndTime(jmap).getTime() == event.endTime.getTime()) {
       return jmap.duration;
