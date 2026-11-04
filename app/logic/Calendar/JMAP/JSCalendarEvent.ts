@@ -141,7 +141,7 @@ export class JSCalendarEvent {
       let er = event.recurrenceRule;
       let jr = jmap.recurrenceRule;
       // Keep the parts of the rule that we don't support, unless the user changed the repetition
-      if (!jr || !this.isSameRepetition(this.getRecurrenceRule(jmap, event.duration), er)) {
+      if (!jr || !this.getRecurrenceRule(jmap, event.duration).isSameRepetition(er)) {
         jr = jmap.recurrenceRule ??= {} as TJSCalendarRecurrenceRule;
         delete jr.byMonthDay;
         delete jr.byMonth;
@@ -315,15 +315,6 @@ export class JSCalendarEvent {
       rrinit.week = (sanitize.integer(r.byDay[0].nthOfPeriod, 0) + 6) % 6;
     }
     return new RecurrenceRule(rrinit);
-  }
-
-  /** Whether `rule` repeats like `serverRule`, apart from the start and the end of the series */
-  protected static isSameRepetition(serverRule: RecurrenceRule, rule: RecurrenceRule): boolean {
-    return serverRule.frequency == rule.frequency &&
-      serverRule.interval == rule.interval &&
-      serverRule.week == rule.week &&
-      serverRule.first == rule.first &&
-      [...serverRule.weekdays ?? []].sort().join() == [...rule.weekdays ?? []].sort().join();
   }
 
   /** When the alert fires. null, if there is none, or we don't know the trigger. */
