@@ -577,11 +577,17 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
       // The new subscription doesn't know what happened before, e.g. mail that arrived while the computer slept
       this.inbox?.getNewMessages()
         .catch(this.errorCallback);
+      let ownAddressbooksAndCalendars = this.dependentAccounts().contents.filter(account => account.username == this.username) as EWSSubscribable[];
+      this.syncFolders(ownAddressbooksAndCalendars.map(account => account.folderID).filter(Boolean))
+        .catch(this.errorCallback);
       return;
     }
-    for (let account of this.subscribedAccounts(username)) {
+    let accounts = this.subscribedAccounts(username);
+    for (let account of accounts) {
       await this.subscribeToNotificationsForSubaccount(account, true);
     }
+    this.syncFolders(accounts.map(account => account.folderID))
+      .catch(this.errorCallback);
   }
 
   async unsubscribeAllSubscriptions() {
@@ -796,6 +802,10 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         this.errorCallback(ex);
       }
     }
+    await this.syncFolders(folderIDs);
+  }
+
+  protected async syncFolders(folderIDs: Iterable<string>) {
     for (let folderID of folderIDs) {
       try {
         let id = sanitize.string(folderID);
