@@ -235,7 +235,7 @@ export class GraphFolder extends Folder {
   async downloadMessages(emails: Collection<GraphEMail>): Promise<Collection<GraphEMail>> {
     let needMsgs = new ArrayColl(emails);
     let downloadedMsgs = new ArrayColl<GraphEMail>();
-    const kMaxParallelCount = 5;
+    const kMaxParallelCount = 3;
     let semaphore = new Semaphore(kMaxParallelCount);
     let downloads = new PromiseAllDone();
     while (needMsgs.hasItems) {
