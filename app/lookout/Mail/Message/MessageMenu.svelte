@@ -51,6 +51,14 @@
   <MenuItem label={$contentRendering.value == "source" ? $t`View Message` : $t`View Source`} icon={SourceIcon}
     onClick={() => { $contentRendering.value = $contentRendering.value == "source" ? "html" : "source"; }} />
 {/if}
+<AddonMenuItems messages={messages.contents} let:item let:index let:onClick>
+  {#if index == 0}
+    <MenuDivider />
+  {/if}
+  <MenuItem label={item.label} {onClick}>
+    <AddonIcon slot="icon" addon={item.addon} path={item.contribution.icon} size="16px" />
+  </MenuItem>
+</AddonMenuItems>
 
 <script lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
@@ -64,6 +72,8 @@
   import FindRelatedMenuItems from "./FindRelatedMenuItems.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
+  import AddonMenuItems from "../../../frontend/Addons/AddonMenuItems.svelte";
+  import AddonIcon from "../../../frontend/Addons/AddonIcon.svelte";
   import ReplyIcon from "lucide-svelte/icons/reply";
   import ReplyAllIcon from "lucide-svelte/icons/reply-all";
   import ForwardIcon from "lucide-svelte/icons/forward";

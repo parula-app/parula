@@ -16,10 +16,14 @@ import { OWAAccount } from '../OWA/OWAAccount';
 import { ActiveSyncAccount } from '../ActiveSync/ActiveSyncAccount';
 import { GraphAccount } from '../Graph/GraphAccount';
 // #endif
+import { AddonMailAccount } from '../Addon/AddonMailAccount';
+import { AddonProtocol, addonProtocols } from '../../Addons/AddonProtocols';
+import { appGlobal } from '../../app';
 import { setStorage } from '../Store/setStorage';
 import { dataProcessorsHookup } from '../SML/DataProcessors';
 import { encryptionProcessorsHookup } from '../Encryption/Processors';
 import { NotReached, NotSupported } from '../../util/util';
+import { gt } from '../../../l10n/l10n';
 import type { Collection } from 'svelte-collections';
 
 export function newAccountForProtocol(protocol: string): MailAccount {
@@ -29,6 +33,9 @@ export function newAccountForProtocol(protocol: string): MailAccount {
 }
 
 function _newAccountForProtocol(protocol: string): MailAccount {
+  if (protocol.startsWith("addon-")) {
+    return new AddonMailAccount(protocol);
+  }
   // #if [!WEBMAIL || WEBMAIL=JMAP]
   if (protocol == "jmap") {
     return new JMAPAccount();
@@ -85,12 +92,24 @@ const kProtocolLabel: Record<string, string> = {
   "jmap": "JMAP (alpha)",
 }
 
+/** Including the mail protocols of running addons */
 export function listMailProtocols(): string[] {
   return Object.keys(kProtocolLabel).filter(p => p != "smtp" &&
-    (/*!appGlobal.isMobile*/ true || p != "owa"));
+    (/*!appGlobal.isMobile*/ true || p != "owa"))
+    .concat(addonProtocols.contents.filter(protocol => protocol.type == "mail").map(protocol => protocol.protocol));
 }
 
 export function labelForMailProtocol(protocol: string): string {
+  if (protocol.startsWith("addon-")) {
+    for (let addon of appGlobal.addons.installed) {
+      let contribution = addon.manifest.protocols.find(contribution =>
+        AddonProtocol.accountProtocol(addon.id, contribution.id) == protocol);
+      if (contribution) {
+        return contribution.label;
+      }
+    }
+    return gt`Addon`;
+  }
   return kProtocolLabel[protocol] ?? protocol.toUpperCase();
 }
 

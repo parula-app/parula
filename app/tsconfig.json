@@ -27,6 +27,7 @@
     "logic/util/Observable.ts",
     "logic/build.ts",
     "logic/startup.ts",
+    "logic/Addons/**/*.ts",
     "lingui.config.ts",
     "frontend/**/*.d.ts",
     "frontend/**/*.ts",

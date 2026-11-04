@@ -23,6 +23,9 @@
   <Route path="webapp/*">
     <WebAppsRoutes />
   </Route>
+  <Route path="addon-app/*">
+    <AddonAppPage app={$selectedApp} />
+  </Route>
   <Route path="settings/*">
     <SettingsRoutes />
   </Route>
@@ -54,11 +57,12 @@
   import TopicRoutes from "../Topic/TopicRoutes.svelte";
   import WebAppsRoutes from "../WebApps/WebAppsRoutes.svelte";
   import SettingsRoutes from "../Settings/SettingsRoutes.svelte";
+  import AddonAppPage from "../Addons/AddonAppPage.svelte";
   // #if [!WEBMAIL]
   import SetupRoutes from "../Setup/SetupRoutes.svelte";
   // #endif
   import OAuth2EmbeddedBrowser from "../Shared/Auth/OAuth2EmbeddedBrowser.svelte";
-  import { getParams } from "./selectedApp";
+  import { getParams, selectedApp } from "./selectedApp";
   import { requiredParam } from "../Util/route";
   import { Route, useLocation } from "svelte-navigator";
 

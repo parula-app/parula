@@ -14,6 +14,7 @@ import { minorError } from "../util/error";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { UserError, assert, type URLString, ensureArray, getUserPreference } from "../util/util";
 import { dataURLToBlob } from "../util/blob";
+import { addonHook } from "../Addons/API/addon";
 import { getDateTimeLocale, gt } from "../../l10n/l10n";
 import { ArrayColl, type Collection } from "svelte-collections";
 
@@ -318,6 +319,7 @@ export class ComposeActions {
    * @param onSending Called once the mail is on its way, i.e. after all errors
    *   that the user must fix were thrown. The composer uses it to close itself.
    */
+  @addonHook("mail.send", "mail.compose", (actions: ComposeActions) => ({ email: actions.email }))
   async send(onSending?: () => void): Promise<void> {
     let fromIdentity = this.email.identity;
     assert(fromIdentity, "Need identity set on mail");

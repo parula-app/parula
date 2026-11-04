@@ -68,6 +68,7 @@
       selected={$spellcheck.value}
       onClick={() => { $spellcheck.value = !$spellcheck.value; }} />
   </RibbonGroup>
+  <AddonRibbonGroup place="composer-toolbar" {mail} />
 </RibbonTab>
 <FileSelector bind:this={fileSelector} />
 
@@ -78,6 +79,7 @@
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { cutSelection, copySelection, pasteClipboard, pasteClipboardAsText } from "../../Shared/Editor/EditorClipboard";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
+  import AddonRibbonGroup from "../../Addons/AddonRibbonGroup.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
   import RibbonButton from "../../Shared/Ribbon/RibbonButton.svelte";
   import RibbonToggleButton from "../../Shared/Ribbon/RibbonToggleButton.svelte";

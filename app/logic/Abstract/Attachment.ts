@@ -3,6 +3,7 @@ import { checkExecutableFile, executableMessage, ExecutableKind } from "../Files
 import { EMail } from "../Mail/EMail";
 import { appGlobal } from "../app";
 import { Observable, notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import { openOSAppForFile } from "../util/os-integration";
 import { RunOnce } from "../util/flow/RunOnce";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
@@ -11,17 +12,21 @@ import { blobToBase64 } from "../util/blob";
 import { gt } from "../../l10n/l10n";
 import type { ArrayColl, Collection } from "svelte-collections";
 
+@addon("message")
 export class Attachment extends Observable {
   /** filename with extension, as given by the sender of the email */
+  @addon("message")
   @notifyChangedProperty
   filename: string;
   /** Where the attachment is stored on the user's local disk, after download */
   @notifyChangedProperty
   filepathLocal: string;
+  @addon("message")
   @notifyChangedProperty
   mimeType: string;
   /** File size, in bytes
    * null, if the attachment wasn't downloaded yet. */
+  @addon("message")
   @notifyChangedProperty
   size: number | null;
   @notifyChangedProperty

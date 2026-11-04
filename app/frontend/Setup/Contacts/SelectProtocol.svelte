@@ -3,10 +3,13 @@
   subtitle=""
 />
 
-<ProtocolSelector {protocols} bind:selectedProtocol={selectedProtocol} />
+<ProtocolSelectorWithAddons type="contacts" {appProtocols} newAccount={newAddressbookForProtocol}
+  bind:selectedProtocol={selectedProtocol} bind:this={protocolSelector} />
+
+<ErrorMessageInline bind:this={errorUI} />
 
 <ButtonsBottom
-  onContinue={onContinue}
+  onContinue={() => catchErrors(onContinue, errorUI.showError)}
   canContinue={!!selectedProtocol}
   canCancel={true}
   onCancel={onCancel}
@@ -15,11 +18,16 @@
 <script lang="ts">
   import type { Addressbook } from "../../../logic/Contacts/Addressbook";
   import { newAddressbookForProtocol } from "../../../logic/Contacts/AccountsList/Addressbooks";
+  import type { AddonAddressbook } from "../../../logic/Contacts/Addon/AddonAddressbook";
+  import { appGlobal } from "../../../logic/app";
+  import ProtocolSelectorWithAddons from "../Addon/ProtocolSelectorWithAddons.svelte";
   import LocalAddressbookSetup from "./LocalAddressbookSetup.svelte";
   import CardDAVSetup from "./CardDAVSetup.svelte";
-  import ProtocolSelector, { ProtocolDescription } from "../Shared/ProtocolSelector.svelte";
+  import type { ProtocolDescription } from "../Shared/ProtocolSelector.svelte";
   import ButtonsBottom from "../Shared/ButtonsBottom.svelte";
   import Header from "../Shared/Header.svelte";
+  import ErrorMessageInline from "../../Shared/ErrorMessageInline.svelte";
+  import { catchErrors } from "../../Util/error";
   import { NotReached } from "../../../logic/util/util";
   import { t } from "../../../l10n/l10n";
 
@@ -30,13 +38,24 @@
   export let onCancel = (event: Event) => undefined;
 
   let selectedProtocol: string;
+  let protocolSelector: ProtocolSelectorWithAddons;
+  let errorUI: ErrorMessageInline;
 
-  const protocols: ProtocolDescription[] = [
+  const appProtocols: ProtocolDescription[] = [
     { label: $t`New local addressbook`, protocolID: "addressbook-local" },
     { label: $t`New CardDAV addressbook`, protocolID: "carddav" },
   ];
 
-  function onContinue() {
+  async function onContinue() {
+    let addonAccount = await protocolSelector.addonAccountFromSetup() as AddonAddressbook;
+    if (addonAccount) {
+      await addonAccount.login(true);
+      await addonAccount.listContacts(); // check whether it works
+      appGlobal.addressbooks.add(addonAccount);
+      await addonAccount.save();
+      showPage = null;
+      return;
+    }
     config = newAddressbookForProtocol(selectedProtocol);
     if (selectedProtocol == "addressbook-local") {
       showPage = LocalAddressbookSetup;

@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "l10n:extract": "npx tsx l10n/extractor/extractor.ts",
+    "addons:generate": "npx tsx logic/Addons/API/generate.ts",
     "l10n:placeholder": "npx mustang-autotranslate --input l10n/locales --service dry-run --delete-unused-strings --type key-based --exclude **/*.template.json",
     "l10n:auto-translate": "npx mustang-autotranslate --input l10n/locales --service deepl-free --config $DEEPL_API_KEY,default,1000 --delete-unused-strings --type key-based --template messages.template.json --decode-escapes=dynamic",
     "check": "svelte-check --tsconfig ./tsconfig.json"

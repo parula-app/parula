@@ -6,12 +6,16 @@ import { getPublicKeyForPersonUID } from "../Mail/Encryption/KeyUtils";
 import { SMIMEPublicKey } from "../Mail/Encryption/SMIME/SMIMEPublicKey";
 import { appGlobal } from "../app";
 import { Observable, notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import { capitalizeWords } from "../util/util";
 import { ArrayColl } from "svelte-collections";
 
+@addon("message")
 export class PersonUID extends Observable {
+  @addon("message")
   @notifyChangedProperty
   name: string;
+  @addon("message")
   @notifyChangedProperty
   emailAddress: string;
   @notifyChangedProperty

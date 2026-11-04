@@ -4,6 +4,7 @@ import type { ChatAccount } from "./ChatAccount";
 import { ChatPersonUID } from "./ChatPersonUID";
 import { Group } from "../Abstract/Group";
 import { Observable, notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import { AbstractFunction } from "../util/util";
 import { ArrayColl } from 'svelte-collections';
 
@@ -17,6 +18,7 @@ import { ArrayColl } from 'svelte-collections';
  * - "room" (Matrix)
  * - "channel" (IRC, Teams, Slack)
  */
+@addon("chat.all")
 export class ChatRoom extends Observable {
   /** Protocol-specific ID. For Matrix, it's the event_id */
   id: string;
@@ -42,6 +44,7 @@ export class ChatRoom extends Observable {
   readonly members = new ArrayColl<ChatPersonUID>();
   /** The messages in this chat room.
    * This is also used for the MailChat view, so this may also contain EMails */
+  @addon("chat.all")
   readonly messages = new ArrayColl<RoomMessage>();
   /** The newest human message, for the room list preview.
    * Calculating this would be very slow. */
@@ -63,6 +66,7 @@ export class ChatRoom extends Observable {
     this.account = account;
   }
 
+  @addon("chat.all")
   get name(): string {
     if (this.contact instanceof Group && this._name) {
       return this._name;

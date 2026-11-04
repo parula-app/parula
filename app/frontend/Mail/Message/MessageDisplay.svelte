@@ -9,6 +9,7 @@
     <MessageHeader bind:message />
     <MessageAttachments attachments={message.attachments} />
     <SMLDisplayKinds {message} sml={message.sml} />
+    <AddonPanels {message} />
     <vbox class="body" flex>
       <Paper>
         <MessageBody {message} />
@@ -28,6 +29,7 @@
   import MessageAttachments from "./AttachmentsUI.svelte";
   import MessageBody from "./MessageBody.svelte";
   import SMLDisplayKinds from "../SML/SMLDisplayKinds.svelte";
+  import AddonPanels from "../../Addons/AddonPanels.svelte";
   import MessageDisplayBarM from "./MessageDisplayBarM.svelte";
   import Paper from "../../Shared/Paper.svelte";
   import ThreadPane from "../Thread/ThreadPane.svelte";

@@ -3,6 +3,7 @@ import type { WebBasedAuth } from "../Auth/WebBasedAuth";
 import { appGlobal } from "../app";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { Observable, notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import { RunOnce } from "../util/flow/RunOnce";
 import { logErrorToServer, internalError } from "../util/error";
 import { SpecificError, assert } from "../util/util";
@@ -12,6 +13,7 @@ export class Account extends Observable {
   id: string;
   /** The primary ID in the type-specific database (not in accounts DB) */
   dbID: number | string | null = null;
+  @addon(["mail.all", "chat.all"])
   @notifyChangedProperty
   name: string;
   /** A `data:` URL to an image that represents this account.

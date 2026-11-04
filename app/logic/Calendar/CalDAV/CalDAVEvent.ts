@@ -41,6 +41,7 @@ export class CalDAVEvent extends Event {
     return true;
   }
 
+  // <copied to="../Addon/AddonEvent.ts updateExceptions()">
   /** Modified occurrences of a recurring event are additional `VEVENT`s
    * with a `RECURRENCE-ID`, and deleted occurrences are `EXDATE`s of the
    * master, in the same ics file. Attach them to this master.
@@ -81,6 +82,7 @@ export class CalDAVEvent extends Event {
       }
     }
   }
+  // </copied>
 
   getDAVObject(iCal?: string): DAVObject {
     return {

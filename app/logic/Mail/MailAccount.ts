@@ -19,10 +19,12 @@ import { appGlobal } from "../app";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { AbstractFunction, assert } from "../util/util";
 import { notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import { RunOnce } from "../util/flow/RunOnce";
 import { Collection, ArrayColl } from 'svelte-collections';
 import { gt } from "../../l10n/l10n";
 
+@addon("mail.all")
 export class MailAccount extends TCPAccount {
   readonly protocol: string = "mail";
   /** SMTP server
@@ -40,6 +42,7 @@ export class MailAccount extends TCPAccount {
   /** Ways to store email content in RFC822 format. First storage will be used for reading. */
   contentStorage = new ArrayColl<MailContentStorage>();
 
+  @addon("mail.all")
   @notifyChangedProperty
   emailAddress: string;
   @notifyChangedProperty
@@ -48,6 +51,7 @@ export class MailAccount extends TCPAccount {
   readonly filterRuleActions = new ArrayColl<FilterRuleAction>();
   setup: SetupInfo;
 
+  @addon("mail.all")
   readonly rootFolders: Collection<Folder> = new ArrayColl<Folder>();
   readDBRunOnce = new RunOnce();
 
