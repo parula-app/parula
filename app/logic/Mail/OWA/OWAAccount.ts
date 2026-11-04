@@ -105,14 +105,7 @@ export class OWAAccount extends ExchangeMailAccount {
     let url = this.url + 'service.svc';
     let options = {
       body: JSON.stringify(owaFindFoldersRequest(false)),
-      headers: {
-        Action: "FindFolder",
-        Authorization: this.authorizationHeader,
-        "Content-Type": "application/json",
-        "x-anchormailbox": this.emailAddress,
-        "x-customowascenariodata": "MailboxAccess:SharedMailbox,ExplicitLogon",
-        "x-owa-explicitlogonuser": this.emailAddress,
-      },
+      headers: this.getRequestHeaders("FindFolder"),
       method: "POST",
     };
     if (this.authorizationHeader) {
@@ -255,6 +248,22 @@ export class OWAAccount extends ExchangeMailAccount {
     return true;
   }
 
+  protected getRequestHeaders(action: string, mailbox?: string): Record<string, string> {
+    return this.authorizationHeader
+    ? {
+      Action: action,
+      Authorization: this.authorizationHeader,
+      "Content-type": "application/json",
+      "x-anchormailbox": mailbox ?? this.emailAddress,
+      "x-customowascenariodata": "MailboxAccess:SharedMailbox,ExplicitLogon",
+      "x-owa-explicitlogonuser": mailbox ?? this.emailAddress,
+    }
+    : {
+      Action: action,
+      "Content-type": "application/json",
+    };
+  }
+
   /**
    * This uses Exchange to construct the message rather than
    * building the MIME ourselves.
@@ -381,14 +390,7 @@ export class OWAAccount extends ExchangeMailAccount {
     }
     return await this.callOWAShared(this.url + "service.svc", {
       body: JSON.stringify(aRequest),
-      headers: {
-        Action: aRequest.action,
-        Authorization: this.authorizationHeader,
-        "Content-Type": "application/json",
-        "x-anchormailbox": mailbox ?? this.emailAddress,
-        "x-customowascenariodata": "MailboxAccess:SharedMailbox,ExplicitLogon",
-        "x-owa-explicitlogonuser": mailbox ?? this.emailAddress,
-      },
+      headers: this.getRequestHeaders(aRequest.action, mailbox),
       method: "POST",
     });
   }
