@@ -15,6 +15,7 @@ export class JSCalendarEvent {
       event.calUID = sanitize.nonemptystring(jmap.uid, null);
     }
     event.lastUpdateTime = sanitize.date(jmap.updated, null);
+    event.sequence = sanitize.integer(jmap.sequence, 0);
     event.original = jmap;
 
     // Text
@@ -96,7 +97,11 @@ export class JSCalendarEvent {
     }
     jmap.updated = (event.lastUpdateTime ?? new Date()).toISOString();
     // An invitation must keep the organizer's sequence, or the server ignores the organizer's next update
-    if (!event.isIncomingMeeting) {
+    if (event.isIncomingMeeting) {
+      if (!event.parentEvent && event.sequence > (jmap.sequence ?? 0)) { // The organizer's change came by email
+        jmap.sequence = event.sequence;
+      }
+    } else {
       jmap.sequence ??= -1;
       jmap.sequence++;
     }
@@ -244,6 +249,8 @@ export class JSCalendarEvent {
           participant.participationStatus = "declined";
         } else if (p.response == InvitationResponse.Tentative) {
           participant.participationStatus = "tentative";
+        } else if (p.response == InvitationResponse.NoResponseReceived) {
+          participant.participationStatus = "needs-action";
         } else if (p.response == InvitationResponse.Unknown) {
           // JMAP status that we don't support. Keep it as-is.
         } // else `InvitationResponse` not yet listed here -> keep as-is
@@ -259,13 +266,14 @@ export class JSCalendarEvent {
         if (existing) {
           continue;
         }
+        let isOrganizer = p.response == InvitationResponse.Organizer;
         jmap.participants[crypto.randomUUID()] = {
           "@type": "Participant",
           name: p.name,
           calendarAddress: p.emailAddress ? "mailto:" + p.emailAddress : undefined,
-          roles: p.response == InvitationResponse.Organizer ? { owner: true } : { attendee: true },
+          ...isOrganizer ? { roles: { owner: true } } : { expectReply: true },
           participationStatus:
-            p.response == InvitationResponse.Accept ? "accepted" :
+            p.response == InvitationResponse.Accept || isOrganizer ? "accepted" :
             p.response == InvitationResponse.Decline ? "declined" :
             p.response == InvitationResponse.Tentative ? "tentative" :
             "needs-action",
@@ -320,12 +328,14 @@ export class JSCalendarEvent {
 
   /** When the alert fires. null, if there is none, or we don't know the trigger. */
   static toAlarm(alert: TJSCalendarAlert | undefined, event: Event): Date | null {
-    if (alert?.trigger?.["@type"] == "AbsoluteTrigger") {
-      return sanitize.date(alert.trigger.when, null);
+    let trigger = alert?.trigger;
+    if (trigger?.["@type"] == "AbsoluteTrigger") {
+      return sanitize.date(trigger.when, null);
     }
-    if (alert?.trigger?.["@type"] == "OffsetTrigger") {
-      let relativeTo = alert.trigger.relativeTo == "end" ? event.endTime : event.startTime;
-      return new Date(relativeTo.getTime() + toSeconds(alert.trigger.offset) * 1000);
+    // OffsetTrigger is the default type of a trigger
+    if (trigger && (trigger["@type"] ?? "OffsetTrigger") == "OffsetTrigger" && "offset" in trigger) {
+      let relativeTo = trigger.relativeTo == "end" ? event.endTime : event.startTime;
+      return new Date(relativeTo.getTime() + toSeconds(trigger.offset) * 1000);
     }
     return null;
   }

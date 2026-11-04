@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { appGlobal } from "../../../../logic/app.ts"; // defeats circular import
 import { OWAAccount } from "../../../../logic/Mail/OWA/OWAAccount";
+import { waitTime } from "../../../../logic/util/util";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 class TestOWAAccount extends OWAAccount {
@@ -71,6 +72,7 @@ function serveExchange(servers: ((() => AsyncIterable<string>) | Error)[]): () =
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+  waitTime.factor = 1; // fake timers don't wait anyway, and the tests check the real intervals
 });
 
 afterEach(() => {

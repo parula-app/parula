@@ -403,6 +403,27 @@ export function owaSharedFolderRequest(distinguishedIDs: string[], emailAddress:
   });
 }
 
+export function owaGetFolderRequest(folderID: string): OWARequest {
+  return new OWARequest("GetFolder", {
+    __type: "GetFolderRequest:#Exchange",
+    FolderShape: {
+      __type: "FolderResponseShape:#Exchange",
+      BaseShape: "Default",
+      AdditionalProperties: [{
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "folder:FolderClass",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "folder:DistinguishedFolderId",
+      }],
+    },
+    FolderIds: [{
+      __type: "FolderId:#Exchange",
+      Id: folderID,
+    }],
+  });
+}
+
 /** Subtly different to owaSetFolderPermissionsRequst */
 export function owaSetCalendarPermissionsRequest(folderID: string, permissions: ExchangePermission[]): OWARequest {
   return new OWARequest("UpdateFolder", {

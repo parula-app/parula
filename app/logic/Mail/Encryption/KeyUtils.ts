@@ -108,6 +108,11 @@ export function getMyPrivateKey<T extends PublicKey & PrivateKey>(identity: Mail
     keys.first) as T | null;
 }
 
+/** Whether we have an own key for this identity, e.g. an S/MIME certificate */
+export function usesCrypto<T extends PublicKey & PrivateKey>(identity: MailIdentity, keyType?: new () => T): boolean {
+  return !!getMyPrivateKey(identity, keyType);
+}
+
 /** For composer, which encryption system the outgoing email uses:
  * the one of the email that we answer, otherwise the one of our own key. */
 export function getEncryptionSystem(mail: EMail): EncryptionSystem | null {

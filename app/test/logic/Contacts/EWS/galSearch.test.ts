@@ -1,11 +1,14 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
 import "../../../../logic/app";
+import { appGlobal } from "../../../../logic/app";
 import { EWSGAL } from "../../../../logic/Contacts/EWS/EWSGAL";
 import type { EWSPerson } from "../../../../logic/Contacts/EWS/EWSPerson";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { kCertificate, kCertificateEmailAddress, kSMIMECertificate, kSMIMECertificateEmailAddress } from "../testCertificate";
+import { addSMIMEIdentities } from "../smimeIdentities";
+import { errorsForServer } from "../../../../logic/util/error";
 import { ArrayColl } from "svelte-collections";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 const kPersons = [{
   name: "Ben Bucksch",
@@ -77,8 +80,12 @@ function resolutionXML(person: typeof kPersons[0]): any {
   };
 }
 
+/** As the composer and the calendar use it: our identity is in `example.com` and has an S/MIME certificate */
 async function search(searchTerm: string, account = fakeAccount()): Promise<ArrayColl<EWSPerson>> {
+  addSMIMEIdentities(account, "me@example.com");
   let gal = new EWSGAL(account);
+  appGlobal.searchOnlyAddressbooks.clear();
+  appGlobal.searchOnlyAddressbooks.add(gal);
   let results = new ArrayColl<EWSPerson>();
   await gal.quickSearchAsync(searchTerm, results);
   return results;
@@ -114,12 +121,58 @@ test("No match", async () => {
   expect(results.length).toBe(0);
 });
 
-test("Server errors are passed on", async () => {
+test("Server errors are logged, not thrown", async () => {
   let account = fakeAccount();
   account.callEWS = async () => {
     throw { type: "ErrorAccessDenied" };
   };
-  await expect(search("ben", account)).rejects.toMatchObject({ type: "ErrorAccessDenied" });
+  errorsForServer.clear();
+  let consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  let results = await search("ben", account);
+  expect(results.length).toBe(0);
+  // Both the name search and the email address search
+  expect(errorsForServer.contents).toEqual([{ type: "ErrorAccessDenied" }, { type: "ErrorAccessDenied" }]);
+  consoleError.mockRestore();
+});
+
+test("If one search fails, the other search still finds the person", async () => {
+  let account = fakeAccount();
+  let callEWS = account.callEWS;
+  account.callEWS = async function (query: any) {
+    if (query.m$ResolveNames.m$UnresolvedEntry.startsWith("smtp:")) {
+      throw { type: "ErrorServerBusy" };
+    }
+    return await callEWS.call(this, query);
+  };
+  errorsForServer.clear();
+  let consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  let results = await search("bucksch", account);
+  expect(results.length).toBe(1);
+  expect(results.first.name).toBe("Ben Bucksch");
+  expect(errorsForServer.contents).toEqual([{ type: "ErrorServerBusy" }]);
+  consoleError.mockRestore();
+});
+
+test("The results of the faster search show before the slower search returns", async () => {
+  let account = fakeAccount();
+  let callEWS = account.callEWS;
+  let finishEmailSearch: () => void;
+  let emailSearchFinished = new Promise<void>(resolve => finishEmailSearch = resolve);
+  account.callEWS = async function (query: any) {
+    if (query.m$ResolveNames.m$UnresolvedEntry.startsWith("smtp:")) {
+      await emailSearchFinished;
+    }
+    return await callEWS.call(this, query);
+  };
+  let gal = new EWSGAL(account);
+  let results = new ArrayColl<EWSPerson>();
+  // The name matches Sally, the email address matches Sally and Ben's `sales@`
+  let searching = gal.quickSearchAsync("sa", results);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(results.contents.map(person => person.name)).toEqual(["Sally Smith"]);
+  finishEmailSearch();
+  await searching;
+  expect(results.contents.map(person => person.name).sort()).toEqual(["Ben Bucksch", "Sally Smith"]);
 });
 
 test("The search fetches no certificates", async () => {

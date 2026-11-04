@@ -1,6 +1,6 @@
 <vbox flex class="event-form-page" on:keydown={keyEvent => catchErrors(() => onKey(keyEvent))}>
   {#key ribbonKey}
-    <EventFormRibbon {event} {flow} {editor} bind:openedTool {canSchedule} {schedulingLabel} {trackingLabel}
+    <EventFormRibbon {event} {flow} {editor} bind:openedTool {schedulingLabel} {trackingLabel}
       {onSave} {onDelete} bind:showEmojis bind:isSchedulingSelected bind:isTrackingSelected />
   {/key}
   <vbox flex class="form-card lo-card">
@@ -82,7 +82,6 @@
   import SchedulingAssistant from "./SchedulingAssistant.svelte";
   import SelectNamesDialog from "../../Mail/Composer/SelectNamesDialog.svelte";
   import SignaturesDialog, { openSignatures } from "../../Mail/Composer/SignaturesDialog.svelte";
-  import { FreeBusy } from "./FreeBusy";
   import { EditorTool } from "../../Shared/Editor/EditorTool";
   import EditorToolDialogs from "../../Shared/Editor/EditorToolDialogs.svelte";
   import UndoRedoButtons from "../../Shared/Editor/UndoRedoButtons.svelte";
@@ -94,7 +93,7 @@
   import { onMount } from "svelte";
   import { ArrayColl } from "svelte-collections";
   import { openComposer } from "../../../frontend/Mail/open";
-  import { OutgoingInvitation } from "../../../logic/Calendar/Invitation/OutgoingInvitation";
+  import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -125,11 +124,10 @@
   $: isIncoming = $event.isIncomingMeeting;
   $: isSaved = $event && flow.isSaved;
   $: isSent = isMeeting && $event.isOutgoingMeeting && isSaved;
-  $: ribbonKey = `${isMeeting}-${isSent}-${isIncoming}-${canSchedule}`;
-  $: isMeeting && !isIncoming && checkScheduling();
+  $: ribbonKey = `${isMeeting}-${isSent}-${isIncoming}`;
   $: kindLabel = $event && $participants && eventTabLabel(event);
-  $: ribbonKey, isSchedulingSelected = isTrackingSelected = false;
-  $: showScheduling = canSchedule && isMeeting && !isIncoming && isSchedulingSelected;
+  $: isSent, isIncoming, isSchedulingSelected = isTrackingSelected = false;
+  $: showScheduling = !isIncoming && isSchedulingSelected;
   $: showTracking = isSent && isTrackingSelected;
   $: showsEditor = !isIncoming && !showScheduling && !showTracking;
   $: $event, $participants, $parentEvent, $shownCalendarEvents, updateState(editor);
@@ -144,15 +142,6 @@
     messages = eventInfoMessages(event, shownCalendarEvents.contents, new Date(), flow.pattern);
     hasChanges = flow.hasChanges;
     saveDisabled = flow.missingPropsReason ?? false;
-  }
-
-  let canSchedule = false;
-  async function checkScheduling() {
-    try {
-      canSchedule = await FreeBusy.isSupported(event.calendar, event.participants.contents);
-    } catch (ex) {
-      canSchedule = true;
-    }
   }
 
   onMount(() => {
@@ -265,7 +254,7 @@
       } else if (key == "f" && flow.isSaved) {
         keyEvent.preventDefault();
         keyEvent.stopPropagation();
-        openComposer(await OutgoingInvitation.forwardEventByMail(event));
+        openComposer(await IncomingInvitation.forwardEventByMail(event));
         return;
       }
     }

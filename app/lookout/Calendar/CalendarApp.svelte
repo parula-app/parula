@@ -108,7 +108,7 @@
   import { CalendarActions } from "./CalendarActions";
   import { openEvent } from "../../frontend/Calendar/open";
   import { openComposer } from "../../frontend/Mail/open";
-  import { OutgoingInvitation } from "../../logic/Calendar/Invitation/OutgoingInvitation";
+  import { IncomingInvitation } from "../../logic/Calendar/Invitation/IncomingInvitation";
   import { eventPeek, inlineTitle, selectedSlots, updatingCount, CalendarCurrentView, CalendarFolderPane, calendarSearchOptions, listedEvents, allListedEvents, CalendarSearchScope, type CalendarViewType, type SlotSelection } from "./selected";
   import { selectedCalendar, selectedDate, selectedEvent, shownCalendars, shownCalendarEvents, startDate } from "../../frontend/Calendar/selected";
   import { appGlobal } from "../../logic/app";
@@ -437,7 +437,7 @@
         event.preventDefault();
         event.stopPropagation();
         if (calendarEvent && !calendarEvent.isCancelled) {
-          openComposer(await OutgoingInvitation.forwardEventByMail(calendarEvent));
+          openComposer(await IncomingInvitation.forwardEventByMail(calendarEvent));
         }
         return;
       } else if (key == "ArrowRight" || key == "ArrowLeft") {

@@ -4,7 +4,7 @@ import "../../../logic/app";
 import { Event } from "../../../logic/Calendar/Event";
 import { Calendar } from "../../../logic/Calendar/Calendar";
 import { appGlobal } from "../../../logic/app";
-import { OutgoingInvitation } from "../../../logic/Calendar/Invitation/OutgoingInvitation";
+import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
 import CalendarApp from "../../Calendar/CalendarApp.svelte";
 import { CalendarActions } from "../../Calendar/CalendarActions";
 import { eventPeek, inlineTitle, selectedSlots, type CalendarViewType } from "../../Calendar/selected";
@@ -190,7 +190,7 @@ test("Item commands", async () => {
   expect(deleteDefault).toHaveBeenCalledWith(event);
 
   let forwardMail = {};
-  let forward = vi.spyOn(OutgoingInvitation, "forwardEventByMail").mockResolvedValue(forwardMail as any);
+  let forward = vi.spyOn(IncomingInvitation, "forwardEventByMail").mockResolvedValue(forwardMail as any);
   expect(handled("f", { ctrlKey: true })).toBe(true);
   expect(forward).toHaveBeenCalledWith(event);
   await vi.waitFor(() => expect(openComposer).toHaveBeenCalledWith(forwardMail));

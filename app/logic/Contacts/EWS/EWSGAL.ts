@@ -1,8 +1,10 @@
 import { ExchangeGAL } from "./ExchangeGAL";
 import { EWSPerson } from "./EWSPerson";
 import type { EWSAccount } from "../../Mail/EWS/EWSAccount";
+import type { PublicKey } from "../../Mail/Encryption/PublicKey";
+import { readDirectoryCertificates } from "../../Mail/Encryption/SMIME/SMIMEDirectory";
 import { ensureArray, NotReached } from "../../util/util";
-import { ArrayColl } from "svelte-collections";
+import { ArrayColl, type Collection } from "svelte-collections";
 
 export class EWSGAL extends ExchangeGAL {
   readonly protocol: string = "gal-ews";
@@ -47,6 +49,33 @@ export class EWSGAL extends ExchangeGAL {
       }
     }
     return persons;
+  }
+
+  /** The search uses the default property set, which has no certificates */
+  protected async requestEncryptionKeys(emailAddress: string): Promise<Collection<PublicKey>> {
+    let query = {
+      m$ResolveNames: {
+        m$UnresolvedEntry: "smtp:" + emailAddress,
+        ReturnFullContactData: true,
+        ContactDataShape: "AllProperties",
+      },
+    };
+    try {
+      let response = await this.account.callEWS(query);
+      let resolution = ensureArray(response.ResolutionSet?.Resolution).find(candidate =>
+        candidate.Mailbox?.EmailAddress?.toLowerCase() == emailAddress.toLowerCase());
+      // `UserSMIMECertificate` and `MSExchangeCertificate` are the AD
+      // attributes `userSMIMECertificate` and `userCertificate`, resp.
+      return await readDirectoryCertificates(
+        ensureArray(resolution?.Contact?.UserSMIMECertificate?.Base64Binary),
+        ensureArray(resolution?.Contact?.MSExchangeCertificate?.Base64Binary),
+        this.errorCallback);
+    } catch (ex) {
+      if (ex.type != "ErrorNameResolutionNoResults") { // this error is expected
+        this.errorCallback(ex);
+      }
+      return new ArrayColl<PublicKey>();
+    }
   }
 }
 

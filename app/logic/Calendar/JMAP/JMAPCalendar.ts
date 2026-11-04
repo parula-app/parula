@@ -6,6 +6,7 @@ import type { TJMAPCalendarEvent } from "./TJSCalendar";
 import type { JMAPAccount } from "../../Mail/JMAP/JMAPAccount";
 import type { TID, TJMAPChangeResponse, TJMAPGetResponse, TJMAPQueryResponse } from "../../Mail/JMAP/TJMAPGeneric";
 import type { Participant } from "../Participant";
+import type { FreeBusyEvent } from "../FreeBusyEvent";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { checkChangeError } from "../../Mail/JMAP/JMAPError";
 import { retryOnTransientError } from "../../util/netUtil";
@@ -43,7 +44,7 @@ export class JMAPCalendar extends Calendar {
     }
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: { from: Date, to: Date, free: boolean }[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
     return [];
   }
 
@@ -109,7 +110,7 @@ export class JMAPCalendar extends Calendar {
             accountId: this.account.accountID,
             filter: {
               inCalendar: this.jmapID,
-              after: after.toISOString().substring(0, 19) + "Z",
+              after: after.toISOString().substring(0, 19), // defaults to UTC
             },
             sort: [
               { property: "start", isAscending: false }
