@@ -1,6 +1,5 @@
 import { ICalParser, type ICalEntry, type ICalContainer } from "../../Calendar/ICal/ICalParser";
-import type { Person } from "../../Abstract/Person";
-import { ContactEntry } from "../../Abstract/Person";
+import { Person, ContactEntry } from "../../Abstract/Person";
 import type { CardDAVPerson } from "../CardDAV/CardDAVPerson";
 import { StreetAddress } from "../StreetAddress";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
@@ -177,7 +176,9 @@ export function personsToVCardFile(persons: Collection<Person>, filenameWithoutE
  */
 export function getUpdatedVCard(person: Person, vcard: ICalContainer): string {
   let container = vCardToContainer(vcard);
-  updateContainerFromPerson(person, container);
+  let onServer = new Person();
+  updatePerson(vcard, onServer);
+  updateContainerFromPerson(person, container, onServer);
   return containerToVCard(container);
 }
 
@@ -196,19 +197,21 @@ export function vCardToContainer(vcard: ICalContainer): Record<string, string[]>
 
 /**
  * Updates a record object from a Person object.
+ * @param onServer The person as read from `container`.
+ *   Lines of entries that the user didn't change stay as they are.
  */
-export function updateContainerFromPerson(person: Person, container: Record<string, string[]>) {
+export function updateContainerFromPerson(person: Person, container: Record<string, string[]>, onServer?: Person) {
   if (!container.uid) { // Why not always: Never change the UID that the contact has on the server
     setValue(container, "uid", (person as CardDAVPerson).uid ?? person.id);
   }
   setValue(container, "fn", person.name ?? "");
   setValue(container, "photo", person.picture ?? "", { value: "uri" });
   setValue(container, "n", [person.lastName, person.firstName, "", "", ""]);
-  setValues(container, "email", person.emailAddresses);
-  setValues(container, "tel", person.phoneNumbers, { value: "text" });
-  setValues(container, "impp", person.chatAccounts);
-  setValues(container, "url", person.urls);
-  setAdrs(container, person.streetAddresses);
+  setValues(container, "email", person.emailAddresses, {}, onServer?.emailAddresses);
+  setValues(container, "tel", person.phoneNumbers, { value: "text" }, onServer?.phoneNumbers);
+  setValues(container, "impp", person.chatAccounts, {}, onServer?.chatAccounts);
+  setValues(container, "url", person.urls, {}, onServer?.urls);
+  setAdrs(container, person.streetAddresses, onServer?.streetAddresses);
   setValue(container, "note", person.notes ?? "");
   setValue(container, "org", [person.company, person.department]);
   setValue(container, "title", person.position ?? "");
@@ -266,8 +269,14 @@ function setValue(container: Record<string, string[]>, key: string, value: strin
   container[key.replace("-", "")] = [line];
 }
 
-function setValues(container: Record<string, string[]>, key: string, values: ArrayColl<ContactEntry>, parameters: Record<string, string> = {}) {
+function setValues(container: Record<string, string[]>, key: string, values: ArrayColl<ContactEntry>, parameters: Record<string, string> = {}, onServer?: ArrayColl<ContactEntry>) {
+  let serverLines = container[key];
+  let serverEntries = onServer?.contents.slice() ?? [];
   container[key] = values.contents.map(entry => {
+    let unchanged = takeUnchangedLine(entry, serverEntries, serverLines);
+    if (unchanged) {
+      return unchanged;
+    }
     let line = key.toUpperCase();
     for (let parameter in parameters) {
       // We control parameters, no need to escape
@@ -289,8 +298,14 @@ function setValues(container: Record<string, string[]>, key: string, values: Arr
   });
 }
 
-function setAdrs(container: Record<string, string[]>, contactEntries: ArrayColl<ContactEntry>) {
+function setAdrs(container: Record<string, string[]>, contactEntries: ArrayColl<ContactEntry>, onServer?: ArrayColl<ContactEntry>) {
+  let serverLines = container.adr;
+  let serverEntries = onServer?.contents.slice() ?? [];
   container.adr = contactEntries.contents.map(ce => {
+    let unchanged = takeUnchangedLine(ce, serverEntries, serverLines);
+    if (unchanged) {
+      return unchanged;
+    }
     let line = "ADR";
     let type = ce.purpose == "work" || ce.purpose == "home" ? ce.purpose : "";
     if (ce.preference == 1) {
@@ -322,6 +337,18 @@ function setAdrs(container: Record<string, string[]>, contactEntries: ArrayColl<
     line += ordered.map(value => escaped(value ?? "", false)).join(";");
     return line;
   });
+}
+
+/** The line that the server has for this entry, if the user didn't change the entry.
+ * Each line is used only once.
+ * @param serverEntries read from `serverLines`, in the same order */
+function takeUnchangedLine(entry: ContactEntry, serverEntries: (ContactEntry | null)[], serverLines: string[] | undefined): string | undefined {
+  let i = serverEntries.findIndex(serverEntry => entry.compare(serverEntry));
+  if (i < 0) {
+    return undefined;
+  }
+  serverEntries[i] = null;
+  return serverLines[i];
 }
 
 function escaped(s: string, quote: boolean): string {

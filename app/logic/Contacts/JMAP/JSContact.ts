@@ -171,14 +171,12 @@ export class JSContact {
       newCE.preference = sanitize.integerRange(jscontactEntry.pref, 0, 100, 100);
       let existing = personEntries.find(p => getJMAPID(p) == jmapID);
       if (existing) {
-        existing.value = newCE.value;
-        existing.protocol = newCE.protocol;
-        existing.purpose = newCE.purpose;
-        existing.preference = newCE.preference;
+        existing.copyFrom(newCE);
       } else {
         setJMAPID(newCE, sanitize.alphanumdash(jmapID));
         personEntries.add(newCE);
       }
+      (existing ?? newCE).original = newCE.clone();
     }
     // Delete old entries
     for (let p of personEntries.contents) { // copy: remove alters personEntries
@@ -201,6 +199,9 @@ export class JSContact {
       if (!jmapID) {
         jmapID = crypto.randomUUID();
         setJMAPID(personEntry, jmapID);
+      }
+      if (jscontactEntries[jmapID] && personEntry.compare(personEntry.original)) {
+        continue; // The user didn't change it, so leave it exactly as the server has it
       }
       let jscontactEntry = jscontactEntries[jmapID] ??= {} as T;
       jscontactEntry[valueProp] = personEntry.value;
