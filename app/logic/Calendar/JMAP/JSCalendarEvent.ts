@@ -68,7 +68,7 @@ export class JSCalendarEvent {
 
     // Location
     if (jmap.locations) {
-      event.location = this.toLocation(Object.values(jmap.locations)[0]);
+      event.location = this.toLocationString(Object.values(jmap.locations)[0]);
     }
     if (jmap.virtualLocations) {
       let conf = Object.values(jmap.virtualLocations)[0];
@@ -106,7 +106,7 @@ export class JSCalendarEvent {
   }
 
   /** The text of the location, with the description of older JSCalendar data */
-  protected static toLocation(location: TJSCalendarLocation | undefined): string {
+  protected static toLocationString(location: TJSCalendarLocation | undefined): string {
     let text = sanitize.string(location?.name, "");
     if (location?.description) {
       text += kLocationNameDescriptionSeparator + sanitize.string(location.description, "");
