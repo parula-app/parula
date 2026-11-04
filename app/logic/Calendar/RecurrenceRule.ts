@@ -225,6 +225,15 @@ export class RecurrenceRule implements Readonly<Omit<RecurrenceInit, "seriesStar
     return new RecurrenceRule(data);
   }
 
+  // Must be fast, because it's used by `event.hasChanged()`
+  get effectiveWeekdays(): Weekday[] {
+    if (this.weekdays) {
+      return this.weekdays;
+    }
+    // A weekly rule without explicit weekdays recurs on the series start weekday.
+    return this.frequency == Frequency.Weekly ? [this.seriesStartTime.getUTCDay()] : kAllWeekdays;
+  }
+
   getCalString(allDay: boolean): string {
     let rule: { FREQ: string, UNTIL?: string, COUNT?: number, INTERVAL?: number, BYDAY?: string, WKST?: string } = { FREQ: this.frequency };
     if (this.seriesEndTime) {
@@ -261,8 +270,8 @@ export class RecurrenceRule implements Readonly<Omit<RecurrenceInit, "seriesStar
       return false;
     }
     // Must be fast, because it's used by `event.hasChanged()`
-    let thisWeekdays = this.weekdays || kAllWeekdays;
-    let ruleWeekdays = rule.weekdays || kAllWeekdays;
+    let thisWeekdays = this.effectiveWeekdays;
+    let ruleWeekdays = rule.effectiveWeekdays;
     return rule.masterDuration == this.masterDuration &&
       rule.timezone == this.timezone &&
       rule.seriesStartTime.getTime() == this.seriesStartTime.getTime() &&
@@ -434,8 +443,7 @@ export function ruleAsLabel(r: RecurrenceRule): string {
       : gt`Every ${r.interval} weeks`;
     label += `, ` + gt`on *=> as in: Every week, on Thursday` + ` `;
 
-    // A weekly rule without explicit weekdays recurs on the series start weekday.
-    let ruleWeekdays = r.weekdays ?? [r.seriesStartTime.getUTCDay()];
+    let ruleWeekdays = r.effectiveWeekdays;
     let weekdays = kAllWeekdays.filter(weekday => ruleWeekdays.includes(weekday));
     label += sortedList(weekdays, weekday => weekdayLabel(weekday, "long"));
   } else if (r.frequency == Frequency.Monthly) {
