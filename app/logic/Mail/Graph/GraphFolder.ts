@@ -8,7 +8,7 @@ import { Semaphore } from "../../util/flow/Semaphore";
 import { PromiseAllDone } from "../../util/flow/PromiseAllDone";
 import { Lock } from "../../util/flow/Lock";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { NotImplemented, type URLString } from "../../util/util";
+import type { URLString } from "../../util/util";
 import { ArrayColl, Collection } from "svelte-collections";
 import { gt } from "../../../l10n/l10n";
 
@@ -367,9 +367,30 @@ export class GraphFolder extends Folder {
     console.log("Graph folder deleted", this.name, this.path);
   }
 
+  /** Graph has no call for all emails of a folder, so we mark each unread email */
   async markAllRead(): Promise<void> {
     await super.markAllRead();
-    throw new NotImplemented("Microsoft Graph does not support Mark All Read");
+    const kMaxEMails = 1000000;
+    let maxRounds = Math.ceil(kMaxEMails / kMaxFetchCount);
+    let previousIDs: string | null = null;
+    for (let round = 1; round <= maxRounds; round++) {
+      let unread = await this.account.graphGet<TGraphEMail>(
+        `${this.path}/messages?$filter=${encodeURIComponent("isRead eq false")}&$select=id`,
+        { top: kMaxFetchCount });
+      if (!unread.length) {
+        return;
+      }
+      let ids = unread.map(json => sanitize.nonemptystring(json.id));
+      let joinedIDs = ids.join(" ");
+      if (joinedIDs == previousIDs) {
+        break;
+      }
+      previousIDs = joinedIDs;
+      for (let id of ids) {
+        await this.account.graphPatch(`messages/${id}`, { isRead: true });
+      }
+    }
+    this.account.errorCallback(new Error(`${this.name}: Mark all as read: The server keeps returning unread emails. Stopped.`));
   }
 
   setSpecialUse(wellKnownName: string): void {
