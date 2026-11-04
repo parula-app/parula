@@ -247,7 +247,7 @@ export class OWAAccount extends ExchangeMailAccount {
   fetchChangesMissedByNotifications(): void {
     for (let folder of this.folderMap.values()) {
       if (folder.listening) {
-        folder.getNewMessages()
+        folder.getNewMessages() // no-op, if count didn't change
           .catch(this.errorCallback);
       }
     }
