@@ -14,4 +14,6 @@ NodeMobile.xcframework
 !setup.sh
 !xcode-embed-node-native.sh
 !variables.sh
+!download-libnode.sh
+libnode
 backend/nodejs-assets

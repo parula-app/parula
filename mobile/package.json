@@ -28,8 +28,7 @@
     "@capacitor/ios": "^7.0.0",
     "@capacitor/splash-screen": "^7.0.3",
     "@capacitor/status-bar": "^7.0.3",
-    "@capawesome/capacitor-android-edge-to-edge-support": "^7.2.3",
-    "capacitor-nodejs": "https://github.com/mustang-im/capacitor-nodejs/releases/download/1.0.0-beta.10/capacitor-nodejs-v1.0.0-beta.10.tgz"
+    "@capawesome/capacitor-android-edge-to-edge-support": "^7.2.3"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
