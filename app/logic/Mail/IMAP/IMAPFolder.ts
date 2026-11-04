@@ -661,6 +661,14 @@ export class IMAPFolder extends Folder {
   /** Warning: Also deletes all messages in the folder, also on the server */
   protected async deleteItOnServer(): Promise<void> {
     await this.runCommand(async (conn) => {
+      // Deepest first: The server doesn't delete the subfolders with their parent (RFC 3501 section 6.3.4)
+      let subFolderPaths = (await conn.list())
+        .map(folder => folder.path)
+        .filter(path => path.startsWith(this.path + this.account.pathDelimiter))
+        .sort((a, b) => b.length - a.length);
+      for (let path of subFolderPaths) {
+        await conn.mailboxDelete(path);
+      }
       await conn.mailboxDelete(this.path);
     });
     console.log("IMAP folder deleted", this.name, this.path);
