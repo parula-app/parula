@@ -17,6 +17,7 @@ import { appGlobal } from "../../app";
 import { appName, appVersion } from "../../build";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { Semaphore } from "../../util/flow/Semaphore";
+import { Throttle } from "../../util/flow/Throttle";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert, type URLString } from "../../util/util";
 import { blobToBase64 } from "../../util/blob";
@@ -35,6 +36,8 @@ export class GraphAccount extends ExchangeMailAccount {
   protected startupRunOnce = new RunOnce();
   /** Outlook allows only 4 concurrent requests per app and mailbox, and answers more with 429 */
   protected readonly requestSemaphore = new Semaphore(4);
+  /** Outlook allows only 10000 requests in 10 minutes per app and mailbox */
+  protected readonly throttle = new Throttle(1000, 60);
 
   constructor() {
     super();
@@ -251,6 +254,7 @@ export class GraphAccount extends ExchangeMailAccount {
     let ky = await this.ky(options);
     let lock = await this.requestSemaphore.lock();
     try {
+      await this.throttle.throttle();
       let method = options?.method?.toLowerCase() ?? "get";
       if (this.logging) {
         console.log("Calling <" + url + ">", method.toUpperCase(), "with options", options);

@@ -3,7 +3,8 @@ import { appGlobal } from "../../../../logic/app";
 import { GraphAccount } from "../../../../logic/Mail/Graph/GraphAccount";
 import { GraphFolder } from "../../../../logic/Mail/Graph/GraphFolder";
 import { GraphEMail } from "../../../../logic/Mail/Graph/GraphEMail";
-import { expect, test } from "vitest";
+import { waitTime } from "../../../../logic/util/util";
+import { expect, test, vi } from "vitest";
 
 /** A fake Graph server with a folder whose messages are unread or not.
  * @param ignorePatch The server accepts the change, but the message stays unread */
@@ -48,15 +49,25 @@ function setUpFolder(unreadIDs: string[], ignorePatch = false) {
 }
 
 test("Mark all as read marks every unread email as read on the server", async () => {
-  let ids = Array.from({ length: 1500 }, (_dummy, i) => "msg-" + i);
-  let { folder, unread, errors } = setUpFolder(ids);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] }); // more than 1000 requests wait for the next minute
+  let oldWaitFactor = waitTime.factor;
+  waitTime.factor = 1;
+  try {
+    let ids = Array.from({ length: 1500 }, (_dummy, i) => "msg-" + i);
+    let { folder, unread, errors } = setUpFolder(ids);
 
-  await folder.markAllRead();
+    let marking = folder.markAllRead();
+    await vi.advanceTimersByTimeAsync(3 * 60 * 1000);
+    await marking;
 
-  expect(unread.size).toBe(0);
-  expect(errors).toEqual([]);
-  expect(folder.countUnread).toBe(0);
-  expect(folder.messages.contents.every(email => email.isRead)).toBe(true);
+    expect(unread.size).toBe(0);
+    expect(errors).toEqual([]);
+    expect(folder.countUnread).toBe(0);
+    expect(folder.messages.contents.every(email => email.isRead)).toBe(true);
+  } finally {
+    waitTime.factor = oldWaitFactor;
+    vi.useRealTimers();
+  }
 });
 
 test("Mark all as read in a folder without unread emails changes nothing on the server", async () => {
