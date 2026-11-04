@@ -82,25 +82,8 @@ export class JSContact {
     jscontact.uid = (person as JMAPPerson).uid ?? person.id;
     jscontact.name ??= {};
     jscontact.name.full = person.name;
-    if (person.firstName || person.lastName) {
-      jscontact.name.components ??= [];
-      let first = jscontact.name.components.find(c => c.kind == "given");
-      let last = jscontact.name.components.find(c => c.kind == "surname");
-      if (!first) {
-        first = {
-          kind: "given",
-        } as TNameComponent;
-        jscontact.name.components.unshift(first);
-      }
-      if (!last) {
-        last = {
-          kind: "surname",
-        } as TNameComponent;
-        jscontact.name.components.push(last);
-      }
-      first.value = person.firstName;
-      last.value = person.lastName;
-    }
+    JSContact.setNameComponent(jscontact.name, "given", person.firstName);
+    JSContact.setNameComponent(jscontact.name, "surname", person.lastName);
 
     jscontact.emails ??= {};
     jscontact.phones ??= {};
@@ -153,6 +136,28 @@ export class JSContact {
       entry.name = company.name;
       entry.units = company.units;
     });
+  }
+
+  /** A new given name goes first, a new surname last */
+  protected static setNameComponent(name: TJSContact["name"], kind: TNameComponent["kind"], value: string | null) {
+    let component = name.components?.find(c => c.kind == kind);
+    if (!value) {
+      name.components = name.components?.filter(c => c != component);
+      if (!name.components?.length) {
+        delete name.components;
+      }
+      return;
+    }
+    if (!component) {
+      component = { kind, value };
+      name.components ??= [];
+      if (kind == "given") {
+        name.components.unshift(component);
+      } else {
+        name.components.push(component);
+      }
+    }
+    component.value = value;
   }
 
   protected static toContactEntries<T extends { pref?: number, contexts?: Record<string, true> }>(
