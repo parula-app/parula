@@ -24,8 +24,8 @@ export class JSContact {
       sanitize.emailAddress(e.address?.replace(/^mailto:/i, ""), null),
       null, "mailto"));
     JSContact.toContactEntries(person.phoneNumbers, jscontact.phones, e => new ContactEntry(
-      sanitize.nonemptystring(e.number, null),
-      null, JSContact.fromPhoneFeatureToProtocol(e.features)));
+      sanitize.nonemptystring(e.number, null)?.replace(/^tel:/i, "") || null,
+      JSContact.fromPhoneToPurpose(e), JSContact.fromPhoneFeatureToProtocol(e.features)));
     JSContact.toContactEntries(person.chatAccounts, jscontact.onlineServices, e => new ContactEntry(
       sanitize.nonemptystring(e.uri ?? e.user, null),
       null, e.service));
@@ -43,24 +43,60 @@ export class JSContact {
     person.department = sanitize.nonemptylabel(company?.units?.[0]?.name, "");
   }
 
-  protected static fromContextToPurpose(contexts: Record<string, true>): string | null {
-    return contexts?.private
-      ? "home"
-      : contexts?.work
-        ? "work"
-        : firstPropertyName(contexts);
+  protected static fromContextToPurpose(contexts: Record<string, true>): string {
+    if (contexts?.private) {
+      return "home";
+    }
+    if (contexts?.work) {
+      return "work";
+    }
+    let purpose = firstPropertyName(contexts);
+    // <compat for="Mustang" reason="Wrote `{ "null": true }` for entries without purpose">
+    if (purpose == "null") {
+      purpose = null;
+    }
+    // </compat>
+    return purpose ?? "other";
   }
 
-  protected static fromPurposeToContext(purpose: string): Record<string, true> {
+  protected static fromPurposeToContext(purpose: string | null): Record<string, true> | null {
     return purpose == "home"
       ? { private: true }
       : purpose == "work"
         ? { work: true }
-        : { [purpose]: true };
+        : !purpose || purpose == "other" || purpose == "mobile"
+          ? null
+          : { [purpose]: true };
+  }
+
+  protected static setContexts(entry: { contexts?: Record<string, true> }, purpose: string | null) {
+    let contexts = JSContact.fromPurposeToContext(purpose);
+    if (contexts) {
+      entry.contexts = contexts;
+    } else {
+      delete entry.contexts;
+    }
+  }
+
+  protected static fromPhoneToPurpose(phone: TPhone): string {
+    let purpose = JSContact.fromContextToPurpose(phone.contexts);
+    return purpose == "other" && phone.features?.mobile ? "mobile" : purpose;
+  }
+
+  /** Only the feature. The contexts are written for all contact entries. */
+  protected static setPhonePurpose(phone: TPhone, purpose: string | null) {
+    if (purpose == JSContact.fromPhoneToPurpose(phone)) {
+      return;
+    }
+    if (purpose == "mobile") {
+      phone.features = { ...phone.features, mobile: true };
+    } else {
+      delete phone.features?.mobile;
+    }
   }
 
   protected static fromPhoneFeatureToProtocol(features: TPhoneFeature | undefined): string | null {
-    let first = Object.keys(features ?? {})[0];
+    let first = Object.keys(features ?? {})[0] ?? null;
     return first == "voice" ? "tel" : first;
   }
 
@@ -109,8 +145,11 @@ export class JSContact {
     JSContact.fromContactEntries<TEmailAddress>(jscontact.emails, person.emailAddresses, "address",
       () => { });
     JSContact.fromContactEntries<TPhone>(jscontact.phones, person.phoneNumbers, "number",
-      (entry: any, personEntry: ContactEntry) => {
-        entry.features = JSContact.fromProtocolToPhoneFeature(personEntry.protocol);
+      (entry: TPhone, personEntry: ContactEntry) => {
+        if (personEntry.protocol != JSContact.fromPhoneFeatureToProtocol(entry.features)) {
+          entry.features = JSContact.fromProtocolToPhoneFeature(personEntry.protocol);
+        }
+        JSContact.setPhonePurpose(entry, personEntry.purpose);
       });
     JSContact.fromContactEntries<TOnlineService>(jscontact.onlineServices, person.chatAccounts, "user",
       (entry: any, personEntry: ContactEntry) => {
@@ -167,7 +206,7 @@ export class JSContact {
       if (!newCE.value) { // malformed value on the server, e.g. not an email address
         continue;
       }
-      newCE.purpose = JSContact.fromContextToPurpose(jscontactEntry.contexts);
+      newCE.purpose ??= JSContact.fromContextToPurpose(jscontactEntry.contexts);
       newCE.preference = sanitize.integerRange(jscontactEntry.pref, 0, 100, 100);
       let existing = personEntries.find(p => getJMAPID(p) == jmapID);
       if (existing) {
@@ -205,8 +244,10 @@ export class JSContact {
       let jscontactEntry = jscontactEntries[jmapID] ??= {} as T;
       jscontactEntry[valueProp] = personEntry.value;
       jscontactEntry.pref = personEntry.preference;
-      jscontactEntry.contexts = JSContact.fromPurposeToContext(personEntry.purpose);
       otherPropsFunc(jscontactEntry, personEntry);
+      if (personEntry.purpose != JSContact.fromContextToPurpose(jscontactEntry.contexts)) {
+        JSContact.setContexts(jscontactEntry, personEntry.purpose);
+      }
     }
     // Delete old entries
     for (let jmapID in jscontactEntries) {
