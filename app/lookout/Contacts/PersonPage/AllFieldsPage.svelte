@@ -9,7 +9,8 @@
     <span class="cell">{item.name}</span>
     {#if item.kind != "address"}
       <input class="value-field" type="text" value={item.entry.value ?? ""} aria-label={item.name}
-        on:input={event => { item.entry.value = event.currentTarget.value; }} />
+        on:input={event => { item.entry.value = event.currentTarget.value; }}
+        on:change={event => onValueChange(item, event)} />
     {:else}
       <span class="cell lo-secondary" title={$t`Edit the address on the General page`}>{addressText(item.entry.value).replace(/\n/g, ", ")}</span>
     {/if}
@@ -39,6 +40,7 @@
   import { ContactEntry, type Person } from "../../../logic/Abstract/Person";
   import { allFieldRows, type FieldRow, type FieldSet } from "./AllFields";
   import { addressText } from "../Person/ContactColumns";
+  import { urlWithScheme } from "../../../logic/util/netUtil";
   import ListView from "../../Shared/Form/ListView.svelte";
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
   import FormGrid from "../../Shared/Form/FormGrid.svelte";
@@ -76,6 +78,12 @@
     revision++;
     await tick();
     selected = rows.find(row => row.entry == entry) ?? null;
+  }
+
+  function onValueChange(item: FieldRow, event: Event & { currentTarget: HTMLInputElement }) {
+    if (item.kind == "web") {
+      item.entry.value = event.currentTarget.value = urlWithScheme(event.currentTarget.value.trim());
+    }
   }
 
   function onDelete() {

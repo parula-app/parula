@@ -30,6 +30,16 @@ export function getBaseDomainFromURL(url: string): string {
 
 /** Resolves once the network is online: at once if it already is, else when
  * the browser fires `online`, e.g. after the OS wakes from sleep. */
+/** A web address as the user typed it, e.g. `example.com`, as a URL: `https://example.com`.
+ * Addresses with a scheme stay as they are, e.g. `http:…` or `mailto:…`. */
+export function urlWithScheme(address: string): string {
+  // A dot before the colon is a host name with a port, e.g. `example.com:8080`, not a scheme
+  if (!address || /^[a-z][a-z0-9+-]*:/i.test(address)) {
+    return address;
+  }
+  return "https://" + address;
+}
+
 export function waitUntilOnline(): Promise<void> {
   return navigator.onLine
     ? Promise.resolve()
