@@ -6,6 +6,7 @@ import type { AccountData, JSONValue } from "./Sandbox/MustangAPI";
 import { appGlobal } from "../app";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { RunOnce } from "../util/flow/RunOnce";
+import { LoopGuard } from "../util/flow/LoopGuard";
 import { UserError, removeControlCharacters } from "../util/util";
 import { gt } from "../../l10n/l10n";
 import type { Collection } from "svelte-collections";
@@ -171,7 +172,12 @@ export class AddonConnection {
     const kMaxSyncStateLength = 10 * 1024;
     // 10,000,000 items
     const kMaxRounds = 10000;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error(`${this.account.name}: The addon keeps reporting more ${name}. Stopped.`)));
+    while (loop.nextRound()) {
+      if (syncState != null && loop.isSameAsLastRound(syncState)) {
+        break;
+      }
       let list = this.checkObject(await this.call(operation, ...args, syncState), `list of ${name}`);
       let items = this.checkList(list[name], kMaxItems, name);
       let removed = this.checkList(list.removed ?? [], kMaxRemoved, `removed ${name}`);
@@ -182,12 +188,8 @@ export class AddonConnection {
       if (list.hasMore !== true) {
         return;
       }
-      if (list.syncState == syncState) {
-        break;
-      }
       syncState = list.syncState;
     }
-    this.account.errorCallback(new Error(`${this.account.name}: The addon keeps reporting more ${name}. Stopped.`));
   }
 
   /** What the addon gets as `account` */
