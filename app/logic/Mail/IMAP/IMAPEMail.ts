@@ -14,6 +14,8 @@ export class IMAPEMail extends EMail {
   /** From IMAP server */
   seq: number | null = null;
   flagsChanging = false;
+  /** `$NotJunk` isn't saved in the database, so it's unknown until the server sends the flags */
+  mayHaveNotJunk = true;
 
   constructor(folder: IMAPFolder) {
     super(folder);
@@ -118,6 +120,7 @@ export class IMAPEMail extends EMail {
     this.isImportant ||= flags.has("$Important"); // RFC 8457
     this.isDraft = flags.has("\\Draft");
     this.isSpam = flags.has("$Junk");
+    this.mayHaveNotJunk = flags.has("$NotJunk");
 
     for (let customTag of flags) {
       if (customTag.startsWith("\\") || customTag.startsWith("$") ||
@@ -169,9 +172,15 @@ export class IMAPEMail extends EMail {
   }
 
   async markSpam(spam = true) {
+    let hadJunk = this.isSpam;
     await super.markSpam(spam);
-    await this.setFlagServer("$Junk", spam);
-    await this.setFlagServer("$NotJunk", !spam);
+    if (spam || hadJunk) {
+      await this.setFlagServer("$Junk", spam);
+    }
+    if (!spam || this.mayHaveNotJunk) {
+      await this.setFlagServer("$NotJunk", !spam);
+      this.mayHaveNotJunk = !spam;
+    }
   }
 
   async markReplied() {
