@@ -13,6 +13,19 @@ export function onKeyEnter(event: KeyboardEvent, onEnter: () => void | Promise<v
   return onEnter();
 }
 
+/** Whether the user types text into this element, so keys keep their meaning there */
+export function isTextField(target: EventTarget | null): boolean {
+  let element = target as HTMLElement;
+  return !!element?.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
+}
+
+/** The digit key in the top row or on the number pad,
+ * also with keyboard layouts whose top row types other characters, e.g. French */
+export function getKeyDigit(event: KeyboardEvent): number | null {
+  let digit = /^(Digit|Numpad)(\d)$/.exec(event.code)?.[2];
+  return digit ? parseInt(digit) : null;
+}
+
 export async function saveBlobAsFile(blob: Blob, filename?: string) {
   const showSaveFilePicker = (window as any).showSaveFilePicker;
   if (typeof(showSaveFilePicker) != "function") { // Fallback

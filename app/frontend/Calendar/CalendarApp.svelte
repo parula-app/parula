@@ -15,7 +15,7 @@
               <TitleBarLeft />
             {/if}
           </hbox>
-          <TitleBarRight bind:dateInterval={dateIntervalSetting.value} slot="top-right" />
+          <TitleBarRight bind:dateInterval={$dateIntervalSetting.value} slot="top-right" />
         </MainView>
       </vbox>
       <vbox flex class="sidebar" slot="right">
@@ -32,6 +32,8 @@
   {/if}
 </vbox>
 
+<svelte:window on:keydown={(event) => catchErrors(() => onKeyOnCalendar(event))} />
+
 <script lang="ts">
   import { isCalendarListOpen, selectedCalendar, selectedEvent, shownCalendarEvents, startDate, type DateInterval } from "./selected";
   import { appGlobal } from "../../logic/app";
@@ -42,7 +44,9 @@
   import TitleBarRight from "./TitleBarRight.svelte";
   import ShowEvent from "./DisplayEvent/ShowEvent.svelte";
   import Splitter from "../Shared/Splitter.svelte";
+  import { onKeyOnCalendar } from "./CalendarKeyboard";
   import { getLocalStorage } from "../Util/LocalStorage";
+  import { catchErrors } from "../Util/error";
 
   $: if (!$selectedCalendar) { $selectedCalendar = appGlobal.calendars.first; }
 

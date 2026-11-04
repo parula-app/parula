@@ -118,9 +118,11 @@
   import NotSpamIcon from "lucide-svelte/icons/shield-off";
   import WriteIcon from "lucide-svelte/icons/pencil";
   import FolderActionsIcon from "lucide-svelte/icons/folder-dot";
+  import { catchErrors } from "../../Util/error";
   import { ArrayColl } from "svelte-collections";
   import { t } from "../../../l10n/l10n";
   import { appGlobal } from "../../../logic/app";
+  import { onDestroy, onMount } from "svelte";
 
   export let message: EMail;
 
@@ -163,6 +165,23 @@
   }
   function onPopupClose() {
     popupOpen = false;
+  }
+
+  onMount(() => {
+    window.addEventListener("mail-move-popup", onMoveKey);
+    window.addEventListener("mail-print", onPrintKey);
+  });
+  onDestroy(() => {
+    window.removeEventListener("mail-move-popup", onMoveKey);
+    window.removeEventListener("mail-print", onPrintKey);
+  });
+
+  function onMoveKey() {
+    popupOpen = true;
+  }
+
+  function onPrintKey() {
+    catchErrors(() => printE.print());
   }
 </script>
 

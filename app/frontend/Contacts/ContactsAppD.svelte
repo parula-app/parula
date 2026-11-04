@@ -13,6 +13,8 @@
   </vbox>
 </Splitter>
 
+<svelte:window on:keydown={(event) => catchErrors(() => onKeyOnContacts(event, selectedAddressbook))} />
+
 <script lang="ts">
   import { Person } from "../../logic/Abstract/Person";
   import type { PersonOrGroup } from "./Person/PersonOrGroup";
@@ -21,6 +23,8 @@
   import { selectedWorkspace } from "../MainWindow/Selected";
   import { globalSearchTerm } from "../AppsBar/selectedApp";
   import { appGlobal } from "../../logic/app";
+  import { onKeyOnContacts } from "./ContactsKeyboard";
+  import { catchErrors } from "../Util/error";
   import PersonsList from "./Person/PersonsList.svelte";
   import PersonDetails from "./PersonPage/PersonDetails.svelte";
   import PersonsToolbar from "./PersonsToolbar.svelte";

@@ -2,7 +2,9 @@
   on:add-files={(event) => catchErrors(() => onFilesDrop(event))}
   on:inline-files={(event) => catchErrors(() => onFileInlineDrop(event))}
   allowInline={true}>
-  <vbox flex class="mail-composer-window">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <vbox flex class="mail-composer-window"
+    on:keydown|capture={event => catchErrors(() => onKey(event))}>
     <hbox class="window-title-bar">
       {#if appGlobal.isMobile}
         <hbox class="close buttons mobile">
@@ -194,6 +196,7 @@
   import { appGlobal } from "../../../logic/app";
   import { UserError, assert } from "../../../logic/util/util";
   import { minorError, catchErrors, showUserError } from "../../Util/error";
+  import { getOSName } from "../../Util/util";
   import CloseButton from "./CloseButton.svelte";
   import MailAutocomplete from "./MailAutocomplete.svelte";
   import AttachmentsPane from "./Attachments/AttachmentsPane.svelte";
@@ -369,6 +372,40 @@
       }
       throw ex;
     }
+  }
+
+  async function onKey(event: KeyboardEvent) {
+    let isCtrl = event.ctrlKey || event.metaKey;
+    // Ctrl+ (or Cmd+)
+    if (isCtrl && !event.altKey && !event.shiftKey) {
+      if (event.key == "Enter") { // Outlook
+        event.preventDefault();
+        event.stopPropagation();
+        await onSendKey();
+        return;
+      } else if (event.key.toLowerCase() == "s") { // Outlook
+        event.preventDefault();
+        event.stopPropagation();
+        await mail.compose.saveAsDraft();
+        return;
+      }
+    }
+    // Alt+ (Option+ types characters on macOS)
+    if (event.altKey && !isCtrl && !event.shiftKey && getOSName() != "macintosh") {
+      if (event.code == "KeyS") { // Outlook
+        event.preventDefault();
+        event.stopPropagation();
+        await onSendKey();
+        return;
+      }
+    }
+  }
+
+  async function onSendKey() {
+    if (sendDisabledTooltip) {
+      throw new UserError(sendDisabledTooltip);
+    }
+    await onSend();
   }
 
   let closing = false;
