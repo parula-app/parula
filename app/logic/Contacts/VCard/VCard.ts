@@ -83,7 +83,8 @@ export function updatePerson(vcard: ICalContainer, person: Person) {
   person.chatAccounts.clear();
   if (vcard.entries.impp) {
     for (let entry of vcard.entries.impp) {
-      person.chatAccounts.add(makeContactEntry(entry));
+      let isAddressURI = ContactEntry.chatURISchemes.some(scheme => entry.value.toLowerCase().startsWith(scheme + ":"));
+      person.chatAccounts.add(makeContactEntry(entry, undefined, true, isAddressURI));
     }
   }
   person.urls.clear();
@@ -284,7 +285,11 @@ function setValues(container: Record<string, string[]>, key: string, values: Arr
       line += `;PREF=${entry.preference}`;
     }
     line += ":";
-    line += entry.value.split(";").map(value => escaped(value, false)).join(";");
+    // IMPP must be a URI
+    let value = key == "impp" && ContactEntry.chatURISchemes.includes(entry.protocol) && !/^\w+:/.test(entry.value)
+      ? entry.protocol + ":" + entry.value
+      : entry.value;
+    line += value.split(";").map(value => escaped(value, false)).join(";");
     return line;
   });
 }

@@ -27,8 +27,8 @@ export class JSContact {
       sanitize.nonemptystring(e.number, null),
       null, JSContact.fromPhoneFeatureToProtocol(e.features)));
     JSContact.toContactEntries(person.chatAccounts, jscontact.onlineServices, e => new ContactEntry(
-      sanitize.nonemptystring(e.uri ?? e.user, null),
-      null, e.service));
+      JSContact.fromOnlineServiceToValue(e),
+      null, JSContact.fromOnlineServiceToProtocol(e)));
     JSContact.toContactEntries(person.urls, jscontact.links, e => {
       let url = sanitize.url(e.uri, null, ["https", "http", "mailto", "tel", "fax"]); // ["*"] ?
       return new ContactEntry(url, null, url ? new URL(url).protocol.slice(0, -1) : null);
@@ -76,6 +76,54 @@ export class JSContact {
     return features;
   }
 
+  protected static fromOnlineServiceToValue(service: TOnlineService): string | null {
+    let uri = sanitize.nonemptystring(service.uri, null);
+    let scheme = JSContact.uriScheme(uri);
+    return sanitize.nonemptystring(service.user, null) ?? (ContactEntry.chatURISchemes.includes(scheme)
+      ? sanitize.nonemptystring(uri.slice(scheme.length + 1), null)
+      : uri);
+  }
+
+  protected static fromOnlineServiceToProtocol(service: TOnlineService): string | null {
+    let scheme = JSContact.uriScheme(sanitize.nonemptystring(service.uri, null));
+    return sanitize.nonemptylabel(service.service, null)?.toLowerCase() ??
+      (scheme == "http" || scheme == "https" ? null : scheme);
+  }
+
+  protected static uriScheme(uri: string | undefined): string | null {
+    return /^([a-z][a-z0-9+.-]*):/i.exec(uri ?? "")?.[1].toLowerCase() ?? null;
+  }
+
+  /** Writes the user name, and if possible the URI, because Stalwart drops entries without a URI.
+   * Leaves the entry as it is, if the user didn't change it. */
+  protected static toOnlineService(personEntry: ContactEntry, service: TOnlineService) {
+    if (personEntry.value == JSContact.fromOnlineServiceToValue(service) &&
+        personEntry.protocol == JSContact.fromOnlineServiceToProtocol(service)) {
+      return;
+    }
+    let isURI = !!JSContact.uriScheme(personEntry.value);
+    let uri = isURI
+      ? personEntry.value
+      : ContactEntry.chatURISchemes.includes(personEntry.protocol)
+        ? personEntry.protocol + ":" + personEntry.value
+        : null;
+    if (uri) {
+      service.uri = uri;
+    } else {
+      delete service.uri;
+    }
+    if (isURI) {
+      delete service.user;
+    } else {
+      service.user = personEntry.value;
+    }
+    if (personEntry.protocol) {
+      service.service = personEntry.protocol;
+    } else {
+      delete service.service;
+    }
+  }
+
   /** Updates `jscontact` with the properties from `person`,
    * leaving any unsupported properties in jscontact as-is. */
   static fromPerson(person: Person, jscontact: TJSContact) {
@@ -112,9 +160,9 @@ export class JSContact {
       (entry: any, personEntry: ContactEntry) => {
         entry.features = JSContact.fromProtocolToPhoneFeature(personEntry.protocol);
       });
-    JSContact.fromContactEntries<TOnlineService>(jscontact.onlineServices, person.chatAccounts, "user",
-      (entry: any, personEntry: ContactEntry) => {
-        entry.service = personEntry.protocol;
+    JSContact.fromContactEntries<TOnlineService>(jscontact.onlineServices, person.chatAccounts, null,
+      (entry: TOnlineService, personEntry: ContactEntry) => {
+        JSContact.toOnlineService(personEntry, entry);
       });
     JSContact.fromContactEntries<TLink>(jscontact.links, person.urls, "uri",
       () => { });
@@ -203,7 +251,9 @@ export class JSContact {
         setJMAPID(personEntry, jmapID);
       }
       let jscontactEntry = jscontactEntries[jmapID] ??= {} as T;
-      jscontactEntry[valueProp] = personEntry.value;
+      if (valueProp) {
+        jscontactEntry[valueProp] = personEntry.value;
+      }
       jscontactEntry.pref = personEntry.preference;
       jscontactEntry.contexts = JSContact.fromPurposeToContext(personEntry.purpose);
       otherPropsFunc(jscontactEntry, personEntry);
