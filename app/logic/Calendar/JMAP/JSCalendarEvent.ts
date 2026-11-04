@@ -140,8 +140,11 @@ export class JSCalendarEvent {
     jmap.showWithoutTime = event.allDay;
     if (event.allDay) {
       jmap.duration = fromSeconds(event.duration);
-    } else if (!jmap.duration || this.toEndTime(jmap).getTime() != event.endTime.getTime()) {
-      jmap.duration = fromSeconds(event.duration, false);
+    } else {
+      // The server's duration, or days, only if they give our end, because a day may have 23 or 25 hours
+      jmap.duration = [jmap.duration, fromSeconds(event.duration)].find(duration =>
+        duration && this.toEndTime(jmap, duration).getTime() == event.endTime.getTime())
+        ?? fromSeconds(event.duration, false);
     }
 
     // Reminder. Keep an unchanged alert as it is: ours is an offset from the start
@@ -350,16 +353,17 @@ export class JSCalendarEvent {
     return local;
   }
 
-  /** The days of a duration are calendar days in the event's time zone, so they may have 23 or 25 hours */
-  static toEndTime(jmap: TJMAPCalendarEvent): Date {
-    let duration = sanitize.nonemptystring(jmap.duration, "PT0S");
-    let days = toSeconds(duration.replace(/T.*/, "").replace(/^P$/, "PT0S")) / k1DayS;
-    let seconds = toSeconds(duration) - days * k1DayS;
-    let isUTC = /Z$/.test(jmap.start);
-    let endDay = new Date(jmap.start.replace(/Z$/, "") + "Z"); // the date-time of the start, as if it were UTC
-    endDay.setUTCDate(endDay.getUTCDate() + days);
-    let endDayStart = this.toDate(endDay.toISOString().substring(0, 19) + (isUTC ? "Z" : ""), jmap);
-    return new Date(endDayStart.getTime() + seconds * 1000);
+  /** A day of the duration ends at the same time of day in the event's time zone, so it may have 23 or 25 hours.
+   * The hours, minutes and seconds are exact. */
+  static toEndTime(jmap: TJMAPCalendarEvent, duration = jmap.duration): Date {
+    duration = sanitize.nonemptystring(duration, "PT0S");
+    let seconds = toSeconds(duration);
+    let [, weeks, days] = duration.match(/^-?P(?:(\d+)W)?(?:(\d+)D)?/);
+    let calendarDays = Number(weeks ?? 0) * 7 + Number(days ?? 0);
+    let end = new Date(jmap.start.replace(/Z$/, "") + "Z"); // the local date and time of the start, in the UTC fields
+    end.setUTCDate(end.getUTCDate() + calendarDays);
+    let endOfDays = this.toDate(end.toISOString().substring(0, 19) + (jmap.start.endsWith("Z") ? "Z" : ""), jmap);
+    return new Date(endOfDays.getTime() + (seconds - calendarDays * k1DayS) * 1000);
   }
 
   static fromDate(date: Date, event: Event): string {

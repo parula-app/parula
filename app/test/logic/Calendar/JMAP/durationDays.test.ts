@@ -108,3 +108,23 @@ test("An event of exactly 24 hours over the night when the clocks go back keeps 
   // Not "P1D", which is 25 hours that day
   expect(endPerSpec(event.startTime, sent[0].create[event.id].duration).toISOString()).toBe("2026-10-25T08:00:00.000Z");
 });
+
+test("An event of exactly 24 hours on a day without clock change keeps its end on the server", async () => {
+  let { calendar, sent } = setup([]);
+  let event = calendar.newEvent();
+  event.title = "24 hours";
+  event.timezone = "Europe/Berlin";
+  event.startTime = new Date("2026-10-20T08:00:00Z");
+  event.endTime = new Date("2026-10-21T08:00:00Z");
+  calendar.events.add(event);
+  await event.save();
+  expect(endPerSpec(event.startTime, sent[0].create[event.id].duration).toISOString()).toBe("2026-10-21T08:00:00.000Z");
+});
+
+test("A changed end over the night when the clocks go back is saved with the right end", async () => {
+  let { event, sent } = await listEvent(serverEvent("P2D"));
+  event.endTime = new Date("2026-10-26T08:00:00Z"); // Monday 9:00, 48 hours after the start
+  await event.save();
+  let stored = applyPatch(serverEvent("P2D"), sent[0].update.eventID);
+  expect(endPerSpec(new Date("2026-10-24T08:00:00Z"), stored.duration).toISOString()).toBe("2026-10-26T08:00:00.000Z");
+});
