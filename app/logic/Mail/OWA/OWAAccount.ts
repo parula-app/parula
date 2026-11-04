@@ -245,6 +245,9 @@ export class OWAAccount extends ExchangeMailAccount {
     for (let folder of this.folderMap.values()) {
       folder.listening = false;
     }
+    for (let calendar of this.dependentAccounts().filter(account => account.protocol == "calendar-owa")) {
+      (calendar as OWACalendar).listening = false;
+    }
   }
 
   needsLicense(): boolean {
@@ -554,7 +557,7 @@ export class OWAAccount extends ExchangeMailAccount {
   }
 
   async onNotificationMessages(messages: any[][]) {
-    let newMessageIDsByFolder: Record<string, string[]> = {};
+    let pendingItemIDsByNotifyable = new Map<OWANotifyable, string[]>();
     for (let message of messages) {
       for (let notification of message) {
         switch (notification.id.split(" ")[0]) {
@@ -562,7 +565,14 @@ export class OWAAccount extends ExchangeMailAccount {
           this.handleHierarchyNotification(notification);
           break;
         case "RowNotification":
-          this.handleEMailNotification(notification, newMessageIDsByFolder);
+          let notifyable = this.getNotifyable(notification.FolderId);
+          if (notifyable) {
+            let itemIDs = pendingItemIDsByNotifyable.get(notifyable) || [];
+            notifyable.handleRowNotification(notification, itemIDs);
+            if (itemIDs.length) {
+              pendingItemIDsByNotifyable.set(notifyable, itemIDs);
+            }
+          }
           break;
         default:
           //console.log(notification);
@@ -570,89 +580,66 @@ export class OWAAccount extends ExchangeMailAccount {
         }
       }
     }
-    for (let folderID in newMessageIDsByFolder) {
-      let folder = this.folderMap.get(folderID);
-      let newMessageIDs = newMessageIDsByFolder[folderID];
-      // A concurrent folder listing may have already picked up the message
-      newMessageIDs = newMessageIDs.filter((id, i, ids) => !folder.getEmailByItemID(id) && ids.indexOf(id) == i);
-      let newMessages = await folder.getNewMessageHeaders(newMessageIDs);
-      for (let msg of newMessages) {
-        msg.isNewArrived = true;
+    for (let [notifyable, itemIDs] of pendingItemIDsByNotifyable) {
+      try {
+        await notifyable.processPendingItems(itemIDs);
+      } catch (ex) {
+        this.errorCallback(ex);
       }
-      folder.messages.addAll(newMessages);
-      folder.downloadMessages(newMessages)
-        .catch(this.errorCallback);
     }
   }
 
   protected handleHierarchyNotification(notification: any) {
     try {
-      let addressbook = appGlobal.addressbooks.find((addressbook: OWAAddressbook) => addressbook.mainAccount == this && addressbook.folderID == notification.folderId) as OWAAddressbook | null;
-      if (addressbook) {
-        addressbook.listContacts().catch(this.errorCallback);
-        return;
+      switch (notification.FolderType) {
+      case "ContactsFolder":
+        let addressbook = this.findDependentAddressbook(notification.folderId);
+        addressbook?.listContacts().catch(this.errorCallback);
+        break;
+      case "Folder":
+        let parent = this.folderMap.get(notification.parentFolderId);
+        if (!parent && notification.parentFolderId != this.msgFolderRootID) {
+          return;
+        }
+        let folder = this.folderMap.get(notification.folderId);
+        if (!folder) {
+          let parentFolders = parent ? parent.subFolders : this.rootFolders;
+          folder = this.newFolder();
+          folder.parent = parent || null;
+          parentFolders.push(folder);
+          this.folderMap.set(notification.folderId, folder);
+        }
+        folder.fromJSON({
+          FolderId: { Id: notification.folderId },
+          DisplayName: notification.displayName,
+          TotalCount: notification.itemCount,
+          UnreadCount: notification.unreadCount,
+        });
+        // We get hierachy notifications for e.g. flag changes,
+        // so we should always refresh a folder after a notification,
+        // unless we're already getting row notifications for it.
+        folder.dirty ||= !folder.listening;
+        break;
       }
-      let calendar = appGlobal.calendars.find((calendar: OWACalendar) => calendar.mainAccount == this && calendar.folderID == notification.folderId) as OWACalendar | null;
-      if (calendar) {
-        calendar.listEvents().catch(this.errorCallback);
-        return;
-      }
-      let parent = this.folderMap.get(notification.parentFolderId);
-      if (!parent && notification.parentFolderId != this.msgFolderRootID) {
-        return;
-      }
-      let folder = this.folderMap.get(notification.folderId);
-      if (!folder) {
-        let parentFolders = parent ? parent.subFolders : this.rootFolders;
-        folder = this.newFolder();
-        folder.parent = parent || null;
-        parentFolders.push(folder);
-        this.folderMap.set(notification.folderId, folder);
-      }
-      folder.fromJSON({
-        FolderId: { Id: notification.folderId },
-        DisplayName: notification.displayName,
-        TotalCount: notification.itemCount,
-        UnreadCount: notification.unreadCount,
-      });
-      // We get hierachy notifications for e.g. flag changes,
-      // so we should always refresh a folder after a notification,
-      // unless we're already getting row notifications for it.
-      folder.dirty ||= !folder.listening;
     } catch (ex) {
       this.errorCallback(ex);
     }
   }
 
-  protected async handleEMailNotification(notification: any, newMessageIDsByFolder: Record<string, string[]>) {
-    let folder = this.folderMap.get(notification.FolderId);
-    if (!folder) {
-      return null;
-    }
-    switch (notification.EventType) {
-    case "RowAdded":
-      folder.instanceMap.set(notification.Item.InstanceKey, notification.Item.ItemId.Id);
-      // Unfortunately the notification data is missing
-      // InternetMessageId, References, maybe InReplyTo
-      let newMessageIDs = newMessageIDsByFolder[notification.FolderId] ??= [];
-      newMessageIDs.push(notification.Item.ItemId.Id);
-      break;
-    case "RowModified":
-      folder.instanceMap.set(notification.Item.InstanceKey, notification.Item.ItemId.Id);
-      let email = folder.getEmailByItemID(notification.Item.ItemId.Id);
-      email?.setFlags(notification.Item);
-      folder.dirty ||= !email;
-      break;
-    case "RowDeleted":
-      let id = folder.instanceMap.get(notification.Item.InstanceKey);
-      if (id) {
-        let email = folder.getEmailByItemID(id);
-        email?.deleteMessageLocally().catch(this.errorCallback);
-      } else {
-        folder.dirty = true;
-      }
-      break;
-    }
+  protected getNotifyable(folderID: string): OWANotifyable | undefined {
+    return this.folderMap.get(folderID) ?? this.findDependentCalendar(folderID);
+  }
+
+  protected findDependentAddressbook(folderID): OWAAddressbook | undefined {
+    return this.dependentAccounts().find(account =>
+      account.protocol == "addressbook-owa" &&
+      (account as OWAAddressbook).folderID == folderID) as OWAAddressbook | undefined;
+  }
+
+  protected findDependentCalendar(folderID): OWACalendar | undefined {
+    return this.dependentAccounts().find(account =>
+      account.protocol == "calendar-owa" &&
+      (account as OWACalendar).folderID == folderID) as OWACalendar | undefined;
   }
 
   get mayHaveSubAccounts(): boolean {
@@ -898,6 +885,36 @@ class OWAGetPeopleFiltersRequest {
   get action() {
     return "GetPeopleFilters";
   }
+}
+
+export type OWARowNotification = {
+  EventType: "RowAdded" | "RowModified";
+  Item: {
+    InstanceKey: string;
+    ItemId: {
+      Id: string;
+      ChangeKey: string;
+    };
+  };
+} | {
+  EventType: "RowDeleted",
+  Item: {
+    InstanceKey: string;
+  },
+};
+
+export interface OWANotifyable {
+  /**
+   * Processes items from an OWA RowNotification event.
+   * Note that this is a synchronous function. Any items that need
+   * asynchronous processing should be pushed to the `itemIDs` array.
+   *
+   * @param notification The OWA row notification object.
+   * @param itemIDs Any items that should be processed in a batch.
+   */
+  handleRowNotification(notification: OWARowNotification, itemIDs: string[]);
+  /** Asynchronously process all of the itemIDs which were collected above. */
+  processPendingItems(itemIDs: string[]): Promise<void>;
 }
 
 export const kMaxFetchCount = 50;
