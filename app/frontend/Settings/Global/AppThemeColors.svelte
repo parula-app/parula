@@ -59,6 +59,14 @@
         let dark = textColor == "#ffffff";
         themeSetting.value = dark ? "dark" : "light";
       }
+
+      // adapt hover
+      if (cssVar == "selected-bg") {
+        colors["hover-bg"] = color + "80";
+        colors["selected-hover-bg"] = color + "DD"
+        colors["hover-fg"] = textColor;
+        colors["selected-hover-fg"] = textColor;
+      }
     }
     colorsSetting.value = colors;
   }
