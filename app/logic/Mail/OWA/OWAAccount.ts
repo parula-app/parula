@@ -562,7 +562,7 @@ export class OWAAccount extends ExchangeMailAccount {
           this.handleHierarchyNotification(notification);
           break;
         case "RowNotification":
-          this.handleRowNotification(notification, newMessageIDsByFolder);
+          this.handleEMailNotification(notification, newMessageIDsByFolder);
           break;
         default:
           //console.log(notification);
@@ -624,7 +624,7 @@ export class OWAAccount extends ExchangeMailAccount {
     }
   }
 
-  protected async handleRowNotification(notification: any, newMessageIDsByFolder: Record<string, string[]>) {
+  protected async handleEMailNotification(notification: any, newMessageIDsByFolder: Record<string, string[]>) {
     let folder = this.folderMap.get(notification.FolderId);
     if (!folder) {
       return null;
