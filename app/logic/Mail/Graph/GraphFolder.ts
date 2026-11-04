@@ -63,24 +63,27 @@ export class GraphFolder extends Folder {
    * But doesn't download their contents. @see downloadMessages() */
   protected async listAllMessages(): Promise<ArrayColl<GraphEMail>> {
     const batchSize = kMaxFetchCount;
+    const kMaxRounds = 10000; // 1,000,000 emails, even if the server sends only 100 per page
     let nextURL: URLString;
-    let hadNext = false;
+    let previousIDs: string | null = null;
+    let isComplete = false;
     let allNewMessages = new ArrayColl<GraphEMail>();
-    for (let i = 0; i < this.countTotal; ) {
+    for (let round = 1; round <= kMaxRounds; round++) {
       let newMessagesJSON: TGraphEMail[];
-      if (hadNext && !nextURL) {
-        break;
-      } else if (nextURL) {
-        hadNext = true;
+      if (nextURL) {
         // nextURL already includes the $select. And ky searchParams would overwrite the skip token.
         newMessagesJSON = await this.account.graphGet<TGraphEMail>(nextURL);
       } else {
         newMessagesJSON = await this.account.graphGet<TGraphEMail>(`${this.path}/messages`, {
           top: batchSize,
-          "$skip": i || undefined,
           "$select": TGraphEMailHeaderProperties.join(","),
         });
       }
+      let pageIDs = newMessagesJSON.map(json => json.id).join(" ");
+      if (pageIDs == previousIDs) {
+        break;
+      }
+      previousIDs = pageIDs;
       let extra = newMessagesJSON as any;
       nextURL = extra.nextURL;
 
@@ -89,10 +92,13 @@ export class GraphFolder extends Folder {
       await this.saveNewMsgs(newMessages);
       allNewMessages.addAll(newMessages);
 
-      if (!newMessagesJSON.length) {
+      if (!nextURL) {
+        isComplete = true;
         break;
       }
-      i += newMessagesJSON.length;
+    }
+    if (!isComplete) {
+      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`));
     }
     await this.storage.saveFolderProperties(this);
     return allNewMessages;
