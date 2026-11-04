@@ -17,6 +17,8 @@ import type { ArrayColl, Collection } from "svelte-collections";
 export class JMAPEMail extends EMail {
   declare folder: JMAPFolder;
   mimeBlobId: string | null = null; // TODO Save in DB
+  /** The folders that the email is in, as of our Email sync state. null, if we don't know. Not saved in the DB. */
+  mailboxIDs: string[] | null = null;
   protected flagsChanging = false;
 
   constructor(folder: JMAPFolder) {
@@ -34,6 +36,9 @@ export class JMAPEMail extends EMail {
     this.setFlagsLocal(json.keywords);
     // <https://www.rfc-editor.org/rfc/rfc8621.html#section-4.2.1>
     this.jmapID = sanitize.nonemptystring(json.id, null);
+    this.mailboxIDs = json.mailboxIds
+      ? Object.keys(json.mailboxIds).map(id => sanitize.nonemptystring(id))
+      : null;
     if (this.downloadComplete) {
       return;
     }
@@ -272,6 +277,24 @@ export class JMAPEMail extends EMail {
 
   /** Destroying an email removes it from all folders, so destroy it only if it is in no other folder. */
   protected async removeFromFolderOnServer() {
+    let state = this.folder.account.syncState.get("Email");
+    if (!this.mailboxIDs || !state) {
+      await this.removeFromFolderAsOnServerNow();
+      return;
+    }
+    try {
+      // `mailboxIDs` are right, if the server has no changes that we didn't get yet
+      await this.destroyOrRemoveFromFolder(this.mailboxIDs, state);
+    } catch (ex) {
+      if (ex.code == "stateMismatch") {
+        await this.removeFromFolderAsOnServerNow();
+        return;
+      }
+      throw ex;
+    }
+  }
+
+  protected async removeFromFolderAsOnServerNow() {
     let account = this.folder.account;
     let getResponse = await account.makeSingleCall("Email/get", {
       accountId: account.accountID,
@@ -282,12 +305,19 @@ export class JMAPEMail extends EMail {
     if (!json) {
       return;
     }
-    let isInOtherFolders = Object.keys(json.mailboxIds ?? {}).some(folderID => folderID != this.folder.id);
+    await this.destroyOrRemoveFromFolder(Object.keys(json.mailboxIds ?? {}), null);
+  }
+
+  /** @param ifInState The server refuses, if its emails changed since this state */
+  protected async destroyOrRemoveFromFolder(mailboxIDs: string[], ifInState: string | null) {
+    let account = this.folder.account;
+    let isInOtherFolders = mailboxIDs.some(folderID => folderID != this.folder.id);
     let change = isInOtherFolders
       ? { update: { [this.jmapID]: { [`mailboxIds/${this.folder.id}`]: null } } }
       : { destroy: [this.jmapID] };
     let setResponse = await account.makeSingleCall("Email/set", {
       accountId: account.accountID,
+      ifInState: ifInState,
       ...change,
     }) as TJMAPChangeResponse<TJMAPEMailHeaders>;
     checkChangeError(setResponse);
