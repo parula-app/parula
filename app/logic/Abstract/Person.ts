@@ -348,4 +348,7 @@ export class ContactEntry extends Observable {
     "collected": gt`Collected *=> Email address that was automatically added to the contacts`,
     null: gt`Select *=> Select what this email address is for`,
   }
+
+  /** Chat protocols whose URI is simply `protocol:` + the address */
+  static readonly chatURISchemes = ["xmpp", "sip", "sips"];
 }

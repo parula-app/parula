@@ -76,13 +76,10 @@ export class JSContact {
     return features;
   }
 
-  /** Chat protocols whose URI is simply `protocol:` + the address */
-  protected static readonly chatURISchemes = ["xmpp", "sip", "sips"];
-
   protected static fromOnlineServiceToValue(service: TOnlineService): string | null {
     let uri = sanitize.nonemptystring(service.uri, null);
     let scheme = JSContact.uriScheme(uri);
-    return sanitize.nonemptystring(service.user, null) ?? (JSContact.chatURISchemes.includes(scheme)
+    return sanitize.nonemptystring(service.user, null) ?? (ContactEntry.chatURISchemes.includes(scheme)
       ? sanitize.nonemptystring(uri.slice(scheme.length + 1), null)
       : uri);
   }
@@ -107,7 +104,7 @@ export class JSContact {
     let isURI = !!JSContact.uriScheme(personEntry.value);
     let uri = isURI
       ? personEntry.value
-      : JSContact.chatURISchemes.includes(personEntry.protocol)
+      : ContactEntry.chatURISchemes.includes(personEntry.protocol)
         ? personEntry.protocol + ":" + personEntry.value
         : null;
     if (uri) {
