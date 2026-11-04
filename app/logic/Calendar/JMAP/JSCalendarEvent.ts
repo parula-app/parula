@@ -207,10 +207,8 @@ export class JSCalendarEvent {
         jmap.locations["0"] = location;
       }
       // JSCalendar-bis reserves `Location.description`, so only read it
-      if (this.toLocation(location) != event.location) {
-        location.name = event.location;
-        delete location.description;
-      }
+      location.name = event.location;
+      delete location.description;
     } else if (jmap.locations) {
       let first = Object.keys(jmap.locations)[0];
       delete jmap.locations[first];

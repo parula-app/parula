@@ -64,18 +64,28 @@ test("A location with details is written into the name only", async () => {
   expect(locations[0].name).toContain("2nd floor, room 7");
 });
 
-test("A location with a description from older data is shown with it, and kept when unchanged", async () => {
+test("A location with a description from older data is shown with it, and saved into the name", async () => {
   let { calendar, sent } = setup([serverEvent({ name: "Building A", description: "2nd floor" })]);
   await (calendar as any).listAllEvents();
   let event = calendar.events.first;
   expect(event.location).toContain("Building A");
   expect(event.location).toContain("2nd floor");
 
+  // Our update sends the whole location, so a kept description would make the saved event invalid
   event.title = "Visit to the lab";
   await event.save();
 
   let stored = applyPatch(serverEvent({ name: "Building A", description: "2nd floor" }), sent[0].update.x);
-  expect(stored.locations.l1).toEqual({ "@type": "Location", name: "Building A", description: "2nd floor" });
+  let locations = Object.values(stored.locations);
+  expect(locations.length).toBe(1);
+  expect(locations[0]).not.toHaveProperty("description");
+  expect(locations[0].name).toContain("Building A");
+  expect(locations[0].name).toContain("2nd floor");
+
+  // Reads back as the same text
+  let reread = calendar.newEvent();
+  reread.fromJMAP(stored);
+  expect(reread.location).toBe(event.location);
 });
 
 test("A changed location replaces the description of older data", async () => {
