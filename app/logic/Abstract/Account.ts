@@ -96,11 +96,15 @@ export class Account extends Observable {
   /**
    * Convenience method for accounts to use to start up dependent accounts.
    * This should be called after the account has finished its own startup.
+   * They log in first, e.g. for their own notification stream. Their `login()`
+   * returns right away, given that we are logged in already.
    */
   protected async startupDependentAccounts() {
     for (let dependent of this.dependentAccounts()) {
-      dependent.dependentStartupOnce.runOnce(() => dependent.syncOnStartup())
-        .catch(dependent.errorCallback);
+      dependent.dependentStartupOnce.runOnce(async () => {
+        await dependent.login(false);
+        await dependent.syncOnStartup();
+      }).catch(dependent.errorCallback);
     }
   }
 
@@ -150,7 +154,7 @@ export class Account extends Observable {
   /** Logs in and runs the initial sync, like the app start does.
    * For the Login and Get Mail buttons and the account setup. */
   async loginAndStartup(interactive: boolean): Promise<void> {
-    if (this.isDependentAccount) {
+    if (this.isDependentAccount && !this.mainAccount.isLoggedIn) {
       await this.mainAccount.loginAndStartup(interactive); // it starts us up
       return;
     }
