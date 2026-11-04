@@ -298,6 +298,59 @@ test("An invitation that the JMAP server added to the calendar by itself is unan
   }
 });
 
+/** The organizer's account, shared with me: it has an identity with the organizer's address */
+function setupSharedByOrganizer(account: JMAPAccount) {
+  let shared = new JMAPAccount();
+  shared.initFromMainAccount(account);
+  shared.emailAddress = kOrganizer;
+  shared.accountID = "sharedAccount";
+  let sharedIdentity = new MailIdentity(shared);
+  sharedIdentity.emailAddress = kOrganizer;
+  shared.identities.add(sharedIdentity);
+  let sentByShared: EMail[] = [];
+  shared.send = async (email: EMail) => {
+    sentByShared.push(email);
+  };
+  return { shared, sentByShared };
+}
+
+test("Answering an invitation from a user who shares their account with me", async () => {
+  let { account, calendar, sent } = setup();
+  let { shared, sentByShared } = setupSharedByOrganizer(account);
+  appGlobal.emailAccounts.addAll([account, shared]);
+  let event = calendar.newEvent();
+  event.fromJMAP(serverMeeting("needs-action"));
+  calendar.events.add(event);
+
+  await event.respondToInvitation(InvitationResponse.Accept);
+
+  expect(event.myParticipation).toEqual(InvitationResponse.Accept);
+  expect(sentByShared.length).toEqual(0);
+  expect(sent.length).toEqual(1);
+  expect(sent[0].from.emailAddress).toEqual(kMe);
+  expect(sent[0].event.participants.contents.map(p => [p.emailAddress, p.response])).toEqual([[kMe, InvitationResponse.Accept]]);
+});
+
+test("Deleting an invitation from a user who shares their account with me declines it", async () => {
+  let { account, calendar, sent } = setup();
+  let { shared, sentByShared } = setupSharedByOrganizer(account);
+  appGlobal.emailAccounts.addAll([account, shared]);
+  account.makeSingleCall = async (method: string, args: any) => ({ destroyed: args.destroy });
+  let event = calendar.newEvent();
+  event.fromJMAP(serverMeeting("accepted"));
+  calendar.events.add(event);
+  let errors: Error[] = [];
+  calendar.errorCallback = ex => errors.push(ex);
+
+  await event.deleteIt();
+
+  expect(errors).toEqual([]);
+  expect(sentByShared.length).toEqual(0);
+  let declines = sent.filter(email => email.iCalMethod == "REPLY" &&
+    email.event.participants.find(p => p.emailAddress == kMe)?.response == InvitationResponse.Decline);
+  expect(declines.length).toEqual(1);
+});
+
 test("An invitation that I already answered is not unanswered", () => {
   for (let [status, response] of [
     ["accepted", InvitationResponse.Accept],
