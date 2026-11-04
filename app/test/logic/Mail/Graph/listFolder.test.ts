@@ -3,7 +3,8 @@ import { appGlobal } from "../../../../logic/app";
 import { GraphAccount } from "../../../../logic/Mail/Graph/GraphAccount";
 import { GraphFolder } from "../../../../logic/Mail/Graph/GraphFolder";
 import { DummyMailStorage } from "../../../../logic/Mail/Store/DummyMailStorage";
-import { expect, test } from "vitest";
+import { waitTime } from "../../../../logic/util/util";
+import { expect, test, vi } from "vitest";
 
 /** The folder was empty in the folder listing at startup, and
  * since then, a server-side rule or another device put emails there. */
@@ -35,22 +36,48 @@ test("All pages are listed, also when our count is too low", async () => {
 });
 
 test("A server that always sends a next page doesn't keep us busy forever", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] }); // more than 1000 requests wait for the next minute
+  let oldWaitFactor = waitTime.factor;
+  waitTime.factor = 1;
+  try {
+    let server = new FakeGraphServer();
+    server.pages = [[server.newEmail("m1", "First")]];
+    server.endless = true;
+    let folder = setUpFolder(server);
+
+    let listing = folder.listMessages();
+    await vi.advanceTimersByTimeAsync(100 * 60 * 1000); // 100,000 requests at 1000 per minute
+    await listing;
+
+    // Each round is one request. Any limit is fine, as long as there is one.
+    expect(server.requests).toBeLessThan(100000);
+    expect(server.errors.length).toBeGreaterThan(0);
+  } finally {
+    waitTime.factor = oldWaitFactor;
+    vi.useRealTimers();
+  }
+});
+
+test("A server that keeps sending the same page again stops the listing", async () => {
   let server = new FakeGraphServer();
-  server.pages = [[server.newEmail("m1", "First")]];
-  server.endless = true;
+  server.pages = [[server.newEmail("m1", "First"), server.newEmail("m2", "Second")]];
+  server.repeatFirstPage = true;
   let folder = setUpFolder(server);
 
-  await folder.listMessages();
+  let newMessages = await folder.listMessages();
 
-  // Each round is one request. Any limit is fine, as long as there is one.
-  expect(server.requests).toBeLessThan(100000);
-  expect(server.errors.length).toBeGreaterThan(0);
+  // A second identical page shows that the server makes no progress. A few more requests are fine.
+  expect(server.requests).toBeLessThan(10);
+  expect(server.errors.length).toBe(1);
+  expect(newMessages.contents.map(email => email.subject).sort()).toEqual(["First", "Second"]);
 });
 
 class FakeGraphServer {
   pages: any[][] = [];
   /** Sends a new page with the next page link, forever */
   endless = false;
+  /** Sends the first page with a next page link, forever */
+  repeatFirstPage = false;
   requests = 0;
   errors: Error[] = [];
 
@@ -72,6 +99,13 @@ class FakeGraphServer {
         "@odata.context": kContext,
         value: [this.newEmail("e" + this.requests, "Endless")],
         "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/next?page=" + (this.requests + 1),
+      };
+    }
+    if (this.repeatFirstPage) {
+      return {
+        "@odata.context": kContext,
+        value: this.pages[0],
+        "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/next?page=1",
       };
     }
     let match = url.match(/[?&]page=(\d+)/);

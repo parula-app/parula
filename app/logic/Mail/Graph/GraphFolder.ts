@@ -65,11 +65,11 @@ export class GraphFolder extends Folder {
   protected async listAllMessages(): Promise<ArrayColl<GraphEMail>> {
     const batchSize = kMaxFetchCount;
     const kMaxRounds = 10000; // 1,000,000 emails, even if the server sends only 100 per page
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
     let nextURL: URLString;
-    let previousIDs: string | null = null;
-    let isComplete = false;
     let allNewMessages = new ArrayColl<GraphEMail>();
-    for (let round = 1; round <= kMaxRounds; round++) {
+    while (loop.nextRound()) {
       let newMessagesJSON: TGraphEMail[];
       if (nextURL) {
         // nextURL already includes the $select. And ky searchParams would overwrite the skip token.
@@ -80,11 +80,9 @@ export class GraphFolder extends Folder {
           "$select": TGraphEMailHeaderProperties.join(","),
         });
       }
-      let pageIDs = newMessagesJSON.map(json => json.id).join(" ");
-      if (pageIDs == previousIDs) {
+      if (loop.isSameAsLastRound(newMessagesJSON.map(json => json.id).join(" "))) {
         break;
       }
-      previousIDs = pageIDs;
       let extra = newMessagesJSON as any;
       nextURL = extra.nextURL;
 
@@ -94,12 +92,8 @@ export class GraphFolder extends Folder {
       allNewMessages.addAll(newMessages);
 
       if (!nextURL) {
-        isComplete = true;
         break;
       }
-    }
-    if (!isComplete) {
-      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`));
     }
     await this.storage.saveFolderProperties(this);
     return allNewMessages;
