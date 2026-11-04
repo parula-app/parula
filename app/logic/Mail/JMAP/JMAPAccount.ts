@@ -972,7 +972,12 @@ export class JMAPAccount extends MailAccount {
       return;
     }
     const kMaxRounds = 1000;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.errorCallback(new Error(`${this.name}: Share notifications: The server keeps saying that it has more. Stopped.`)));
+    while (loop.nextRound()) {
+      if (loop.isSameAsLastRound(sinceState)) {
+        break;
+      }
       let response = await this.makeCombinedCall([
         [
           "ShareNotification/changes", {
@@ -1016,12 +1021,8 @@ export class JMAPAccount extends MailAccount {
       if (!changes.hasMoreChanges) {
         return;
       }
-      if (changes.newState == sinceState) {
-        break;
-      }
       sinceState = changes.newState;
     }
-    this.errorCallback(new Error(`${this.name}: Share notifications: The server keeps saying that it has more. Stopped.`));
   }
 
   /** The other user shared more with us, or less */
