@@ -116,10 +116,17 @@ export class JMAPAccount extends MailAccount {
           await this.listIdentities();
         }
         if (this.haveMail) {
-          await super.syncOnStartup();
-          let inbox = this.inbox as JMAPFolder;
-          assert(inbox, "Inbox not found");
-          inbox.startPolling();
+          try {
+            await super.syncOnStartup();
+            let inbox = this.inbox as JMAPFolder;
+            assert(inbox, "Inbox not found");
+            inbox.startPolling();
+          } catch (ex) {
+            if (!(this.isDependentAccount && ex.code == "forbidden")) {
+              throw ex;
+            }
+            // Another user's account, and they shared no mail folder with us, only e.g. an address book
+          }
         }
         if (!this.isDependentAccount) { // One stream covers all accounts shared with us
           this.startPushListener()
