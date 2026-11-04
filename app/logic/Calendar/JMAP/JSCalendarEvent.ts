@@ -5,7 +5,7 @@ import { InvitationResponse } from "../Invitation/InvitationStatus";
 import { Participant } from "../Participant";
 import { k1DayS, k1HourS, k1MinuteS } from "../../util/date";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { NotImplemented, assert } from "../../util/util";
+import { NotImplemented, assert, getOwnProperty, setOwnProperty } from "../../util/util";
 import { ArrayColl } from "svelte-collections";
 
 export class JSCalendarEvent {
@@ -410,16 +410,15 @@ export class JSCalendarEvent {
       let last = keys.pop();
       let parent = occurrence as Record<string, any>;
       for (let key of keys) {
-        // Only own properties, so that a path like `__proto__/x` from the server can't change Object.prototype
-        parent = parent && Object.hasOwn(parent, key) ? parent[key] : null;
+        parent = getOwnProperty(parent, key);
       }
-      if (!parent) {
+      if (!parent || typeof (parent) != "object") {
         continue; // invalid patch
       }
       if (value === null) {
         delete parent[last];
       } else {
-        parent[last] = value;
+        setOwnProperty(parent, last, value);
       }
     }
     return occurrence;

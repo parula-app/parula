@@ -163,3 +163,25 @@ test("A patch path into the prototype changes no other object", () => {
     delete (Object.prototype as any).polluted;
   }
 });
+
+test("A patch of the key `__proto__` sets that key, not the prototype", () => {
+  let override = JSON.parse(`{
+    "__proto__": { "title": "Not from the series" },
+    "participants/__proto__": { "polluted": true }
+  }`);
+
+  let occurrence = JSCalendarEvent.applyOverride(series(), "2026-11-09T10:00:00", override);
+
+  expect(Object.getPrototypeOf(occurrence)).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(occurrence.participants)).toBe(Object.prototype);
+  expect(Object.keys(occurrence.participants)).toContain("__proto__");
+  expect(occurrence.title).toBe("Team meeting");
+});
+
+test("A patch path through a text is not applied", () => {
+  let override = { "title/x": "y" } as any as TJMAPCalendarEvent;
+
+  let occurrence = JSCalendarEvent.applyOverride(series(), "2026-11-09T10:00:00", override);
+
+  expect(occurrence.title).toBe("Team meeting");
+});
