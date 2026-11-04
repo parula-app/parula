@@ -16,7 +16,8 @@ declare module '@tiptap/core' {
  * when Tab or Shift-Tab are pressed.
  *
  * Tab:
- * - BulletList or OrderedList: sinks the list item
+ * - BulletList or OrderedList: sinks the list item,
+ *   or inserts 4 spaces when the cursor is within the text
  * - Blockquote: wraps content in blockquote
  * - Other nodeType: inserts 4 spaces
  *
@@ -50,7 +51,8 @@ export const TabIndent = Extension.create({
  * Performs indent actions based on the parent nodeType.
  *
  * indent:
- * - BulletList or OrderedList: sinks the list item
+ * - BulletList or OrderedList: sinks the list item,
+ *   or inserts 4 spaces when the cursor is within the text
  * - Blockquote: wraps content in blockquote
  * - Other nodeType: inserts 4 spaces
  *
@@ -65,6 +67,9 @@ export const Indent = Extension.create({
       indent: () => ({ state, commands }) => {
         let nodeType = state.selection.$from.node(1).type.name;
         if (nodeType == BulletList.name || nodeType == OrderedList.name) {
+          if (state.selection.empty && state.selection.$from.parentOffset > 0) {
+            return commands.insertContent('    ');
+          }
           return commands.sinkListItem(ListItem.name);
         }
         if (nodeType == Blockquote.name) {

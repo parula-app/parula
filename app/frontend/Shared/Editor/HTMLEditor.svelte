@@ -13,6 +13,11 @@
   import { BoldStar, ItalicSlash, StrikeDoubleTidle } from './StdConventions';
   import { ParagraphNewLine } from './ParagraphNewLine';
   import { TabIndent } from './TabIndent';
+  import { CharacterFormat } from './CharacterFormat';
+  import { TextAlign } from './TextAlign';
+  import { ListKeys } from './ListKeys';
+  import { ListAutoFormat } from './ListAutoFormat';
+  import { LinkEditing } from './LinkEditing';
   // import CodeBlockLowlightFeature from '@tiptap/extension-code-block-lowlight';
   // import { common as lowlightCommon, createLowlight } from 'lowlight'
   import { onMount, onDestroy } from 'svelte';
@@ -52,7 +57,10 @@
         LinkFeature.configure({
           // Not part of the document. `sanitizeHTML()` adds them when rendering.
           HTMLAttributes: { target: null, rel: null },
+          openOnClick: false,
+          shouldAutoLink: url => /^[a-z][a-z0-9+.-]*:\/\/|^www\.|@/i.test(url),
         }),
+        LinkEditing,
         CodeWordFeature,
         SplitBlockquote,
         Footer,
@@ -68,6 +76,10 @@
         StrikeDoubleTidle,
         ParagraphNewLine,
         TabIndent,
+        CharacterFormat,
+        TextAlign,
+        ListKeys,
+        ListAutoFormat,
         // CodeBlockLowlightFeature.configure({
         //  lowlight: createLowlight(lowlightCommon),
         // }),
