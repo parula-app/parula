@@ -141,10 +141,7 @@ export class JSCalendarEvent {
     if (event.allDay) {
       jmap.duration = fromSeconds(event.duration);
     } else {
-      // The server's duration, or days, only if they give our end, because a day may have 23 or 25 hours
-      jmap.duration = [jmap.duration, fromSeconds(event.duration)].find(duration =>
-        duration && this.toEndTime(jmap, duration).getTime() == event.endTime.getTime())
-        ?? fromSeconds(event.duration, false);
+      jmap.duration = this.fromEndTime(event, jmap);
     }
 
     // Reminder. Keep an unchanged alert as it is: ours is an offset from the start
@@ -358,12 +355,24 @@ export class JSCalendarEvent {
   static toEndTime(jmap: TJMAPCalendarEvent, duration = jmap.duration): Date {
     duration = sanitize.nonemptystring(duration, "PT0S");
     let seconds = toSeconds(duration);
-    let [, weeks, days] = duration.match(/^-?P(?:(\d+)W)?(?:(\d+)D)?/);
-    let calendarDays = Number(weeks ?? 0) * 7 + Number(days ?? 0);
+    // The weeks and days are before the "T": "P2DT3H" → "P2D" = 2 days, "PT25H" → "P" = 0 days, "P1W" = 7 days, "-P1D" = -1 day
+    let calendarDays = toSeconds(duration.split("T")[0]) / k1DayS;
     let end = new Date(jmap.start.replace(/Z$/, "") + "Z"); // the local date and time of the start, in the UTC fields
     end.setUTCDate(end.getUTCDate() + calendarDays);
     let endOfDays = this.toDate(end.toISOString().substring(0, 19) + (jmap.start.endsWith("Z") ? "Z" : ""), jmap);
     return new Date(endOfDays.getTime() + (seconds - calendarDays * k1DayS) * 1000);
+  }
+
+  /** The server's duration, or days, only if they give our end, because a day may have 23 or 25 hours */
+  static fromEndTime(event: Event, jmap: TJMAPCalendarEvent): string {
+    if (jmap.duration && this.toEndTime(jmap).getTime() == event.endTime.getTime()) {
+      return jmap.duration;
+    }
+    let withDays = fromSeconds(event.duration);
+    if (this.toEndTime(jmap, withDays).getTime() == event.endTime.getTime()) {
+      return withDays;
+    }
+    return fromSeconds(event.duration, false);
   }
 
   static fromDate(date: Date, event: Event): string {

@@ -3,6 +3,7 @@ import { appGlobal } from "../../../../logic/app";
 import { JMAPAccount } from "../../../../logic/Mail/JMAP/JMAPAccount";
 import { JMAPCalendar } from "../../../../logic/Calendar/JMAP/JMAPCalendar";
 import type { TJMAPCalendarEvent } from "../../../../logic/Calendar/JMAP/TJSCalendar";
+import { JSCalendarEvent } from "../../../../logic/Calendar/JMAP/JSCalendarEvent";
 import { DummyCalendarStorage } from "../../../../logic/Calendar/SQL/DummyCalendarStorage";
 import { applyPatch } from "./applyPatch";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
@@ -80,6 +81,23 @@ test("2 days over the night when the clocks go back end at the same time of day"
 test("Days and hours", async () => {
   let { event } = await listEvent(serverEvent("P1DT2H"));
   expect(event.endTime.toISOString()).toBe("2026-10-25T11:00:00.000Z");
+});
+
+test("Weeks are calendar days, too", async () => {
+  let { event } = await listEvent(serverEvent("P1W"));
+  // Saturday 10:00, 169 hours after the start
+  expect(event.endTime.toISOString()).toBe("2026-10-31T09:00:00.000Z");
+});
+
+test("Hours without days are exact over the night when the clocks go back", async () => {
+  let { event } = await listEvent(serverEvent("PT24H"));
+  // Sunday 9:00, not 10:00
+  expect(event.endTime.toISOString()).toBe("2026-10-25T08:00:00.000Z");
+});
+
+test("A negative duration ends before the start", () => {
+  // Friday 10:00, on a day without clock change
+  expect(JSCalendarEvent.toEndTime(serverEvent("-P1D")).toISOString()).toBe("2026-10-23T08:00:00.000Z");
 });
 
 test("A floating event takes the days in the local time zone", async () => {
