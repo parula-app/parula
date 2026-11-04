@@ -889,7 +889,9 @@ export class JMAPAccount extends MailAccount {
     await this.updateCalendars(listResponse.list);
     this.syncState.set("Calendar", listResponse.state);
     for (let jmap of listResponse.list) {
-      if (!jmap.isSubscribed && !jmap.isDefault ||
+      // Shared calendars arrive unsubscribed, and the user added this account to see them
+      let isSharedWithUs = this.isDependentAccount && jmap.myRights?.mayReadItems;
+      if (!jmap.isSubscribed && !jmap.isDefault && !isSharedWithUs ||
         this.dependentAccounts().filterOnce(a => a instanceof JMAPCalendar && a.jmapID == jmap.id).hasItems) {
         continue;
       }
