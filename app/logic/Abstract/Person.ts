@@ -337,7 +337,7 @@ export class ContactEntry extends Observable {
   }
 
   /** For the database: `json` and `original` */
-  toExtraJSON(): any {
+  toJSON(): any {
     if (!this.original) {
       return this.json;
     }
@@ -352,7 +352,7 @@ export class ContactEntry extends Observable {
     };
   }
 
-  fromExtraJSON(json: any) {
+  fromJSON(json: any) {
     let { original, ...protocolData } = json ?? {};
     this.json = json ? protocolData : null;
     this.original = original ? new ContactEntry(

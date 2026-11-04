@@ -70,7 +70,7 @@ export class SQLPerson {
     if (!contact.value) {
       return;
     }
-    let json = contact.toExtraJSON();
+    let json = contact.toJSON();
     await (await getDatabase()).run(sql`
       INSERT INTO personContact (
         personID, type, value,
@@ -143,7 +143,7 @@ export class SQLPerson {
         let contactEntry = new ContactEntry(sanitize.string(row.value), purpose);
         contactEntry.preference = sanitize.integer(row.preference, ContactEntry.defaultPreference);
         contactEntry.protocol = sanitize.string(row.protocol, null);
-        contactEntry.fromExtraJSON(sanitize.json(row.json, null));
+        contactEntry.fromJSON(sanitize.json(row.json, null));
         let type = row.type;
         if (type == ContactType.EMailAddress) {
           person.emailAddresses.add(contactEntry);

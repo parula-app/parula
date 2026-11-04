@@ -28,7 +28,7 @@ test("The original survives the database, next to the protocol data", () => {
   entry.value = "erika@chat2.example";
 
   let read = new ContactEntry(entry.value, entry.purpose, entry.protocol, entry.preference);
-  read.fromExtraJSON(JSON.parse(JSON.stringify(entry.toExtraJSON())));
+  read.fromJSON(JSON.parse(JSON.stringify(entry.toJSON())));
   expect(read.json).toEqual({ jmapID: "k1" });
   expect(read.original.compare(entry.original)).toBe(true);
   expect(read.compare(read.original)).toBe(false);
@@ -37,7 +37,7 @@ test("The original survives the database, next to the protocol data", () => {
 test("Entries without original and without protocol data stay without", () => {
   let entry = new ContactEntry("erika@example.com", "work", "mailto");
   let read = new ContactEntry(entry.value);
-  read.fromExtraJSON(JSON.parse(JSON.stringify(entry.toExtraJSON() ?? null)));
+  read.fromJSON(JSON.parse(JSON.stringify(entry.toJSON() ?? null)));
   expect(read.original).toBeNull();
   expect(read.json ?? null).toBeNull();
 });

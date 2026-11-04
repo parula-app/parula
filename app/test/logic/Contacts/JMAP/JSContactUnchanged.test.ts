@@ -51,7 +51,7 @@ test("Also after the contact was stored in the database and read again", () => {
   for (let entries of [person.phoneNumbers, person.emailAddresses, person.chatAccounts, person.urls]) {
     for (let entry of entries) {
       // As `SQLPerson` saves and reads it
-      entry.fromExtraJSON(JSON.parse(JSON.stringify(entry.toExtraJSON())));
+      entry.fromJSON(JSON.parse(JSON.stringify(entry.toJSON())));
       entry.protocol ??= null;
     }
   }
