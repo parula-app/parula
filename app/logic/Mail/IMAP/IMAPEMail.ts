@@ -3,7 +3,7 @@ import type { IMAPFolder } from "./IMAPFolder";
 import { ConnectionPurpose } from "./IMAPAccount";
 import { SpecialFolder } from "../Folder";
 import { DeleteStrategy } from "../MailAccount";
-import { getTagByName, type Tag } from "../../Abstract/Tag";
+import type { Tag } from "../../Abstract/Tag";
 import { findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert, NotReached } from "../../util/util";
@@ -126,7 +126,7 @@ export class IMAPEMail extends EMail {
           ["nonjunk", "junk"].includes(customTag.toLowerCase())) {
         continue;
       }
-      tags.add(getTagByName(sanitize.string(customTag)));
+      tags.add(IMAPEMail.tagForKeyword(sanitize.string(customTag)));
     }
     if (this.folder.account.canStoreKeywords) {
       this.tags.replaceAll(tags);

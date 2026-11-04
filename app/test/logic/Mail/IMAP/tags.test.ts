@@ -60,6 +60,19 @@ test("A keyword that was removed on another device is removed here", () => {
   expect(tagNames(email)).toEqual(["Private"]);
 });
 
+test("A keyword that the server returns in another case is our tag", () => {
+  // Thunderbird sets its tag "Urgent" as keyword `urgent`. Dovecot and Cyrus then return
+  // `urgent` for our `STORE +FLAGS (Urgent)` in that folder, and mox always lowercases.
+  let tag = getTagByName("Urgent");
+  let account = newAccount();
+  account.canStoreKeywords = true;
+  let email = newEMail(account);
+
+  email.setFlagsLocal(new Set(["\\Seen", "urgent"]));
+
+  expect(email.tags.contents).toEqual([tag]);
+});
+
 test("On a server that can't store keywords, a tag that the user set here stays", () => {
   let account = newAccount();
   account.canStoreKeywords = false;
