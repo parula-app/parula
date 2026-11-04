@@ -76,9 +76,14 @@ test("Copying an email changes the target count by one", async () => {
   expect(archive.countTotal).toBe(4);
 });
 
-test("A move that the server refuses gives an error", async () => {
+test("A move that the server refuses gives an error, and the email stays in its folder", async () => {
   let { inbox, archive } = newAccount(["eaaaaab"]);
   let email = newEMail(inbox, "eaaaaab");
 
   await expect(archive.moveMessagesHere(new ArrayColl([email]))).rejects.toThrow("not allowed");
+
+  // Still in the Inbox, and the counts didn't change
+  expect(inbox.messages.contents).toContain(email);
+  expect(inbox.countTotal).toBe(5);
+  expect(archive.countTotal).toBe(3);
 });
