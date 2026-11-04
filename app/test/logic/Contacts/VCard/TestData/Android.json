@@ -20,13 +20,13 @@
     {
       "preference": 100,
       "protocol": "tel",
-      "purpose": "other",
+      "purpose": "mobile",
       "value": "+1-555-111-111"
     },
     {
       "preference": 100,
       "protocol": "tel",
-      "purpose": "other",
+      "purpose": "mobile",
       "value": "+1-555-888-888"
     },
     {
