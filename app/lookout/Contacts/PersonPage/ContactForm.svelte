@@ -88,7 +88,8 @@
             <SlotField slots={emailSlots} bind:slot={emailSlot} entries={emailAddresses} type="email" />
             <label for="contact-web">{$t`Web page address`}</label>
             <input id="contact-web" type="url" class="lo-text-field"
-              value={$urls && firstValue(urls)} on:input={event => setFirstValue(urls, event.currentTarget.value, null)} />
+              value={$urls && firstValue(urls)} on:input={event => setFirstValue(urls, event.currentTarget.value, null)}
+              on:change={onWebPageChange} />
             <label for="contact-im">{$t`IM address`}</label>
             <input id="contact-im" type="text" class="lo-text-field"
               value={$chatAccounts && firstValue(chatAccounts)} on:input={event => setFirstValue(chatAccounts, event.currentTarget.value, "xmpp")} />
@@ -160,6 +161,7 @@
   import { newPerson } from "../../../frontend/Contacts/Person/Selected";
   import { catchErrors } from "../../../frontend/Util/error";
   import { getOSName } from "../../../frontend/Util/util";
+  import { urlWithScheme } from "../../../logic/util/netUtil";
   import Ribbon from "../../Shared/Ribbon/Ribbon.svelte";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
@@ -231,6 +233,11 @@
 
   function firstValue(entries: ArrayColl<ContactEntry>): string {
     return entries.first?.value ?? "";
+  }
+
+  function onWebPageChange(event: Event & { currentTarget: HTMLInputElement }) {
+    event.currentTarget.value = urlWithScheme(event.currentTarget.value.trim());
+    setFirstValue(urls, event.currentTarget.value, null);
   }
 
   function setFirstValue(entries: ArrayColl<ContactEntry>, value: string, protocol: string | null) {

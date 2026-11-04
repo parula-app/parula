@@ -63,7 +63,7 @@
           {/each}
           {#each $urls.each as entry}
             <CardField icon={WebsiteIcon} label={entryLabel(entry, $t`Website`)} copyValue={entry.value}>
-              <a class="link" href={entry.value} target="_blank">{entry.value}</a>
+              <a class="link" href={urlWithScheme(entry.value)} target="_blank">{entry.value}</a>
             </CardField>
           {/each}
           {#each $streetAddresses.each as entry}
@@ -151,6 +151,7 @@
   import CardButton from "./CardButton.svelte";
   import NewEventCalendarMenu from "../../Calendar/NewEventCalendarMenu.svelte";
   import { shownCalendars } from "../../../frontend/Calendar/selected";
+  import { urlWithScheme } from "../../../logic/util/netUtil";
   import MailIcon from "lucide-svelte/icons/mail";
   import MeetingIcon from "lucide-svelte/icons/calendar-plus";
   import CallIcon from "lucide-svelte/icons/phone-outgoing";

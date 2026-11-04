@@ -4,6 +4,7 @@ import type { JMAPPerson } from './JMAPPerson';
 import type { TID } from '../../Mail/JMAP/TJMAPGeneric';
 import { sanitize } from '../../../../lib/util/sanitizeDatatypes';
 import { assert, ensureArray, randomID } from '../../util/util';
+import { urlWithScheme } from '../../util/netUtil';
 import type { ArrayColl } from 'svelte-collections';
 
 export class JSContact {
@@ -30,8 +31,12 @@ export class JSContact {
       sanitize.nonemptystring(e.uri ?? e.user, null),
       null, e.service));
     JSContact.toContactEntries(person.urls, jscontact.links, e => {
-      let url = sanitize.url(e.uri, null, ["https", "http", "mailto", "tel", "fax"]); // ["*"] ?
-      return new ContactEntry(url, null, url ? new URL(url).protocol.slice(0, -1) : null);
+      let uri = sanitize.nonemptystring(e.uri, null);
+      if (uri && urlWithScheme(uri) != uri) { // A website without https://, which the UI adds
+        return new ContactEntry(uri, null, null);
+      }
+      let url = sanitize.url(uri, null, ["https", "http", "mailto", "tel", "fax"]); // ["*"] ?
+      return new ContactEntry(url, null, url ? url.slice(0, url.indexOf(":")) : null);
     });
 
     person.picture = sanitize.url(jscontact.media?.avatar?.uri, null, ["https", "data", "blob"]);
