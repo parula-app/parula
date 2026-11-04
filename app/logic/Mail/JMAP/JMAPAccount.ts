@@ -608,8 +608,7 @@ export class JMAPAccount extends MailAccount {
   }
 
   async send(email: EMail): Promise<void> {
-    let outboxFolder = this.getSpecialFolder(SpecialFolder.Outbox) ??
-      this.getSpecialFolder(SpecialFolder.Drafts);
+    let outboxFolder = this.getSpecialFolder(SpecialFolder.Drafts);
     let sentFolder = email.folder ??
       this.getSpecialFolder(SpecialFolder.Sent);
 
