@@ -18,7 +18,6 @@ import type { OWACalendar } from "../../Calendar/OWA/OWACalendar";
 import { OWARequest } from "./Request/OWARequest";
 import { OWACreateItemRequest } from "./Request/OWACreateItemRequest";
 import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
-import { OWASubscribeToNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
 import { owaCreateNewTopLevelFolderRequest, owaFindFoldersRequest, owaSharedFolderRequest } from "./Request/OWAFolderRequests";
 import { OWACalendarShortcut } from "../../Calendar/OWA/OWACalendarShortcut";
 import { OWALoginBackground } from "./Login/OWALoginBackground";
@@ -207,8 +206,6 @@ export class OWAAccount extends ExchangeMailAccount {
             !appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new OWAGAL(this));
         }
-
-        await this.callOWA(new OWASubscribeToNotificationRequest());
 
         this.notifications = this.provider() == Provider.Office365
           ? new OWAOffice365Notifications(this)

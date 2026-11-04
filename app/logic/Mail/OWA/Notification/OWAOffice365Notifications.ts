@@ -1,107 +1,120 @@
 import { OWANotifications } from "./OWANotifications";
+import { OWASubscribeToNotificationRequest } from "../Request/OWASubscribeToNotificationRequest";
 import { EventDecoder } from "../../../util/eventSource";
-import { sleep } from "../../../util/util";
+import { ensureArray, sleep } from "../../../util/util";
 import { URLPart } from "../../../util/blob";
+import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 
+/** SignalR v2, see <https://github.com/dotnet/aspnetcore/tree/main/src/SignalR/docs/specs> */
 export class OWAOffice365Notifications extends OWANotifications {
+  static readonly kRecordSeparator = "\x1e";
+
   async start(): Promise<never> {
+    const kMinConnectionSeconds = 60;
     let cid = "00000000-0000-0000-0000-000000000000".replace(/0/g, () => Math.floor(Math.random() * 16).toString(16));
-    let json: any;
-    let timerOptions: { headers: { Authorization: string } };
-    let pingTimer;
-    let abortTimer;
-    try {
-      // This loop only ends by exception (e.g. logout) or app shutdown.
-      while (true) {
-        // The ping, abort and stream requests use this access token.
-        let request = new OWAGetAccessTokenforResourceRequest(this.account.url + "notificationchannel/");
-        let response = await this.account.callOWA(request);
-        timerOptions = {
-          headers: {
-            Authorization: `Bearer ${response.AccessToken}`,
-          },
-        };
-        // Streaming requests require additional headers.
-        let streamOptions = {
-          headers: {
-            Accept: "text/event-stream",
-            "Cache-Control": "no-cache",
-            "Last-Event-ID": "null", // TODO Will be needed for reconnection
-            Authorization: `Bearer ${response.AccessToken}`,
-          },
-        };
-        // Negotiate and start requests use the main access token.
-        let options = {
-          headers: {
-            Authorization: this.account.authorizationHeader,
-          },
-        };
-        // The remaining requests require a connection token.
-        // This request also gives us the transport and keep alive timeouts.
-        let url = this.account.url + "notificationchannel/negotiate?cid=" + cid;
-        response = await fetch(url, options);
-        if (!response.ok) {
-          let allowed = response.headers.get("Allow");
-          throw new Error(`negotiate failed with HTTP ${response.status} ${response.statusText}` +
-            (allowed ? `, server allows ${allowed}` : ""));
-        }
-        json = await response.json();
-        // Tell the server to start sending events.
-        url = this.account.url + URLPart`notificationchannel/start?transport=serverSentEvents&cid=${cid}&connectionToken=${json.ConnectionToken}`;
-        response = await fetch(url, options);
-        //console.log("response", response.ok ? "OK" : "Failed", "status", response.status, "statusText", response.statusText, "response obj", response);
-        if (!response.ok) {
-          throw new Error(`start failed with HTTP ${response.status} ${response.statusText}`);
-        }
-        // We have to request a ping every 5 minutes,
-        // otherwise we stop receiving events.
-        url = this.account.url + URLPart`notificationchannel/ping?transport=serverSentEvents&cid=${cid}&connectionToken=${json.ConnectionToken}`;
-        pingTimer = setInterval(fetch, (json.TransportConnectTimeout || 5) * 60 * 1000, url, timerOptions);
-        // We have to abort the stream after 40 minutes,
-        // because the access token will expire eventually.
-        url = this.account.url + URLPart`notificationchannel/abort?transport=serverSentEvents&cid=${cid}&connectionToken=${json.ConnectionToken}`;
-        abortTimer = setTimeout(fetch, (json.KeepAliveTimeout || 40) * 60 * 1000, url, timerOptions);
-        // Now set up the stream itself.
-        url = this.account.url + URLPart`notificationchannel/connect?transport=serverSentEvents&cid=${cid}&connectionToken=${json.ConnectionToken}`;
-        let stream = await fetch(url, streamOptions);
-        //console.log("stream", stream.ok ? "OK" : "Failed", "status", stream.status, "statusText", stream.statusText, "stream obj", stream);
-        if (!stream.ok) {
-          throw new Error(`stream fetch failed with HTTP ${stream.status} ${stream.statusText}`);
-        }
-        let eventStream = stream.body.pipeThrough(new TextDecoderStream()).pipeThrough(new TransformStream(new EventDecoder()));
-        for await (let event of eventStream) {
-          // Ignore the initial event and any heartbeat events
-          if (event.data == "initialized" || event.data == "{}") {
-            continue;
-          }
-          await sleep(0.1); // Avoid racing with ourselves, if we caused the notification
-          let json = JSON.parse(event.data);
-          await this.account.onNotificationMessages(json.M);
-        }
-        clearInterval(pingTimer);
-        clearTimeout(abortTimer);
-      }
-    } finally {
-      clearInterval(pingTimer);
-      clearTimeout(abortTimer);
-      if (json?.ConnectionToken) {
-        let url = this.account.url + URLPart`notificationchannel/abort?transport=serverSentEvents&cid=${cid}&connectionToken=${json.ConnectionToken}`;
-        await fetch(url, timerOptions);
+    // This loop only ends by exception (e.g. logout) or app shutdown.
+    while (true) {
+      let started = Date.now();
+      await this.connect(cid);
+      if (Date.now() - started < kMinConnectionSeconds * 1000) {
+        throw new Error("Office 365 ended the notification channel right after it opened");
       }
     }
   }
-}
 
-class OWAGetAccessTokenforResourceRequest {
-  /* This request doesn't have the header and body that most requests have. */
-  readonly __type = "TokenRequest:#Exchange";
-  readonly Resource: string;
+  /** Returns when the server ended the connection */
+  protected async connect(cid: string): Promise<void> {
+    let hubURL = this.account.url + "notificationchannel";
+    let negotiate = await fetch(hubURL + URLPart`/negotiate?negotiateVersion=1&cid=${cid}`, {
+      method: "POST",
+      headers: {
+        Authorization: this.account.authorizationHeader,
+        "Content-Type": "text/plain;charset=UTF-8",
+      },
+    });
+    if (!negotiate.ok) {
+      let allowed = negotiate.headers.get("Allow");
+      throw new Error(`negotiate failed with HTTP ${negotiate.status} ${negotiate.statusText}` +
+        (allowed ? `, server allows ${allowed}` : ""));
+    }
+    let json = await negotiate.json();
+    if (json.error) {
+      throw new Error("Office 365 refused the notification channel: " + sanitize.label(json.error, ""));
+    }
+    if (!ensureArray(json.availableTransports).some(available => available?.transport == "ServerSentEvents")) {
+      throw new Error("Office 365 doesn't offer server-sent events for notifications");
+    }
+    let connectionURL = hubURL + URLPart`?id=${sanitize.nonemptystring(json.connectionToken ?? json.connectionId)}&cid=${cid}`;
 
-  constructor(url: string) {
-    this.Resource = url;
+    let connection = new AbortController();
+    let pingTimer: ReturnType<typeof setInterval>;
+    try {
+      let stream = await fetch(connectionURL, {
+        headers: {
+          Authorization: this.account.authorizationHeader,
+          Accept: "text/event-stream",
+          "Cache-Control": "no-cache",
+        },
+        signal: connection.signal,
+      });
+      if (!stream.ok) {
+        throw new Error(`stream fetch failed with HTTP ${stream.status} ${stream.statusText}`);
+      }
+      await this.send(connectionURL, { protocol: "json", version: 1 });
+      // Office 365 closes the connection when we didn't send anything for 5 minutes.
+      pingTimer = setInterval(() => {
+        this.send(connectionURL, { type: 6 })
+          .catch(ex => connection.abort(ex));
+      }, 60 * 1000);
+      let handshakeDone = false;
+      let eventStream = stream.body.pipeThrough(new TextDecoderStream()).pipeThrough(new TransformStream(new EventDecoder()));
+      for await (let event of eventStream) {
+        for (let record of event.data.split(OWAOffice365Notifications.kRecordSeparator)) {
+          if (!record) {
+            continue;
+          }
+          let message = JSON.parse(record);
+          if (!handshakeDone) {
+            if (message.error) {
+              throw new Error("Office 365 refused the notification handshake: " + sanitize.label(message.error, ""));
+            }
+            handshakeDone = true;
+          } else if (message.type == 1) { // Invocation
+            let notifications = ensureArray(message.arguments).map(argument => ensureArray(argument));
+            // Subscriptions apply only to the connections that are ready at that time
+            if (notifications.flat().some(notification => notification?.id == "ChannelReady")) {
+              await this.account.callOWA(new OWASubscribeToNotificationRequest());
+            }
+            await sleep(0.1); // Avoid racing with ourselves, if we caused the notification
+            await this.account.onNotificationMessages(notifications);
+          } else if (message.type == 7) { // Close
+            if (message.error && !message.allowReconnect) {
+              throw new Error("Office 365 closed the notification channel: " + sanitize.label(message.error, ""));
+            }
+            return;
+          }
+        }
+      }
+    } catch (ex) {
+      throw connection.signal.reason ?? ex;
+    } finally {
+      clearInterval(pingTimer);
+      connection.abort();
+    }
   }
 
-  get action() {
-    return "GetAccessTokenforResource";
+  protected async send(connectionURL: string, message: Record<string, any>): Promise<void> {
+    let response = await fetch(connectionURL, {
+      method: "POST",
+      headers: {
+        Authorization: this.account.authorizationHeader,
+        "Content-Type": "text/plain;charset=UTF-8",
+      },
+      body: JSON.stringify(message) + OWAOffice365Notifications.kRecordSeparator,
+    });
+    // 409: Our previous message is still being sent. The connection stays open.
+    if (!response.ok && response.status != 409) {
+      throw new Error(`notification send failed with HTTP ${response.status} ${response.statusText}`);
+    }
   }
 }
