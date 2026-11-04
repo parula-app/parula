@@ -373,7 +373,7 @@ export class JSCalendarEvent {
     delete occurrence.recurrenceOverrides;
     occurrence.start = recurrenceID;
     for (let [path, value] of Object.entries(override)) {
-      let keys = path.split("/").map(key => key.replaceAll("~1", "/").replaceAll("~0", "~"));
+      let keys = this.pointerKeys(path);
       let last = keys.pop();
       let parent = occurrence as Record<string, any>;
       for (let key of keys) {
@@ -390,6 +390,13 @@ export class JSCalendarEvent {
       }
     }
     return occurrence;
+  }
+
+  /** The keys of a JSON Pointer, e.g. `participants/<id>/participationStatus` (RFC 6901).
+   * A key escapes "/" as "~1" and "~" as "~0", the only two characters that a pointer reserves.
+   * "~1" first, so that "~01" becomes "~1", not "/". */
+  protected static pointerKeys(pointer: string): string[] {
+    return pointer.split("/").map(key => key.replaceAll("~1", "/").replaceAll("~0", "~"));
   }
 }
 

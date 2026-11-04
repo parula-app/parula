@@ -133,11 +133,12 @@ test("A changed occurrence is a valid patch", async () => {
 test("A patch path with an escaped / or ~ applies to that key", () => {
   let json = series();
   json.keywords = { "a/b": true, "c~d": true };
-  let override = { "keywords/a~1b": null, "keywords/c~0d": null, "keywords/e~1f~0g": true } as any as TJMAPCalendarEvent;
+  // RFC 6901 §4: "~01" is an escaped "~" followed by "1", so the key is "h~1", not "h/"
+  let override = { "keywords/a~1b": null, "keywords/c~0d": null, "keywords/e~1f~0g": true, "keywords/h~01": true } as any as TJMAPCalendarEvent;
 
   let occurrence = JSCalendarEvent.applyOverride(json, "2026-11-09T10:00:00", override);
 
-  expect(Object.keys(occurrence.keywords)).toEqual(["e/f~g"]);
+  expect(Object.keys(occurrence.keywords).sort()).toEqual(["e/f~g", "h~1"]);
 });
 
 test("A patch path through a property that the series doesn't have is not applied", () => {
