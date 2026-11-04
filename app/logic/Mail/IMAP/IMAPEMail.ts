@@ -171,6 +171,7 @@ export class IMAPEMail extends EMail {
   async markSpam(spam = true) {
     await super.markSpam(spam);
     await this.setFlagServer("$Junk", spam);
+    await this.setFlagServer("$NotJunk", !spam);
   }
 
   async markReplied() {
