@@ -18,6 +18,7 @@ import type { OWACalendar } from "../../Calendar/OWA/OWACalendar";
 import { OWARequest } from "./Request/OWARequest";
 import { OWACreateItemRequest } from "./Request/OWACreateItemRequest";
 import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
+import { OWADeleteItemRequest } from "./Request/OWADeleteItemRequest";
 import { OWASubscribeToNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
 import { owaCreateNewTopLevelFolderRequest, owaFindFoldersRequest, owaSharedFolderRequest } from "./Request/OWAFolderRequests";
 import { OWACalendarShortcut } from "../../Calendar/OWA/OWACalendarShortcut";
@@ -310,7 +311,22 @@ export class OWAAccount extends ExchangeMailAccount {
     request.addField("Message", "From", { Mailbox: { Name: email.from.name, EmailAddress: email.from.emailAddress } }, "message:From");
     let response = await this.callOWA(request);
     if (request.Body.MessageDisposition == "SaveOnly") {
-      await this.addAttachmentsAndSend(email, folder, response.Items[0].ItemId.Id);
+      let itemID = sanitize.nonemptystring(response.Items[0].ItemId.Id);
+      try {
+        await this.addAttachmentsAndSend(email, folder, itemID);
+      } catch (ex) {
+        await this.deleteUnsentEMail(itemID);
+        throw ex;
+      }
+    }
+  }
+
+  /** The copy in Drafts that `send()` created for adding the attachments, when the server refused to send it */
+  protected async deleteUnsentEMail(itemID: string) {
+    try {
+      await this.callOWA(new OWADeleteItemRequest(itemID, { DeleteType: "HardDelete" }));
+    } catch (ex) {
+      this.errorCallback(ex);
     }
   }
 
