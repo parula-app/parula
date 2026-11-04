@@ -110,7 +110,7 @@ export class JMAPCalendar extends Calendar {
             accountId: this.account.accountID,
             filter: {
               inCalendar: this.jmapID,
-              after: after.toISOString().substring(0, 19) + "Z",
+              after: after.toISOString().substring(0, 19), // defaults to UTC
             },
             sort: [
               { property: "start", isAscending: false }
