@@ -96,7 +96,7 @@ export class JMAPCalendar extends Calendar {
             accountId: this.account.accountID,
             filter: {
               inCalendar: this.jmapID,
-              after: after.toISOString().substring(0, 19), // LocalDateTime in UTC, the default `timeZone`
+              after: after.toISOString().substring(0, 19), // defaults to UTC
             },
             sort: [
               { property: "start", isAscending: false }
