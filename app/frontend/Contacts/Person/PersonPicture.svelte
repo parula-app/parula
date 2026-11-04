@@ -1,4 +1,4 @@
-<vbox class="avatar" style="width: {size}px; height: {size}px;">
+<vbox class="avatar" style="width: var(--person-picture-size, {size}px); height: var(--person-picture-size, {size}px);">
   {#if picture}
     <img
       src={picture}
@@ -43,6 +43,10 @@
     height: 100%;
     border: 1px solid var(--border);
     border-radius: 1000px;
+  }
+  .avatar img {
+    width: 100%;
+    height: 100%;
   }
   .avatar .broken-image {
     visibility: hidden;

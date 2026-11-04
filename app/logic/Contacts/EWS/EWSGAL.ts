@@ -1,10 +1,12 @@
-import { SearchOnlyAddressbook } from "../Addressbook";
+import { ExchangeGAL } from "./ExchangeGAL";
 import { EWSPerson } from "./EWSPerson";
 import type { EWSAccount } from "../../Mail/EWS/EWSAccount";
+import type { PublicKey } from "../../Mail/Encryption/PublicKey";
+import { readDirectoryCertificates } from "../../Mail/Encryption/SMIME/SMIMEDirectory";
 import { ensureArray, NotReached } from "../../util/util";
-import type { ArrayColl } from "svelte-collections";
+import { ArrayColl, type Collection } from "svelte-collections";
 
-export class EWSGAL extends SearchOnlyAddressbook {
+export class EWSGAL extends ExchangeGAL {
   readonly protocol: string = "gal-ews";
   account: EWSAccount;
 
@@ -21,23 +23,14 @@ export class EWSGAL extends SearchOnlyAddressbook {
     throw new NotReached();
   }
 
-  /** Searches only the names: an `smtp:` search would find the secondary email
-   * addresses, too, but it costs a second server call for every keystroke. */
-  async quickSearchAsync(searchTerm: string, results: ArrayColl<EWSPerson>) {
-    await this.resolveNames(searchTerm, results);
-  }
-
-  /** Searches the Global Address List (GAL) and adds the persons found to `results`.
-   * @param searchTerm Exchange matches the start of
-   *   first name, last name, display name, alias, office, and primary email address.
-   *   With an `smtp:` prefix, it matches the start of email addresses instead. */
-  protected async resolveNames(searchTerm: string, results: ArrayColl<EWSPerson>) {
+  protected async searchGAL(searchTerm: string): Promise<ArrayColl<EWSPerson>> {
     let query = {
       m$ResolveNames: {
         m$UnresolvedEntry: searchTerm,
         ReturnFullContactData: true,
       },
     };
+    let persons = new ArrayColl<EWSPerson>();
     try {
       let response = await this.account.callEWS(query);
       for (let resolution of ensureArray(response.ResolutionSet?.Resolution)) {
@@ -47,18 +40,41 @@ export class EWSGAL extends SearchOnlyAddressbook {
         resolution.Contact.EmailAddresses = { Entry: convertEmailAddresses(ensureArray(resolution.Contact.EmailAddresses?.Entry), resolution.Mailbox) };
         let person = this.newPerson();
         person.fromXML(resolution.Contact);
-        // Dedup
-        if (results.find(existing => existing.name == person.name &&
-            existing.emailAddresses.first?.value == person.emailAddresses.first?.value)) {
-          continue;
-        }
-        results.add(person);
+        persons.add(person);
       }
     } catch (ex) {
       // This error is expected.
       if (ex.type != "ErrorNameResolutionNoResults") {
         throw ex;
       }
+    }
+    return persons;
+  }
+
+  /** The search uses the default property set, which has no certificates */
+  protected async requestEncryptionKeys(emailAddress: string): Promise<Collection<PublicKey>> {
+    let query = {
+      m$ResolveNames: {
+        m$UnresolvedEntry: "smtp:" + emailAddress,
+        ReturnFullContactData: true,
+        ContactDataShape: "AllProperties",
+      },
+    };
+    try {
+      let response = await this.account.callEWS(query);
+      let resolution = ensureArray(response.ResolutionSet?.Resolution).find(candidate =>
+        candidate.Mailbox?.EmailAddress?.toLowerCase() == emailAddress.toLowerCase());
+      // `UserSMIMECertificate` and `MSExchangeCertificate` are the AD
+      // attributes `userSMIMECertificate` and `userCertificate`, resp.
+      return await readDirectoryCertificates(
+        ensureArray(resolution?.Contact?.UserSMIMECertificate?.Base64Binary),
+        ensureArray(resolution?.Contact?.MSExchangeCertificate?.Base64Binary),
+        this.errorCallback);
+    } catch (ex) {
+      if (ex.type != "ErrorNameResolutionNoResults") { // this error is expected
+        this.errorCallback(ex);
+      }
+      return new ArrayColl<PublicKey>();
     }
   }
 }

@@ -1,5 +1,6 @@
 import { Calendar } from "../Calendar";
 import type { Participant } from "../Participant";
+import type { FreeBusyEvent } from "../FreeBusyEvent";
 import { CalDAVEvent } from "./CalDAVEvent";
 import { AuthMethod, type Account } from "../../Abstract/Account";
 import { OAuth2 } from "../../Auth/OAuth2";
@@ -90,7 +91,7 @@ export class CalDAVCalendar extends Calendar {
     return davAB;
   };
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: { from: Date, to: Date, free: boolean }[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
     return [];
   }
 

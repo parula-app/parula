@@ -21,7 +21,8 @@
   .settings-categories-pane {
     background-color: var(--leftbar-bg);
     color: var(--leftbar-fg);
-    box-shadow: 1px 0px 3px 0px rgba(22, 12, 39, 20%); /* #160C27 */
+    box-shadow: var(--left-pane-shadow, 1px 0px 3px 0px rgba(22, 12, 39, 20%)); /* #160C27 */
+    margin: var(--pane-margin);
     padding-block-start: 24px;
     z-index: 4;
   }

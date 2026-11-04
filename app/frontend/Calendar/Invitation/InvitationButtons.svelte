@@ -15,10 +15,25 @@
         icon={DeclineIcon}
         classes="decline font-normal" />
       <MenuItem
+        label={$t`Change to Reject silently *=> not attend the meeting, without sending a reply to the organizer`}
+        onClick={onDeclineWithoutReply}
+        icon={DeclineIcon}
+        classes="decline font-normal" />
+      <MenuItem
         label={$t`Change to Maybe *=> Maybe attend the meeting`}
         onClick={onTentative}
         icon={MaybeIcon}
         classes="maybe font-normal" />
+      <MenuItem
+        label={$t`Reply to organizer`}
+        onClick={onReplyToOrganizer}
+        icon={ReplyIcon}
+        classes="reply font-normal" />
+      <MenuItem
+        label={$t`Reply to all attendees`}
+        onClick={onReplyToAll}
+        icon={ReplyAllIcon}
+        classes="reply-all font-normal" />
       <MenuItem
         label={$t`Invite other people`}
         onClick={onForward}
@@ -39,10 +54,25 @@
         icon={AcceptIcon}
         classes="accept font-normal" />
       <MenuItem
+        label={$t`Change to Accept silently *=> attend the meeting, without sending a reply to the organizer`}
+        onClick={onAcceptWithoutReply}
+        icon={AcceptIcon}
+        classes="accept font-normal" />
+      <MenuItem
         label={$t`Change to Maybe *=> Maybe attend the meeting`}
         onClick={onTentative}
         icon={MaybeIcon}
         classes="maybe font-normal" />
+      <MenuItem
+        label={$t`Reply to organizer`}
+        onClick={onReplyToOrganizer}
+        icon={ReplyIcon}
+        classes="reply font-normal" />
+      <MenuItem
+        label={$t`Reply to all attendees`}
+        onClick={onReplyToAll}
+        icon={ReplyAllIcon}
+        classes="reply-all font-normal" />
       <MenuItem
         label={$t`Invite other people`}
         onClick={onForward}
@@ -62,10 +92,30 @@
       classes="decline secondary font-normal" />
     <ButtonMenu buttonIcon={ChevronDownIcon}>
       <MenuItem
+        label={$t`Confirm silently *=> Add the meeting invitation to my calendar without sending a reply to the organizer`}
+        onClick={onAcceptWithoutReply}
+        icon={AcceptIcon}
+        classes="accept font-normal" />
+      <MenuItem
+        label={$t`Reject silently *=> Decline the meeting invitation without sending a reply to the organizer`}
+        onClick={onDeclineWithoutReply}
+        icon={DeclineIcon}
+        classes="decline font-normal" />
+      <MenuItem
         label={$t`Maybe *=> Maybe attend the meeting`}
         onClick={onTentative}
         icon={MaybeIcon}
         classes="maybe font-normal" />
+      <MenuItem
+        label={$t`Reply to organizer`}
+        onClick={onReplyToOrganizer}
+        icon={ReplyIcon}
+        classes="reply font-normal" />
+      <MenuItem
+        label={$t`Reply to all attendees`}
+        onClick={onReplyToAll}
+        icon={ReplyAllIcon}
+        classes="reply-all font-normal" />
       <MenuItem
         label={$t`Invite other people`}
         onClick={onForward}
@@ -79,7 +129,6 @@
   import { Event } from "../../../logic/Calendar/Event";
   import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
   import { InvitationResponse, type InvitationResponseInMessage } from "../../../logic/Calendar/Invitation/InvitationStatus";
-  import { OutgoingInvitation } from "../../../logic/Calendar/Invitation/OutgoingInvitation";
   import type { EMail } from "../../../logic/Mail/EMail";
   import { openEvent } from "../open";
   import { openComposer } from "../../Mail/open";
@@ -90,6 +139,8 @@
   import DeclineIcon from "lucide-svelte/icons/x";
   import MaybeIcon from "lucide-svelte/icons/circle-help";
   import ForwardIcon from "lucide-svelte/icons/forward";
+  import ReplyIcon from "lucide-svelte/icons/reply";
+  import ReplyAllIcon from "lucide-svelte/icons/reply-all";
   import ChevronDownIcon from "lucide-svelte/icons/chevron-down";
   import { NotReached } from "../../../logic/util/util";
   import { t } from "../../../l10n/l10n";
@@ -97,14 +148,14 @@
   export let myParticipation: InvitationResponse = InvitationResponse.NoResponseReceived;
   export let invitation: IncomingInvitation | Event;
 
-  async function respond(response: InvitationResponseInMessage) {
+  async function respond(response: InvitationResponseInMessage, sendReply = true) {
     //console.log("respond", invitation)
     myParticipation = response;
     if (invitation instanceof Event) {
-      await invitation.respondToInvitation(response);
+      await invitation.respondToInvitation(response, sendReply);
       // Exchange responds and then drops the declined occurrence, so don't save it back
     } else if (invitation instanceof IncomingInvitation) {
-      await invitation.respondToInvitationFromMail(response);
+      await invitation.respondToInvitationFromMail(response, sendReply);
     } else {
       throw new NotReached();
     }
@@ -118,6 +169,12 @@
   }
   async function onDecline() {
     await respond(InvitationResponse.Decline);
+  }
+  async function onAcceptWithoutReply() {
+    await respond(InvitationResponse.Accept, false);
+  }
+  async function onDeclineWithoutReply() {
+    await respond(InvitationResponse.Decline, false);
   }
 
   async function onOpenInCalendar() {
@@ -136,12 +193,32 @@
     openEvent(calEvent);
   }
 
+  function onReplyToOrganizer() {
+    let mail: EMail;
+    if (invitation instanceof IncomingInvitation) {
+      mail = invitation.message.compose.replyToAuthor();
+    } else if (invitation instanceof Event) {
+      mail = IncomingInvitation.replyToEventByMail(invitation, false);
+    }
+    openComposer(mail);
+  }
+
+  function onReplyToAll() {
+    let mail: EMail;
+    if (invitation instanceof IncomingInvitation) {
+      mail = invitation.message.compose.replyAll();
+    } else if (invitation instanceof Event) {
+      mail = IncomingInvitation.replyToEventByMail(invitation, true);
+    }
+    openComposer(mail);
+  }
+
   async function onForward() {
     let mail: EMail;
     if (invitation instanceof IncomingInvitation) {
       mail = await invitation.message.compose.forward();
     } else if (invitation instanceof Event) {
-      mail = await OutgoingInvitation.forwardEventByMail(invitation);
+      mail = await IncomingInvitation.forwardEventByMail(invitation);
     }
     openComposer(mail);
   }
@@ -168,12 +245,16 @@
     color: #1B8022;
     background-color: #AAE3D2;
   }
-  .buttons :global(button.accept) {
+  .buttons :global(button.accept:not(.menuitem)),
+  .buttons :global(button.menuitem.accept .icon) {
     color: #1B8022;
   }
-  .buttons :global(button.decline) {
+  .buttons :global(button.decline:not(.menuitem)) {
     color: #FE1B1B;
     border-color: #F69FA1;
+  }
+  .buttons :global(button.menuitem.decline .icon) {
+    color: #FE1B1B;
   }
   .buttons :global(button.accept.done) {
     color: white;

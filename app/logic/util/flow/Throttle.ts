@@ -1,4 +1,4 @@
-import { sleep } from "../util";
+import { sleep, waitTime } from "../util";
 
 /**
  * Limits the number of tasks per second.
@@ -25,7 +25,7 @@ export class Throttle {
     let waitFor = nextTime - now;
     if (waitFor > 0) {
       console.log(`Throttling for ${waitFor}ms because there were ${this.nextTime.length} connections in the last ${this.perSecond} second`);
-      await sleep(waitFor / 1000);
+      await sleep(waitFor / 1000 * waitTime.factor); // tests wait less
     }
   }
 

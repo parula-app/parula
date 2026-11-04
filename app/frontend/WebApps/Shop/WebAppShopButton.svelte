@@ -26,17 +26,10 @@
           {#each $instances.each as iapp, i}
             <hbox class="instance">
               {#if iapp.account}
-                <RoundButton
-                  label={iapp.account.name}
-                  icon={iapp.account.icon}
-                  classes="account plain" border={false}
-                  />
                 <hbox class="account-name" flex>
                   {iapp.account.name}
                 </hbox>
               {:else}
-                <RoundButton label="" icon={CircleIcon} disabled border={false}
-                  classes="no-account plain" />
                 <hbox class="account-name" flex>
                   {iapp.nameTranslated?.split(" ").pop() + " " + i}
                 </hbox>

@@ -146,3 +146,42 @@ test("An empty calendar needs only one call", async () => {
   expect(calendar.events.length).toBe(0);
   expect(requestedLimits.length).toBe(1);
 });
+
+/** A buggy or hostile server, which always returns a full page of 1 event */
+function setupEndless(samePage: boolean) {
+  let { calendar } = setup([]);
+  let errors: Error[] = [];
+  calendar.errorCallback = ex => errors.push(ex);
+  let queries = 0;
+  calendar.account.makeCombinedCall = async (calls: [string, Record<string, any>, string?][]) => {
+    queries++;
+    let [event] = serverEvents(1);
+    if (!samePage) {
+      event.id = "event" + queries;
+    }
+    return {
+      list: { accountId: "jmapAccount", queryState: "queryState", ids: [event.id], position: 0, limit: 1, canCalculateChanges: true },
+      events: { accountId: "jmapAccount", state: "eventState", list: [event], notFound: [] },
+    };
+  };
+  return { calendar, errors, queries: () => queries };
+}
+
+test("Listing stops when the server returns the same page again", async () => {
+  let { calendar, errors, queries } = setupEndless(true);
+
+  await (calendar as any).listAllEvents();
+
+  expect(queries()).toBeLessThan(10);
+  expect(errors.length).toBe(1);
+  expect(calendar.events.length).toBe(1);
+});
+
+test("Listing stops after a maximum number of rounds, when the server always returns more", async () => {
+  let { calendar, errors, queries } = setupEndless(false);
+
+  await (calendar as any).listAllEvents();
+
+  expect(queries()).toBeLessThanOrEqual(10000); // More than any real calendar needs
+  expect(errors.length).toBe(1);
+});

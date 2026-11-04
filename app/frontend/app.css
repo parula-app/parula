@@ -57,6 +57,28 @@
   --button-secondary-line: #A1E4DA;
   --shadow-color: 22, 12, 39; /* #160C27 */
   --border-radius: 5px;
+  --island-radius: 1000px;
+  --island-overlap: -6px;
+  --button-radius: 1000px;
+  --button-padding: 6px 8px;
+  --button-label-padding: 0;
+  --button-min-height: auto;
+  --button-filled-border: var(--button-border);
+  --button-filled-hover-bg: var(--hover-bg);
+  --button-filled-hover-fg: var(--hover-fg);
+  --search-field-radius: 100px;
+  --search-field-bg: field;
+  --group-box-border: 1px solid var(--border);
+  --group-box-margin-top: 24px;
+  --group-box-radius: 6px;
+  --group-box-header-bg: var(--headerbar-bg);
+  --group-box-header-border: 1px solid var(--border);
+  --group-box-header-padding: 12px 20px;
+  --group-box-header-weight: 500;
+  --group-box-content-padding: 24px 20px 16px 20px;
+  --pane-margin: 0;
+  --pane-radius: 0;
+  --pane-bg: transparent;
   --chat-bubble-incoming-bg: #fdfefe;
   --chat-bubble-incoming-fg: inherit;
   --chat-bubble-outgoing-bg: #CDECE1;

@@ -53,7 +53,6 @@
   .accounts {
     justify-content: start;
     flex-wrap: wrap;
-    margin: 0px 0px 0px 12px;
   }
   .accounts[app="webapps"] {
     margin-block-start: 128px;
@@ -61,7 +60,7 @@
   .header {
     align-items: center;
     color: darkgray;
-    margin-inline-start: 22px;
+    margin-inline-start: 34px;
     margin-inline-end: 12px;
   }
   .header :global(button) {

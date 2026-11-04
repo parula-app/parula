@@ -99,7 +99,9 @@
   export let selectedItem: T = null;
 
   /** When the `selectedItems` are removed from `items`,
-   * select the items which was in their place in the list. */
+   * select the items which was in their place in the list.
+   * When the caller replaces `items` with another list, e.g. a filtered one,
+   * nothing else gets selected. */
   export let ensureSelection = true;
 
   /** Whether the list is scrolled all the way to the top
@@ -316,12 +318,15 @@
   /** If the selected items were removed from the list,
    * adapt the selectedItems and implicitly selectedItem. */
   $: $items && replaceSelectedItem();
+  let previousItems: Collection<T> = null;
   function replaceSelectedItem() {
     // Before the first `selectedItems` change, else the caller misses it. Repeats are no-ops.
     selectedItems.registerObserver(singleSelectionObserver);
     if (!ensureSelection) {
       return;
     }
+    let isSameList = items == previousItems;
+    previousItems = items;
     let wantedItem = selectedItem; // `removeAll()` below clears it
     if (selectedItems.isEmpty) {
       if (items.includes(wantedItem)) { // The caller selected it before the items arrived
@@ -331,7 +336,11 @@
     }
     selectedItems.removeAll(selectedItems.filterOnce(a => !items.includes(a)));
     if (selectedItems.isEmpty) {
-      let newItem = items.includes(wantedItem) ? wantedItem : items.getIndex(lastSelectedIndex) ?? items.first;
+      let newItem = items.includes(wantedItem)
+        ? wantedItem
+        : isSameList
+          ? items.getIndex(lastSelectedIndex) ?? items.first
+          : null;
       if (!newItem) {
         return;
       }

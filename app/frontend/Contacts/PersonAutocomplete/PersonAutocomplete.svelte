@@ -5,7 +5,7 @@
   <Autocomplete
     onChange={person => catchErrors(() => addPerson(person))}
     searchFunction={search}
-    delay={100}
+    delay={200}
     minCharactersToSearch={2}
     localFiltering={false}
     localSorting={false}

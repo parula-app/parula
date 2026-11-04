@@ -31,6 +31,7 @@ export class CreateMIME {
     let iCal = email.event ? await getICal(email.event, email.iCalMethod) : null;
     // <https://nodemailer.com/message/>
     return {
+      messageId: email.messageID ?? undefined,
       subject: email.subject,
       inReplyTo: email.inReplyTo,
       from: CreateMIME.getRecipient(email.from),

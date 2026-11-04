@@ -42,7 +42,9 @@
   export let message: EMail;
 
   let modeSetting = getLocalStorage("mail.contentRendering", "html");
-  $: mode = $modeSetting.value as DisplayMode;
+  // <copied from="DisplayModeSwitcher.svelte">
+  $: mode = $modeSetting.value == DisplayMode.HTML && $message.loadExternalImagesFromSender() ? DisplayMode.HTMLWithExternal : $modeSetting.value as DisplayMode;
+  // </copied>
   $: message.loadExternalImages = mode == DisplayMode.HTMLWithExternal;
 
   function getSource(message: EMail): string {

@@ -17,21 +17,21 @@
 
 <style>
   .group {
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin-block-start: 24px;
+    border: var(--group-box-border);
+    border-radius: var(--group-box-radius);
+    margin-block-start: var(--group-box-margin-top);
   }
   .header {
-    background-color: var(--headerbar-bg);
+    background-color: var(--group-box-header-bg);
     color: var(--headerbar-fg);
-    border-bottom: 1px solid var(--border);
-    padding: 12px 20px;
-    font-weight: 500;
+    border-bottom: var(--group-box-header-border);
+    padding: var(--group-box-header-padding);
+    font-weight: var(--group-box-header-weight);
     align-items: center;
   }
   .content {
     background-color: var(--main-bg);
     color: var(--main-fg);
-    padding: 24px 20px 16px 20px;
+    padding: var(--group-box-content-padding);
   }
 </style>
