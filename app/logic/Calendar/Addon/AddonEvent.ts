@@ -46,7 +46,7 @@ export class AddonEvent extends Event {
       return;
     }
     let parsed = new ICalParser(ical);
-    let vevents = ensureArray(parsed.containers.vevent);
+    let vevents = ensureArray(parsed.containers.vcalendar?.[0].containers.vevent);
     for (let vevent of vevents) {
       let recurrenceID = vevent.entries.recurrenceid?.[0];
       if (!recurrenceID) {

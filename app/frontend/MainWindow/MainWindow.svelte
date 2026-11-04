@@ -90,7 +90,7 @@
   import { assert } from "../../logic/util/util";
   import { getUILocale, t } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
-  import { appName } from "../../logic/build";
+  import { appName, defaultFrontend } from "../../logic/build";
   import { onMount } from "svelte";
   import debounce from "lodash/debounce";
   import { Router } from "svelte-navigator";
@@ -98,7 +98,7 @@
   import { SplashScreen } from '@capacitor/splash-screen';
   // #endif
 
-  const frontendSetting = getLocalStorage("appearance.frontend", "classic");
+  const frontendSetting = getLocalStorage("appearance.frontend", defaultFrontend);
   $: frontend = $frontendSetting.value;
   // For Vite, the import must be in `<script>` to pre-bundle, otherwise "504 Outdated Optimize Dep"
   $: lookoutWindow = frontend == "lookout" ? import("../../lookout/MainWindow/MainWindow.svelte") : null;

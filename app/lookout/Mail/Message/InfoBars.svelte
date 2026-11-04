@@ -47,14 +47,17 @@
     <button class="link" on:click={() => { $contentRendering.value = DisplayMode.HTML; }}>{$t`Display as HTML`}</button>
   </hbox>
 {/if}
-{#if $message.loadedBody && $contentRendering.value == DisplayMode.HTML && hasExternalContent($message.rawHTMLDangerous)}
-  <button type="button" class="info-bar clickable" bind:this={picturesBar}
+{#if $message.loadedBody && ($message.loadExternalImages || $contentRendering.value == DisplayMode.HTML) && hasExternalContent($message.rawHTMLDangerous)}
+  <button type="button" class="info-bar clickable pictures" bind:this={picturesBar}
     aria-haspopup="menu" on:click|stopPropagation={() => { isPicturesMenuOpen = !isPicturesMenuOpen; }}>
-    <PicturesIcon size={16} />
-    <span>{$t`Click here to download pictures. To help protect your privacy, ${appName} prevented automatic download of some pictures in this message.`}</span>
+    <svelte:component this={$message.loadExternalImages ? PicturesIcon : NoPicturesIcon} size={16} />
+    <span>{$message.loadExternalImages
+      ? $t`Pictures are downloaded for all messages from ${$message.from.emailAddress}. The sender can see when you read this message.`
+      : $t`Click here to download pictures. To help protect your privacy, ${appName} prevented automatic download of some pictures in this message.`}</span>
   </button>
   <Menu bind:isMenuOpen={isPicturesMenuOpen} anchor={picturesBar} placement="bottom-start">
-    <MenuItem label={$t`Download Pictures`} icon={DownloadIcon} onClick={onDownloadPictures} />
+    <MenuItem label={$message.loadExternalImages ? $t`Stop Downloading Pictures` : $t`Download Pictures`} icon={DownloadIcon}
+      onClick={() => onDownloadPictures(!$message.loadExternalImages)} />
   </Menu>
 {/if}
 
@@ -74,7 +77,8 @@
   import ImportantIcon from "lucide-svelte/icons/circle-alert";
   import RepliedIcon from "lucide-svelte/icons/reply";
   import ForwardedIcon from "lucide-svelte/icons/forward";
-  import PicturesIcon from "lucide-svelte/icons/image-off";
+  import PicturesIcon from "lucide-svelte/icons/image";
+  import NoPicturesIcon from "lucide-svelte/icons/image-off";
   import PlainTextIcon from "lucide-svelte/icons/file-text";
   import { catchErrors } from "../../../frontend/Util/error";
   import { t } from "../../../l10n/l10n";
@@ -118,8 +122,9 @@
     return kExternalReference.test(html);
   }
 
-  function onDownloadPictures() {
-    $contentRendering.value = DisplayMode.HTMLWithExternal;
+  function onDownloadPictures(download: boolean) {
+    message.setLoadExternalImagesFromSender(download);
+    $contentRendering.value = download ? DisplayMode.HTMLWithExternal : DisplayMode.HTML;
   }
 </script>
 
@@ -165,6 +170,12 @@
     font-family: inherit;
     text-align: start;
     cursor: pointer;
+  }
+  .info-bar.pictures {
+    padding-block: 3px;
+    background-color: transparent;
+    color: var(--lo-fg-secondary);
+    font-size: 12px;
   }
   .info-bar.clickable:hover {
     background-color: var(--lo-hover-bg);

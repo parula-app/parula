@@ -7,6 +7,17 @@ import conditionalCompile from "vite-plugin-conditional-compile";
 import { webMail, isMobile, includeProprietary, production } from './logic/build';
 import { SandboxPage } from './logic/Addons/Sandbox/SandboxPage';
 
+const conditionalCompilePlugin: any = conditionalCompile({ // its types say that it returns an array, but it returns one plugin
+  // <https://github.com/LZS911/vite-plugin-conditional-compile/blob/master/README.md>
+  env: {
+    // For conditional `// #if [FOO]` statements in the code
+    WEBMAIL: webMail && includeProprietary ? webMail : undefined,
+    MOBILE: isMobile,
+    PROPRIETARY: includeProprietary ? true : undefined,
+    PRODUCTION: production ? true : undefined,
+  },
+});
+
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
@@ -15,16 +26,10 @@ export default defineConfig({
   },
 
   plugins: [
-    conditionalCompile({
-      // <https://github.com/LZS911/vite-plugin-conditional-compile/blob/master/README.md>
-      env: {
-        // For conditional `// #if [FOO]` statements in the code
-        WEBMAIL: webMail && includeProprietary ? webMail : undefined,
-        MOBILE: isMobile,
-        PROPRIETARY: includeProprietary ? true : undefined,
-        PRODUCTION: production ? true : undefined,
-      },
-    }),
+    {
+      ...conditionalCompilePlugin,
+      transform: { filter: { code: "#if" }, handler: conditionalCompilePlugin.transform }, // the plugin parses every file with Babel, which is slow, so give it only the files that use `#if`
+    },
     nodePolyfills({ include: ['buffer'], globals: { global: true, process: !!webMail } }),
     svelte(),
     wasm(),
@@ -44,12 +49,15 @@ export default defineConfig({
     exclude: ['@matrix-org/matrix-sdk-crypto-wasm'],
   },
   test: {
+    pool: "threads", // faster than the default `forks`, because threads start faster and pass messages faster than processes
+    globalSetup: "test/logic/Calendar/timeZone.ts", // worker threads can't change the time zone, so it's set once for all tests
     server: {
       deps: {
         // Workaround for app/logic/Abstract/Workspace.ts
         inline: [/lucide-svelte/],
       },
     },
+    setupFiles: ["test/realtimeWait.ts"], // the tests should not wait the real time for network timeouts, retries and throttling
   },
   build: {
     sourcemap: true

@@ -5,7 +5,7 @@
       <hbox class="frontend">
         <label>
           <input type="radio" value="classic" bind:group={frontend} />
-          {appName}
+          {appName == "Lookout" ? "Parula" : appName}
         </label>
         <label>
           <input type="radio" value="lookout" bind:group={frontend} />
@@ -72,7 +72,7 @@
 <script lang="ts">
   import { getUILocale, getUILocalePref, getDateTimeLocale, getDateTimeLocalePref, saveDateTimeLocale, saveUILocale, setUILocale, t } from "../../../l10n/l10n";
   import { appGlobal } from "../../../logic/app";
-  import { appName } from "../../../logic/build";
+  import { appName, defaultFrontend } from "../../../logic/build";
   import { getLocalStorage } from "../../Util/LocalStorage";
   import { openApp } from "../../AppsBar/selectedApp";
   import { mailMustangApp } from "../../Mail/MailMustangApp";
@@ -85,7 +85,7 @@
   import SwitchIcon from "lucide-svelte/icons/arrow-left-right";
   import { catchErrors } from "../../Util/error";
 
-  let frontendSetting = getLocalStorage("appearance.frontend", "classic");
+  let frontendSetting = getLocalStorage("appearance.frontend", defaultFrontend);
   let frontend = frontendSetting.value;
 
   function onSaveFrontend() {

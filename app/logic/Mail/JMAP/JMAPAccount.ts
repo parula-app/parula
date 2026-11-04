@@ -28,6 +28,7 @@ import { Semaphore } from "../../util/flow/Semaphore";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { Throttle } from "../../util/flow/Throttle";
 import { Timeout } from "../../util/flow/Timeout";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { waitUntilOnline, isNetworkError, isTransientError, HTTPError } from "../../util/netUtil";
 import { assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
@@ -458,11 +459,16 @@ export class JMAPAccount extends MailAccount {
    * <https://www.rfc-editor.org/rfc/rfc8621.html#section-2.2> */
   async fetchChangedFolders(): Promise<void> {
     const kMaxRounds = 1000;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.errorCallback(new Error(`${this.name}: Folder changes: The server keeps reporting more changes. Stopped.`)));
+    while (loop.nextRound()) {
       let sinceState = this.syncState.get("Mailbox");
       if (!sinceState) {
         await this.listFolders();
         return;
+      }
+      if (loop.isSameAsLastRound(sinceState)) {
+        break;
       }
       let response: Record<string, any>;
       try {
@@ -515,11 +521,7 @@ export class JMAPAccount extends MailAccount {
       if (!changes.hasMoreChanges) {
         return;
       }
-      if (changes.newState == sinceState) {
-        break;
-      }
     }
-    this.errorCallback(new Error(`${this.name}: Folder changes: The server keeps reporting more changes. Stopped.`));
   }
 
   async listFolders(): Promise<void> {
@@ -999,6 +1001,11 @@ export class JMAPAccount extends MailAccount {
     await this.getSession(); // The new account appears in the session only now
     for (let notification of notifications) {
       let granted = Object.values(notification.newRights ?? {}).some(right => right);
+      let known = this.accountForID(notification.objectAccountId);
+      if (known && known != this) {
+        await known.updateSharedAccount();
+        continue;
+      }
       let shared = this.session.accounts[notification.objectAccountId];
       let ownerEMail = shared && this.sharedAccountOwner(shared);
       if (!granted || !ownerEMail || shared.isPersonal || this.accountForID(notification.objectAccountId)) {
@@ -1006,6 +1013,17 @@ export class JMAPAccount extends MailAccount {
       }
       await this.addSharedFolders(new PersonUID(ownerEMail, sanitize.nonemptystring(shared.name)), "msgfolderroot");
     }
+  }
+
+  /** The other user shared more with us, or less */
+  protected async updateSharedAccount() {
+    if (this.haveContacts) {
+      await this.listAddressbooks();
+    }
+    if (this.haveCalendar) {
+      await this.listCalendars();
+    }
+    await this.startupDependentAccounts();
   }
 
   async findSharedFolders(person: PersonUID, distinguishedIDs: string[]): Promise<string[]> {

@@ -9,6 +9,7 @@ import { checkChangeError } from "./JMAPError";
 import { CreateMIME } from "../SMTP/CreateMIME";
 import { Semaphore } from "../../util/flow/Semaphore";
 import { PromiseAllDone } from "../../util/flow/PromiseAllDone";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { retryOnTransientError } from "../../util/netUtil";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../util/util";
@@ -68,28 +69,22 @@ export class JMAPFolder extends Folder {
     let allNewMessages = new ArrayColl<JMAPEMail>();
     let position = 0;
     const kMaxRounds = 5000; // 1,000,000 emails
-    let previousIDs: string | null = null;
-    let isComplete = false;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
+    while (loop.nextRound()) {
       let { newMessages, syncState, ids, limit } = await retryOnTransientError(() =>
         this.fetchMessageList(position, batchSize));
-      let pageIDs = ids.join(" ");
-      if (pageIDs == previousIDs) {
+      if (loop.isSameAsLastRound(ids.join(" "))) {
         break;
       }
-      previousIDs = pageIDs;
       state ??= syncState;
       this.messages.addAll(newMessages);
       await this.saveNewMsgs(newMessages);
       allNewMessages.addAll(newMessages);
       position += ids.length;
       if (ids.length < limit) {
-        isComplete = true;
         break;
       }
-    }
-    if (!isComplete) {
-      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`));
     }
     if (state) {
       this.account.syncState.set("Email", state);
@@ -172,10 +167,15 @@ export class JMAPFolder extends Folder {
     assert(this.account.syncState.has("Email"), "No sync state");
     let newMessagesOfThisFolder = new ArrayColl<JMAPEMail>();
     const kMaxRounds = 1000;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error("Email changes: The server keeps reporting more changes. Stopped.")));
+    while (loop.nextRound()) {
       let lock = await this.account.stateLock.lock();
       try {
         let sinceState = this.account.syncState.get("Email");
+        if (loop.isSameAsLastRound(sinceState)) {
+          break;
+        }
         //console.log("JMAP fetching changes for folder", this.name);
         // <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
         let response = await retryOnTransientError(() => this.account.makeCombinedCall([
@@ -272,14 +272,10 @@ export class JMAPFolder extends Folder {
         if (!changes.hasMoreChanges) {
           return newMessagesOfThisFolder;
         }
-        if (changes.newState == sinceState) {
-          break;
-        }
       } finally {
         lock.release();
       }
     }
-    this.account.errorCallback(new Error("Email changes: The server keeps reporting more changes. Stopped."));
     return newMessagesOfThisFolder;
   }
 
@@ -592,9 +588,9 @@ export class JMAPFolder extends Folder {
     await super.markAllRead();
     let batchSize = Math.max(1, sanitize.integer(this.account.session?.capabilities?.["urn:ietf:params:jmap:core"]?.maxObjectsInSet, 500));
     const kMaxEMails = 1000000;
-    let maxRounds = Math.ceil(kMaxEMails / batchSize);
-    let previousIDs: string | null = null;
-    for (let round = 1; round <= maxRounds; round++) {
+    let loop = new LoopGuard(Math.ceil(kMaxEMails / batchSize), () =>
+      this.account.errorCallback(new Error(`${this.name}: Mark all as read: The server keeps returning unread emails. Stopped.`)));
+    while (loop.nextRound()) {
       let query = await this.account.makeSingleCall("Email/query", {
         accountId: this.account.accountID,
         filter: {
@@ -606,11 +602,9 @@ export class JMAPFolder extends Folder {
       if (!query.ids.length) {
         return;
       }
-      let ids = query.ids.join(" ");
-      if (ids == previousIDs) {
+      if (loop.isSameAsLastRound(query.ids.join(" "))) {
         break;
       }
-      previousIDs = ids;
       let update: Record<string, Record<string, boolean>> = {};
       for (let id of query.ids) {
         update[id] = { "keywords/$seen": true };
@@ -621,7 +615,6 @@ export class JMAPFolder extends Folder {
       }) as TJMAPChangeResponse<TJMAPEMailHeaders>;
       checkChangeError(response);
     }
-    this.account.errorCallback(new Error(`${this.name}: Mark all as read: The server keeps returning unread emails. Stopped.`));
   }
 
   /** @param specialUse From RFC 6154, e.g. `\Sent`

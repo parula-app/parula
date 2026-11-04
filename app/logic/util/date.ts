@@ -79,6 +79,20 @@ export function getTimeString(date: Date): string {
   return date.toLocaleString(getDateTimeLocale(), { hour: "numeric", minute: "numeric" });
 }
 
+/** @returns Time without AM/PM, e.g. "3:23" or "15:23".
+ * For where the hour labels next to it already show AM/PM. */
+export function getTimeStringWithoutAMPM(date: Date): string {
+  if (!date) {
+    return "";
+  }
+  return new Intl.DateTimeFormat(getDateTimeLocale(), { hour: "numeric", minute: "numeric" })
+    .formatToParts(date)
+    .filter(part => part.type != "dayPeriod")
+    .map(part => part.value)
+    .join("")
+    .trim();
+}
+
 /**
  * @param weekday day of the week
  * @param form How long the name should be
@@ -120,20 +134,21 @@ export function isSameTimezone(ianaTimezone: string, time: Date) {
 }
 
 export function getToday() {
-  const today = new Date();
-  today.setHours(0);
-  today.setMinutes(0);
-  today.setSeconds(0);
-  today.setMilliseconds(0);
-  return today;
+  return getDayStart(new Date());
+}
+
+/** @returns The day that contains `date`, at 00:00 */
+export function getDayStart(date: Date): Date {
+  let startTime = new Date(date);
+  startTime.setHours(0, 0, 0, 0);
+  return startTime;
 }
 
 /** @returns The Monday of the week that contains `date`, at 00:00 */
 export function getWeekStart(date: Date): Date {
-  let startTime = new Date(date);
+  let startTime = getDayStart(date);
   // `getDay()` is 0 on Sunday, which still belongs to the Monday before it
   startTime.setDate(startTime.getDate() - (startTime.getDay() + 6) % 7);
-  startTime.setHours(0, 0, 0, 0);
   return startTime;
 }
 
@@ -176,3 +191,8 @@ export const k1HourMS = k1HourS * 1000;
 export const k1DayMS = k1DayS * 1000;
 export const k1WeekMS = k1WeekS * 1000;
 export const k1MonthMS = k1MonthS * 1000;
+
+export interface TimeInterval {
+  startTime: Date;
+  endTime: Date;
+}
