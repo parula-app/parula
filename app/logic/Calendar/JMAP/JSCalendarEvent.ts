@@ -266,13 +266,14 @@ export class JSCalendarEvent {
         if (existing) {
           continue;
         }
+        let isOrganizer = p.response == InvitationResponse.Organizer;
         jmap.participants[crypto.randomUUID()] = {
           "@type": "Participant",
           name: p.name,
           calendarAddress: p.emailAddress ? "mailto:" + p.emailAddress : undefined,
-          roles: p.response == InvitationResponse.Organizer ? { owner: true } : { attendee: true },
+          ...isOrganizer ? { roles: { owner: true } } : { expectReply: true },
           participationStatus:
-            p.response == InvitationResponse.Accept ? "accepted" :
+            p.response == InvitationResponse.Accept || isOrganizer ? "accepted" :
             p.response == InvitationResponse.Decline ? "declined" :
             p.response == InvitationResponse.Tentative ? "tentative" :
             "needs-action",
