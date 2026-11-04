@@ -8,6 +8,7 @@ import type { TJMAPAddressbook, TJMAPAddressbookRights } from "./TJMAPAddressboo
 import type { TJMAPContact } from "./TJSContact";
 import type { TJMAPChangeResponse, TJMAPGetResponse, TID } from "../../Mail/JMAP/TJMAPGeneric";
 import { retryOnTransientError } from "../../util/netUtil";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
@@ -153,10 +154,15 @@ export class JMAPAddressbook extends Addressbook {
     assert(this.account.syncState.has("ContactCard"), "No sync state");
     let newPersonsOfThisAB = new ArrayColl<JMAPPerson>();
     const kMaxRounds = 1000;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error("Contact changes: The server keeps reporting more changes. Stopped.")));
+    while (loop.nextRound()) {
       let lock = await this.account.stateLock.lock();
       try {
         let sinceState = this.account.syncState.get("ContactCard");
+        if (loop.isSameAsLastRound(sinceState)) {
+          break;
+        }
         // <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
         let response = await this.account.makeCombinedCall([
           [
@@ -235,14 +241,10 @@ export class JMAPAddressbook extends Addressbook {
         if (!changes.hasMoreChanges) {
           return newPersonsOfThisAB;
         }
-        if (changes.newState == sinceState) {
-          break;
-        }
       } finally {
         lock.release();
       }
     }
-    this.account.errorCallback(new Error("Contact changes: The server keeps reporting more changes. Stopped."));
     return newPersonsOfThisAB;
   }
 
