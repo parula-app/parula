@@ -10,6 +10,7 @@ import type { FreeBusyEvent } from "../FreeBusyEvent";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { checkChangeError } from "../../Mail/JMAP/JMAPError";
 import { retryOnTransientError } from "../../util/netUtil";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
@@ -63,16 +64,14 @@ export class JMAPCalendar extends Calendar {
     let start = 0;
     let hasMore = true;
     const kMaxEvents = 200000;
-    let maxRounds = kMaxEvents / batchSize;
-    let previousIDs: string | null = null;
-    for (let round = 1; hasMore && round <= maxRounds; round++) {
+    let loop = new LoopGuard(kMaxEvents / batchSize, () =>
+      this.errorCallback(new Error("Listing the events: The server keeps returning more events. Stopped.")));
+    while (hasMore && loop.nextRound()) {
       let { newEvents, updatedEvents, syncState, ids, pageSize } = await retryOnTransientError(() =>
         this.fetchEvents(start, batchSize));
-      let pageIDs = ids.join(" ");
-      if (pageIDs == previousIDs) {
+      if (loop.isSameAsLastRound(ids.join(" "))) {
         break;
       }
-      previousIDs = pageIDs;
       hasMore = ids.length == pageSize; // A full page means that there is probably more
       start += ids.length;
       state ??= syncState;
@@ -80,9 +79,6 @@ export class JMAPCalendar extends Calendar {
       await this.saveEvents(newEvents);
       await this.updateRecurrenceOverrides(newEvents);
       allNewEvents.addAll(newEvents);
-    }
-    if (hasMore) {
-      this.errorCallback(new Error("Listing the events: The server keeps returning more events. Stopped."));
     }
     if (state) {
       this.account.syncState.set("CalendarEvent", state);
@@ -173,10 +169,15 @@ export class JMAPCalendar extends Calendar {
     assert(this.account.syncState.has("CalendarEvent"), "No sync state");
     let newEventsOfThisCal = new ArrayColl<JMAPEvent>();
     const kMaxRounds = 1000;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error("Event changes: The server keeps reporting more changes. Stopped.")));
+    while (loop.nextRound()) {
       let lock = await this.account.stateLock.lock();
       try {
         let sinceState = this.account.syncState.get("CalendarEvent");
+        if (loop.isSameAsLastRound(sinceState)) {
+          break;
+        }
         // <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
         let response = await this.account.makeCombinedCall([
           [
@@ -257,14 +258,10 @@ export class JMAPCalendar extends Calendar {
         if (!changes.hasMoreChanges) {
           return newEventsOfThisCal;
         }
-        if (changes.newState == sinceState) {
-          break;
-        }
       } finally {
         lock.release();
       }
     }
-    this.account.errorCallback(new Error("Event changes: The server keeps reporting more changes. Stopped."));
     return newEventsOfThisCal;
   }
 

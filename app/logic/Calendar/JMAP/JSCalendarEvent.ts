@@ -5,7 +5,7 @@ import { InvitationResponse } from "../Invitation/InvitationStatus";
 import { Participant } from "../Participant";
 import { k1DayS, k1HourS, k1MinuteS } from "../../util/date";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { NotImplemented, assert } from "../../util/util";
+import { NotImplemented, assert, getOwnProperty, setOwnProperty } from "../../util/util";
 import { ArrayColl } from "svelte-collections";
 
 export class JSCalendarEvent {
@@ -288,6 +288,18 @@ export class JSCalendarEvent {
     }
 
     jmap.color = event.color;
+
+    if (event.parentEvent) {
+      // `jmap` is the override of this occurrence, a PatchObject. It started as the server's override in `event.original`.
+      // The organizer is that of the series, and must not be patched.
+      delete jmap.organizerCalendarAddress;
+      // The whole properties that we wrote replace the server's patches inside them, e.g. `participants/<id>/participationStatus`
+      for (let path in jmap) {
+        if (path.includes("/") && path.split("/")[0] in jmap) {
+          delete jmap[path];
+        }
+      }
+    }
   }
 
   /** @param masterDuration in seconds */
@@ -383,6 +395,40 @@ export class JSCalendarEvent {
     }
     let options = event.timezone ? { timeZone: event.timezone } : undefined;
     return date.toLocaleString("lt", options).replace(" ", "T");
+  }
+
+  /** The occurrence of a series, from the series and the override of this occurrence.
+   * The override is a PatchObject: its keys are JSON pointers, e.g. `participants/<id>/participationStatus`.
+   * <https://www.ietf.org/archive/id/draft-ietf-calext-jscalendarbis-22.html#name-patchobject> */
+  static applyOverride(series: TJMAPCalendarEvent, recurrenceID: string, override: TJMAPCalendarEvent): TJMAPCalendarEvent {
+    let occurrence = structuredClone(series);
+    delete occurrence.recurrenceRule;
+    delete occurrence.recurrenceOverrides;
+    occurrence.start = recurrenceID;
+    for (let [path, value] of Object.entries(override)) {
+      let keys = this.pointerKeys(path);
+      let last = keys.pop();
+      let parent = occurrence as Record<string, any>;
+      for (let key of keys) {
+        parent = getOwnProperty(parent, key);
+      }
+      if (!parent || typeof (parent) != "object") {
+        continue; // invalid patch
+      }
+      if (value === null) {
+        delete parent[last];
+      } else {
+        setOwnProperty(parent, last, value);
+      }
+    }
+    return occurrence;
+  }
+
+  /** The keys of a JSON Pointer, e.g. `participants/<id>/participationStatus` (RFC 6901).
+   * A key escapes "/" as "~1" and "~" as "~0", the only two characters that a pointer reserves.
+   * "~1" first, so that "~01" becomes "~1", not "/". */
+  protected static pointerKeys(pointer: string): string[] {
+    return pointer.split("/").map(key => key.replaceAll("~1", "/").replaceAll("~0", "~"));
   }
 }
 
