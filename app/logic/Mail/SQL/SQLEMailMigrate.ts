@@ -17,3 +17,12 @@ export async function addEMailStatusColumns(database: Database): Promise<void> {
     await database.execute(sql`ALTER TABLE email ADD COLUMN "isImportant" BOOLEAN default false;`);
   }
 }
+
+/** Add the "not spam" column to a pre-existing mail.db.
+ * Not in `addEMailStatusColumns()`, because each migration runs only once per database. */
+export async function addEMailNotSpamColumn(database: Database): Promise<void> {
+  let columns = await database.all(sql`PRAGMA table_info("email")`) as any[];
+  if (!columns.some(column => column.name == "isNotSpam")) {
+    await database.execute(sql`ALTER TABLE email ADD COLUMN "isNotSpam" BOOLEAN default false;`);
+  }
+}

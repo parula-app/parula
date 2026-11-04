@@ -14,8 +14,6 @@ export class IMAPEMail extends EMail {
   /** From IMAP server */
   seq: number | null = null;
   flagsChanging = false;
-  /** `$NotJunk` isn't saved in the database, so it's unknown until the server sends the flags */
-  mayHaveNotJunk = true;
 
   constructor(folder: IMAPFolder) {
     super(folder);
@@ -121,7 +119,7 @@ export class IMAPEMail extends EMail {
     this.isDraft = flags.has("\\Draft");
     let keywords = [...flags].map(flag => flag.toLowerCase()); // RFC 9051 section 9: case-insensitive
     this.isSpam = keywords.includes("$junk");
-    this.mayHaveNotJunk = keywords.includes("$notjunk");
+    this.isNotSpam = keywords.includes("$notjunk");
 
     for (let customTag of flags) {
       if (customTag.startsWith("\\") || customTag.startsWith("$") ||
@@ -174,13 +172,13 @@ export class IMAPEMail extends EMail {
 
   async markSpam(spam = true) {
     let hadJunk = this.isSpam;
+    let hadNotJunk = this.isNotSpam;
     await super.markSpam(spam);
     if (spam || hadJunk) {
       await this.setFlagServer("$Junk", spam);
     }
-    if (!spam || this.mayHaveNotJunk) {
+    if (!spam || hadNotJunk) {
       await this.setFlagServer("$NotJunk", !spam);
-      this.mayHaveNotJunk = !spam;
     }
   }
 
