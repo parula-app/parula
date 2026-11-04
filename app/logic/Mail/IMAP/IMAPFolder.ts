@@ -589,12 +589,19 @@ export class IMAPFolder extends Folder {
   }
 
   protected async moveOrCopyMessagesOnServer(action: "move" | "copy", messages: Collection<IMAPEMail>) {
-    let actionVerb = sanitize.translate(action, { move: "Move", copy: "Copy" });
     let sourceFolder = messages.first.folder;
     let ids = messages.contents.map(msg => msg.uid).join(",");
     await sourceFolder.runCommand(async conn => {
       this.account.log(this, conn, action, "message from", sourceFolder.id, ids);
-      await conn["message" + actionVerb](ids, this.path, { uid: true });
+      // ImapFlow returns false when the server refuses. And without the MOVE extension,
+      // its `messageMove()` deletes the emails even when the copy failed.
+      let deleteAfterCopy = action == "move" && !conn.capabilities.has("MOVE");
+      let actionVerb = deleteAfterCopy ? "Copy" : sanitize.translate(action, { move: "Move", copy: "Copy" });
+      let succeeded = await conn["message" + actionVerb](ids, this.path, { uid: true });
+      assert(succeeded, gt`The server refused to move or copy the emails into folder ${this.name}`);
+      if (deleteAfterCopy) {
+        await conn.messageDelete(ids, { uid: true });
+      }
     });
   }
 
