@@ -303,6 +303,10 @@ export class ContactEntry extends Observable {
   @notifyChangedProperty
   preference: number = ContactEntry.defaultPreference;
   json: any;
+  /** The entry as the server had it when we last read it,
+   * so that entries that the user didn't change stay as they are on the server.
+   * Saved in the database, never sent to the server. */
+  original: ContactEntry | null = null;
 
   constructor(value: string, purpose: string | null = null, protocol: string | null = null, preference: number = ContactEntry.defaultPreference) {
     super();
@@ -314,6 +318,48 @@ export class ContactEntry extends Observable {
 
   clone(): ContactEntry {
     return new ContactEntry(this.value, this.purpose, this.protocol, this.preference);
+  }
+
+  copyFrom(other: ContactEntry) {
+    this.value = other.value;
+    this.purpose = other.purpose;
+    this.protocol = other.protocol;
+    this.preference = other.preference;
+  }
+
+  /** @returns true, if `other` has the same value, purpose, protocol and preference */
+  compare(other: ContactEntry | null): boolean {
+    return !!other &&
+      this.value == other.value &&
+      this.purpose == other.purpose &&
+      this.protocol == other.protocol &&
+      this.preference == other.preference;
+  }
+
+  /** For the database: `json` and `original` */
+  toExtraJSON(): any {
+    if (!this.original) {
+      return this.json;
+    }
+    return {
+      ...this.json,
+      original: {
+        value: this.original.value,
+        purpose: this.original.purpose,
+        protocol: this.original.protocol,
+        preference: this.original.preference,
+      },
+    };
+  }
+
+  fromExtraJSON(json: any) {
+    let { original, ...protocolData } = json ?? {};
+    this.json = json ? protocolData : null;
+    this.original = original ? new ContactEntry(
+      sanitize.string(original.value, null),
+      sanitize.label(original.purpose, null),
+      sanitize.string(original.protocol, null),
+      sanitize.integer(original.preference, ContactEntry.defaultPreference)) : null;
   }
 
   /** This entry as human-readable text, e.g. "Work: joe@example.com"

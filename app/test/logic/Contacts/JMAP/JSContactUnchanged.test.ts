@@ -50,8 +50,9 @@ test("Also after the contact was stored in the database and read again", () => {
   JSContact.toPerson(jscontact, person);
   for (let entries of [person.phoneNumbers, person.emailAddresses, person.chatAccounts, person.urls]) {
     for (let entry of entries) {
-      entry.json = JSON.parse(JSON.stringify(entry.json));
-      entry.protocol ??= null; // as SQL returns it
+      // As `SQLPerson` saves and reads it
+      entry.fromExtraJSON(JSON.parse(JSON.stringify(entry.toExtraJSON())));
+      entry.protocol ??= null;
     }
   }
   person.notes = "Met at another conference.";
@@ -73,4 +74,16 @@ test("Only the entry that the user changed is written", () => {
   expect(jscontact.phones.k3.number).toBe("+49 30 7654322");
   expect(jscontact.emails).toEqual(original.emails);
   expect(jscontact.links).toEqual(original.links);
+});
+
+test("What we remember about the entries is not sent to the server", () => {
+  let jscontact = serverCard();
+  let person = new JMAPPerson(null);
+  JSContact.toPerson(jscontact, person);
+  person.phoneNumbers.getIndex(0).value = "+49 30 1234568";
+  person.emailAddresses.getIndex(1).purpose = "home";
+  JSContact.fromPerson(person, jscontact);
+  let sent = JSON.stringify(jscontact);
+  expect(sent).not.toContain("original");
+  expect(sent).not.toContain("jmapID");
 });
