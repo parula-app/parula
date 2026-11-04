@@ -8,6 +8,7 @@ import { findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert, NotReached } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
+import { ArrayColl } from "svelte-collections";
 
 export class IMAPEMail extends EMail {
   declare folder: IMAPFolder;
@@ -119,12 +120,18 @@ export class IMAPEMail extends EMail {
     this.isDraft = flags.has("\\Draft");
     this.isSpam = flags.has("$Junk");
 
+    let tags = new ArrayColl<Tag>();
     for (let customTag of flags) {
       if (customTag.startsWith("\\") || customTag.startsWith("$") ||
           ["nonjunk", "junk"].includes(customTag.toLowerCase())) {
         continue;
       }
-      this.tags.add(getTagByName(customTag));
+      tags.add(getTagByName(sanitize.string(customTag)));
+    }
+    if (this.folder.account.canStoreKeywords) {
+      this.tags.replaceAll(tags);
+    } else {
+      this.tags.addAll(tags);
     }
   }
 
