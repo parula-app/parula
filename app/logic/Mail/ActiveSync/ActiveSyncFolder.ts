@@ -140,6 +140,7 @@ export class ActiveSyncFolder extends ExchangeFolder implements ActiveSyncPingab
     await this.readFolder();
     let isNewMail = !!this.syncState; // no sync key returns the entire folder
     let newMsgs = new ArrayColl<ActiveSyncEMail>();
+    let listedIDs = new Set<string>();
     let data = {
       WindowSize: String(kMaxCount),
       Options: {
@@ -156,6 +157,7 @@ export class ActiveSyncFolder extends ExchangeFolder implements ActiveSyncPingab
       for (let item of addedOrChanged) {
         try {
           let serverID = sanitize.nonemptystring(item.ServerId);
+          listedIDs.add(serverID);
           if (this.deletions.has(serverID)) {
             continue;
           }
@@ -191,6 +193,12 @@ export class ActiveSyncFolder extends ExchangeFolder implements ActiveSyncPingab
       newMsgs.addAll(newMsgsInPage);
       this.messages.addAll(newMsgsInPage);
     });
+    if (!isNewMail) {
+      // Without a sync key, the server sends all emails, but no deletions
+      for (let gone of this.messages.filterOnce(email => email.serverID && !listedIDs.has(email.serverID))) {
+        await gone.deleteMessageLocally();
+      }
+    }
     this.countTotal = this.messages.length;
     this.account.addPingable(this);
     return newMsgs;
