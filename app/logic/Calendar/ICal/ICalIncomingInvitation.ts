@@ -9,7 +9,7 @@ import { UserError, assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
 export class ICalIncomingInvitation extends IncomingInvitation {
-  async respondToInvitationFromMail(response: InvitationResponseInMessage) {
+  async respondToInvitationFromMail(response: InvitationResponseInMessage, sendReply = true) {
     assert(this.invitationMessage == InvitationMessage.Invitation, "Only invitations can be responded to");
     let event = this.calEvent();
     if (!event) {
@@ -17,7 +17,7 @@ export class ICalIncomingInvitation extends IncomingInvitation {
       event.copyFrom(this.event);
       await event.adoptAttachmentsFrom(this.event);
       this.calendar.events.add(event);
-    } else if (this.event?.lastUpdateTime >= event.lastUpdateTime) {
+    } else if (!event.isNewerVersionThan(this.event)) {
       event.copyFrom(this.event);
       await event.adoptAttachmentsFrom(this.event);
     }
@@ -25,22 +25,24 @@ export class ICalIncomingInvitation extends IncomingInvitation {
     /* else add participant? */
     let hasChanged = event.myParticipation != response;
     event.myParticipation = this.myParticipation = myParticipant.response = response;
+    event.isMoved = false;
 
     let isFuture = event.startTime?.getTime() > Date.now() || event.recurrenceCase == RecurrenceCase.Master;
-    if (hasChanged && isFuture) {
+    if (sendReply && hasChanged && isFuture) {
       await ICalIncomingInvitation.sendInvitationResponse(event, myParticipant, this.message.folder.account);
     }
     await event.save(); // The other protocols let their server do this
   }
 
-  static async respondToInvitationFromCalEvent(calEvent: Event, response: InvitationResponseInMessage, mailAccount?: MailAccount) {
+  static async respondToInvitationFromCalEvent(calEvent: Event, response: InvitationResponseInMessage, sendReply: boolean, mailAccount?: MailAccount) {
     let { identity, myParticipant } = this.participantMe(calEvent, mailAccount);
     let hasChanged = myParticipant.response != response;
     calEvent.myParticipation = myParticipant.response = response;
+    calEvent.isMoved = false;
     // Do *not* save, @see Event.respondToInvitation()
 
     let isFuture = calEvent.startTime?.getTime() > Date.now() || calEvent.recurrenceCase == RecurrenceCase.Master;
-    if (hasChanged && isFuture) {
+    if (sendReply && hasChanged && isFuture) {
       await ICalIncomingInvitation.sendInvitationResponse(calEvent, myParticipant, identity.account);
     }
   }

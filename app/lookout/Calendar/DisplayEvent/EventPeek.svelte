@@ -6,6 +6,14 @@
         <span class="dot" />
         <span class="name">{$calendar?.name ?? ""}</span>
       </hbox>
+      {#if $event.isIncomingMeeting}
+        <button class="icon-button" title={$t`Reply`} on:click={() => catchErrors(() => reply(false))}>
+          <ReplyIcon size="16" />
+        </button>
+        <button class="icon-button" title={$t`Reply All`} on:click={() => catchErrors(() => reply(true))}>
+          <ReplyAllIcon size="16" />
+        </button>
+      {/if}
       <button class="icon-button" title={$t`Open`} on:click={onOpen}>
         <OpenIcon size="16" />
       </button>
@@ -26,18 +34,26 @@
         <button class="peek-button" on:click={onDelete}>{$t`Remove from Calendar`}</button>
       </hbox>
     {:else if $event.isIncomingMeeting}
+      {#if $event.isMoved}
+        <hbox class="notice">
+          {$t`The organizer changed the time or place of this meeting. Please respond again.`}
+        </hbox>
+      {/if}
+      <hbox class="email-organizer">
+        <Checkbox label={$t`Email organizer *=> Send the response to the meeting invitation to the organizer`} bind:checked={sendReply} />
+      </hbox>
       <hbox class="buttons">
         <button class="peek-button accept" class:chosen={$event.myParticipation == InvitationResponse.Accept}
           on:click={() => respond(InvitationResponse.Accept)}>
-          <AcceptIcon size="14" /> {$t`Accept *=> Accept the invitation to the meeting`}
+          <AcceptIcon size="14" /> <span class="label">{$t`Accept *=> Accept the invitation to the meeting`}</span>
         </button>
         <button class="peek-button tentative" class:chosen={$event.myParticipation == InvitationResponse.Tentative}
           on:click={() => respond(InvitationResponse.Tentative)}>
-          <TentativeIcon size="14" /> {$t`Tentative *=> Not sure to join this business meeting`}
+          <TentativeIcon size="14" /> <span class="label">{$t`Tentative *=> Not sure to join this business meeting`}</span>
         </button>
         <button class="peek-button decline" class:chosen={$event.myParticipation == InvitationResponse.Decline}
           on:click={() => respond(InvitationResponse.Decline)}>
-          <DeclineIcon size="14" /> {$t`Decline *=> Decline the invitation to the meeting`}
+          <DeclineIcon size="14" /> <span class="label">{$t`Decline *=> Decline the invitation to the meeting`}</span>
         </button>
       </hbox>
     {:else}
@@ -54,22 +70,28 @@
   import { EventLook } from "./EventLook";
   import { CalendarActions } from "../CalendarActions";
   import { openEvent } from "../../../frontend/Calendar/open";
+  import { openComposer } from "../../../frontend/Mail/open";
+  import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
   import { eventPeek } from "../selected";
   import { catchErrors } from "../../../frontend/Util/error";
   import Popup from "../../../frontend/Shared/Popup.svelte";
   import OpenIcon from "lucide-svelte/icons/square-pen";
+  import ReplyIcon from "lucide-svelte/icons/reply";
+  import ReplyAllIcon from "lucide-svelte/icons/reply-all";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import CloseIcon from "lucide-svelte/icons/x";
   import AcceptIcon from "lucide-svelte/icons/check";
   import TentativeIcon from "lucide-svelte/icons/circle-help";
   import DeclineIcon from "lucide-svelte/icons/x";
   import DetailsGrid from "./DetailsGrid.svelte";
+  import Checkbox from "../../Shared/Form/Checkbox.svelte";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
   export let anchor: HTMLElement;
 
   let popupOpen = true;
+  let sendReply = true;
   $: if (!popupOpen) {
     onClose();
   }
@@ -91,13 +113,18 @@
     catchErrors(() => openEvent(event, true));
   }
 
+  function reply(toAll: boolean) {
+    onClose();
+    openComposer(IncomingInvitation.replyToEventByMail(event, toAll));
+  }
+
   function onDelete() {
     onClose();
     catchErrors(() => CalendarActions.deleteDefault(event));
   }
 
   function respond(response: InvitationResponseInMessage) {
-    catchErrors(() => event.respondToInvitation(response));
+    catchErrors(() => event.respondToInvitation(response, sendReply));
   }
 
   function onKeyDown(keyEvent: KeyboardEvent) {
@@ -179,6 +206,12 @@
     margin-block-start: 16px;
     flex-wrap: wrap;
   }
+  .email-organizer {
+    margin-block-start: 16px;
+  }
+  .email-organizer + .buttons {
+    margin-block-start: 8px;
+  }
   .peek-button {
     display: flex;
     align-items: center;
@@ -202,6 +235,9 @@
   }
   .peek-button.primary:hover {
     background-color: var(--lo-accent-hover);
+  }
+  .peek-button .label {
+    text-box: trim-both cap alphabetic;
   }
   .peek-button.accept :global(svg) {
     color: var(--lo-success);

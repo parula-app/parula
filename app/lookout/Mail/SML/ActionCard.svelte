@@ -1,4 +1,4 @@
-<vbox class="action-card" role="group" aria-label={title}>
+<vbox class="action-card" class:wide role="group" aria-label={title}>
   <hbox class="card-header">
     <span class="card-icon"><svelte:component this={icon} size={20} /></span>
     <vbox flex class="card-titles">
@@ -25,6 +25,7 @@
   export let title: string;
   export let subtitle: string = null;
   export let icon: ConstructorOfATypedSvelteComponent;
+  export let wide = false;
 </script>
 
 <style>
@@ -36,6 +37,9 @@
     border-radius: var(--lo-radius-small);
     background-color: var(--lo-pane-bg);
     box-shadow: var(--lo-shadow-card);
+  }
+  .action-card.wide {
+    max-width: none;
   }
   .card-header {
     align-items: center;

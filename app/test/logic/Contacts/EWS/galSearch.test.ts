@@ -1,11 +1,14 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
 import "../../../../logic/app";
+import { appGlobal } from "../../../../logic/app";
 import { EWSGAL } from "../../../../logic/Contacts/EWS/EWSGAL";
 import type { EWSPerson } from "../../../../logic/Contacts/EWS/EWSPerson";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { kCertificate, kCertificateEmailAddress, kSMIMECertificate, kSMIMECertificateEmailAddress } from "../testCertificate";
+import { addSMIMEIdentities } from "../smimeIdentities";
+import { errorsForServer } from "../../../../logic/util/error";
 import { ArrayColl } from "svelte-collections";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 const kPersons = [{
   name: "Ben Bucksch",
@@ -31,8 +34,9 @@ const kPersons = [{
 }];
 
 /** An account stub which resolves names like Exchange does:
- * Without routing type prefix, it matches the names and the primary email address,
- * with an `smtp:` prefix, it matches all email addresses. Both match only the start. */
+ * Without routing type prefix, it matches only the names, like a directory which
+ * does not search the `mail` attribute. With an `smtp:` prefix, it matches all
+ * email addresses. Both match only the start. */
 function fakeAccount(persons = kPersons): any {
   return {
     errorCallback: (ex: Error) => { throw ex; },
@@ -43,7 +47,7 @@ function fakeAccount(persons = kPersons): any {
       let entry = query.m$ResolveNames.m$UnresolvedEntry.toLowerCase();
       let matches = entry.startsWith("smtp:")
         ? persons.filter(person => person.emailAddresses.some(email => email.startsWith(entry.slice("smtp:".length))))
-        : persons.filter(person => [person.name, person.firstName, person.lastName, person.emailAddresses[0]]
+        : persons.filter(person => [person.name, person.firstName, person.lastName]
           .some(field => field.toLowerCase().startsWith(entry)));
       if (!matches.length) {
         throw { type: "ErrorNameResolutionNoResults" };
@@ -67,7 +71,7 @@ function resolutionXML(person: typeof kPersons[0]): any {
       EmailAddresses: {
         Entry: person.emailAddresses.map((email, i) => ({
           Key: "EmailAddress" + (i + 1),
-          Value: "SMTP:" + email,
+          Value: (i == 0 ? "SMTP:" : "smtp:") + email, // the primary one in capitals
         })),
       },
       UserSMIMECertificate: person.smimeCertificates.length ? { Base64Binary: person.smimeCertificates } : undefined,
@@ -76,8 +80,12 @@ function resolutionXML(person: typeof kPersons[0]): any {
   };
 }
 
+/** As the composer and the calendar use it: our identity is in `example.com` and has an S/MIME certificate */
 async function search(searchTerm: string, account = fakeAccount()): Promise<ArrayColl<EWSPerson>> {
+  addSMIMEIdentities(account, "me@example.com");
   let gal = new EWSGAL(account);
+  appGlobal.searchOnlyAddressbooks.clear();
+  appGlobal.searchOnlyAddressbooks.add(gal);
   let results = new ArrayColl<EWSPerson>();
   await gal.quickSearchAsync(searchTerm, results);
   return results;
@@ -90,9 +98,16 @@ test("Find by last name", async () => {
   expect(results.first.emailAddresses.first.value).toBe("ben@example.com");
 });
 
-test("An email address which is not the primary one is not found", async () => {
+test("Find by the start of the email address", async () => {
+  let results = await search("cathy@ex");
+  expect(results.length).toBe(1);
+  expect(results.first.name).toBe("Cathy Chen");
+});
+
+test("Find by an email address which is not the primary one", async () => {
   let results = await search("sales");
-  expect(results.length).toBe(0);
+  expect(results.length).toBe(1);
+  expect(results.first.name).toBe("Ben Bucksch");
 });
 
 test("Person matching both name and email address is returned only once", async () => {
@@ -106,28 +121,75 @@ test("No match", async () => {
   expect(results.length).toBe(0);
 });
 
-test("Server errors are passed on", async () => {
+test("Server errors are logged, not thrown", async () => {
   let account = fakeAccount();
   account.callEWS = async () => {
     throw { type: "ErrorAccessDenied" };
   };
-  await expect(search("ben", account)).rejects.toMatchObject({ type: "ErrorAccessDenied" });
+  errorsForServer.clear();
+  let consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  let results = await search("ben", account);
+  expect(results.length).toBe(0);
+  // Both the name search and the email address search
+  expect(errorsForServer.contents).toEqual([{ type: "ErrorAccessDenied" }, { type: "ErrorAccessDenied" }]);
+  consoleError.mockRestore();
 });
 
-test("The search itself costs only 1 request, and returns no certificates", async () => {
+test("If one search fails, the other search still finds the person", async () => {
+  let account = fakeAccount();
+  let callEWS = account.callEWS;
+  account.callEWS = async function (query: any) {
+    if (query.m$ResolveNames.m$UnresolvedEntry.startsWith("smtp:")) {
+      throw { type: "ErrorServerBusy" };
+    }
+    return await callEWS.call(this, query);
+  };
+  errorsForServer.clear();
+  let consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  let results = await search("bucksch", account);
+  expect(results.length).toBe(1);
+  expect(results.first.name).toBe("Ben Bucksch");
+  expect(errorsForServer.contents).toEqual([{ type: "ErrorServerBusy" }]);
+  consoleError.mockRestore();
+});
+
+test("The results of the faster search show before the slower search returns", async () => {
+  let account = fakeAccount();
+  let callEWS = account.callEWS;
+  let finishEmailSearch: () => void;
+  let emailSearchFinished = new Promise<void>(resolve => finishEmailSearch = resolve);
+  account.callEWS = async function (query: any) {
+    if (query.m$ResolveNames.m$UnresolvedEntry.startsWith("smtp:")) {
+      await emailSearchFinished;
+    }
+    return await callEWS.call(this, query);
+  };
+  let gal = new EWSGAL(account);
+  let results = new ArrayColl<EWSPerson>();
+  // The name matches Sally, the email address matches Sally and Ben's `sales@`
+  let searching = gal.quickSearchAsync("sa", results);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(results.contents.map(person => person.name)).toEqual(["Sally Smith"]);
+  finishEmailSearch();
+  await searching;
+  expect(results.contents.map(person => person.name).sort()).toEqual(["Ben Bucksch", "Sally Smith"]);
+});
+
+test("The search fetches no certificates", async () => {
   let account = fakeAccount();
   let results = await search("bucksch", account);
-  expect(account.queries.length).toBe(1);
-  expect(account.lastQuery.m$ResolveNames.ContactDataShape).toBeUndefined();
+  for (let query of account.queries) {
+    expect(query.m$ResolveNames.ContactDataShape).toBeUndefined();
+  }
   expect(results.first.encryptionPublicKeys.length).toBe(0);
 });
 
 test("Read the `userCertificate` of the person that the user picked", async () => {
   let account = fakeAccount();
   let person = (await search("cathy", account)).first;
+  account.queries = [];
   await person.fetchEncryptionKeys();
-  expect(account.queries.length).toBe(2);
-  expect(account.lastQuery.m$ResolveNames.m$UnresolvedEntry).toBe(person.emailAddresses.first.value);
+  expect(account.queries.length).toBe(1);
   expect(account.lastQuery.m$ResolveNames.ContactDataShape).toBe("AllProperties");
   expect(person.encryptionPublicKeys.length).toBe(1);
   let key = person.encryptionPublicKeys.first;
@@ -139,10 +201,11 @@ test("Read the `userCertificate` of the person that the user picked", async () =
 test("Ask the directory only once for the same person", async () => {
   let account = fakeAccount();
   let person = (await search("cathy", account)).first;
+  account.queries = [];
   // The composer asks when the user picks the person, and again when they encrypt
   await Promise.all([person.fetchEncryptionKeys(), person.fetchEncryptionKeys()]);
   await person.fetchEncryptionKeys();
-  expect(account.queries.length).toBe(2); // the search, and one lookup
+  expect(account.queries.length).toBe(1);
   expect(person.encryptionPublicKeys.length).toBe(1);
 });
 
