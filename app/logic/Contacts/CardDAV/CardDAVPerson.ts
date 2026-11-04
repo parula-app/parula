@@ -60,6 +60,7 @@ export class CardDAVPerson extends Person {
       this.originalVCard = vCard;
       await this.readETag(response);
     } else {
+      this.uid ??= "urn:uuid:" + crypto.randomUUID();
       let vCard = personToVCard(this);
       console.log("creating with vCard", vCard);
       let filename = sanitize.filename(this.id) + ".vcf";
