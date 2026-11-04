@@ -157,5 +157,6 @@ export class CalDAVEvent extends Event {
     if (await response.status != 404) { // 404 = already deleted on the server
       await assertHTTPResponseOK(response, gt`Deleting the event failed`);
     }
+    await super.deleteFromServer(); // we send, because server doesn't
   }
 }
