@@ -3,6 +3,9 @@ import type { Addressbook } from '../Contacts/Addressbook';
 import { StreetAddress } from '../Contacts/StreetAddress';
 import type { PublicKey } from '../Mail/Encryption/PublicKey';
 import { publicKeyFromJSON } from '../Mail/Encryption/KeyFromJSON';
+import { getPublicKeyForPerson } from '../Mail/Encryption/KeyUtils';
+import { SMIMEPublicKey } from '../Mail/Encryption/SMIME/SMIMEPublicKey';
+import { appGlobal } from '../app';
 import { notifyChangedObservable, notifyChangedProperty, Observable } from '../util/Observable';
 import { ArrayColl } from 'svelte-collections';
 import { sanitize } from '../../../lib/util/sanitizeDatatypes';
@@ -112,18 +115,21 @@ export class Person extends ContactBase {
     // nothing to do for local persons
   }
 
-  protected directoryLookup: Promise<void> | null = null;
-
-  /** Fetches e.g. the S/MIME certificate that the company directory has for
-   * this person. Costs a server round trip, and only one: later callers wait
-   * for the lookup that is already running, or get its result.
+  /** Fetches the S/MIME certificate that the company directories have for
+   * this person, unless we already have one.
    * Reports errors, does not throw. */
   async fetchEncryptionKeys(): Promise<void> {
-    await (this.directoryLookup ??= this.fetchEncryptionKeysFromDirectory());
-  }
-
-  protected async fetchEncryptionKeysFromDirectory(): Promise<void> {
-    // Most address books return the keys together with the person
+    if (getPublicKeyForPerson(this, SMIMEPublicKey)) {
+      return;
+    }
+    let emailAddresses = new ArrayColl(this.emailAddresses.contents.map(entry => entry.value));
+    let found = await Promise.all(appGlobal.searchOnlyAddressbooks.contents.map(ab =>
+      ab.fetchEncryptionKeys(emailAddresses)));
+    for (let keys of found) {
+      for (let key of keys) {
+        this.addEncryptionPublicKey(key);
+      }
+    }
   }
 
   /** Adds a PGP key or S/MIME certificate for this contact,

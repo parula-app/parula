@@ -467,7 +467,7 @@ export class OWAEvent extends ExchangeEvent {
     await super.makeExclusions(exclusions);
   }
 
-  async respondToInvitation(response: InvitationResponseInMessage): Promise<void> {
+  async respondToInvitation(response: InvitationResponseInMessage, sendReply = true): Promise<void> {
     assert(this.isIncomingMeeting, "Only invitations can be responded to");
     let itemID = this.itemID;
     // Unfortunately this API won't take an OccurrenceItemId directly.
@@ -478,7 +478,7 @@ export class OWAEvent extends ExchangeEvent {
       let response = await this.calendar.callOWA(request);
       itemID = sanitize.nonemptystring(response.Items[0].ItemId.Id);
     }
-    let request = new OWACreateItemRequest({MessageDisposition: "SendAndSaveCopy"});
+    let request = new OWACreateItemRequest({MessageDisposition: sendReply ? "SendAndSaveCopy" : "SaveOnly"});
     request.addField(ResponseTypes[response], "ReferenceItemId", {
       __type: "ItemId:#Exchange",
       Id: itemID,

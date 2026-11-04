@@ -42,7 +42,8 @@
 <style>
   .account {
     align-items: start;
-    padding: 0px 0px 2px 18px;
+    padding-block: 0px 2px;
+    padding-inline: 30px 0px;
   }
   .account:hover {
     background-color: var(--hover-bg);

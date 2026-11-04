@@ -1,7 +1,7 @@
 <Clickable onClick={onOpen} disabled={executable}>
   <hbox class="attachment"
     draggable="true"
-    on:dragstart={onDragStart}
+    on:dragstart={event => catchErrors(() => onDragStart(event))}
     title={executable}
     >
     <hbox bind:this={iconEl}>
@@ -28,11 +28,13 @@
   import type { Attachment } from "../../../logic/Abstract/Attachment";
   import { fileSize } from "../../Files/file";
   import { openFileInternallyFromFile, canOpenFileInternally } from "../../Files/open";
+  import { appGlobal } from "../../../logic/app";
   import { assert } from "../../../logic/util/util";
   import { executableMessage } from "../../../logic/Files/FileType/ExecutableFile";
   import AttachmentMenu from "./AttachmentMenu.svelte";
   import FileIcon from "../../Files/Thumbnail/FileIcon.svelte";
   import Clickable from "../../Shared/Clickable.svelte";
+  import { catchErrors } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
 
   export let attachment: Attachment;
@@ -54,7 +56,14 @@
 
   let iconEl: HTMLDivElement;
 
-  function onDragStart(event: DragEvent) {
+  async function onDragStart(event: DragEvent) {
+    // #if [!WEBMAIL && !MOBILE]
+    if (attachment.filepathLocal) {
+      event.preventDefault();
+      await appGlobal.remoteApp.startDrag(attachment.filepathLocal);
+      return;
+    }
+    // #endif
     assert(attachment.content instanceof File, $t`Attachment file is missing`);
     event.dataTransfer.items.clear();
     event.dataTransfer.items.add(attachment.content);

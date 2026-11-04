@@ -1,6 +1,8 @@
 <Clickable onClick={toggleOpen}>
   <hbox class="directory line"
-    class:selected={dir == $selectedFile}>
+    class:selected={dir == $selectedFile}
+    on:drop={event => catchErrors(() => onDropFile(event, dir))}
+    on:dragover={event => catchErrors(() => onDragOverFile(event, dir))}>
     <hbox class="firstColumn">
       {#each {length: indent} as _}
         <hbox class="indention" />
@@ -37,11 +39,13 @@
 <script lang="ts">
   import { Directory } from "../../../logic/Files/Directory";
   import { selectedFile } from "../selected";
+  import { onDropFile, onDragOverFile } from "../drag";
   import { getDateTimeString } from "../../../logic/util/date";
   import FileOrDirLines from "./FileOrDirLines.svelte";
   import Clickable from "../../Shared/Clickable.svelte";
   import FolderClosedIcon from "lucide-svelte/icons/folder";
   import FolderOpenIcon from "lucide-svelte/icons/folder-open";
+  import { catchErrors } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
 
   export let dir: Directory;

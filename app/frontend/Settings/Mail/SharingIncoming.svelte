@@ -195,6 +195,9 @@
   .subtitle {
     font-weight: normal;
   }
+  .existing-person {
+    align-items: center;
+  }
   .nothing, .name.available {
     opacity: 50%;
   }

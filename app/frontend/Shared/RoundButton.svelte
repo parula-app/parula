@@ -84,7 +84,7 @@
 <style>
   button {
     border: 1px solid transparent;
-    border-radius: 1000px;
+    border-radius: var(--button-radius);
     padding: var(--padding);
 
     flex-direction: row;
@@ -121,6 +121,10 @@
     background-color: var(--hover-bg);
     color: var(--hover-fg);
     border: 1px solid transparent;
+  }
+  button.button.filled:hover:not(.disabled) {
+    background-color: var(--button-filled-hover-bg);
+    color: var(--button-filled-hover-fg);
   }
   .selected:not(.disabled) {
     background-color: var(--selected-bg);

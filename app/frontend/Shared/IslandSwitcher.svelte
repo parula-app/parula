@@ -18,13 +18,13 @@
 <style>
   .island.border {
     border: 1px solid var(--border);
-    border-radius: 1000px;
+    border-radius: var(--island-radius);
   }
   .island :global(button) {
-    border-radius: 1000px;
+    border-radius: var(--island-radius);
   }
   .island :global(button:not(:last-of-type)) {
-    margin-inline-end: -6px;
+    margin-inline-end: var(--island-overlap);
   }
   .island.faint :global(button.selected:not(.hover)) {
     background-color: var(--offset-bg);

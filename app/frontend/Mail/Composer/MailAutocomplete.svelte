@@ -31,7 +31,7 @@
     // </copied>
 
     // Get the certificate now, so that we can show whether we can encrypt
-    recipient.findPerson()?.fetchEncryptionKeys()
+    recipient.fetchEncryptionKeys()
       .catch(showError);
   }
 </script>

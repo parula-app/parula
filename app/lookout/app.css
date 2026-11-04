@@ -1,0 +1,336 @@
+:root {
+  --lo-font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --lo-font-size: 14px;
+  --lo-font-size-small: 12px;
+  --lo-font-size-large: 20px;
+
+  --lo-accent: #1D68C4;
+  --lo-accent-hover: #185AAD;
+  --lo-accent-pressed: #144C93;
+  --lo-accent-fg: #FFFFFF;
+  --lo-accent-text: #1A5FB4;
+  --lo-accent-tint: #EAF2FC;
+
+  --lo-window-bg: #EDF1F6;
+  --lo-pane-bg: #FFFFFF;
+  --lo-pane-alt-bg: #F7F9FB;
+  /* --lo-calendar-off-work-bg: color-mix(in srgb, black 4%, var(--lo-pane-bg)); */
+  --lo-ribbon-bg: #FFFFFF;
+  --lo-titlebar-bg: var(--lo-window-bg);
+  --lo-statusbar-bg: var(--lo-window-bg);
+
+  --lo-fg: #212327;
+  --lo-fg-secondary: #5E636B;
+  --lo-fg-disabled: #A4A8AE;
+
+  --lo-border: #D9DDE3;
+  --lo-border-strong: #C3C8CF;
+  --lo-divider: #E5E8EC;
+
+  --lo-hover-bg: #EEF1F5;
+  --lo-pressed-bg: #E1E5EB;
+  --lo-selected-bg: #D4E4F7;
+  --lo-selected-hover-bg: #C5DAF3;
+  --lo-selected-fg: var(--lo-fg);
+  --lo-focus-ring: var(--lo-accent);
+
+  --lo-input-bg: #FFFFFF;
+  --lo-input-border: #C9CDD3;
+
+  --lo-danger: #C9302C;
+  --lo-danger-fg: #FFFFFF;
+  --lo-success: #2D7D3A;
+  --lo-warning: #A85F00;
+
+  --lo-infobar-bg: #FFF6D9;
+  --lo-infobar-border: #EBD58F;
+  --lo-infobar-error-bg: #FCE9E7;
+  --lo-infobar-error-border: #EDB9B4;
+
+  --lo-keytip-bg: #3A3C41;
+  --lo-keytip-fg: #FFFFFF;
+  --lo-keytip-border: #2A2B2F;
+
+  --lo-radius: 8px;
+  --lo-radius-small: 4px;
+  --lo-shadow-card: 0 0 2px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --lo-shadow-popup: 0 0 2px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.14);
+
+  --lo-backstage-nav-bg: var(--lo-window-bg);
+  --lo-backstage-nav-fg: var(--lo-fg);
+  --lo-backstage-nav-hover-bg: var(--lo-pressed-bg);
+  --lo-backstage-nav-selected-bg: var(--lo-selected-bg);
+
+  --lo-nav-rail-width: 64px;
+  --lo-titlebar-height: 40px;
+  --lo-ribbon-tab-row-height: 36px;
+  --lo-statusbar-height: 24px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --lo-accent: #4C95E3;
+    --lo-accent-hover: #63A4EA;
+    --lo-accent-pressed: #3D84D2;
+    --lo-accent-fg: #0E1621;
+    --lo-accent-text: #6CAAEE;
+    --lo-accent-tint: #1F2D3F;
+
+    --lo-window-bg: #1B1C1F;
+    --lo-pane-bg: #26272B;
+    --lo-pane-alt-bg: #222326;
+    /* --lo-calendar-off-work-bg: color-mix(in srgb, black 28%, var(--lo-pane-bg)); */
+    --lo-ribbon-bg: #26272B;
+
+    --lo-fg: #ECEDEF;
+    --lo-fg-secondary: #A8ACB3;
+    --lo-fg-disabled: #62666D;
+
+    --lo-border: #3A3C41;
+    --lo-border-strong: #4B4E54;
+    --lo-divider: #333539;
+
+    --lo-hover-bg: #303237;
+    --lo-pressed-bg: #393B41;
+    --lo-selected-bg: #253A55;
+    --lo-selected-hover-bg: #2C4565;
+
+    --lo-input-bg: #1F2023;
+    --lo-input-border: #4A4D53;
+
+    --lo-danger: #D9534F;
+    --lo-danger-fg: #FFFFFF;
+    --lo-success: #5BB36A;
+    --lo-warning: #E0A040;
+
+    --lo-infobar-bg: #3A3322;
+    --lo-infobar-border: #65582F;
+    --lo-infobar-error-bg: #3D2526;
+    --lo-infobar-error-border: #6E3B3A;
+
+    --lo-keytip-bg: #E4E6EA;
+    --lo-keytip-fg: #1B1C1F;
+    --lo-keytip-border: #C3C8CF;
+
+    --lo-shadow-card: 0 0 2px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.35);
+    --lo-shadow-popup: 0 0 2px rgba(0, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.45);
+  }
+}
+
+:root {
+  --bg: var(--lo-pane-bg);
+  --fg: var(--lo-fg);
+  --main-bg: var(--lo-pane-bg);
+  --main-fg: var(--lo-fg);
+  --inverted-bg: var(--lo-accent);
+  --inverted-fg: var(--lo-accent-fg);
+  --selected-bg: var(--lo-selected-bg);
+  --selected-fg: var(--lo-selected-fg);
+  --selected-hover-bg: var(--lo-selected-hover-bg);
+  --selected-hover-fg: var(--lo-selected-fg);
+  --hover-bg: var(--lo-hover-bg);
+  --hover-fg: var(--lo-fg);
+  --icon-primary: var(--lo-accent);
+  --offset-bg: var(--lo-accent-tint);
+  --offset-fg: var(--lo-fg);
+  --leftbar-bg: var(--lo-window-bg);
+  --leftbar-fg: var(--lo-fg);
+  --headerbar-bg: var(--lo-window-bg);
+  --headerbar-fg: var(--lo-fg);
+  --windowheader-bg: var(--lo-titlebar-bg);
+  --windowheader-fg: var(--lo-fg);
+  --appbar-bg: var(--lo-window-bg);
+  --appbar-fg: var(--lo-fg);
+  --border: var(--lo-border);
+  --outstanding-bg: var(--lo-fg-secondary);
+  --outstanding-fg: var(--lo-pane-bg);
+  --input-bg: var(--lo-input-bg);
+  --input-fg: var(--lo-fg);
+  --input-line: var(--lo-input-border);
+  --input-placeholder: var(--lo-fg-secondary);
+  --input-focus: var(--lo-accent);
+  --link-fg: var(--lo-accent-text);
+  --link-hover-fg: var(--lo-accent-hover);
+  --button-bg: var(--lo-pane-bg);
+  --button-fg: var(--lo-fg);
+  --button-border: var(--lo-input-border);
+  --button-secondary-line: var(--lo-border);
+  --border-radius: var(--lo-radius-small);
+
+  font-family: var(--lo-font);
+  line-height: 1.4;
+  color: var(--lo-fg);
+  background-color: var(--lo-window-bg);
+}
+
+body {
+  font-size: var(--lo-font-size);
+  background-color: var(--lo-window-bg);
+  color: var(--lo-fg);
+}
+
+*::selection {
+  background-color: var(--lo-accent);
+  color: var(--lo-accent-fg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--lo-focus-ring);
+  outline-offset: -2px;
+}
+
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+::-webkit-scrollbar:hover {
+  background-color: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--lo-border-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--lo-fg-secondary);
+}
+
+input[type="radio"],
+input[type="checkbox"] {
+  accent-color: var(--lo-accent);
+}
+
+/* The accent part of the Mustang icons. Their own <style> makes it turquoise for the whole document, and comes later. */
+:root .cls-2 {
+  stroke: var(--lo-accent-text);
+}
+
+.lo-card {
+  background-color: var(--lo-pane-bg);
+  border-radius: var(--lo-radius);
+  box-shadow: var(--lo-shadow-card);
+}
+
+.lo-secondary {
+  color: var(--lo-fg-secondary);
+}
+
+:is(input, select).lo-text-field {
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--lo-input-border);
+  border-radius: var(--lo-radius-small);
+  background-color: var(--lo-input-bg);
+  color: var(--lo-fg);
+  font: inherit;
+}
+input[type="date"].lo-text-field {
+  background-image: none;
+}
+input[type="date"].lo-text-field::-webkit-calendar-picker-indicator {
+  opacity: 0.7;
+}
+:is(input, select).lo-text-field:focus {
+  outline: none;
+  border-color: var(--lo-accent);
+  box-shadow: inset 0 -1px 0 var(--lo-accent);
+}
+
+.lookout-window .popup > .menu {
+  border: 1px solid var(--lo-border);
+  border-radius: var(--lo-radius);
+  box-shadow: var(--lo-shadow-popup);
+}
+
+.lookout-window .checkbox {
+  position: relative;
+}
+.lookout-window .checkbox > input:not(:checked) {
+  background-color: var(--lo-input-bg);
+  border-color: var(--lo-input-border);
+}
+.lookout-window .checkbox > input:checked {
+  background-color: var(--lo-accent);
+}
+.lookout-window .checkbox > .state-icon-wrapper {
+  color: var(--lo-accent-fg);
+}
+
+.lookout-window .nav-list {
+  padding-inline: 4px;
+}
+.lookout-window .nav-list .nav-entry {
+  position: relative;
+  border-radius: var(--lo-radius-small);
+}
+.lookout-window .nav-list .nav-entry:not(.selected):hover {
+  background-color: var(--lo-hover-bg);
+}
+.lookout-window .nav-list .nav-entry.selected,
+.lookout-window .nav-list .nav-entry.selected:hover {
+  background-color: var(--lo-selected-bg);
+  font-weight: 600;
+}
+.lookout-window .nav-list .nav-entry.selected::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background-color: var(--lo-accent);
+}
+
+:root {
+  --island-radius: var(--lo-radius-small);
+  --island-overlap: 0;
+  --button-radius: var(--lo-radius-small);
+  --button-padding: 0 8px;
+  --button-label-padding: 4px;
+  --button-min-height: 32px;
+  --button-filled-border: var(--lo-accent);
+  --button-filled-hover-bg: var(--lo-accent-hover);
+  --button-filled-hover-fg: var(--lo-accent-fg);
+  --search-field-radius: var(--lo-radius-small);
+  --search-field-bg: var(--lo-input-bg);
+  --group-box-border: none;
+  --group-box-margin-top: 8px;
+  --group-box-radius: 0;
+  --group-box-header-bg: transparent;
+  --group-box-header-border: 1px solid var(--lo-divider);
+  --group-box-header-padding: 0 0 4px 0;
+  --group-box-header-weight: 600;
+  --group-box-content-padding: 8px 0 8px 44px;
+  --pane-margin: 0 4px 8px 4px;
+  --pane-radius: var(--lo-radius);
+  --pane-shadow: var(--lo-shadow-card);
+  --pane-bg: var(--lo-pane-bg);
+  --left-pane-shadow: none;
+}
+
+:where(.frontend-page, .frontend-panes, .setup, .settings-content) :is(input[type="number"], input[type="password"], input[type="email"], input[type="url"], input[type="date"], input[type="time"], input[type="tel"], input[type="text"]),
+:where(.frontend-page, .frontend-panes, .setup, .settings-content) select:where(:not(.lo-text-field)) {
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--input-line);
+  border-radius: var(--lo-radius-small);
+}
+:where(.frontend-page, .frontend-panes, .setup, .settings-content) :is(input[type="number"], input[type="password"], input[type="email"], input[type="url"], input[type="date"], input[type="time"], input[type="tel"], input[type="text"]):focus,
+:where(.frontend-page, .frontend-panes, .setup, .settings-content) select:where(:not(.lo-text-field)):focus {
+  border-color: var(--input-focus);
+}
+:where(.frontend-page, .frontend-panes, .setup, .settings-content) select:where(:not(.lo-text-field)) {
+  background-color: var(--input-bg);
+  color: var(--input-fg);
+}
+:where(.frontend-page, .frontend-panes, .setup, .settings-content) input[type="number"] {
+  min-width: 64px;
+}
+
+.lookout-window .island button.selected {
+  font-weight: 600;
+}

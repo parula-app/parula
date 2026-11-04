@@ -1,22 +1,24 @@
 <Splitter name="settings-categories" initialRightRatio={4}>
   <SettingsCategoriesPane {categories} slot="left" />
-  <Scroll slot="right">
-    <hbox class="settings-title-bar">
-      <hbox flex class="spacer" />
-      <hbox class="buttons">
-        <RoundButton
-          label={$t`Close settings`}
-          icon={CloseIcon}
-          iconSize="16px"
-          padding="6px"
-          onClick={onClose}
-          />
+  <vbox flex class="page-pane" slot="right">
+    <Scroll>
+      <hbox class="settings-title-bar">
+        <hbox flex class="spacer" />
+        <hbox class="buttons">
+          <RoundButton
+            label={$t`Close settings`}
+            icon={CloseIcon}
+            iconSize="16px"
+            padding="6px"
+            onClick={onClose}
+            />
+        </hbox>
       </hbox>
-    </hbox>
-    <vbox flex class="right-page">
-      <MainContent category={$selectedCategory} />
-    </vbox>
-  </Scroll>
+      <vbox flex class="right-page">
+        <MainContent category={$selectedCategory} />
+      </vbox>
+    </Scroll>
+  </vbox>
 </Splitter>
 
 <script lang="ts">
@@ -57,6 +59,12 @@
 </script>
 
 <style>
+  .page-pane {
+    background-color: var(--pane-bg);
+    margin: var(--pane-margin);
+    border-radius: var(--pane-radius);
+    box-shadow: var(--pane-shadow, none);
+  }
   .right-page {
     margin: 0px 32px 32px 32px;
   }

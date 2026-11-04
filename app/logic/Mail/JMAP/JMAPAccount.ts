@@ -29,6 +29,7 @@ import { Semaphore } from "../../util/flow/Semaphore";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { Throttle } from "../../util/flow/Throttle";
 import { Timeout } from "../../util/flow/Timeout";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { waitUntilOnline, isNetworkError, isTransientError, HTTPError } from "../../util/netUtil";
 import { assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
@@ -460,11 +461,16 @@ export class JMAPAccount extends MailAccount {
    * <https://www.rfc-editor.org/rfc/rfc8621.html#section-2.2> */
   async fetchChangedFolders(): Promise<void> {
     const kMaxRounds = 1000;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.errorCallback(new Error(`${this.name}: Folder changes: The server keeps reporting more changes. Stopped.`)));
+    while (loop.nextRound()) {
       let sinceState = this.syncState.get("Mailbox");
       if (!sinceState) {
         await this.listFolders();
         return;
+      }
+      if (loop.isSameAsLastRound(sinceState)) {
+        break;
       }
       let response: Record<string, any>;
       try {
@@ -517,11 +523,7 @@ export class JMAPAccount extends MailAccount {
       if (!changes.hasMoreChanges) {
         return;
       }
-      if (changes.newState == sinceState) {
-        break;
-      }
     }
-    this.errorCallback(new Error(`${this.name}: Folder changes: The server keeps reporting more changes. Stopped.`));
   }
 
   async listFolders(): Promise<void> {
@@ -534,22 +536,32 @@ export class JMAPAccount extends MailAccount {
       "ids": null,
     }) as TJMAPGetResponse<TJMAPFolder>;
     for (let folderJSON of serverFoldersResponse.list) {
-      // If the server lists the parent only later, we move the folder there on the next listing
-      let parent = folderJSON.parentId
-        ? this.findFolder(folder => folder.id == folderJSON.parentId) as JMAPFolder
-        : null;
-      let parentFolders = parent ? parent.subFolders : this.rootFolders;
-      let folder = parentFolders.find(folder => folder.id == folderJSON.id) as JMAPFolder;
-      if (!folder) {
-        // We may already have the folder from our database, or it moved
-        folder = this.findFolder(folder => folder.id == folderJSON.id) as JMAPFolder ?? this.newFolder();
-        let oldParentFolders = folder.parent?.subFolders ?? this.rootFolders;
-        oldParentFolders.remove(folder);
-        folder.parent = parent;
-        parentFolders.add(folder);
-      }
+      // We may already have the folder from our database
+      let folder = this.findFolder(folder => folder.id == folderJSON.id) as JMAPFolder ?? this.newFolder();
       folder.fromJMAP(folderJSON);
       currentFolders.set(folder.id, folder);
+    }
+    let parentIDs = new Map(serverFoldersResponse.list.map(folderJSON => [folderJSON.id, folderJSON.parentId]));
+    // Only now, because the server may list a folder before its parent
+    for (let folderJSON of serverFoldersResponse.list) {
+      let folder = currentFolders.get(folderJSON.id);
+      let parent = currentFolders.get(folderJSON.parentId) ?? null;
+      let ancestorID = folderJSON.parentId;
+      for (let i = 0; ancestorID && ancestorID != folder.id && i < parentIDs.size; i++) {
+        ancestorID = parentIDs.get(ancestorID);
+      }
+      if (ancestorID == folder.id) {
+        this.dataError(new Error(`Folder ${folder.name}: The server made the folder its own parent or a subfolder of itself. Showing it at the top level.`));
+        parent = null;
+      }
+      let parentFolders = parent ? parent.subFolders : this.rootFolders;
+      if (parentFolders.contains(folder)) {
+        continue;
+      }
+      let oldParentFolders = folder.parent?.subFolders ?? this.rootFolders;
+      oldParentFolders.remove(folder);
+      folder.parent = parent;
+      parentFolders.add(folder);
     }
 
     for (let folder of oldFolders) {
@@ -794,19 +806,14 @@ export class JMAPAccount extends MailAccount {
       await reconnectThrottle.throttle();
       let connection = new AbortController();
       let pingSeconds = kPingSeconds;
-      let watchdog: Timeout | null = null;
       // A dead connection, e.g. after sleep or a network change, doesn't always end the stream,
       // and a half-open VPN tunnel may accept a new connection, but never answer
-      function expectAnswer() {
-        watchdog?.fulfilled();
-        watchdog = new Timeout(2 * pingSeconds, () => {
-          // A `DOMException` named "TimeoutError", like `fetch()` throws for its own timeouts, so that the `catch`
-          // below takes it as transient (`isTransientError()`), and the `while` loop reconnects
-          connection.abort(new DOMException("Push connection: The server stopped answering", "TimeoutError"));
-        });
-      }
+      let watchdog = new Timeout(2 * pingSeconds, () => {
+        // A `DOMException` named "TimeoutError", like `fetch()` throws for its own timeouts, so that the `catch`
+        // below takes it as transient (`isTransientError()`), and the `while` loop reconnects
+        connection.abort(new DOMException("Push connection: The server stopped answering", "TimeoutError"));
+      });
       try {
-        expectAnswer();
         let stream = await fetch(url, {
           headers: {
             Authorization: this.authorizationHeader(),
@@ -819,7 +826,7 @@ export class JMAPAccount extends MailAccount {
         }
         let eventStream = stream.body.pipeThrough(new TextDecoderStream()).pipeThrough(new TransformStream(new EventDecoder()));
         for await (let event of eventStream) {
-          watchdog?.fulfilled();
+          watchdog.fulfilled();
           if (event.name == "ping") {
             try {
               pingSeconds = sanitize.integerRange(JSON.parse(event.data).interval, 1, 1500, pingSeconds);
@@ -849,7 +856,7 @@ export class JMAPAccount extends MailAccount {
               console.error(ex);
             }
           }
-          expectAnswer();
+          watchdog.restart(2 * pingSeconds);
         }
       } catch (ex) {
         if (ex.name == "AbortError") { // disconnect(), or a newer listener took over
@@ -866,7 +873,7 @@ export class JMAPAccount extends MailAccount {
           throw ex;
         }
       } finally {
-        watchdog?.fulfilled();
+        watchdog.fulfilled();
       }
     }
   }
@@ -1013,6 +1020,11 @@ export class JMAPAccount extends MailAccount {
     await this.getSession(); // The new account appears in the session only now
     for (let notification of notifications) {
       let granted = Object.values(notification.newRights ?? {}).some(right => right);
+      let known = this.accountForID(notification.objectAccountId);
+      if (known && known != this) {
+        await known.updateSharedAccount();
+        continue;
+      }
       let shared = this.session.accounts[notification.objectAccountId];
       let ownerEMail = shared && this.sharedAccountOwner(shared);
       if (!granted || !ownerEMail || shared.isPersonal || this.accountForID(notification.objectAccountId)) {
@@ -1020,6 +1032,17 @@ export class JMAPAccount extends MailAccount {
       }
       await this.addSharedFolders(new PersonUID(ownerEMail, sanitize.nonemptystring(shared.name)), "msgfolderroot");
     }
+  }
+
+  /** The other user shared more with us, or less */
+  protected async updateSharedAccount() {
+    if (this.haveContacts) {
+      await this.listAddressbooks();
+    }
+    if (this.haveCalendar) {
+      await this.listCalendars();
+    }
+    await this.startupDependentAccounts();
   }
 
   async findSharedFolders(person: PersonUID, distinguishedIDs: string[]): Promise<string[]> {

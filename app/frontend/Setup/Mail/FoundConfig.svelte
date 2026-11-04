@@ -57,6 +57,7 @@
   $: successMessage = !config?.source ? $t`No config found` :
     config.source == "ispdb" ? $t`We found the configuration in our database.` :
     config.source == "autoconfig-isp" ? $t`We received the configuration from your email provider.` :
+    config.source == "harddisk" ? $t`We found a configuration on your computer.` :
     config.source == "guess" ? $t`We guessed a configuration that might work.` :
     config.source == "autodiscover-xml" ? $t`We received the configuration from Microsoft Exchange.` :
     config.source == "autodiscover-json" ? $t`We received the configuration for Microsoft Exchange` :

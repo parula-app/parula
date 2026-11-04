@@ -14,6 +14,11 @@
         {$t`This meeting has been cancelled by the organizer. You may delete it.`}
       </hbox>
     {:else}
+      {#if $event.isMoved}
+        <hbox class="moved-text">
+          {$t`The organizer changed the time or place of this meeting. Please respond again.`}
+        </hbox>
+      {/if}
       <InvitationButtons invitation={event} myParticipation={$event.myParticipation} />
     {/if}
   </vbox>
@@ -54,7 +59,8 @@
   .attachments {
     margin-block-end: 16px;
   }
-  .cancelled-text {
+  .cancelled-text,
+  .moved-text {
     flex-wrap: wrap;
     background-color: rgba(255, 98, 0, 0.443);
     padding: 8px 12px;
