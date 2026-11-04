@@ -12,10 +12,12 @@ export class OWANotifications {
    * or the listener ended with an error that goes away by itself.
    * The subclasses restart it whenever something arrived. */
   protected readonly watchdog: Timeout;
+  protected isReconnect: boolean;
 
-  constructor(account: OWAAccount) {
+  constructor(account: OWAAccount, isReconnect: boolean) {
     this.account = account;
-    this.watchdog = new Timeout(90, () => this.account.listenForNotifications());
+    this.isReconnect = isReconnect;
+    this.watchdog = new Timeout(90, () => this.account.listenForNotifications(true));
   }
 
   /** Runs until it fails or we stop it, so don't `await` it.
@@ -38,6 +40,14 @@ export class OWANotifications {
 
   async start(): Promise<never> {
     throw new AbstractFunction();
+  }
+
+  /** Call when the server accepted the stream */
+  protected connected(): void {
+    if (this.isReconnect) {
+      this.isReconnect = false;
+      this.account.fetchChangesMissedByNotifications();
+    }
   }
 
   stop(): void {

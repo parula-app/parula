@@ -241,13 +241,27 @@ export class OWAAccount extends ExchangeMailAccount {
 
   /** Starts a new listener for notifications from the server, and ends the old one,
    * e.g. when its connection died */
-  listenForNotifications(): void {
+  listenForNotifications(isReconnect = false): void {
     this.notifications?.stop();
     this.notifications = this.provider() == Provider.Office365
-      ? new OWAOffice365Notifications(this)
-      : new OWAExchangeNotifications(this);
+      ? new OWAOffice365Notifications(this, isReconnect)
+      : new OWAExchangeNotifications(this, isReconnect);
     this.notifications.listen()
       .catch(this.errorCallback);
+  }
+
+  /** The server doesn't tell us what changed while we weren't listening, e.g. while the VPN was down */
+  fetchChangesMissedByNotifications(): void {
+    this.inbox?.getNewMessages()
+      .catch(this.errorCallback);
+    for (let addressbook of appGlobal.addressbooks.filterOnce(addressbook => addressbook.mainAccount == this)) {
+      addressbook.listContacts()
+        .catch(this.errorCallback);
+    }
+    for (let calendar of appGlobal.calendars.filterOnce(calendar => calendar.mainAccount == this)) {
+      calendar.listEvents()
+        .catch(this.errorCallback);
+    }
   }
 
   async disconnect() {

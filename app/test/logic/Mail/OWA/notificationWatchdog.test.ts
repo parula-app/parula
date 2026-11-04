@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { appGlobal } from "../../../../logic/app.ts"; // defeats circular import
 import { OWAAccount } from "../../../../logic/Mail/OWA/OWAAccount";
+import { OWACalendar } from "../../../../logic/Calendar/OWA/OWACalendar";
+import { OWAAddressbook } from "../../../../logic/Contacts/OWA/OWAAddressbook";
 import { waitTime } from "../../../../logic/util/util";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -8,6 +10,8 @@ class TestOWAAccount extends OWAAccount {
   readonly errors: Error[] = [];
   /** How many notification messages arrived */
   messages = 0;
+  /** How often we checked the inbox for new mail */
+  inboxChecks = 0;
 
   async callOWA(request: any): Promise<any> {
     if (request.action == "GetAccessTokenforResource") {
@@ -19,7 +23,21 @@ class TestOWAAccount extends OWAAccount {
   async onNotificationMessages(messages: any[][]) {
     this.messages += messages.length;
   }
+
+  get inbox(): any {
+    return {
+      getNewMessages: async () => {
+        if (!serverReachable) {
+          throw new Error("net::ERR_NAME_NOT_RESOLVED");
+        }
+        this.inboxChecks++;
+      },
+    };
+  }
 }
+
+/** False while the last listener couldn't reach the server, e.g. while the VPN is down */
+let serverReachable = true;
 
 function newTestAccount(): TestOWAAccount {
   appGlobal.remoteApp ??= { OWA: {} } as any; // `OWAAccount` needs the backend
@@ -57,6 +75,7 @@ function serveExchange(servers: ((() => AsyncIterable<string>) | Error)[]): () =
       fetchJSON: async (_partition: string, url: string) => {
         if (url.includes("ev=FinishNotificationRequest")) {
           let server = servers[listeners++];
+          serverReachable = !(server instanceof Error);
           if (server instanceof Error) {
             throw server;
           }
@@ -77,6 +96,9 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  appGlobal.calendars.clear();
+  appGlobal.addressbooks.clear();
+  serverReachable = true;
 });
 
 test("OWA: A notification stream that keeps sending stays open", async () => {
@@ -142,6 +164,67 @@ test("OWA: After logout, the notifications are not opened again", async () => {
   expect(listeners()).toBe(1);
 });
 
+/** The calendars and address books that were synced, by folder ID */
+let synced: string[] = [];
+
+function newCalendar(account: OWAAccount, folderID: string): OWACalendar {
+  let calendar = new OWACalendar();
+  calendar.initFromMainAccount(account);
+  calendar.folderID = folderID;
+  calendar.listEvents = async () => {
+    synced.push(folderID);
+  };
+  appGlobal.calendars.add(calendar);
+  return calendar;
+}
+
+function newAddressbook(account: OWAAccount, folderID: string): OWAAddressbook {
+  let addressbook = new OWAAddressbook();
+  addressbook.initFromMainAccount(account);
+  addressbook.folderID = folderID;
+  addressbook.listContacts = async () => {
+    synced.push(folderID);
+  };
+  appGlobal.addressbooks.add(addressbook);
+  return addressbook;
+}
+
+test("OWA: After the notifications were opened again, we fetch what changed meanwhile in the inbox, calendars and address books", async () => {
+  synced = [];
+  let account = newTestAccount();
+  newCalendar(account, "calendar-folder");
+  newAddressbook(account, "contacts-folder");
+  let listeners = serveExchange([() => exchangeStream(2), exchangeStream]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(30 * 1000);
+  // The first listener follows the startup sync, which already fetched everything
+  expect(account.inboxChecks).toBe(0);
+  expect(synced).toEqual([]);
+
+  await vi.advanceTimersByTimeAsync(3 * 60 * 1000);
+  expect(listeners()).toBe(2);
+  expect(account.inboxChecks).toBeGreaterThan(0);
+  expect(synced).toContain("calendar-folder");
+  expect(synced).toContain("contacts-folder");
+  expect(account.errors).toEqual([]);
+  await account.disconnect();
+});
+
+test("OWA: When the server was reachable again only later, e.g. a late VPN, we fetch what changed meanwhile once it is", async () => {
+  let account = newTestAccount();
+  let unreachable = new Error("net::ERR_NAME_NOT_RESOLVED");
+  let listeners = serveExchange([() => exchangeStream(1), unreachable, exchangeStream]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+  expect(listeners()).toBe(3);
+  expect(account.inboxChecks).toBeGreaterThan(0);
+  expect(account.errors).toEqual([]);
+  await account.disconnect();
+});
+
 /** An Office 365 server-sent event stream that sends a keep-alive every 10 s, `count` times,
  * and then nothing anymore. It ends only when the client aborts it. */
 function office365Stream(count: number, signal: AbortSignal): ReadableStream {
@@ -189,6 +272,22 @@ test("OWA: Office 365: A notification stream that stopped sending keep-alives is
   expect(streams.length).toBe(2);
   expect(streams[0].aborted).toBe(true);
   expect(streams[1].aborted).toBe(false);
+  expect(account.errors).toEqual([]);
+  await account.disconnect();
+});
+
+test("OWA: Office 365: After the notifications were opened again, we fetch what changed meanwhile in the inbox", async () => {
+  let account = newTestAccount();
+  account.authorizationHeader = "Bearer main-token";
+  let streams = serveOffice365([3, Infinity]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(20 * 1000);
+  expect(account.inboxChecks).toBe(0);
+
+  await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+  expect(streams.length).toBe(2);
+  expect(account.inboxChecks).toBeGreaterThan(0);
   expect(account.errors).toEqual([]);
   await account.disconnect();
 });

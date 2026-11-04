@@ -72,6 +72,7 @@ export class OWAOffice365Notifications extends OWANotifications {
         if (!stream.ok) {
           throw new Error(`stream fetch failed with HTTP ${stream.status} ${stream.statusText}`);
         }
+        this.connected();
         let eventStream = stream.body.pipeThrough(new TextDecoderStream()).pipeThrough(new TransformStream(new EventDecoder()));
         for await (let event of eventStream) {
           this.watchdog.restart();
