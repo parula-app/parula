@@ -129,3 +129,22 @@ test("Marking an email as not spam and then as spam again leaves only $Junk", as
   expect(has(onServer, "$Junk")).toBe(true);
   expect(has(onServer, "$NotJunk")).toBe(false);
 });
+
+// RFC 9051 section 9: keywords are case-insensitive, and a server may report them in any case
+test("Marking an email as not spam removes $Junk, when the server reports it in lowercase", async () => {
+  let { email, onServer } = setUpEMail(["$junk"]);
+
+  await email.markSpam(false);
+
+  expect(has(onServer, "$NotJunk")).toBe(true);
+  expect(has(onServer, "$Junk")).toBe(false);
+});
+
+test("Marking an email as spam removes $NotJunk, when the server reports it in lowercase", async () => {
+  let { email, onServer } = setUpEMail(["$notjunk"]);
+
+  await email.markSpam(true);
+
+  expect(has(onServer, "$Junk")).toBe(true);
+  expect(has(onServer, "$NotJunk")).toBe(false);
+});

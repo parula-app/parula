@@ -119,8 +119,9 @@ export class IMAPEMail extends EMail {
     // Not `=`: The sender's `Importance:` header is not on the server
     this.isImportant ||= flags.has("$Important"); // RFC 8457
     this.isDraft = flags.has("\\Draft");
-    this.isSpam = flags.has("$Junk");
-    this.mayHaveNotJunk = flags.has("$NotJunk");
+    let keywords = [...flags].map(flag => flag.toLowerCase()); // RFC 9051 section 9: case-insensitive
+    this.isSpam = keywords.includes("$junk");
+    this.mayHaveNotJunk = keywords.includes("$notjunk");
 
     for (let customTag of flags) {
       if (customTag.startsWith("\\") || customTag.startsWith("$") ||
