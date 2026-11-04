@@ -4,14 +4,14 @@ import type { JMAPAccount } from "./JMAPAccount";
 import type { EMail } from "../EMail";
 import type { EMailCollection } from "../Store/EMailCollection";
 import type { TJMAPEMailHeaders, TJMAPFolder } from "./TJMAPMail";
-import type { TJMAPChangeResponse, TJMAPGetResponse } from "./TJMAPGeneric";
+import type { TJMAPChangeResponse, TJMAPGetResponse, TJMAPQueryResponse } from "./TJMAPGeneric";
 import { checkChangeError } from "./JMAPError";
 import { CreateMIME } from "../SMTP/CreateMIME";
 import { Semaphore } from "../../util/flow/Semaphore";
 import { PromiseAllDone } from "../../util/flow/PromiseAllDone";
 import { retryOnTransientError } from "../../util/netUtil";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { NotImplemented, assert } from "../../util/util";
+import { assert } from "../../util/util";
 import { ArrayColl, SetColl, Collection } from "svelte-collections";
 import { Buffer } from "buffer";
 import { gt } from "../../../l10n/l10n";
@@ -66,13 +66,30 @@ export class JMAPFolder extends Folder {
     const batchSize = 200;
     let state: string;
     let allNewMessages = new ArrayColl<JMAPEMail>();
-    for (let i = 0; i < this.countTotal; i += batchSize) {
-      let { newMessages, syncState } = await retryOnTransientError(() =>
-        this.fetchMessageList(i, batchSize));
+    let position = 0;
+    const kMaxRounds = 5000; // 1,000,000 emails
+    let previousIDs: string | null = null;
+    let isComplete = false;
+    for (let round = 1; round <= kMaxRounds; round++) {
+      let { newMessages, syncState, ids, limit } = await retryOnTransientError(() =>
+        this.fetchMessageList(position, batchSize));
+      let pageIDs = ids.join(" ");
+      if (pageIDs == previousIDs) {
+        break;
+      }
+      previousIDs = pageIDs;
       state ??= syncState;
       this.messages.addAll(newMessages);
       await this.saveNewMsgs(newMessages);
       allNewMessages.addAll(newMessages);
+      position += ids.length;
+      if (ids.length < limit) {
+        isComplete = true;
+        break;
+      }
+    }
+    if (!isComplete) {
+      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`));
     }
     if (state) {
       this.account.syncState.set("Email", state);
@@ -99,7 +116,7 @@ export class JMAPFolder extends Folder {
     }
   }
 
-  protected async fetchMessageList(start?: number, limit?: number, options?: any): Promise<{ newMessages: ArrayColl<JMAPEMail>, updatedMessages: ArrayColl<JMAPEMail>, syncState: string }> {
+  protected async fetchMessageList(start?: number, limit?: number, options?: any): Promise<{ newMessages: ArrayColl<JMAPEMail>, updatedMessages: ArrayColl<JMAPEMail>, syncState: string, ids: string[], limit: number }> {
     console.log("JMAP fetch", limit || start ? `start ${start} limit ${limit}` : "all");
     let listResponse: TJMAPGetResponse<TJMAPEMailHeaders>;
     let lock = await this.account.stateLock.lock();
@@ -127,15 +144,19 @@ export class JMAPFolder extends Folder {
               path: "/ids",
               resultOf: "list",
             },
+            properties: JMAPEMail.listProperties,
           },
           "emails",
         ],
-      ]) as TJMAPGetResponse<TJMAPEMailHeaders>;
+      ]);
       listResponse = response["emails"];
+      let query = response["list"] as TJMAPQueryResponse;
 
       return {
         ...this.parseMessageList(listResponse.list),
         syncState: listResponse.state,
+        ids: sanitize.array(query.ids, []),
+        limit: sanitize.integer(query.limit, limit), // The server may set a lower limit
       };
     } finally {
       lock.release();
@@ -149,108 +170,117 @@ export class JMAPFolder extends Folder {
    */
   async fetchChangedMessagesForAllFolders(): Promise<ArrayColl<JMAPEMail>> {
     assert(this.account.syncState.has("Email"), "No sync state");
-    let lock = await this.account.stateLock.lock();
-    try {
-      //console.log("JMAP fetching changes for folder", this.name);
-      // <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
-      let response = await retryOnTransientError(() => this.account.makeCombinedCall([
-        [
-          "Email/changes", {
-            accountId: this.account.accountID,
-            sinceState: this.account.syncState.get("Email"),
-            maxChanges: 500,
-          },
-          "changes",
-        ], [
-          "Email/get", {
-            accountId: this.account.accountID,
-            "#ids": {
-              resultOf: "changes",
-              name: "Email/changes",
-              path: "/created",
+    let newMessagesOfThisFolder = new ArrayColl<JMAPEMail>();
+    const kMaxRounds = 1000;
+    for (let round = 1; round <= kMaxRounds; round++) {
+      let lock = await this.account.stateLock.lock();
+      try {
+        let sinceState = this.account.syncState.get("Email");
+        //console.log("JMAP fetching changes for folder", this.name);
+        // <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
+        let response = await retryOnTransientError(() => this.account.makeCombinedCall([
+          [
+            "Email/changes", {
+              accountId: this.account.accountID,
+              sinceState: sinceState,
+              maxChanges: 500,
             },
-          },
-          "added",
-        ], [
-          "Email/get", {
-            accountId: this.account.accountID,
-            "#ids": {
-              resultOf: "changes",
-              name: "Email/changes",
-              path: "/updated",
+            "changes",
+          ], [
+            "Email/get", {
+              accountId: this.account.accountID,
+              "#ids": {
+                resultOf: "changes",
+                name: "Email/changes",
+                path: "/created",
+              },
+              properties: JMAPEMail.listProperties,
             },
-          },
-          "changed",
-        ],
-      ]));
-      //console.log("sync response", response);
+            "added",
+          ], [
+            "Email/get", {
+              accountId: this.account.accountID,
+              "#ids": {
+                resultOf: "changes",
+                name: "Email/changes",
+                path: "/updated",
+              },
+              properties: JMAPEMail.listProperties,
+            },
+            "changed",
+          ],
+        ]));
+        //console.log("sync response", response);
 
-      let changes = response["changes"] as TJMAPChangeResponse<TJMAPEMailHeaders>;
-      let addedResponse = response["added"] as TJMAPGetResponse<TJMAPEMailHeaders>;
-      let changedResponse = response["changed"] as TJMAPGetResponse<TJMAPEMailHeaders>;
+        let changes = response["changes"] as TJMAPChangeResponse<TJMAPEMailHeaders>;
+        let addedResponse = response["added"] as TJMAPGetResponse<TJMAPEMailHeaders>;
+        let changedResponse = response["changed"] as TJMAPGetResponse<TJMAPEMailHeaders>;
 
-      // Split the responses by folder: map Folder JMAP ID -> JMAP EMail
-      let addedByFolder = new Map<string, TJMAPEMailHeaders[]>();
-      let changedByFolder = new Map<string, TJMAPEMailHeaders[]>();
-      let newMessagesOfThisFolder = new ArrayColl<JMAPEMail>();
-      splitByFolder(addedResponse.list, addedByFolder);
-      splitByFolder(changedResponse.list, changedByFolder);
+        // Split the responses by folder: map Folder JMAP ID -> JMAP EMail
+        let addedByFolder = new Map<string, TJMAPEMailHeaders[]>();
+        let changedByFolder = new Map<string, TJMAPEMailHeaders[]>();
+        splitByFolder(addedResponse.list, addedByFolder);
+        splitByFolder(changedResponse.list, changedByFolder);
 
-      let allFolders = this.account.getAllFolders() as ArrayColl<JMAPFolder>;
-      for (let folder of allFolders) {
-        let removed = this.findMovedAway(changedResponse.list, folder); // catches deletes e.g. from Inbox, which we read anyways
-        let addedThisFolder = addedByFolder.get(folder.id);
-        let changedThisFolder = changedByFolder.get(folder.id);
-        if (!(addedThisFolder || changedThisFolder ||
-              removed.hasItems ||
-              changes.destroyed?.length && (folder.messages.hasItems || [SpecialFolder.Trash, SpecialFolder.Spam].includes(folder.specialFolder)))) {
-          continue;
-        }
-        /** To avoid reading all messages of all folders, we handle
-         * - permanent deletes only from folders that we already read, and Trash / Spam (`DeleteStrategy.MoveToTrash`)
-         * - moves only from folders that we already read
-         * - new messages only in folders that we already listed
-         * This is a tradeoff. */
-        await folder.readFolder();
-        if (folder.messages.isEmpty && folder.countTotal > 0) {
-          continue; // Adding messages here would stop listAllMessages() from ever running
-        }
-        removed = this.findMovedAway(changedResponse.list, folder); // repeat after reading the folder
-        removed.addAll(await folder.parseRemovedMessages(changes.destroyed ?? []));
-        // A draft or email uploaded from here comes back in `created`, so need dup checks
-        let addedResult = folder.parseMessageList(addedThisFolder ?? []);
-        let changedResult = folder.parseMessageList(changedThisFolder ?? []);
-        addedResult.newMessages.addAll(changedResult.newMessages);
-        //console.log(folder.name, "added messages", addedResult.newMessages.contents.map(e => e.subject));
-        //console.log(folder.name, "updated messages", changedResult.updatedMessages.contents.map(e => e.subject));
-        //console.log(folder.name, "removed messages", removedMessages.contents.map(e => e.subject));
+        let allFolders = this.account.getAllFolders() as ArrayColl<JMAPFolder>;
+        for (let folder of allFolders) {
+          let removed = this.findMovedAway(changedResponse.list, folder); // catches deletes e.g. from Inbox, which we read anyways
+          let addedThisFolder = addedByFolder.get(folder.id);
+          let changedThisFolder = changedByFolder.get(folder.id);
+          if (!(addedThisFolder || changedThisFolder ||
+                removed.hasItems ||
+                changes.destroyed?.length && (folder.messages.hasItems || [SpecialFolder.Trash, SpecialFolder.Spam].includes(folder.specialFolder)))) {
+            continue;
+          }
+          /** To avoid reading all messages of all folders, we handle
+           * - permanent deletes only from folders that we already read, and Trash / Spam (`DeleteStrategy.MoveToTrash`)
+           * - moves only from folders that we already read
+           * - new messages only in folders that we already listed
+           * This is a tradeoff. */
+          await folder.readFolder();
+          if (folder.messages.isEmpty && folder.countTotal > 0) {
+            continue; // Adding messages here would stop listAllMessages() from ever running
+          }
+          removed = this.findMovedAway(changedResponse.list, folder); // repeat after reading the folder
+          removed.addAll(await folder.parseRemovedMessages(changes.destroyed ?? []));
+          // A draft or email uploaded from here comes back in `created`, so need dup checks
+          let addedResult = folder.parseMessageList(addedThisFolder ?? []);
+          let changedResult = folder.parseMessageList(changedThisFolder ?? []);
+          addedResult.newMessages.addAll(changedResult.newMessages);
+          //console.log(folder.name, "added messages", addedResult.newMessages.contents.map(e => e.subject));
+          //console.log(folder.name, "updated messages", changedResult.updatedMessages.contents.map(e => e.subject));
+          //console.log(folder.name, "removed messages", removedMessages.contents.map(e => e.subject));
 
-        folder.messages.removeAll(removed);
-        for (let msg of addedResult.newMessages) {
-          msg.isNewArrived = true;
+          folder.messages.removeAll(removed);
+          for (let msg of addedResult.newMessages) {
+            msg.isNewArrived = true;
+          }
+          folder.messages.addAll(addedResult.newMessages);
+          for (let msg of removed) {
+            await msg.deleteMessageLocally();
+          }
+          await folder.storage.saveFolderProperties(folder);
+          await folder.saveMsgUpdates(changedResult.updatedMessages);
+          await folder.saveNewMsgs(addedResult.newMessages);
+          if (this === folder) {
+            newMessagesOfThisFolder.addAll(addedResult.newMessages);
+          }
         }
-        folder.messages.addAll(addedResult.newMessages);
-        for (let msg of removed) {
-          await msg.deleteMessageLocally();
-        }
-        await folder.storage.saveFolderProperties(folder);
-        await folder.saveMsgUpdates(changedResult.updatedMessages);
-        await folder.saveNewMsgs(addedResult.newMessages);
-        if (this === folder) {
-          newMessagesOfThisFolder = addedResult.newMessages;
-        }
-      }
 
-      this.account.syncState.set("Email", changes.newState);
-      await this.account.save();
-      if (changes.hasMoreChanges) {
+        this.account.syncState.set("Email", changes.newState);
+        await this.account.save();
+        if (!changes.hasMoreChanges) {
+          return newMessagesOfThisFolder;
+        }
+        if (changes.newState == sinceState) {
+          break;
+        }
+      } finally {
         lock.release();
-        await this.fetchChangedMessagesForAllFolders();
       }
-      return newMessagesOfThisFolder;
-    } finally {
-      lock.release();
     }
+    this.account.errorCallback(new Error("Email changes: The server keeps reporting more changes. Stopped."));
+    return newMessagesOfThisFolder;
   }
 
   protected async parseRemovedMessages(messageIDs: string[]): Promise<SetColl<JMAPEMail>> {
@@ -472,19 +502,22 @@ export class JMAPFolder extends Folder {
 
   protected async moveOrCopyMessagesOnServer(action: "move" | "copy", messages: Collection<JMAPEMail>) {
     let targetFolderID = this.id;
-    let updates: Record<string, Record<string, boolean>> = {};
-    for (let msg of messages) {
-      let id = msg.jmapID;
-      let sourceFolderID = msg.folder.id;
-      updates[id] = {
-        [`mailboxIds/${targetFolderID}`]: true,
-        [`mailboxIds/${sourceFolderID}`]: action == "copy" ? true : null,
-      };
+    let batchSize = this.account.maxObjectsInSet;
+    for (let i = 0; i < messages.length; i += batchSize) {
+      let updates: Record<string, Record<string, boolean>> = {};
+      for (let msg of messages.getIndexRange(i, batchSize)) {
+        let id = msg.jmapID;
+        let sourceFolderID = msg.folder.id;
+        updates[id] = {
+          [`mailboxIds/${targetFolderID}`]: true,
+          [`mailboxIds/${sourceFolderID}`]: action == "copy" ? true : null,
+        };
+      }
+      await this.account.makeSingleCall("Email/set", {
+        accountId: this.account.accountID,
+        update: updates,
+      });
     }
-    await this.account.makeSingleCall("Email/set", {
-      accountId: this.account.accountID,
-      update: updates,
-    });
 
     this.countTotal += messages.length;
     let sourceFolder = messages.first.folder;
@@ -557,35 +590,38 @@ export class JMAPFolder extends Folder {
 
   async markAllRead(): Promise<void> {
     await super.markAllRead();
-    throw new NotImplemented();
-    await this.account.makeCombinedCall([
-      [
-        "Email/query", {
-          accountId: this.account.accountID,
-          filter: {
-            inMailbox: this.id,
-          },
+    let batchSize = Math.max(1, sanitize.integer(this.account.session?.capabilities?.["urn:ietf:params:jmap:core"]?.maxObjectsInSet, 500));
+    const kMaxEMails = 1000000;
+    let maxRounds = Math.ceil(kMaxEMails / batchSize);
+    let previousIDs: string | null = null;
+    for (let round = 1; round <= maxRounds; round++) {
+      let query = await this.account.makeSingleCall("Email/query", {
+        accountId: this.account.accountID,
+        filter: {
+          inMailbox: this.id,
+          notKeyword: "$seen",
         },
-        "list",
-      ], [
-        "Email/set", {
-          accountId: this.account.accountID,
-          update: {
-            "#ids": {
-              name: "Email/query",
-              path: "/ids",
-              resultOf: "list",
-            },
-            idFromResultTODO: {
-              keywords: {
-                ["$seen"]: true,
-              }
-            }
-          }
-        },
-        "markRead",
-      ],
-    ]);
+        limit: batchSize,
+      }) as TJMAPQueryResponse;
+      if (!query.ids.length) {
+        return;
+      }
+      let ids = query.ids.join(" ");
+      if (ids == previousIDs) {
+        break;
+      }
+      previousIDs = ids;
+      let update: Record<string, Record<string, boolean>> = {};
+      for (let id of query.ids) {
+        update[id] = { "keywords/$seen": true };
+      }
+      let response = await this.account.makeSingleCall("Email/set", {
+        accountId: this.account.accountID,
+        update: update,
+      }) as TJMAPChangeResponse<TJMAPEMailHeaders>;
+      checkChangeError(response);
+    }
+    this.account.errorCallback(new Error(`${this.name}: Mark all as read: The server keeps returning unread emails. Stopped.`));
   }
 
   /** @param specialUse From RFC 6154, e.g. `\Sent`

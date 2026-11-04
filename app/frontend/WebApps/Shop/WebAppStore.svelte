@@ -1,5 +1,5 @@
 <hbox flex class="app-store">
-  <vbox flex class="categories font-small">
+  <vbox flex class="categories font-small nav-list">
     <Scroll>
       <Categories showCategories={topLevelCategories} allCategories={categories} bind:selected={selectedCategory} />
     </Scroll>
@@ -57,9 +57,9 @@
   .categories {
     background-color: var(--leftbar-bg);
     color: var(--leftbar-fg);
-    padding: 24px;
-    padding-block-start: 64px;
-    box-shadow: 3px 1px 8px 0px rgba(22, 12, 39, 8%); /* #160C27 */
+    padding-block: 24px;
+    padding-block-start: 40px;
+    box-shadow: var(--left-pane-shadow, 3px 1px 8px 0px rgba(22, 12, 39, 8%)); /* #160C27 */
   }
   .apps {
     flex: 4 0 0;

@@ -1,11 +1,11 @@
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { Certificate, SignedData } from "./SMIMEASN1";
-import type { Person } from "../../../Abstract/Person";
 import { assert } from "../../../util/util";
+import { ArrayColl } from "svelte-collections";
 
 /**
- * Adds the S/MIME certificates that a directory, e.g. the Exchange GAL,
- * published for this person.
+ * Reads the S/MIME certificates that a directory, e.g. the Exchange GAL,
+ * published for a person.
  *
  * RFC 2798 defines both attributes and states: "If available, this attribute
  * [`userSMIMECertificate`] is preferred over the `userCertificate` attribute
@@ -13,40 +13,41 @@ import { assert } from "../../../util/util";
  *
  * @param smimeCertificates `userSMIMECertificate`: PKCS#7 SignedData, each base64-encoded
  * @param certificates `userCertificate`: DER-encoded X.509 certificates, each base64-encoded
+ * @param errorCallback for certificates that we cannot read
  */
-export async function addDirectoryCertificatesToPerson(person: Person, smimeCertificates: string[], certificates: string[]) {
-  const errorCallback = (ex: Error) => person.addressbook ? person.addressbook.errorCallback(ex) : console.error(ex);
-  let foundPreferred = false;
-  for (let blob of smimeCertificates) {
+export async function readDirectoryCertificates(smimeCertificates: string[], certificates: string[], errorCallback: (ex: Error) => void): Promise<ArrayColl<SMIMEPublicKey>> {
+  let keys = new ArrayColl<SMIMEPublicKey>();
+  for (let cert of smimeCertificates) {
     try {
-      person.addEncryptionPublicKey(await smimeCertificateToKey(blob));
-      foundPreferred = true;
+      keys.add(await smimeCertificateToKey(cert));
     } catch (ex) {
       errorCallback(ex);
     }
   }
-  if (foundPreferred) {
-    return;
+  if (keys.hasItems) {
+    return keys;
   }
-  await addCertificatesToPerson(person, certificates);
+  return await readCertificates(certificates, errorCallback);
 }
 
 /**
- * Adds the S/MIME certificates that a directory published for this person,
+ * Reads the S/MIME certificates that a directory published for a person,
  * e.g. the `userCertificate` attribute in the Exchange GAL.
  * @param certificates DER-encoded X.509 certificates, each base64-encoded
+ * @param errorCallback for certificates that we cannot read
  */
-export async function addCertificatesToPerson(person: Person, certificates: string[]) {
-  const errorCallback = (ex: Error) => person.addressbook ? person.addressbook.errorCallback(ex) : console.error(ex);
+export async function readCertificates(certificates: string[], errorCallback: (ex: Error) => void): Promise<ArrayColl<SMIMEPublicKey>> {
+  let keys = new ArrayColl<SMIMEPublicKey>();
   for (let certificate of certificates) {
     try {
       // Decoding it here rejects blobs that aren't certificates, e.g. PKCS#7.
       let pem = Certificate.encodePEM(Certificate.decodeFromBase64(certificate), { label: "CERTIFICATE" });
-      person.addEncryptionPublicKey(await SMIMEPublicKey.importPublicKey(pem));
+      keys.add(await SMIMEPublicKey.importPublicKey(pem));
     } catch (ex) {
       errorCallback(ex);
     }
   }
+  return keys;
 }
 
 /**

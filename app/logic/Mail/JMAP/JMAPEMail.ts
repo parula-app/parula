@@ -14,6 +14,8 @@ import { gt } from "../../../l10n/l10n";
 import type { ArrayColl, Collection } from "svelte-collections";
 
 export class JMAPEMail extends EMail {
+  /** What `fromJMAP()` and the folder sync use. The defaults of `Email/get` include the body structure. */
+  static readonly listProperties = ["id", "blobId", "threadId", "mailboxIds", "keywords", "size", "receivedAt", "sentAt", "messageId", "inReplyTo", "subject", "from", "to", "cc", "bcc"];
   declare folder: JMAPFolder;
   mimeBlobId: string | null = null; // TODO Save in DB
   protected flagsChanging = false;
@@ -199,6 +201,7 @@ export class JMAPEMail extends EMail {
   async markSpam(spam = true) {
     await super.markSpam(spam);
     await this.setFlagServer("$junk", spam);
+    await this.setFlagServer("$notjunk", !spam);
   }
 
   async markReplied() {

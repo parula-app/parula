@@ -1,6 +1,7 @@
 import { SearchEMail } from "../Store/SearchEMail";
 import type { JMAPAccount } from "./JMAPAccount";
 import type { JMAPFolder } from "./JMAPFolder";
+import { JMAPEMail } from "./JMAPEMail";
 import type { TJMAPEMailHeaders } from "./TJMAPMail";
 import type { TJMAPGetResponse } from "./TJMAPGeneric";
 import type { EMail } from "../EMail";
@@ -47,6 +48,7 @@ export class JMAPSearchEMail extends SearchEMail {
             path: "/ids",
             resultOf: "list",
           },
+          properties: JMAPEMail.listProperties,
         },
         "emails",
       ],

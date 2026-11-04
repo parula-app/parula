@@ -1,12 +1,14 @@
 <hbox flex class="web-apps">
   <LaunchBar {apps} bind:showStore />
-  <Scroll>
-    {#if showStore}
-      <WebAppStore bind:showStore />
-    {:else}
-      <hbox class="background-pattern" flex />
-    {/if}
-  </Scroll>
+  <vbox flex class="main-pane">
+    <Scroll>
+      {#if showStore}
+        <WebAppStore bind:showStore />
+      {:else}
+        <hbox class="background-pattern" flex />
+      {/if}
+    </Scroll>
+  </vbox>
 </hbox>
 
 <script lang="ts">
@@ -44,3 +46,12 @@
 
   // $: console.log("showing app", $showingWebApp?.nameTranslated, "running", $webAppsRunning.contents.map(app => app.nameTranslated));
 </script>
+
+<style>
+  .main-pane {
+    background-color: var(--pane-bg);
+    margin: var(--pane-margin);
+    border-radius: var(--pane-radius);
+    box-shadow: var(--pane-shadow, none);
+  }
+</style>

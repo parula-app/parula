@@ -1,7 +1,8 @@
 <Clickable onClick={onSelect} onDoubleClick={() => openFileInDefaultApp(file)}>
   <hbox class="file line"
-    class:selected={file == $selectedFile}>
-    <hbox class="firstColumn">
+    class:selected={file == $selectedFile}
+    on:dragstart={event => catchErrors(() => onDragStartFile(event, file))}>
+    <hbox class="firstColumn" draggable="true">
       {#each {length: indent} as _}
         <hbox class="indention" />
       {/each}
@@ -12,13 +13,13 @@
         {$file.nameWithoutExt}
       </hbox>
     </hbox>
-    <hbox class="type">
+    <hbox class="type" draggable="true">
       {$file.ext}
     </hbox>
-    <hbox class="size">
+    <hbox class="size" draggable="true">
       {fileSize($file.size)}
     </hbox>
-    <hbox class="time">
+    <hbox class="time" draggable="true">
       {getDateTimeString($file.lastMod)}
     </hbox>
   </hbox>
@@ -28,9 +29,11 @@
   import { File } from "../../../logic/Files/File";
   import { openFileInDefaultApp, fileSize } from "../file";
   import { selectedFile } from "../selected";
+  import { onDragStartFile } from "../drag";
   import { getDateTimeString } from "../../../logic/util/date";
   import Clickable from "../../Shared/Clickable.svelte";
   import FileIcon from "../Thumbnail/FileIcon.svelte";
+  import { catchErrors } from "../../Util/error";
 
   export let file: File;
   export let indent = 0;

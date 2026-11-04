@@ -2,7 +2,7 @@
   "name": "mustang-frontend",
   "description": "Mustang UI",
   "private": true,
-  "version": "0.9.40-dev",
+  "version": "0.9.42-dev",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

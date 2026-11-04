@@ -6,6 +6,7 @@ import type { TJMAPCalendarEvent } from "./TJSCalendar";
 import type { JMAPAccount } from "../../Mail/JMAP/JMAPAccount";
 import type { TID, TJMAPChangeResponse, TJMAPGetResponse, TJMAPQueryResponse } from "../../Mail/JMAP/TJMAPGeneric";
 import type { Participant } from "../Participant";
+import type { FreeBusyEvent } from "../FreeBusyEvent";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { checkChangeError } from "../../Mail/JMAP/JMAPError";
 import { retryOnTransientError } from "../../util/netUtil";
@@ -43,16 +44,16 @@ export class JMAPCalendar extends Calendar {
     }
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: { from: Date, to: Date, free: boolean }[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
     return [];
   }
 
   protected async listEventsFromServer() {
     await this.account.ensureLoggedIn();
 
-    this.events.isEmpty
-      ? await this.listAllEvents()
-      : await this.listChangedEvents();
+    this.syncState
+      ? await this.listChangedEvents()
+      : await this.listAllEvents();
   }
 
   protected async listAllEvents(): Promise<ArrayColl<JMAPEvent>> {
@@ -61,28 +62,41 @@ export class JMAPCalendar extends Calendar {
     let allNewEvents = new ArrayColl<JMAPEvent>();
     let start = 0;
     let hasMore = true;
-    while (hasMore) {
-      let { newEvents, updatedEvents, syncState, count, pageSize } = await retryOnTransientError(() =>
+    const kMaxEvents = 200000;
+    let maxRounds = kMaxEvents / batchSize;
+    let previousIDs: string | null = null;
+    for (let round = 1; hasMore && round <= maxRounds; round++) {
+      let { newEvents, updatedEvents, syncState, ids, pageSize } = await retryOnTransientError(() =>
         this.fetchEvents(start, batchSize));
-      hasMore = count == pageSize; // A full page means that there is probably more
-      start += count;
+      let pageIDs = ids.join(" ");
+      if (pageIDs == previousIDs) {
+        break;
+      }
+      previousIDs = pageIDs;
+      hasMore = ids.length == pageSize; // A full page means that there is probably more
+      start += ids.length;
       state ??= syncState;
       this.events.addAll(newEvents);
       await this.saveEvents(newEvents);
       await this.updateRecurrenceOverrides(newEvents);
       allNewEvents.addAll(newEvents);
     }
+    if (hasMore) {
+      this.errorCallback(new Error("Listing the events: The server keeps returning more events. Stopped."));
+    }
     if (state) {
       this.account.syncState.set("CalendarEvent", state);
     }
+    this.syncState = state;
+    await this.save();
     return allNewEvents;
   }
 
   /** @returns
-   * `count`: How many events the server returned.
+   * `ids`: The events that the server returned.
    * `pageSize`: The `limit` that the server used, which may be lower than the
-   *   one that we asked for. A `count` below it means that this was the last page. */
-  protected async fetchEvents(start: number, limit: number): Promise<UpdateResult<JMAPEvent> & { syncState: string, count: number, pageSize: number }> {
+   *   one that we asked for. Fewer `ids` mean that this was the last page. */
+  protected async fetchEvents(start: number, limit: number): Promise<UpdateResult<JMAPEvent> & { syncState: string, ids: string[], pageSize: number }> {
     console.log("JMAP fetch", `start ${start} limit ${limit}`);
     let listResponse: TJMAPGetResponse<TJMAPCalendarEvent>;
     let lock = await this.account.stateLock.lock();
@@ -123,7 +137,7 @@ export class JMAPCalendar extends Calendar {
       return {
         ...this.parseEventsList(listResponse.list),
         syncState: listResponse.state,
-        count: queryResponse.ids.length,
+        ids: sanitize.array(queryResponse.ids),
         // RFC 8620 5.5: Only returned when the server used a different limit than we asked, so default to what we asked
         pageSize: sanitize.integerRange(queryResponse.limit, 1, limit * 10, limit),
       };
@@ -157,94 +171,101 @@ export class JMAPCalendar extends Calendar {
    */
   async fetchChangedEventsForAllCalendars(): Promise<ArrayColl<JMAPEvent>> {
     assert(this.account.syncState.has("CalendarEvent"), "No sync state");
-    let lock = await this.account.stateLock.lock();
-    try {
-      // <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
-      let response = await this.account.makeCombinedCall([
-        [
-          "CalendarEvent/changes", {
-            accountId: this.account.accountID,
-            sinceState: this.account.syncState.get("CalendarEvent"),
-            maxChanges: 500,
-          },
-          "changes",
-        ], [
-          "CalendarEvent/get", {
-            accountId: this.account.accountID,
-            "#ids": {
-              resultOf: "changes",
-              name: "CalendarEvent/changes",
-              path: "/created",
+    let newEventsOfThisCal = new ArrayColl<JMAPEvent>();
+    const kMaxRounds = 1000;
+    for (let round = 1; round <= kMaxRounds; round++) {
+      let lock = await this.account.stateLock.lock();
+      try {
+        let sinceState = this.account.syncState.get("CalendarEvent");
+        // <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
+        let response = await this.account.makeCombinedCall([
+          [
+            "CalendarEvent/changes", {
+              accountId: this.account.accountID,
+              sinceState: sinceState,
+              maxChanges: 500,
             },
-          },
-          "added",
-        ], [
-          "CalendarEvent/get", {
-            accountId: this.account.accountID,
-            "#ids": {
-              resultOf: "changes",
-              name: "CalendarEvent/changes",
-              path: "/updated",
+            "changes",
+          ], [
+            "CalendarEvent/get", {
+              accountId: this.account.accountID,
+              "#ids": {
+                resultOf: "changes",
+                name: "CalendarEvent/changes",
+                path: "/created",
+              },
             },
-          },
-          "changed",
-        ],
-      ]);
+            "added",
+          ], [
+            "CalendarEvent/get", {
+              accountId: this.account.accountID,
+              "#ids": {
+                resultOf: "changes",
+                name: "CalendarEvent/changes",
+                path: "/updated",
+              },
+            },
+            "changed",
+          ],
+        ]);
 
-      let changes = response["changes"] as TJMAPChangeResponse<TJMAPCalendarEvent>;
-      let addedResponse = response["added"] as TJMAPGetResponse<TJMAPCalendarEvent>;
-      let changedResponse = response["changed"] as TJMAPGetResponse<TJMAPCalendarEvent>;
+        let changes = response["changes"] as TJMAPChangeResponse<TJMAPCalendarEvent>;
+        let addedResponse = response["added"] as TJMAPGetResponse<TJMAPCalendarEvent>;
+        let changedResponse = response["changed"] as TJMAPGetResponse<TJMAPCalendarEvent>;
 
-      // Split the responses by calendar: map Calendar JMAP ID -> JMAP Calendar Event
-      let addedByCal = new Map<string, TJMAPCalendarEvent[]>();
-      let changedByCal = new Map<string, TJMAPCalendarEvent[]>();
-      let newEventsOfThisCal = new ArrayColl<JMAPEvent>();
-      splitByCalendar(addedResponse.list, addedByCal);
-      splitByCalendar(changedResponse.list, changedByCal);
+        // Split the responses by calendar: map Calendar JMAP ID -> JMAP Calendar Event
+        let addedByCal = new Map<string, TJMAPCalendarEvent[]>();
+        let changedByCal = new Map<string, TJMAPCalendarEvent[]>();
+        splitByCalendar(addedResponse.list, addedByCal);
+        splitByCalendar(changedResponse.list, changedByCal);
 
-      let allCalendars = this.account.dependentAccounts().filterOnce(a => a instanceof JMAPCalendar) as Collection<JMAPCalendar>;
-      for (let calendar of allCalendars) {
-        await calendar.readEventsFromDB();
-        if (calendar.events.isEmpty) {
-          continue; // Adding events here would stop listAllEvents() from ever running
+        let allCalendars = this.account.dependentAccounts().filterOnce(a => a instanceof JMAPCalendar) as Collection<JMAPCalendar>;
+        for (let calendar of allCalendars) {
+          await calendar.readEventsFromDB();
+          if (!calendar.syncState) {
+            continue; // `listEvents()` will list all its events
+          }
+          let removed = this.findMovedAway(changedResponse.list, calendar);
+          let addedThisCal = addedByCal.get(calendar.jmapID);
+          let changedThisCal = changedByCal.get(calendar.jmapID);
+          if (!(addedThisCal || changedThisCal ||
+            removed.hasItems || changes.destroyed?.length)) {
+            continue;
+          }
+          removed.addAll(await calendar.parseRemovedEvents(changes.destroyed ?? []));
+          // A new created locally comes back in `created`, so need dup checks
+          let addedResult = calendar.parseEventsList(addedThisCal ?? []);
+          let changedResult = calendar.parseEventsList(changedThisCal ?? []);
+          addedResult.newEvents.addAll(changedResult.newEvents);
+
+          calendar.events.removeAll(removed);
+          calendar.events.addAll(addedResult.newEvents);
+          for (let event of removed) {
+            await event.deleteLocally();
+          }
+          await this.saveEvents(changedResult.updatedEvents);
+          await this.updateRecurrenceOverrides(changedResult.updatedEvents);
+          await this.saveEvents(addedResult.newEvents);
+          await this.updateRecurrenceOverrides(addedResult.newEvents);
+          if (this === calendar) {
+            newEventsOfThisCal.addAll(addedResult.newEvents);
+          }
         }
-        let removed = this.findMovedAway(changedResponse.list, calendar);
-        let addedThisCal = addedByCal.get(calendar.jmapID);
-        let changedThisCal = changedByCal.get(calendar.jmapID);
-        if (!(addedThisCal || changedThisCal ||
-          removed.hasItems || changes.destroyed?.length)) {
-          continue;
-        }
-        removed.addAll(await calendar.parseRemovedEvents(changes.destroyed ?? []));
-        // A new created locally comes back in `created`, so need dup checks
-        let addedResult = calendar.parseEventsList(addedThisCal ?? []);
-        let changedResult = calendar.parseEventsList(changedThisCal ?? []);
-        addedResult.newEvents.addAll(changedResult.newEvents);
 
-        calendar.events.removeAll(removed);
-        calendar.events.addAll(addedResult.newEvents);
-        for (let event of removed) {
-          await event.deleteLocally();
+        this.account.syncState.set("CalendarEvent", changes.newState);
+        await this.account.save();
+        if (!changes.hasMoreChanges) {
+          return newEventsOfThisCal;
         }
-        await this.saveEvents(changedResult.updatedEvents);
-        await this.updateRecurrenceOverrides(changedResult.updatedEvents);
-        await this.saveEvents(addedResult.newEvents);
-        await this.updateRecurrenceOverrides(addedResult.newEvents);
-        if (this === calendar) {
-          newEventsOfThisCal = addedResult.newEvents;
+        if (changes.newState == sinceState) {
+          break;
         }
-      }
-
-      this.account.syncState.set("CalendarEvent", changes.newState);
-      await this.account.save();
-      if (changes.hasMoreChanges) {
+      } finally {
         lock.release();
-        await this.fetchChangedEventsForAllCalendars();
       }
-      return newEventsOfThisCal;
-    } finally {
-      lock.release();
     }
+    this.account.errorCallback(new Error("Event changes: The server keeps reporting more changes. Stopped."));
+    return newEventsOfThisCal;
   }
 
   protected async parseRemovedEvents(jmapIDs: string[]): Promise<ArrayColl<JMAPEvent>> {

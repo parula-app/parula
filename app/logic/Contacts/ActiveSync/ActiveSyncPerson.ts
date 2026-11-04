@@ -3,9 +3,7 @@ import { ContactEntry } from '../../Abstract/Person';
 import { StreetAddress } from '../StreetAddress';
 import type { ActiveSyncAddressbook } from './ActiveSyncAddressbook';
 import { ActiveSyncError } from "../../Mail/ActiveSync/ActiveSyncError";
-import { addCertificatesToPerson } from "../../Mail/Encryption/SMIME/SMIMEDirectory";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { ensureArray } from "../../util/util";
 import { blobToBase64, dataURLToBlob } from "../../util/blob";
 import { parseOneAddress, type ParsedMailbox } from "email-addresses";
 
@@ -151,39 +149,6 @@ export class ActiveSyncPerson extends ExchangePerson {
     let response = await this.addressbook.makeSyncRequest(data);
     if (response.Responses) {
       throw new ActiveSyncError("Sync", response.Responses.Delete.Status, this.addressbook);
-    }
-  }
-
-  /** The GAL search returns no S/MIME certificates, so we resolve the person
-   * once more, which does return them. */
-  protected async fetchEncryptionKeysFromDirectory() {
-    let emailAddress = this.emailAddresses.first?.value;
-    if (!emailAddress) {
-      return;
-    }
-    // Maximum number of certificates, and of matches for the email address, that the server should return
-    const kMaxCertificateResults = 10;
-    let query = {
-      To: emailAddress,
-      Options: {
-        CertificateRetrieval: "2", // the full certificate, not the obsolete mini certificate
-        MaxCertificates: String(kMaxCertificateResults),
-        MaxAmbiguousRecipients: String(kMaxCertificateResults),
-      },
-    };
-    try {
-      let response = await this.addressbook.account.callEAS("ResolveRecipients", query);
-      if (response.Status != "1") {
-        throw new ActiveSyncError("ResolveRecipients", response.Status, this.addressbook);
-      }
-      let recipient = ensureArray(response.Response?.Recipient).find(candidate =>
-        candidate.EmailAddress?.toLowerCase() == emailAddress.toLowerCase());
-      // Status 1 means that we got the certificates of this recipient
-      if (recipient?.Certificates?.Status == "1") {
-        await addCertificatesToPerson(this, ensureArray(recipient.Certificates.Certificate));
-      }
-    } catch (ex) {
-      this.addressbook.errorCallback(ex);
     }
   }
 

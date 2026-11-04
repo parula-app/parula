@@ -5,6 +5,7 @@ import { sourceLocale, locales } from "./list";
 export default {
   include: [
     "frontend/**/*.{ts,js,svelte}",
+    "lookout/**/*.{ts,js,svelte}",
     "logic/**/*.{ts,js}",
   ],
   exclude: ["**/*.d.ts"], 

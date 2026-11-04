@@ -15,6 +15,8 @@ export async function sleep(seconds: number): Promise<void> {
   });
 }
 
+export const waitTime = { factor: 1 }; // tests lower it, to not wait the real time for network timeouts, retries and throttling, see `kRealtimeWait`
+
 export function arrayRemove<T>(array: T[], item: T) {
   let pos = array.indexOf(item);
   if (pos > -1) {
@@ -42,6 +44,9 @@ export function booleanHasValue(value: boolean | null | undefined): value is boo
 export function getUserPreference<T>(key: string, defaultValue?: T): T {
   return JSON.parse(sanitize.nonemptystring(localStorage.getItem(key), null)) ?? defaultValue;
 }
+export function setUserPreference<T>(key: string, value: T) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
 // </copied>
 
 export function randomID(): string {
@@ -49,7 +54,7 @@ export function randomID(): string {
 }
 
 export function capitalizeStart(str: string): string {
-  return str[0].toLocaleUpperCase() + str.substring(1);
+  return str.charAt(0).toLocaleUpperCase() + str.substring(1);
 }
 export function capitalizeWords(str: string): string {
   return str.split(" ").map(word => capitalizeStart(word)).join(" ");

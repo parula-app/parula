@@ -7,7 +7,7 @@ function veventWith(organizerLine: string) {
   let ics = ["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:1", "SUMMARY:Test"]
     .concat(organizerLine ? [organizerLine] : [])
     .concat(["END:VEVENT", "END:VCALENDAR"]).join("\r\n");
-  return new ICalParser(ics).containers.vevent[0];
+  return new ICalParser(ics).containers.vcalendar[0].containers.vevent[0];
 }
 
 /** RFC 5545 3.6.1 lists ORGANIZER as optional, so an event may legally have none,

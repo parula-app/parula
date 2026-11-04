@@ -106,6 +106,7 @@
   }
 
   let fileSelector: FileSelector;
+  // <copied to="../../../lookout/Files/FilesRibbon.svelte, ../drag.ts">
   async function addFile() {
     let fileBlobs = await fileSelector.selectFiles();
     if (!fileBlobs?.length) {
@@ -118,6 +119,7 @@
       await dir.addFile(ourFile);
     }
   }
+  // </copied>
   async function newFolder() {
     let newFolder = dir.newDirectory($t`New Folder`);
     // TODO open sidebar and focus rename
