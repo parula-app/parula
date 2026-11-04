@@ -327,12 +327,14 @@ export class JSCalendarEvent {
 
   /** When the alert fires. null, if there is none, or we don't know the trigger. */
   static toAlarm(alert: TJSCalendarAlert | undefined, event: Event): Date | null {
-    if (alert?.trigger?.["@type"] == "AbsoluteTrigger") {
-      return sanitize.date(alert.trigger.when, null);
+    let trigger = alert?.trigger;
+    if (trigger?.["@type"] == "AbsoluteTrigger") {
+      return sanitize.date(trigger.when, null);
     }
-    if (alert?.trigger?.["@type"] == "OffsetTrigger") {
-      let relativeTo = alert.trigger.relativeTo == "end" ? event.endTime : event.startTime;
-      return new Date(relativeTo.getTime() + toSeconds(alert.trigger.offset) * 1000);
+    // OffsetTrigger is the default type of a trigger
+    if (trigger && (trigger["@type"] ?? "OffsetTrigger") == "OffsetTrigger" && "offset" in trigger) {
+      let relativeTo = trigger.relativeTo == "end" ? event.endTime : event.startTime;
+      return new Date(relativeTo.getTime() + toSeconds(trigger.offset) * 1000);
     }
     return null;
   }
