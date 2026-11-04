@@ -13,6 +13,21 @@ export interface TGraphAPICallError {
   detail: string;
 }
 
+/** <https://learn.microsoft.com/en-us/graph/json-batching> */
+export interface TGraphBatchRequest {
+  method: string,
+  /** like `path` of `GraphAccount.graphCall()` */
+  path: string,
+  body?: any,
+}
+
+export interface TGraphBatchResponse {
+  id: string,
+  status: number,
+  headers?: Record<string, string>,
+  body?: any,
+}
+
 /** Information about our own user */
 export interface TGraphMe {
   id: UUID,
