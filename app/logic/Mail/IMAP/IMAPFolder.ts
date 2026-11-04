@@ -599,7 +599,7 @@ export class IMAPFolder extends Folder {
   }
 
   async addMessage(message: EMail) {
-    message.mime ??= await CreateMIME.getMIME(message);
+    message.mime ??= await CreateMIME.getMIME(message, true);
     await this.runCommand(async (conn) => {
       await conn.append(this.path, Buffer.from(message.mime), IMAPEMail.getIMAPFlags(message), message.received);
     });

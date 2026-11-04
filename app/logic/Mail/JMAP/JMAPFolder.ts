@@ -458,7 +458,7 @@ export class JMAPFolder extends Folder {
 
   /** Creates a MIME message locally and uploads that to the JMAP server */
   async addMessageFromMIME(email: EMail) {
-    email.mime ??= await CreateMIME.getMIME(email);
+    email.mime ??= await CreateMIME.getMIME(email, true);
 
     let uploadResponse = await this.account.uploadBlob(Buffer.from(email.mime), "message/rfc822", "email");
     let blobId = uploadResponse.blobId;

@@ -251,7 +251,7 @@ export class OWAFolder extends ExchangeFolder {
   }
 
   async addMessage(message: EMail) {
-    message.mime ??= await CreateMIME.getMIME(message);
+    message.mime ??= await CreateMIME.getMIME(message, true);
     let request = new OWACreateItemRequest({ SavedItemFolderId: { __type: "TargetFolderId:#Exchange", BaseFolderId: { __type: "FolderId:#Exchange", Id: this.id } }, MessageDisposition: "SaveOnly" });
     request.addField("Message", "MimeContent", { CharacterSet: "UTF-8", Value: await blobToBase64(new Blob([message.mime])) });
     if (message.tags.hasItems) {

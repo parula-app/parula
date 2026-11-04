@@ -355,10 +355,12 @@ async function verifyServerNodemailer(transport) {
   await transporter.verify();
 }
 
-async function getMIMENodemailer(mail): Promise<Uint8Array> {
+async function getMIMENodemailer(mail, keepBcc = false): Promise<Uint8Array> {
   const { default: MailComposer } = await import("nodemailer/lib/mail-composer");
   let composer = new MailComposer(mail);
-  let buffer = await composer.compile().build();
+  let message = composer.compile();
+  message.keepBcc = keepBcc;
+  let buffer = await message.build();
   return buffer;
 }
 
