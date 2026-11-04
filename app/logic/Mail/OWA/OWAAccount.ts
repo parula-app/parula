@@ -202,12 +202,7 @@ export class OWAAccount extends ExchangeMailAccount {
         }
 
         await this.callOWA(new OWASubscribeToHierarchyNotificationRequest());
-
-        this.notifications = this.provider() == Provider.Office365
-          ? new OWAOffice365Notifications(this)
-          : new OWAExchangeNotifications(this);
-        this.notifications.start()
-          .catch(this.errorCallback);
+        this.listenForNotifications();
       } finally { // Even when the mail folders failed, so that calendar and addressbook still work
         await this.startupDependentAccounts();
       }
@@ -237,7 +232,37 @@ export class OWAAccount extends ExchangeMailAccount {
     }
   }
 
+  /** Starts a new listener for notifications from the server, and ends the old one,
+   * e.g. when its connection died */
+  listenForNotifications(isReconnect = false): void {
+    this.notifications?.stop();
+    this.notifications = this.provider() == Provider.Office365
+      ? new OWAOffice365Notifications(this, isReconnect)
+      : new OWAExchangeNotifications(this, isReconnect);
+    this.notifications.start()
+      .catch(this.errorCallback);
+  }
+
+  /** The server doesn't tell us what changed while we weren't listening, e.g. while the VPN was down */
+  fetchChangesMissedByNotifications(): void {
+    for (let folder of this.folderMap.values()) {
+      if (folder.listening) {
+        folder.getNewMessages() // no-op, if count didn't change
+          .catch(this.errorCallback);
+      }
+    }
+    for (let addressbook of appGlobal.addressbooks.filterOnce(addressbook => addressbook.mainAccount == this)) {
+      addressbook.listContacts()
+        .catch(this.errorCallback);
+    }
+    for (let calendar of appGlobal.calendars.filterOnce(calendar => calendar.mainAccount == this)) {
+      calendar.listEvents()
+        .catch(this.errorCallback);
+    }
+  }
+
   async disconnect() {
+    this.notifications?.stop();
     let galAB = appGlobal.searchOnlyAddressbooks.find(ab => ab.mainAccount == this);
     if (galAB) {
       appGlobal.searchOnlyAddressbooks.remove(galAB);

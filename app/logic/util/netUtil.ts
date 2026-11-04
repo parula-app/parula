@@ -64,8 +64,8 @@ export function isNetworkError(ex: any): boolean {
     "ETIMEOUT", "CONNECT_TIMEOUT", "GREETING_TIMEOUT", "UPGRADE_TIMEOUT", "NoConnection"];
   // Error class `instanceof` doesn't survive JPC
   return kNetworkErrorCodes.includes(ex?.code) ||
-    // Chromium `net` module, e.g. `net::ERR_CONNECTION_RESET`
-    /net::ERR_(CONNECTION_|EMPTY_RESPONSE|NETWORK_CHANGED|INTERNET_DISCONNECTED|INCOMPLETE_CHUNKED_ENCODING|CONTENT_LENGTH_MISMATCH)/.test(ex?.message) ||
+    // Chromium `net` module, e.g. `net::ERR_CONNECTION_RESET`, or `net::ERR_NAME_NOT_RESOLVED` while the VPN is down
+    /net::ERR_(CONNECTION_|EMPTY_RESPONSE|NETWORK_CHANGED|INTERNET_DISCONNECTED|INCOMPLETE_CHUNKED_ENCODING|CONTENT_LENGTH_MISMATCH|NAME_NOT_RESOLVED|NAME_RESOLUTION_FAILED|ADDRESS_UNREACHABLE|TIMED_OUT|NETWORK_IO_SUSPENDED)/.test(ex?.message) ||
     // browser fetch
     ex?.name == "TypeError" &&
     /network ?error|failed to fetch|fetch failed|load failed/i.test(ex.message);
