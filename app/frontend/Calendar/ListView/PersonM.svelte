@@ -8,6 +8,7 @@
 
 <script lang="ts">
   import { Person } from "../../../logic/Abstract/Person";
+  import type { Event } from "../../../logic/Calendar/Event";
   import { appGlobal } from "../../../logic/app";
   import ListView from "./ListView.svelte";
   import SearchBarM from "./SearchBarM.svelte";
@@ -16,9 +17,17 @@
   export let person: Person;
 
   let events = appGlobal.calendarEvents.filterObservable(event => event.startTime.getTime() > Date.now());
-  $: filteredEvents = person
-    ? events.filterObservable(event => event.participants?.some(p => p.matchesPerson(person)))
-    : events;
+  let personEvents = events.filterObservable(isWithPerson);
+  $: filteredEvents = person ? findEvents() : events;
+
+  function findEvents() {
+    personEvents.replaceAll(events.contents.filter(isWithPerson));
+    return personEvents;
+  }
+
+  function isWithPerson(event: Event): boolean {
+    return !!person && event.participants?.some(p => p.matchesPerson(person));
+  }
 </script>
 
 <style>

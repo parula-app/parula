@@ -34,9 +34,11 @@
   export let endHour = 24;
 
   let hourStarts: Date[] = [];
-  let dayEvents: Collection<Event>;
-  let dayOverlayEvents: Collection<Event>;
-  $: day, startHour, endHour, events, overlayEvents, setDay();
+  let dayStart: Date;
+  let dayEnd: Date;
+  $: dayEvents = events.filterObservable(isInDay);
+  $: dayOverlayEvents = overlayEvents?.filterObservable(isInDay) ?? new ArrayColl<Event>();
+  $: day, startHour, endHour, setDay();
   function setDay() {
     hourStarts = [];
     for (let hour = startHour; hour < endHour; hour++) {
@@ -44,12 +46,15 @@
       hourStart.setHours(hour, 0, 0, 0);
       hourStarts.push(hourStart);
     }
-    let dayStart = hourStarts[0];
-    let dayEnd = new Date(day);
+    dayStart = hourStarts[0];
+    dayEnd = new Date(day);
     dayEnd.setHours(endHour, 0, 0, 0);
-    let isInDay = (ev: Event) => ev.startTime < dayEnd && ev.endTime > dayStart && !ev.allDay;
-    dayEvents = events.filterObservable(isInDay);
-    dayOverlayEvents = overlayEvents?.filterObservable(isInDay) ?? new ArrayColl<Event>();
+    dayEvents.replaceAll(events.contents.filter(isInDay));
+    dayOverlayEvents.replaceAll(overlayEvents?.contents.filter(isInDay) ?? []);
+  }
+
+  function isInDay(ev: Event): boolean {
+    return ev.startTime < dayEnd && ev.endTime > dayStart && !ev.allDay;
   }
 
   $: layout = derived(

@@ -34,13 +34,19 @@
   export let days: Date[];
   export let events: Collection<Event>;
 
-  let weekEvents: Collection<Event>;
-  $: days, events, setWeek();
+  let weekStart: Date;
+  let weekEnd: Date;
+  $: weekEvents = events.filterObservable(isInWeek);
+  $: days, setWeek();
   function setWeek() {
-    let weekStart = days[0];
-    let weekEnd = new Date(days[days.length - 1]);
+    weekStart = days[0];
+    weekEnd = new Date(days[days.length - 1]);
     weekEnd.setDate(weekEnd.getDate() + 1);
-    weekEvents = events.filterObservable(ev => ev.startTime && ev.startTime < weekEnd && ev.endTime > weekStart);
+    weekEvents.replaceAll(events.contents.filter(isInWeek));
+  }
+
+  function isInWeek(ev: Event): boolean {
+    return ev.startTime && ev.startTime < weekEnd && ev.endTime > weekStart;
   }
 
   let lanesE: HTMLElement;
