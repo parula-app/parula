@@ -213,6 +213,7 @@ export function updateContainerFromPerson(person: Person, container: Record<stri
   setValue(container, "org", [person.company, person.department]);
   setValue(container, "title", person.position ?? "");
   setValue(container, "role", "");
+  setValue(container, "rev", new Date().toISOString().replace(/[-:]|\.\d+/g, ""));
   let i = 0;
   for (; i < person.custom.length; i++) {
     setValue(container, "x-custom" + (i + 1), person.custom.getIndex(i).value);
