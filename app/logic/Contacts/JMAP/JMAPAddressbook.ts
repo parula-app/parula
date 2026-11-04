@@ -64,28 +64,23 @@ export class JMAPAddressbook extends Addressbook {
   /** Lists all persons in this addressbook. */
   protected async listAllPersons(): Promise<ArrayColl<JMAPPerson>> {
     const batchSize = 200;
-    const kMaxContacts = 200000;
-    let maxRounds = Math.ceil(kMaxContacts / batchSize);
     let state: string;
     let hasMore = true;
-    let previousIDs: string | null = null;
     let allNewPersons = new ArrayColl<JMAPPerson>();
-    for (let round = 1; hasMore && round <= maxRounds; round++) {
+    const kMaxContacts = 200000;
+    let loop = new LoopGuard(Math.ceil(kMaxContacts / batchSize), () =>
+      this.errorCallback(new Error(`${this.name}: List contacts: The server keeps returning contacts. Stopped.`)));
+    for (let i = 0; hasMore && loop.nextRound(); i += batchSize) {
       let { newPersons, syncState, ids } = await retryOnTransientError(() =>
-        this.fetchPersons((round - 1) * batchSize, batchSize + 1));
-      let idsJoined = ids.join(" ");
-      if (idsJoined == previousIDs) {
+        this.fetchPersons(i, batchSize + 1));
+      if (loop.isSameAsLastRound(ids.join(" "))) {
         break;
       }
-      previousIDs = idsJoined;
       state ??= syncState;
       this.persons.addAll(newPersons);
       await this.savePersons(newPersons);
       allNewPersons.addAll(newPersons);
       hasMore = ids.length > batchSize;
-    }
-    if (hasMore) {
-      this.errorCallback(new Error(`${this.name}: List contacts: The server keeps returning contacts. Stopped.`));
     }
     await this.saveGroups();
     if (state) {
