@@ -15,6 +15,7 @@ import { CreateMIME } from "../SMTP/CreateMIME";
 import { ensureLicensed } from "../../util/LicenseClient";
 import { appGlobal } from "../../app";
 import { appName, appVersion } from "../../build";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { Semaphore } from "../../util/flow/Semaphore";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
@@ -140,11 +141,12 @@ export class GraphAccount extends ExchangeMailAccount {
     let firstResults = await this.graphGet<T>(path, args, options);
     allResults.addAll(firstResults);
     let deltaURL: URLString;
-    let i = 0;
     let nextURL = (firstResults as any).nextURL;
-    while (nextURL) {
-      if (i++ > 30000) { // loop protection
-        return [];
+    let loop = new LoopGuard(30000, () =>
+      this.errorCallback(new Error(`${this.name}: The server keeps returning more results. Stopped.`)));
+    while (nextURL && loop.nextRound()) {
+      if (loop.isSameAsLastRound(nextURL)) {
+        break;
       }
       // nextURL already includes the $select. And ky searchParams would overwrite the skip token.
       let nextResults = await this.graphGet<T>(nextURL);

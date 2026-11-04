@@ -106,6 +106,21 @@ test("a rejected code throws", async () => {
   await expect(reg.verifySession()).rejects.toThrow(/rejected/);
 });
 
+test("a server that keeps asking for another captcha stops asking the user after a few, and throws", async () => {
+  let api = new FakeApi();
+  api.responses.set("POST /v1/verification/session", session({ requestedInformation: ["captcha"] }));
+  api.responses.set("PATCH /v1/verification/session/SESS", session({ requestedInformation: ["captcha"] }));
+  let captchas = 0;
+
+  let reg = new Registration("+15550000000", {
+    getCaptcha: async () => "captcha-" + captchas++, getSmsCode: async () => "000000",
+  }, api);
+  await expect(reg.verifySession()).rejects.toThrow();
+  // More than any real registration needs. A client that asks more often is stuck.
+  expect(captchas).toBeLessThanOrEqual(10);
+  expect(api.calls.some(c => c.path.endsWith("/code"))).toBe(false);
+});
+
 test("registration body: atomic ACI/PNI keys, attributes, capabilities, UAK", async () => {
   let api = new FakeApi();
   let keys = makeKeys();
