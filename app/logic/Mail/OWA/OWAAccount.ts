@@ -243,7 +243,7 @@ export class OWAAccount extends ExchangeMailAccount {
       appGlobal.searchOnlyAddressbooks.remove(galAB);
     }
     for (let folder of this.folderMap.values()) {
-      folder.subscribed = false;
+      folder.listening = false;
     }
   }
 
@@ -618,7 +618,7 @@ export class OWAAccount extends ExchangeMailAccount {
       // We get hierachy notifications for e.g. flag changes,
       // so we should always refresh a folder after a notification,
       // unless we're already getting row notifications for it.
-      folder.dirty ||= !folder.subscribed;
+      folder.dirty ||= !folder.listening;
     } catch (ex) {
       this.errorCallback(ex);
     }
