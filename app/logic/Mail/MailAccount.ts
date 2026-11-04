@@ -7,6 +7,7 @@ import type { SMTPAccount } from "./SMTP/SMTPAccount";
 import { ContactEntry } from "../Abstract/Person";
 import type { PersonUID } from "../Abstract/PersonUID";
 import { FilterRuleAction } from "./FilterRules/FilterRuleAction";
+import { AutoResponder } from "./AutoResponder";
 import { OAuth2 } from "../Auth/OAuth2";
 import { getProvider } from "../Auth/OAuth2Util";
 import type { Provider } from "../Auth/OAuth2URLs";
@@ -50,6 +51,7 @@ export class MailAccount extends TCPAccount {
 
   readonly rootFolders: Collection<Folder> = new ArrayColl<Folder>();
   readDBRunOnce = new RunOnce();
+  protected _autoResponder: AutoResponder;
 
   async syncOnStartup() {
     await super.syncOnStartup();
@@ -146,6 +148,16 @@ export class MailAccount extends TCPAccount {
 
   newIdentity(): MailIdentity {
     return new MailIdentity(this);
+  }
+
+  /** Automatic replies, e.g. during vacation.
+   * Check `autoResponder.supported`. */
+  get autoResponder(): AutoResponder {
+    return this._autoResponder ??= this.newAutoResponder();
+  }
+
+  newAutoResponder(): AutoResponder {
+    return new AutoResponder(this);
   }
 
   /** Lets the server search this account, also emails that we did not download.

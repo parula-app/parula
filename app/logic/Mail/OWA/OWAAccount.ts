@@ -5,6 +5,7 @@ import type { EMail } from "../EMail";
 import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShareIndividualPermissions } from "../Folder";
 import { OWAFolder } from "./OWAFolder";
 import { OWASearchEMail } from "./OWASearchEMail";
+import { OWAAutoResponder } from "./OWAAutoResponder";
 import { OWAError } from "./OWAError";
 import type { OWANotifications } from "./Notification/OWANotifications";
 import { OWAExchangeNotifications } from "./Notification/OWAExchangeNotifications";
@@ -78,6 +79,10 @@ export class OWAAccount extends ExchangeMailAccount {
 
   newSearch(): OWASearchEMail {
     return new OWASearchEMail();
+  }
+
+  newAutoResponder(): OWAAutoResponder {
+    return new OWAAutoResponder(this);
   }
 
   /**
@@ -447,7 +452,7 @@ export class OWAAccount extends ExchangeMailAccount {
     if (this.isThrottleError(result)) {
       return await this.callOWAShared(url, options);
     }
-    if (result.MessageText) {
+    if (result.MessageText || result.WasSuccessful === false) {
       this.throttle.waitForSecond(1);
       throw new OWAError(response);
     }

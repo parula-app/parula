@@ -1,8 +1,11 @@
 import { ExchangeMailAccount } from "../EWS/ExchangeMailAccount";
 import { AuthMethod } from "../../Abstract/Account";
 import { Provider } from "../../Auth/OAuth2URLs";
+import type { OAuth2 } from "../../Auth/OAuth2";
+import { getOAuth2BuiltIn } from "../../Auth/OAuth2Util";
 import { GraphFolder } from "./GraphFolder";
 import { GraphSearchEMail } from "./GraphSearchEMail";
+import { GraphAutoResponder } from "./GraphAutoResponder";
 import type { TGraphFolder } from "./TGraphMail";
 import type { UUID } from "./TGraphGeneric";
 import type { EMail } from "../EMail";
@@ -83,6 +86,22 @@ export class GraphAccount extends ExchangeMailAccount {
       await this.oAuth2.login(interactive);
       assert(this.oAuth2.isLoggedIn, this.name + `: ` + gt`OAuth2: Login failed`);
     }
+  }
+
+  /** Logins from older app versions have only the scopes of that time */
+  async upgradeScopes(): Promise<void> {
+    let oAuth2 = this.oAuth2 as OAuth2;
+    let newScope = (getOAuth2BuiltIn(this) as OAuth2)?.scope;
+    assert(oAuth2 && newScope, this.name + `: ` + gt`Need OAuth2 configuration`);
+    let oldScope = oAuth2.scope;
+    oAuth2.scope = newScope;
+    try {
+      await oAuth2.loginWithUI();
+    } catch (ex) {
+      oAuth2.scope = oldScope;
+      throw ex;
+    }
+    await this.save();
   }
 
   needsLicense(): boolean {
@@ -430,6 +449,10 @@ export class GraphAccount extends ExchangeMailAccount {
 
   newSearch(): GraphSearchEMail {
     return new GraphSearchEMail();
+  }
+
+  newAutoResponder(): GraphAutoResponder {
+    return new GraphAutoResponder(this);
   }
 }
 

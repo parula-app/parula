@@ -51,7 +51,7 @@
   export let isMain: boolean;
 
   $: category = isMain ? accountSettings.find(cat => account instanceof cat.type && cat.isMain) : category;
-  $: subCategories = accountSettings.filterObservable(cat => account instanceof cat.type && !cat.isMain);
+  $: subCategories = accountSettings.filterObservable(cat => account instanceof cat.type && !cat.isMain && cat.isAvailable(account));
 
   function goToSubCategory(category: SettingsCategory) {
     goTo(URLPart`/settings/account/${account.id}/${category.id}`, { account, category });
