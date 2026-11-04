@@ -1,9 +1,12 @@
 // @vitest-environment happy-dom
 import { appGlobal } from "../../../../logic/app.ts"; // defeats circular import
 import { OWAAccount } from "../../../../logic/Mail/OWA/OWAAccount";
+import { OWAFolder } from "../../../../logic/Mail/OWA/OWAFolder";
+import type { OWAEMail } from "../../../../logic/Mail/OWA/OWAEMail";
 import { OWACalendar } from "../../../../logic/Calendar/OWA/OWACalendar";
 import { OWAAddressbook } from "../../../../logic/Contacts/OWA/OWAAddressbook";
 import { waitTime } from "../../../../logic/util/util";
+import { ArrayColl } from "svelte-collections";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 class TestOWAAccount extends OWAAccount {
@@ -23,17 +26,6 @@ class TestOWAAccount extends OWAAccount {
   async onNotificationMessages(messages: any[][]) {
     this.messages += messages.length;
   }
-
-  get inbox(): any {
-    return {
-      getNewMessages: async () => {
-        if (!serverReachable) {
-          throw new Error("net::ERR_NAME_NOT_RESOLVED");
-        }
-        this.inboxChecks++;
-      },
-    };
-  }
 }
 
 /** False while the last listener couldn't reach the server, e.g. while the VPN is down */
@@ -47,7 +39,25 @@ function newTestAccount(): TestOWAAccount {
   account.emailAddress = account.username;
   account.url = "https://exchange.example.com/owa/";
   account.errorCallback = ex => account.errors.push(ex);
+  newMailFolder(account, "inbox-folder", true, () => account.inboxChecks++);
   return account;
+}
+
+/** A mail folder. `OWAFolder.listMessages()` subscribed it to row notifications, if `listening`.
+ * @param onFetch Called when we fetch its new mail */
+function newMailFolder(account: OWAAccount, folderID: string, listening: boolean, onFetch: () => void): OWAFolder {
+  let folder = new OWAFolder(account);
+  folder.id = folderID;
+  folder.listening = listening;
+  folder.getNewMessages = async () => {
+    if (!serverReachable) {
+      throw new Error("net::ERR_NAME_NOT_RESOLVED");
+    }
+    onFetch();
+    return new ArrayColl<OWAEMail>();
+  };
+  account.folderMap.set(folderID, folder);
+  return folder;
 }
 
 function waitForever(): Promise<void> {
@@ -164,7 +174,7 @@ test("OWA: After logout, the notifications are not opened again", async () => {
   expect(listeners()).toBe(1);
 });
 
-/** The calendars and address books that were synced, by folder ID */
+/** The mail folders, calendars and address books that were synced, by folder ID */
 let synced: string[] = [];
 
 function newCalendar(account: OWAAccount, folderID: string): OWACalendar {
@@ -189,9 +199,11 @@ function newAddressbook(account: OWAAccount, folderID: string): OWAAddressbook {
   return addressbook;
 }
 
-test("OWA: After the notifications were opened again, we fetch what changed meanwhile in the inbox, calendars and address books", async () => {
+test("OWA: After the notifications were opened again, we fetch what changed meanwhile in the inbox, the listed mail folders, calendars and address books", async () => {
   synced = [];
   let account = newTestAccount();
+  newMailFolder(account, "listed-folder", true, () => synced.push("listed-folder"));
+  newMailFolder(account, "unlisted-folder", false, () => synced.push("unlisted-folder"));
   newCalendar(account, "calendar-folder");
   newAddressbook(account, "contacts-folder");
   let listeners = serveExchange([() => exchangeStream(2), exchangeStream]);
@@ -205,6 +217,9 @@ test("OWA: After the notifications were opened again, we fetch what changed mean
   await vi.advanceTimersByTimeAsync(3 * 60 * 1000);
   expect(listeners()).toBe(2);
   expect(account.inboxChecks).toBeGreaterThan(0);
+  expect(synced).toContain("listed-folder");
+  // Gets no row notifications, and is checked when it's opened
+  expect(synced).not.toContain("unlisted-folder");
   expect(synced).toContain("calendar-folder");
   expect(synced).toContain("contacts-folder");
   expect(account.errors).toEqual([]);

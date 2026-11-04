@@ -245,8 +245,12 @@ export class OWAAccount extends ExchangeMailAccount {
 
   /** The server doesn't tell us what changed while we weren't listening, e.g. while the VPN was down */
   fetchChangesMissedByNotifications(): void {
-    this.inbox?.getNewMessages()
-      .catch(this.errorCallback);
+    for (let folder of this.folderMap.values()) {
+      if (folder.listening) {
+        folder.getNewMessages()
+          .catch(this.errorCallback);
+      }
+    }
     for (let addressbook of appGlobal.addressbooks.filterOnce(addressbook => addressbook.mainAccount == this)) {
       addressbook.listContacts()
         .catch(this.errorCallback);
