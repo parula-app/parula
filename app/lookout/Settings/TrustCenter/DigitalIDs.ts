@@ -120,11 +120,7 @@ export async function createSMIMEKey(identity: MailIdentity): Promise<SMIMEPriva
 export async function addCertificateFile(identity: MailIdentity, key: SMIMEPrivateKey, file: File) {
   // <copied from="../../../frontend/Settings/Mail/Account/EncryptionKey.svelte" onAddCertificateSMIME()>
   let fileContent = await readPublicKeyFile(file);
-  assert(fileContent.includes("-----BEGIN CERTIFICATE-----") ||
-    fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----") ||
-    fileContent.includes("-----BEGIN PKCS7-----"),
-    gt`Could not find a certificate in this file`);
-  await key.addCertificates(fileContent);
+  await key.addCertificateFile(fileContent);
   await identity.account.save();
   // </copied>
 }

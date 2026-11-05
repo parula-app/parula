@@ -289,7 +289,7 @@
       return;
     }
     let fileContent = await readPublicKeyFile(file);
-    await (key as SMIMEPublicKey).addCertificates(fileContent);
+    await (key as SMIMEPublicKey).addCertificateFile(fileContent);
     keyStatusAsync = (key as SMIMEPublicKey).keyStatus();
     await person.save();
   }

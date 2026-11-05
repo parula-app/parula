@@ -102,6 +102,15 @@ export class SMIMEPublicKey extends PublicKey {
     }
   }
 
+  /** For the file that the user picked to add a certificate */
+  async addCertificateFile(fileContent: string) {
+    assert(fileContent.includes("-----BEGIN CERTIFICATE-----") ||
+      fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----") ||
+      fileContent.includes("-----BEGIN PKCS7-----"),
+      gt`Could not find a certificate in this file`);
+    await this.addCertificates(fileContent);
+  }
+
   protected async addCertificatesFromDER(der: Uint8Array) {
     let cert: Certificate;
     try {

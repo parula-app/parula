@@ -194,7 +194,7 @@ describe.each(kFiles)("Certificate file: %s", (name, file, hasChain) => {
 
   test("for our own key", async () => {
     let key = await SMIMEPrivateKey.importPrivateKey(kUserKey);
-    await key.addCertificates(await readPublicKeyFile(file));
+    await key.addCertificateFile(await readPublicKeyFile(file));
     await expectUserCertificate(key, hasChain);
   });
 });
@@ -206,4 +206,9 @@ test("A text file is read as it is", async () => {
 test("A file without a certificate is rejected", async () => {
   let fileContent = await readPublicKeyFile(new File(["Hello"], "hello.txt"));
   await expect(importPublicKey(fileContent)).rejects.toThrow();
+  // Adding a certificate, to a contact's key and to our own key
+  let contactKey = await SMIMEPublicKey.importPublicKey(kUserCert);
+  await expect(contactKey.addCertificateFile(fileContent)).rejects.toThrow();
+  let ownKey = await SMIMEPrivateKey.importPrivateKey(kUserKey);
+  await expect(ownKey.addCertificateFile(fileContent)).rejects.toThrow();
 });
