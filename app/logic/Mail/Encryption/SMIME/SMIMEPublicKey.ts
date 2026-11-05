@@ -1,4 +1,5 @@
 import { PublicKey } from "../PublicKey";
+import { CCADBCertificates } from "./CCADBCertificates";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
 import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
@@ -16,6 +17,10 @@ export class SMIMEPublicKey extends PublicKey {
   declare publicKeyArmored: string;
 
   chain = new ArrayColl<SMIMEPublicKey>();
+
+  static publicIntermediates = new CCADBCertificates(
+    "https://ccadb.my.salesforce-sites.com/mozilla/PublicAllIntermediateCertsWithPEMCSV",
+    "smime-intermediates.json");
 
   constructor() {
     super();
@@ -130,6 +135,9 @@ export class SMIMEPublicKey extends PublicKey {
         }
       }
     }
+    if (await this.addPublicIntermediate(cert)) {
+      return KeyStatus.Valid;
+    }
     if (await verifySignature(cert, cert)) {
       return KeyStatus.SelfSignedRoot;
     }
@@ -143,6 +151,30 @@ export class SMIMEPublicKey extends PublicKey {
     let key = new SMIMEPublicKey();
     await key.addCertificates(publicKey);
     return key;
+  }
+
+  /** Finds the public intermediate CA that issued `cert` and leads to a trusted root, and adds it to the chain */
+  protected async addPublicIntermediate(cert: Certificate): Promise<boolean> {
+    const kMaxChainLength = 5;
+    if (this.chain.length >= kMaxChainLength) {
+      return false;
+    }
+    for (let issuer of await SMIMEPublicKey.publicIntermediates.issuersOf(cert)) {
+      if (!await verifySignature(cert, issuer)) {
+        continue;
+      }
+      let key = new SMIMEPublicKey();
+      await key.setCertificate(issuer);
+      if (this.chain.some(chainKey => chainKey.fingerprint == key.fingerprint)) {
+        continue;
+      }
+      this.chain.add(key);
+      if (await this.keyStatus() == KeyStatus.Valid) {
+        return true;
+      }
+      this.chain.remove(key);
+    }
+    return false;
   }
 
   publicKeyAsFile(): File {
