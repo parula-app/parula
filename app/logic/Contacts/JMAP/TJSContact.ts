@@ -8,6 +8,7 @@ export interface TJMAPContact extends TJSContact {
 
 /** <https://www.rfc-editor.org/rfc/rfc9553.html#name-card> */
 export interface TJSContact {
+  "@type"?: "Card";
   /** JSContact version (e.g., "1.0") */
   version: string;
   /** Stable ID for this card */
