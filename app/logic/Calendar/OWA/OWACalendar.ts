@@ -36,16 +36,15 @@ export class OWACalendar extends ExchangeCalendar {
     return this.account.isLoggedIn;
   }
 
+  /** Not with a logon to the mailbox of the colleague who shared this calendar,
+   * because that needs Full Access to the whole mailbox.
+   * The folder and item IDs already point to their mailbox. */
   callOWA(aRequest: any) {
-    return this.username == this.account.username
-      ? this.account.callOWA(aRequest)
-      : this.account.callOWA(aRequest, this.username);
+    return this.account.callOWA(aRequest);
   }
 
   callOWAWithOffice365Attachment(aRequest: any, attachment: Attachment) {
-    return this.username == this.account.username
-      ? this.account.callOWAWithOffice365Attachment(aRequest, attachment)
-      : this.account.callOWAWithOffice365Attachment(aRequest, attachment, this.username);
+    return this.account.callOWAWithOffice365Attachment(aRequest, attachment);
   }
 
   newEvent(parentEvent?: OWAEvent): OWAEvent {
