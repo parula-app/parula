@@ -5,6 +5,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'parula-app/parula'
     runs-on: ubuntu-22.04
     permissions:
       contents: write
