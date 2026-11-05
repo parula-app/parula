@@ -42,7 +42,9 @@ export async function readCertificates(certificates: string[], errorCallback: (e
     try {
       // Decoding it here rejects blobs that aren't certificates, e.g. PKCS#7.
       let pem = Certificate.encodePEM(Certificate.decodeFromBase64(certificate), { label: "CERTIFICATE" });
-      keys.add(await SMIMEPublicKey.importPublicKey(pem));
+      let key = await SMIMEPublicKey.importPublicKey(pem);
+      key.fromDirectory = true;
+      keys.add(key);
     } catch (ex) {
       errorCallback(ex);
     }
@@ -61,7 +63,9 @@ async function smimeCertificateToKey(blob: string): Promise<SMIMEPublicKey> {
   assert(certificates?.length, "No certificate in the PKCS#7 blob");
   // The certificate of the person comes first and the rest of the chain follows,
   // which is exactly how `importPublicKey()` reads a PEM file with a chain.
-  return await SMIMEPublicKey.importPublicKey(certificates
+  let key = await SMIMEPublicKey.importPublicKey(certificates
     .map(certificate => Certificate.encodePEM(certificate, { label: "CERTIFICATE" }))
     .join("\n"));
+  key.fromDirectory = true;
+  return key;
 }
