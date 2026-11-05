@@ -10,7 +10,7 @@
       {/if}
     </span>
   </label>
-  <button class="name" title={$calendar.name} on:click={() => $selectedCalendar = calendar}>
+  <button class="name" class:selected={isSelected} title={$calendar.name} on:click={() => $selectedCalendar = calendar}>
     {$calendar.name}
   </button>
 </hbox>

@@ -13,6 +13,36 @@ export function onKeyEnter(event: KeyboardEvent, onEnter: () => void | Promise<v
   return onEnter();
 }
 
+export function isTextField(target: EventTarget | null): boolean {
+  let element = target as HTMLElement;
+  return !!element?.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
+}
+
+/** Arrow Up/Down, Home and End select the previous, next, first or last row of the list
+ * that this keydown handler is on, by clicking the row. The selected row has the class `selected`. */
+export function onListKey(event: KeyboardEvent, rowSelector: string) {
+  if (event.key != "ArrowDown" && event.key != "ArrowUp" && event.key != "Home" && event.key != "End" || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+    return;
+  }
+  if (isTextField(event.target)) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  let rows = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(rowSelector));
+  let pos = rows.findIndex(row => row.classList.contains("selected"));
+  let next = rows[event.key == "Home" ? 0
+    : event.key == "End" ? rows.length - 1
+    : event.key == "ArrowDown" ? pos + 1
+    : pos - 1];
+  if (!next) {
+    return;
+  }
+  next.click();
+  next.focus({ preventScroll: true });
+  next.scrollIntoView({ block: "nearest" });
+}
+
 export async function saveBlobAsFile(blob: Blob, filename?: string) {
   const showSaveFilePicker = (window as any).showSaveFilePicker;
   if (typeof(showSaveFilePicker) != "function") { // Fallback

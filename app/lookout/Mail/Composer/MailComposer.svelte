@@ -159,8 +159,7 @@
   import { MessageActions } from "../MessageActions";
   import { goBack } from "../../../frontend/AppsBar/selectedApp";
   import { minorError, catchErrors, showError, showUserError } from "../../../frontend/Util/error";
-  import { isTextField } from "../../Util/util";
-  import { getOSName } from "../../../frontend/Util/util";
+  import { getOSName, isTextField } from "../../../frontend/Util/util";
   import { getMyPrivateKey } from "../../../logic/Mail/Encryption/KeyUtils";
   import { hasUserText } from "./DraftContent";
   import ComposerRibbon from "./ComposerRibbon.svelte";

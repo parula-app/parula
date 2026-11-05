@@ -1,4 +1,5 @@
-<vbox flex class="settings-categories-pane">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<vbox flex class="settings-categories-pane" tabindex="-1" on:keydown={event => onListKey(event, ".settings-category, .account")}>
   <Scroll>
     {#each $categories.each as category}
       <CategoryItem {category} />
@@ -10,6 +11,7 @@
   import type { SettingsCategory } from "../SettingsCategory";
   import CategoryItem from "./CategoryItem.svelte";
   import Scroll from "../../Shared/Scroll.svelte";
+  import { onListKey } from "../../Util/util";
   import type { Collection } from "svelte-collections";
 
   /* Which apps to show on the app bar

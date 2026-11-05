@@ -1,4 +1,5 @@
-<vbox class="calendar-list">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<vbox class="calendar-list" on:keydown={event => onListKey(event, ".calendar-item .name")}>
   {#each groups as group (group.id)}
     {@const allShown = group.calendars.every(calendar => $shownCalendars.contains(calendar))}
     {@const someShown = group.calendars.some(calendar => $shownCalendars.contains(calendar))}
@@ -35,6 +36,7 @@
   import { selectedCalendar, shownCalendars } from "../../frontend/Calendar/selected";
   import { appGlobal } from "../../logic/app";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
+  import { onListKey } from "../../frontend/Util/util";
   import CalendarListItem from "./CalendarListItem.svelte";
   import Checkbox from "../Shared/Form/Checkbox.svelte";
   import CalendarMenu from "./CalendarMenu.svelte";

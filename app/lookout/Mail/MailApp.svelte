@@ -107,7 +107,7 @@
   import NormalViewIcon from "lucide-svelte/icons/layout-panel-left";
   import ReadingViewIcon from "lucide-svelte/icons/book-open";
   import { mailSearchInput } from "./Search/MailSearchBox.svelte";
-  import { isTextField } from "../Util/util";
+  import { isTextField } from "../../frontend/Util/util";
   import { MessageActions } from "./MessageActions";
   import { kSearchLimit, hasRefiners, isRealFolder, isRealAccount, newMailSearch, SearchScope, defaultSearchOptions } from "./Search/MailSearch";
   import { FolderTreeActions } from "./LeftPane/FolderTreeActions";

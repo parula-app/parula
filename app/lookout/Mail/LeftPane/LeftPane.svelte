@@ -6,11 +6,11 @@
       <MinimizeIcon size={16} />
     </button>
   </hbox>
-  <vbox flex class="scroll" role="tree" aria-label={$t`Folders`}>
+  <vbox flex class="scroll" role="tree" tabindex="-1" aria-label={$t`Folders`} on:keydown={event => onListKey(event, ".folder-row")}>
     {#if $separateAccountList.value}
       <SectionHeader id="accounts" label={$t`Accounts`} />
       {#if !isCollapsed("accounts", $collapsedIDs.value)}
-        <vbox class="account-list" role="listbox" aria-label={$t`Accounts`}>
+        <vbox class="account-list" role="listbox" tabindex="-1" aria-label={$t`Accounts`} on:keydown={event => onListKey(event, ".account-row")}>
           {#if $showFavorites.value}
             <FolderGroupListItem label={$t`Favorites *=> Section of the folder pane with the favorite folders`} icon={FavoritesIcon} inbox={allAccountsAccount.inbox}
               selected={shownEntry == FolderGroup.Favorites} on:click={() => onSelectGroup(FolderGroup.Favorites)} />
@@ -78,6 +78,7 @@
   import { allAccountsAccount } from "../../../logic/Mail/AccountsList/ShowAccounts";
   import { savedSearchFolders, type SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
+  import { onListKey } from "../../../frontend/Util/util";
   import SectionHeader from "./SectionHeader.svelte";
   import FolderList from "./FolderList.svelte";
   import AccountListItem from "./AccountListItem.svelte";
