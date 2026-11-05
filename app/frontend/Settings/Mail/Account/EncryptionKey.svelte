@@ -283,6 +283,7 @@
   import type { SMIMEPrivateKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
   import { SMIMEPublicKey, KeyStatus } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
   import { MailIdentity } from "../../../../logic/Mail/MailIdentity";
+  import { readPublicKeyFile } from "../../../../logic/Mail/Encryption/KeyUtils";
   import { saveBlobAsFile } from "../../../Util/util";
   import { appName } from "../../../../logic/build";
   import FileSelector from "../../../Mail/Composer/Attachments/FileSelector.svelte";
@@ -306,7 +307,8 @@
   import ChevronUp from "lucide-svelte/icons/chevron-up";
   import ChevronDown from "lucide-svelte/icons/chevron-down";
   import { getDateString, getDateTimeString } from "../../../../logic/util/date";
-  import { t } from "../../../../l10n/l10n";
+  import { assert } from "../../../../logic/util/util";
+  import { gt, t } from "../../../../l10n/l10n";
 
   export let key: PublicKey & PrivateKey;
   export let identity: MailIdentity;
@@ -357,7 +359,12 @@
     if (!file) {
       return;
     }
-    await (key as SMIMEPrivateKey).addCertificateFile(file);
+    let fileContent = await readPublicKeyFile(file);
+    assert(fileContent.includes("-----BEGIN CERTIFICATE-----") ||
+      fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----") ||
+      fileContent.includes("-----BEGIN PKCS7-----"),
+      gt`Could not find a certificate in this file`);
+    await (key as SMIMEPrivateKey).addCertificates(fileContent);
     keyStatusAsync = (key as SMIMEPrivateKey).keyStatus();
     await identity.account.save();
   }

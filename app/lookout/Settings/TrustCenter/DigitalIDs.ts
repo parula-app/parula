@@ -4,7 +4,7 @@ import type { PrivateKey } from "../../../logic/Mail/Encryption/PrivateKey";
 import { PGPPrivateKey } from "../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
 import { SMIMEPrivateKey } from "../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { KeyStatus } from "../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { importPrivateKey, readKeyFile } from "../../../logic/Mail/Encryption/KeyUtils";
+import { importPrivateKey, readPrivateKeyFile, readPublicKeyFile } from "../../../logic/Mail/Encryption/KeyUtils";
 import { saveBlobAsFile } from "../../../frontend/Util/util";
 import { assert } from "../../../logic/util/util";
 import { gt } from "../../../l10n/l10n";
@@ -55,7 +55,7 @@ export async function setDefaultDigitalID(identity: MailIdentity, key: DigitalID
 
 export async function importDigitalID(identity: MailIdentity, file: File, passphrase: string, name: string): Promise<DigitalID> {
   // <copied from="../../../frontend/Settings/Mail/Account/EncryptionImport.svelte" onImportFile()>
-  let fileContent = await readKeyFile(file, passphrase);
+  let fileContent = await readPrivateKeyFile(file, passphrase);
   let key = await importPrivateKey(fileContent, passphrase);
   let existing = identity.encryptionPrivateKeys.find(existing => existing.id == key.id);
   if (!existing) {
@@ -119,7 +119,12 @@ export async function createSMIMEKey(identity: MailIdentity): Promise<SMIMEPriva
 
 export async function addCertificateFile(identity: MailIdentity, key: SMIMEPrivateKey, file: File) {
   // <copied from="../../../frontend/Settings/Mail/Account/EncryptionKey.svelte" onAddCertificateSMIME()>
-  await key.addCertificateFile(file);
+  let fileContent = await readPublicKeyFile(file);
+  assert(fileContent.includes("-----BEGIN CERTIFICATE-----") ||
+    fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----") ||
+    fileContent.includes("-----BEGIN PKCS7-----"),
+    gt`Could not find a certificate in this file`);
+  await key.addCertificates(fileContent);
   await identity.account.save();
   // </copied>
 }

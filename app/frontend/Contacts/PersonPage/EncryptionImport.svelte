@@ -36,7 +36,7 @@
   import { SMIMEPublicKey } from "../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
   import { queryPGPKeyServersForPerson } from "../../../logic/Mail/Encryption/PGP/KeyServer";
-  import { importPublicKey } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { importPublicKey, readPublicKeyFile } from "../../../logic/Mail/Encryption/KeyUtils";
   import type { Person } from "../../../logic/Abstract/Person";
   import FileSelector from "../../Mail/Composer/Attachments/FileSelector.svelte";
   import ErrorMessageInline from "../../Shared/ErrorMessageInline.svelte";
@@ -58,7 +58,8 @@
     if (!file) {
       return;
     }
-    let key = await importPublicKey(file);
+    let fileContent = await readPublicKeyFile(file);
+    let key = await importPublicKey(fileContent);
     person.addEncryptionPublicKey(key);
     isOpen = false;
     await person.save();

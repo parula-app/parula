@@ -41,7 +41,7 @@
   import { certificateStatus } from "./ContactCertificates";
   import { askYesNo } from "../../Shared/Dialog/MessageBox";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
-  import { importPublicKey } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { importPublicKey, readPublicKeyFile } from "../../../logic/Mail/Encryption/KeyUtils";
   import { saveBlobAsFile } from "../../../frontend/Util/util";
   import { appName } from "../../../logic/build";
   import { getDateString } from "../../../logic/util/date";
@@ -83,7 +83,8 @@
       return;
     }
     // <copied from="../../../frontend/Contacts/PersonPage/EncryptionImport.svelte" onImportFile()>, saved with the contact form
-    let key = await importPublicKey(file);
+    let fileContent = await readPublicKeyFile(file);
+    let key = await importPublicKey(fileContent);
     person.addEncryptionPublicKey(key);
     // </copied>
   }

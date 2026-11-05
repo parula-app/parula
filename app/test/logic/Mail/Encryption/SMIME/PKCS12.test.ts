@@ -1,7 +1,7 @@
 import { expect, test, describe } from "vitest";
 import { PKCS12 } from "../../../../../logic/Mail/Encryption/SMIME/PKCS12";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
-import { readKeyFile } from "../../../../../logic/Mail/Encryption/KeyUtils";
+import { readPrivateKeyFile } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { Certificate, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { base64ToBytes } from "../../../../../../lib/asn1/decoders/pem";
 
@@ -128,11 +128,11 @@ describe("PKCS#12 import", () => {
 
   test("The file that the user picked is read as .p12 or as PEM", async () => {
     let bytes = base64ToBytes(kRC2AndTripleDESFixture.replace(/\s/g, ""));
-    let pem = await readKeyFile(new File([bytes], "mykey.p12"), kPassphrase);
+    let pem = await readPrivateKeyFile(new File([bytes], "mykey.p12"), kPassphrase);
     expect(pem.match(/-----BEGIN [^-]+-----/g))
       .toEqual(["-----BEGIN ENCRYPTED PRIVATE KEY-----", "-----BEGIN CERTIFICATE-----"]);
     // Key files that are already PEM are passed through
-    expect(await readKeyFile(new File([pem], "mykey.pem"), kPassphrase)).toBe(pem);
+    expect(await readPrivateKeyFile(new File([pem], "mykey.pem"), kPassphrase)).toBe(pem);
   });
 });
 

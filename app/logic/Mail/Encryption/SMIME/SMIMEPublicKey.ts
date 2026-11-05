@@ -102,22 +102,6 @@ export class SMIMEPublicKey extends PublicKey {
     }
   }
 
-  /** Reads a certificate file: X.509 or PKCS#7, as PEM or DER */
-  async addCertificateFile(file: File) {
-    let fileContents = new Uint8Array(await file.arrayBuffer());
-    // DER starts with the ASN.1 tag for a sequence, PEM with the "-----BEGIN " line
-    if (fileContents[0] == 0x30) {
-      await this.addCertificatesFromDER(fileContents);
-      return;
-    }
-    let pem = new TextDecoder().decode(fileContents);
-    assert(pem.includes("-----BEGIN CERTIFICATE-----") ||
-      pem.includes("-----BEGIN TRUSTED CERTIFICATE-----") ||
-      pem.includes("-----BEGIN PKCS7-----"),
-      gt`Could not find a certificate in this file`);
-    await this.addCertificates(pem);
-  }
-
   protected async addCertificatesFromDER(der: Uint8Array) {
     let cert: Certificate;
     try {

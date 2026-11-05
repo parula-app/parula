@@ -1,7 +1,7 @@
 import { appGlobal } from "../../../../../logic/app";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { importPublicKey } from "../../../../../logic/Mail/Encryption/KeyUtils";
+import { importPublicKey, readPublicKeyFile } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { base64ToBytes } from "../../../../../../lib/asn1/decoders/pem";
 import { expect, test, describe } from "vitest";
 
@@ -187,19 +187,23 @@ async function expectUserCertificate(key: SMIMEPublicKey, hasChain: boolean) {
 
 describe.each(kFiles)("Certificate file: %s", (name, file, hasChain) => {
   test("for a contact", async () => {
-    let key = await importPublicKey(file);
+    let key = await importPublicKey(await readPublicKeyFile(file));
     expect(key).toBeInstanceOf(SMIMEPublicKey);
     await expectUserCertificate(key as SMIMEPublicKey, hasChain);
   });
 
   test("for our own key", async () => {
     let key = await SMIMEPrivateKey.importPrivateKey(kUserKey);
-    await key.addCertificateFile(file);
+    await key.addCertificates(await readPublicKeyFile(file));
     await expectUserCertificate(key, hasChain);
   });
 });
 
+test("A text file is read as it is", async () => {
+  expect(await readPublicKeyFile(new File([kUserCert], "user.pem"))).toBe(kUserCert);
+});
+
 test("A file without a certificate is rejected", async () => {
-  let key = await SMIMEPrivateKey.importPrivateKey(kUserKey);
-  await expect(key.addCertificateFile(new File(["Hello"], "hello.txt"))).rejects.toThrow();
+  let fileContent = await readPublicKeyFile(new File(["Hello"], "hello.txt"));
+  await expect(importPublicKey(fileContent)).rejects.toThrow();
 });

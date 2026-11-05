@@ -220,7 +220,7 @@
   import { SMIMEPublicKey, KeyStatus } from "../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
   import type { Person } from "../../../logic/Abstract/Person";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
-  import { getMyPrivateKey } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { getMyPrivateKey, readPublicKeyFile } from "../../../logic/Mail/Encryption/KeyUtils";
   import { findAllIdentities } from "../../../logic/Mail/MailIdentity";
   import FileSelector from "../../Mail/Composer/Attachments/FileSelector.svelte";
   import IdentitySelector from "../../Mail/Composer/IdentitySelector.svelte";
@@ -288,7 +288,8 @@
     if (!file) {
       return;
     }
-    await (key as SMIMEPublicKey).addCertificateFile(file);
+    let fileContent = await readPublicKeyFile(file);
+    await (key as SMIMEPublicKey).addCertificates(fileContent);
     keyStatusAsync = (key as SMIMEPublicKey).keyStatus();
     await person.save();
   }
