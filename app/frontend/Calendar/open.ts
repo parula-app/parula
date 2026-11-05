@@ -13,7 +13,7 @@ export function openEvent(event: Event, edit = true) {
     goTo("/calendar/event", { event });
   } else {
     openApp(calendarMustangApp, { event });
-    if (edit) {
+    if (edit && !event.isReadOnly) {
       calendarMustangApp.showEvent(event);
       event.startEditing();
     }

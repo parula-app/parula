@@ -48,6 +48,7 @@ export class OWACalendar extends ExchangeCalendar {
   }
 
   newEvent(parentEvent?: OWAEvent): OWAEvent {
+    assert(!this.hasLimitedDetails, gt`You can only see the appointments in the calendar ${this.name}`);
     return new OWAEvent(this, parentEvent);
   }
 
@@ -55,7 +56,7 @@ export class OWACalendar extends ExchangeCalendar {
     return new OWAIncomingInvitation(this, message);
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[], hasDetails?: boolean }[]> {
     let results = await this.callOWA(new OWAGetUserAvailabilityRequest(participants, from, to));
     let availabilities = [];
     for (let [i, participant] of participants.entries()) {
@@ -70,12 +71,13 @@ export class OWACalendar extends ExchangeCalendar {
       let hasDetails = viewType.startsWith("Detailed");
       availabilities.push({
         participant,
+        hasDetails,
         availability: ensureArray(result.CalendarView.Items)
           .filter(event => this.freeBusyStatus(event.FreeBusyType))
           .map(event => {
             let appointment = new FreeBusyEvent(
-              new Date(event.Start + "Z"),
-              new Date(event.End + "Z"),
+              sanitize.date(sanitize.nonemptystring(event.Start) + "Z"),
+              sanitize.date(sanitize.nonemptystring(event.End) + "Z"),
               this.freeBusyStatus(event.FreeBusyType));
             let details = hasDetails && event.Sensitivity != "Private" ? event : null;
             appointment.title = sanitize.label(details?.Subject, null);
@@ -92,6 +94,10 @@ export class OWACalendar extends ExchangeCalendar {
   }
 
   protected async listEventsFromServer() {
+    if (this.hasLimitedDetails) {
+      await this.listEventsFromAvailability();
+      return;
+    }
     await this.listEventsRunOnce.runOnce(() => this.listEventsSlow());
   }
 

@@ -68,6 +68,8 @@ function serve(action: string, body: any): any {
         ResponseClass: "Success",
         Items: kBobEvents.filter(event => event.ItemId.Id == itemID.Id),
       }));
+    case "GetUserAvailabilityInternal": // By default, the colleagues see only when the others are busy
+      return [{ Responses: [{ ResponseMessage: { ResponseClass: "Success" }, CalendarView: { FreeBusyViewType: "FreeBusy" } }] }];
   }
   throw new Error("Unexpected request " + action);
 }

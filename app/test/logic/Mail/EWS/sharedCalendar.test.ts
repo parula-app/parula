@@ -40,6 +40,25 @@ const kAccessDenied = `
     <DescriptiveLinkKey>0</DescriptiveLinkKey>
   </GetFolderResponseMessage>`;
 
+/** By default, the colleagues see only when the others are busy */
+const kOnlyBusyTimes = `<?xml version="1.0" encoding="utf-8"?>
+  <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
+    <Body>
+      <GetUserAvailabilityResponse xmlns="http://schemas.microsoft.com/exchange/services/2006/messages">
+        <FreeBusyResponseArray>
+          <FreeBusyResponse>
+            <ResponseMessage ResponseClass="Success">
+              <ResponseCode>NoError</ResponseCode>
+            </ResponseMessage>
+            <FreeBusyView>
+              <FreeBusyViewType xmlns="http://schemas.microsoft.com/exchange/services/2006/types">FreeBusy</FreeBusyViewType>
+            </FreeBusyView>
+          </FreeBusyResponse>
+        </FreeBusyResponseArray>
+      </GetUserAvailabilityResponse>
+    </Body>
+  </Envelope>`;
+
 function newTestAccount(responseText: string): EWSAccount {
   appGlobal.remoteApp ??= {} as any;
   let account = new EWSAccount();
@@ -48,7 +67,10 @@ function newTestAccount(responseText: string): EWSAccount {
   account.emailAddress = account.username;
   account.url = "https://exchange.example.com/EWS/Exchange.asmx";
   account.authMethod = AuthMethod.Unknown; // no credentials needed
-  globalThis.fetch = (async () => ({ status: 200, text: async () => responseText })) as any;
+  globalThis.fetch = (async (url: string, options: any) => ({
+    status: 200,
+    text: async () => options.body.includes("GetUserAvailabilityRequest") ? kOnlyBusyTimes : responseText,
+  })) as any;
   return account;
 }
 

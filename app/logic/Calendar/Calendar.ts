@@ -123,7 +123,7 @@ export class Calendar extends Account {
     });
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[], hasDetails?: boolean }[]> {
     return [];
   }
 
