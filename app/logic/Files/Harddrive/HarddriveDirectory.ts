@@ -1,6 +1,5 @@
 import { Directory } from "../Directory";
 import type { File } from "../File";
-import type { FileOrDirectory } from "../FileOrDirectory";
 import { HarddriveFile } from "./HarddriveFile";
 import type { HarddriveAccount } from "./HarddriveAccount";
 import { fileExtensions } from "../FileType/MIMETypes";
@@ -13,7 +12,7 @@ import type { ArrayColl, Collection } from "svelte-collections";
 export class HarddriveDirectory extends Directory {
   declare account: HarddriveAccount;
   declare parent: HarddriveDirectory;
-  readonly files: ArrayColl<File>;
+  readonly files: ArrayColl<HarddriveFile>;
   readonly subDirs: ArrayColl<HarddriveDirectory>;
   protected readonly listLock = new Lock();
 
@@ -117,21 +116,23 @@ export class HarddriveDirectory extends Directory {
     if (!this.parent) {
       return;
     }
-    let path = this.parent.childPath(newName, true);
-    await this.parent.renameChild(this, newName, path);
-    this.setPath(path);
+    await this.parent.renameChild(this, newName);
   }
 
-  async renameChild(child: FileOrDirectory, newName: string, path: string) {
+  /** Renames a file or folder of this folder on disk, and changes its path.
+   * Its name is set by `rename()`, which calls this via `renameOnServer()`. */
+  async renameChild(child: HarddriveFile | HarddriveDirectory, newName: string) {
     this.checkChildName(newName);
+    let path = this.childPath(newName, child instanceof HarddriveDirectory);
     await this.account.move(child.path, path);
+    child.setPath(path);
   }
 
   /** Also changes the paths of the contents, which contain our name */
-  protected setPath(path: string) {
+  setPath(path: string) {
     this.path = this.filepathLocal = path;
     for (let file of this.files) {
-      file.path = file.filepathLocal = this.childPath(file.name);
+      file.setPath(this.childPath(file.name));
     }
     for (let dir of this.subDirs) {
       dir.setPath(this.childPath(dir.name, true));

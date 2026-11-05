@@ -38,8 +38,10 @@ export class HarddriveFile extends File {
   }
 
   async renameOnServer(newName: string) {
-    let path = this.parent.childPath(newName);
-    await this.parent.renameChild(this, newName, path);
+    await this.parent.renameChild(this, newName);
+  }
+
+  setPath(path: string) {
     this.path = this.filepathLocal = path;
   }
 }
