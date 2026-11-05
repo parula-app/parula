@@ -164,6 +164,10 @@
 
   let topMinute: number | null = null;
   function onScroll() {
+    // The browser sends a scroll event only with the next frame, even when the grid was removed in between
+    if (!scrollEl) {
+      return;
+    }
     topMinute = scrollEl.scrollTop / pxPerMinute;
     $eventPeek = null;
   }
