@@ -55,6 +55,9 @@
 <MailInBackground />
 <CalendarInBackground />
 <WebAppsInBackground />
+// #if [MOBILE]
+<LinkPopupM />
+// #endif
 
 <script lang="ts">
   import { selectedApp, sidebarApp, mustangApps, goTo, openApp, history } from "../AppsBar/selectedApp";
@@ -96,6 +99,7 @@
   import { Router } from "svelte-navigator";
   // #if [MOBILE]
   import { SplashScreen } from '@capacitor/splash-screen';
+  import LinkPopupM from "../Shared/LinkPopupM.svelte";
   // #endif
 
   const frontendSetting = getLocalStorage("appearance.frontend", defaultFrontend);
