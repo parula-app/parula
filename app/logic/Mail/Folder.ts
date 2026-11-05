@@ -93,6 +93,17 @@ export class Folder extends Observable {
     throw new AbstractFunction();
   }
 
+  /** Only after a complete listing of this folder on the server:
+   * Removes the emails here that the server didn't list.
+   * @param listedIDs the `pID`s of all emails that the server listed */
+  protected async deleteUnlistedMessagesLocally(listedIDs: Set<string | number>) {
+    for (let email of this.messages.contents) { // copy: deleteMessageLocally() removes from this.messages
+      if (email.pID && !listedIDs.has(email.pID)) {
+        await email.deleteMessageLocally();
+      }
+    }
+  }
+
   /** Downloads the entire MIME of *all* emails in this folder.
    * Assumes that you did `listMessages()` first.
    * @returns the actually downloaded emails. */

@@ -37,7 +37,7 @@ class TestEWSAccount extends EWSAccount {
   }
 }
 
-function setUpFolder(syncState: string): { account: TestEWSAccount, folder: EWSFolder } {
+function setUpFolder(syncState: string, localIDs = ["item-1", "item-2", "item-3"]): { account: TestEWSAccount, folder: EWSFolder } {
   let account = new TestEWSAccount();
   account.name = "Test";
   account.emailAddress = "user@example.com";
@@ -47,7 +47,7 @@ function setUpFolder(syncState: string): { account: TestEWSAccount, folder: EWSF
   folder.id = "inbox-1";
   folder.syncState = syncState;
   account.rootFolders.add(folder);
-  for (let id of ["item-1", "item-2", "item-3"]) {
+  for (let id of localIDs) {
     let email = folder.newEMail() as EWSEMail;
     email.itemID = id;
     folder.messages.add(email);
@@ -65,6 +65,16 @@ test("When the server no longer accepts our sync state, emails deleted meanwhile
   await folder.listMessages();
 
   expect(itemIDs(folder)).toEqual(["item-1", "item-3"]);
+});
+
+test("When several emails were deleted meanwhile, all of them are removed here", async () => {
+  // 3 of 4 emails gone: at least 2 of them are next to each other in the folder, in any sort order
+  let { account, folder } = setUpFolder("sync-old", ["item-1", "item-2", "item-3", "item-4"]);
+  account.onServer = ["item-1"];
+
+  await folder.listMessages();
+
+  expect(itemIDs(folder)).toEqual(["item-1"]);
 });
 
 test("A full resync removes the emails that are no longer on the server", async () => {

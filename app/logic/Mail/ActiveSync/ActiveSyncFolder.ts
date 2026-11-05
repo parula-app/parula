@@ -195,9 +195,7 @@ export class ActiveSyncFolder extends ExchangeFolder implements ActiveSyncPingab
     });
     if (!isNewMail) {
       // Without a sync key, the server sends all emails, but no deletions
-      for (let gone of this.messages.filterOnce(email => email.serverID && !listedIDs.has(email.serverID))) {
-        await gone.deleteMessageLocally();
-      }
+      await this.deleteUnlistedMessagesLocally(listedIDs);
     }
     this.countTotal = this.messages.length;
     this.account.addPingable(this);

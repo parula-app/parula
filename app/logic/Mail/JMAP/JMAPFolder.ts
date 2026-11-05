@@ -86,9 +86,7 @@ export class JMAPFolder extends Folder {
       allNewMessages.addAll(newMessages);
       position += ids.length;
       if (ids.length < limit) {
-        for (let gone of this.messages.filterOnce(msg => msg.jmapID && !onServer.has(msg.jmapID))) {
-          await gone.deleteMessageLocally();
-        }
+        await this.deleteUnlistedMessagesLocally(onServer);
         break;
       }
     }

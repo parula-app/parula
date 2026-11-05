@@ -8,7 +8,7 @@ import { expect, test } from "vitest";
 
 /** An ActiveSync server whose folder has "1:1" and "1:3".
  * "1:2" was deleted there while our sync key was no longer valid. */
-function setUpFolder(syncKey: string): ActiveSyncFolder {
+function setUpFolder(syncKey: string, localIDs = ["1:1", "1:2", "1:3"], onServer = ["1:1", "1:3"]): ActiveSyncFolder {
   let account = new ActiveSyncAccount();
   account.name = "Test";
   account.storage = new DummyMailStorage();
@@ -27,7 +27,7 @@ function setUpFolder(syncKey: string): ActiveSyncFolder {
       // The first sync after SyncKey 0 sends every email of the folder as added
       return { Collections: { Collection: {
         Status: "1", SyncKey: "2", CollectionId: collection.CollectionId,
-        Commands: { Add: ["1:1", "1:3"].map(id => ({ ServerId: id, ApplicationData: { Read: "1" } })) },
+        Commands: { Add: onServer.map(id => ({ ServerId: id, ApplicationData: { Read: "1" } })) },
       } } };
     }
     // Nothing changed since then
@@ -38,7 +38,7 @@ function setUpFolder(syncKey: string): ActiveSyncFolder {
   folder.id = "inbox-1";
   folder.syncState = syncKey;
   account.rootFolders.add(folder);
-  for (let id of ["1:1", "1:2", "1:3"]) {
+  for (let id of localIDs) {
     let email = folder.newEMail() as ActiveSyncEMail;
     email.serverID = id;
     folder.messages.add(email);
@@ -57,6 +57,15 @@ test("After the server rejected our sync key, the next sync removes the emails d
   await folder.listMessages();
 
   expect(serverIDs(folder)).toEqual(["1:1", "1:3"]);
+});
+
+test("When several emails were deleted meanwhile, all of them are removed here", async () => {
+  // 3 of 4 emails gone: at least 2 of them are next to each other in the folder, in any sort order
+  let folder = setUpFolder("2", ["1:1", "1:2", "1:3", "1:4"], ["1:1"]);
+
+  await folder.fullResync();
+
+  expect(serverIDs(folder)).toEqual(["1:1"]);
 });
 
 test("A full resync removes the emails that are no longer on the server", async () => {
