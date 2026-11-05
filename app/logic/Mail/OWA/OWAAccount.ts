@@ -247,13 +247,7 @@ export class OWAAccount extends ExchangeMailAccount {
   }
 
   /** The server doesn't tell us what changed while we weren't listening, e.g. while the VPN was down */
-  fetchChangesMissedByNotifications(): void {
-    for (let folder of this.folderMap.values()) {
-      if (folder.listening) {
-        folder.getNewMessages() // no-op, if count didn't change
-          .catch(this.errorCallback);
-      }
-    }
+  async fetchChangesMissedByNotifications(): Promise<void> {
     for (let addressbook of appGlobal.addressbooks.filterOnce(addressbook => addressbook.mainAccount == this)) {
       addressbook.listContacts()
         .catch(this.errorCallback);
@@ -261,6 +255,13 @@ export class OWAAccount extends ExchangeMailAccount {
     for (let calendar of appGlobal.calendars.filterOnce(calendar => calendar.mainAccount == this)) {
       calendar.listEvents()
         .catch(this.errorCallback);
+    }
+    await this.listFolders(); // one request for the counts of all folders
+    for (let folder of this.folderMap.values()) {
+      if (folder.listening && folder.dirty) { // skip, if count didn't change
+        folder.getNewMessages()
+          .catch(this.errorCallback);
+      }
     }
   }
 

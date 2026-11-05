@@ -46,7 +46,8 @@ export class OWANotifications {
   protected connected(): void {
     if (this.isReconnect) {
       this.isReconnect = false;
-      this.account.fetchChangesMissedByNotifications();
+      this.account.fetchChangesMissedByNotifications()
+        .catch(this.account.errorCallback);
     }
   }
 
