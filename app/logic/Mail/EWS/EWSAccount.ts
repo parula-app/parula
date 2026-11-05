@@ -1161,7 +1161,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     return await EWSCalendarShortcut.listCalendars(this);
   }
 
-  async listSharedAccountsFromOutlook(): Promise<PersonUID[]> {
+  async listSharedMailAccountsFromOutlook(): Promise<PersonUID[]> {
     let config = await this.getUserConfigurationXML("OWA.OtherMailbox", "root") as any;
     return ensureArray(config?.OtherMailbox?.entry)
       .map(entry => this.newSharedAccountPerson(entry?.principalSMTPAddress, entry?.displayName))
