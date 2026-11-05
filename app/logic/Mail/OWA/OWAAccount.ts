@@ -186,6 +186,10 @@ export class OWAAccount extends ExchangeMailAccount {
         // `listFolders()` will subscribe to new user-added calendars
         await super.syncOnStartup();
 
+        if (this.isDependentAccount) {
+          return;
+        }
+
         // Create primary addressbook automatically
         let haveAddressbook = appGlobal.addressbooks.some(addressbook => addressbook.dependsOn(this));
         if (!haveAddressbook) {
@@ -196,8 +200,7 @@ export class OWAAccount extends ExchangeMailAccount {
           await addressbook.save();
         }
 
-        if (!this.isDependentAccount &&
-            !appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
+        if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new OWAGAL(this));
         }
 
