@@ -77,7 +77,6 @@ beforeAll(async () => {
       return webdavClient.createClient(serverURL, options);
     },
     getFilesDir: () => localDir,
-    // <copied from="desktop/backend/backend.ts">
     async writeFile(filepath: string, permissions: number, contents: Uint8Array): Promise<void> {
       await fs.rm(filepath, { force: true });
       let fileHandle = await fs.open(filepath, "w", permissions);
@@ -94,7 +93,6 @@ beforeAll(async () => {
       return stat;
     },
     fs,
-    // </copied>
     async openFileInNativeApp(filepath: string) {
       let contents = filepath ? await fs.readFile(filepath, "utf8").catch(() => null) : null;
       openedFiles.push({ path: filepath, contents });
