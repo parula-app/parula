@@ -4,10 +4,12 @@ import { appGlobal } from "../../../../logic/app";
 import { OWAGAL } from "../../../../logic/Contacts/OWA/OWAGAL";
 import type { OWAPerson } from "../../../../logic/Contacts/OWA/OWAPerson";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { kCertificate, kCertificateEmailAddress, kSMIMECertificate, kSMIMECertificateEmailAddress } from "../testCertificate";
+import { kCertificate, kCertificateEmailAddress, kSMIMECertificate, kSMIMECertificateEmailAddress, trustTestCAs } from "../testCertificate";
 import { addSMIMEIdentities } from "../smimeIdentities";
 import { ArrayColl } from "svelte-collections";
 import { expect, test } from "vitest";
+
+trustTestCAs();
 
 const kPersons = [{
   DisplayName: "Ben Bucksch",
