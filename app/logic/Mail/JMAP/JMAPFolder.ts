@@ -565,14 +565,15 @@ export class JMAPFolder extends Folder {
 
   async rename(newName: string): Promise<void> {
     await super.rename(newName);
-    await this.account.makeSingleCall("Mailbox/set", {
+    let response = await this.account.makeSingleCall("Mailbox/set", {
       accountId: this.account.accountID,
       update: {
         [this.id]: {
           name: newName,
         },
       },
-    });
+    }) as TJMAPChangeResponse<TJMAPFolder>;
+    checkChangeError(response);
   }
 
   /** Warning: Also deletes all messages in the folder, also on the server */
