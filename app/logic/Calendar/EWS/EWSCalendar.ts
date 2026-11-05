@@ -29,6 +29,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
   }
 
   newEvent(parentEvent?: EWSEvent): EWSEvent {
+    assert(!this.hasLimitedDetails, gt`You can only see the appointments in the calendar ${this.name}`);
     return new EWSEvent(this, parentEvent);
   }
 
@@ -42,7 +43,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
 
   async syncOnStartup(): Promise<void> {
     await super.syncOnStartup();
-    if (this.username != this.account.username) {
+    if (this.username != this.account.username && !this.hasLimitedDetails) {
       await this.account.subscribeToNotificationsForSubaccount(this);
     }
   }
@@ -51,7 +52,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
     return new EWSIncomingInvitation(this, message);
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[], hasDetails?: boolean }[]> {
     let request = {
       m$GetUserAvailabilityRequest: {
         m$MailboxDataArray: {
@@ -82,6 +83,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
       }
       availabilities.push({
         participant,
+        hasDetails: sanitize.string(result.FreeBusyView.FreeBusyViewType, "").startsWith("Detailed"),
         availability: ensureArray(result.FreeBusyView.CalendarEventArray?.CalendarEvent)
           .filter(event => this.freeBusyStatus(event.BusyType))
           .map(event => {
@@ -100,6 +102,10 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
   }
 
   protected async listEventsFromServer() {
+    if (this.hasLimitedDetails) {
+      await this.listEventsFromAvailability();
+      return;
+    }
     await this.syncFolder();
     await this.save();
   }

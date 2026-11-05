@@ -26,6 +26,13 @@ export class ShownCalendars extends ArrayColl<Calendar> {
     this.update();
   }
 
+  calendarForNewEvent(calendar: Calendar | null): Calendar | null {
+    if (!calendar || calendar.isReadOnly) {
+      return this.allCalendars.find(cal => !cal.isReadOnly);
+    }
+    return calendar;
+  }
+
   /** Observes `allCalendars` */
   added() {
     this.update();

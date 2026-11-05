@@ -21,6 +21,7 @@ import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
 import { OWASubscribeToHierarchyNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
 import { owaCreateNewTopLevelFolderRequest, owaFindFoldersRequest, owaSharedFolderRequest } from "./Request/OWAFolderRequests";
 import { OWACalendarShortcut } from "../../Calendar/OWA/OWACalendarShortcut";
+import { EWSCalendarShortcut } from "../../Calendar/EWS/EWSCalendarShortcut";
 import { OWALoginBackground } from "./Login/OWALoginBackground";
 import { deleteExchangePermissions, setExchangePermissions } from "../EWS/ExchangePermission";
 import type { PersonUID } from "../../Abstract/PersonUID";
@@ -781,8 +782,25 @@ export class OWAAccount extends ExchangeMailAccount {
     if (this.mainAccount) {
       throw new NotReached();
     }
-    let result = await this.callOWA(owaSharedFolderRequest(distinguishedIDs, person.emailAddress));
-    return result.ResponseMessages.Items.filter(folder => folder.ResponseClass == "Success").map(folder => folder.Folders[0].DistinguishedFolderId);
+    let shared = await this.findFoldersWithAccess(person, distinguishedIDs);
+    if (distinguishedIDs.includes("calendar") && !shared.includes("calendar") &&
+        await this.calendarWithLimitedDetails(person, newCalendarForProtocol("calendar-owa") as OWACalendar)) {
+      shared.push("calendar");
+    }
+    return shared;
+  }
+
+  protected async findFoldersWithAccess(person: PersonUID, distinguishedIDs: string[]): Promise<string[]> {
+    try {
+      let result = await this.callOWA(owaSharedFolderRequest(distinguishedIDs, person.emailAddress));
+      let responses = result.ResponseMessages ? result.ResponseMessages.Items : [result];
+      return responses.filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(folder.Folders[0].DistinguishedFolderId));
+    } catch (ex) {
+      if (EWSCalendarShortcut.isStaleError(ex)) { // `callOWA()` throws the error of a single folder
+        return [];
+      }
+      throw ex;
+    }
   }
 
   /**
@@ -844,7 +862,15 @@ export class OWAAccount extends ExchangeMailAccount {
     if (this.mainAccount) {
       throw new NotReached();
     }
-    let result = await this.callOWA(owaSharedFolderRequest(["calendar"], person.emailAddress));
+    let result: any;
+    try {
+      result = await this.callOWA(owaSharedFolderRequest(["calendar"], person.emailAddress));
+    } catch (ex) {
+      if (EWSCalendarShortcut.isStaleError(ex)) {
+        return await this.addCalendarWithLimitedDetails(person, newCalendarForProtocol("calendar-owa") as OWACalendar, ex) as OWACalendar;
+      }
+      throw ex;
+    }
     let folder = result.Folders[0];
     let folderID = sanitize.nonemptystring(folder.FolderId.Id);
     let existing = this.dependentAccounts().find(account =>

@@ -1164,6 +1164,15 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     if (this.mainAccount) {
       throw new NotReached();
     }
+    let shared = await this.findFoldersWithAccess(person, DistinguishedIDs);
+    if (DistinguishedIDs.includes("calendar") && !shared.includes("calendar") &&
+        await this.calendarWithLimitedDetails(person, newCalendarForProtocol("calendar-ews") as EWSCalendar)) {
+      shared.push("calendar");
+    }
+    return shared;
+  }
+
+  protected async findFoldersWithAccess(person: PersonUID, DistinguishedIDs: string[]): Promise<string[]> {
     let request = {
       m$GetFolder: {
         m$FolderShape: {
@@ -1186,7 +1195,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     };
     try {
       let result = await this.callEWS(request);
-      return result.filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
+      return ensureArray(result).filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
     } catch (ex) {
       return [];
     }
@@ -1270,7 +1279,15 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         },
       },
     };
-    let result = await this.callEWS(request);
+    let result: any;
+    try {
+      result = await this.callEWS(request);
+    } catch (ex) {
+      if (EWSCalendarShortcut.isStaleError(ex)) {
+        return await this.addCalendarWithLimitedDetails(person, newCalendarForProtocol("calendar-ews") as EWSCalendar, ex) as EWSCalendar;
+      }
+      throw ex;
+    }
     let folder = result.Folders.CalendarFolder;
     let folderID = sanitize.nonemptystring(folder.FolderId.Id);
     let existing = this.dependentAccounts().find(account =>

@@ -6,9 +6,19 @@ import { Participant } from "../../../logic/Calendar/Participant";
 import { InvitationResponse } from "../../../logic/Calendar/Invitation/InvitationStatus";
 import { Frequency } from "../../../logic/Calendar/RecurrenceRule";
 import { DummyCalendarStorage } from "../../../logic/Calendar/SQL/DummyCalendarStorage";
+import type { OWACalendar } from "../../../logic/Calendar/OWA/OWACalendar";
+import { newCalendarForProtocol } from "../../../logic/Calendar/AccountsList/Calendars";
+import { appGlobal } from "../../../logic/app";
 import { CalendarActions } from "../../Calendar/CalendarActions";
+import { selectedCalendar } from "../../../frontend/Calendar/selected";
+import { openEvent } from "../../../frontend/Calendar/open";
 import { mockMessageBox } from "../Shared/Dialog/mockMessageBox";
-import { beforeEach, expect, test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
+
+vi.mock("../../../frontend/Calendar/open", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../../frontend/Calendar/open")>(),
+  openEvent: vi.fn(),
+}));
 
 const messageBox = mockMessageBox();
 beforeEach(() => {
@@ -92,4 +102,39 @@ test("Delete Calendar says whether it deletes the calendar or only removes it fr
     'Are you sure that you want to delete the calendar "Team" with all its appointments and meetings?',
     'Do you want to remove the calendar "Team" from Mustang? This does not change the calendar on the server.',
   ]);
+});
+
+/** A colleague's calendar shared with "Can view titles and locations", which we can only see */
+function readOnlyCalendar(): OWACalendar {
+  let calendar = newCalendarForProtocol("calendar-owa") as OWACalendar;
+  calendar.name = "Bob";
+  calendar.hasLimitedDetails = true;
+  return calendar;
+}
+
+test("A new appointment while a read-only calendar is selected goes into our own calendar", async () => {
+  let colleague = readOnlyCalendar();
+  let own = newCalendar();
+  appGlobal.calendars.addAll([colleague, own]);
+  let start = new Date(2026, 9, 15, 10, 0);
+  let end = new Date(2026, 9, 15, 11, 0);
+  try {
+    // New button and keyboard shortcut
+    selectedCalendar.set(colleague);
+    CalendarActions.newEventAtSelection(null);
+    expect(vi.mocked(openEvent).mock.lastCall[0].calendar).toBe(own);
+
+    // Double-click or drag in the colleague's column
+    selectedCalendar.set(colleague);
+    CalendarActions.newEvent(colleague, start, end);
+    expect(vi.mocked(openEvent).mock.lastCall[0].calendar).toBe(own);
+
+    // Typing a title into the selected time
+    selectedCalendar.set(colleague);
+    await CalendarActions.newEventWithTitle({ calendar: null, start, end, allDay: false }, "Lunch");
+    expect(own.events.contents.map(event => event.title)).toContain("Lunch");
+    expect(colleague.events.isEmpty).toBe(true);
+  } finally {
+    appGlobal.calendars.removeAll([colleague, own]);
+  }
 });

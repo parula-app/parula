@@ -56,6 +56,38 @@ export class ExchangeMailAccount extends MailAccount {
     return [];
   }
 
+  /** Sets up `calendar` for `person`, who lets us see only the times, titles and locations
+   * of their appointments, but not their calendar folder.
+   * @param calendar new, of the protocol of this account
+   * @returns null, if they let us see less, e.g. only when they are busy */
+  protected async calendarWithLimitedDetails(person: PersonUID, calendar: ExchangeCalendar): Promise<ExchangeCalendar | null> {
+    calendar.initFromMainAccount(this);
+    calendar.username = person.emailAddress;
+    calendar.hasLimitedDetails = true;
+    if (!await calendar.showsTitles()) {
+      return null;
+    }
+    calendar.name = person.nameOrEMail;
+    calendar.color = this.colorForSharedAccount(person);
+    return calendar;
+  }
+
+  /** @param folderError Why we may not open the calendar folder of `person` */
+  protected async addCalendarWithLimitedDetails(person: PersonUID, newCalendar: ExchangeCalendar, folderError: Error): Promise<ExchangeCalendar> {
+    let existing = this.dependentAccounts().find(account =>
+      account instanceof ExchangeCalendar && account.hasLimitedDetails && account.username == person.emailAddress) as ExchangeCalendar;
+    if (existing) {
+      return existing;
+    }
+    let calendar = await this.calendarWithLimitedDetails(person, newCalendar);
+    if (!calendar) {
+      throw folderError;
+    }
+    appGlobal.calendars.add(calendar);
+    await calendar.listEvents();
+    return calendar;
+  }
+
   protected newSharedAccountPerson(emailAddress: string, name: string): PersonUID | null {
     let address = sanitize.emailAddress(emailAddress, null);
     if (!address) {
