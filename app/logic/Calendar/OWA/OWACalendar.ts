@@ -36,10 +36,10 @@ export class OWACalendar extends ExchangeCalendar {
     return this.account.isLoggedIn;
   }
 
-  /** Not with a logon to the mailbox of the colleague who shared this calendar,
-   * because that needs Full Access to the whole mailbox.
-   * The folder and item IDs already point to their mailbox. */
   callOWA(aRequest: any) {
+    // Not with a logon to the mailbox of the colleague who shared this calendar,
+    // because that needs Full Access to the whole mailbox.
+    // The folder and item IDs already point to their mailbox.
     return this.account.callOWA(aRequest);
   }
 

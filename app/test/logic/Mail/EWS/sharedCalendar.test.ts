@@ -8,10 +8,10 @@ import { expect, test } from "vitest";
 /* Bob shared his calendar with Alice, but not his whole mailbox.
  * Lookout's "Open shared calendar" dialog asks only for the calendar. */
 
-/** Exchange prefixes the elements with `m:` and `t:`, but happy-dom's
- * `querySelector()` does not find prefixed elements, unlike Chromium,
- * so these responses use default namespaces. */
 function getFolderResponse(responseMessages: string): string {
+  // Exchange prefixes the elements with `m:` and `t:`, but happy-dom's
+  // `querySelector()` does not find prefixed elements, unlike Chromium,
+  // so these responses use default namespaces.
   return `<?xml version="1.0" encoding="utf-8"?>
     <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
       <Body>
