@@ -3,7 +3,7 @@ import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
 import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { appGlobal } from "../../../app";
-import { uint8ArrayToHex } from "../../../util/blob";
+import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
 
@@ -245,12 +245,14 @@ async function getCACertificatesLazy(type: string): Promise<Certificate[]> {
     : "";
   for (let cert of rootCertificates) {
     try {
-      let certificate = Certificate.decodePEM(cert, { label: "CERTIFICATE" });
-      let hash = new Uint8Array(await crypto.subtle.digest("SHA-256", Certificate.encode(certificate) as BufferSource));
-      if (notEmailRoots.includes(uint8ArrayToHex(hash))) {
-        continue;
+      if (notEmailRoots) {
+        let der = base64ToUint8Array(cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", ""));
+        let hash = new Uint8Array(await crypto.subtle.digest("SHA-256", der));
+        if (notEmailRoots.includes(uint8ArrayToHex(hash))) {
+          continue;
+        }
       }
-      certificates.push(certificate);
+      certificates.push(Certificate.decodePEM(cert, { label: "CERTIFICATE" }));
     } catch (ex) {
       console.log("Error decoding certificate", cert);
       console.error(ex);
