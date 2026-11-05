@@ -143,6 +143,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
 
   async syncOnStartup() {
     await this.startupRunOnce.runOnce(async () => {
+      let firstSync = this.rootFolders.isEmpty;
       try {
         await super.syncOnStartup();
         if (this.isDependentAccount) {
@@ -151,6 +152,9 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         }
         if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new EWSGAL(this));
+        }
+        if (firstSync) {
+          await this.addSharedCalendarsFromOutlook();
         }
         // `listFolders()` will subscribe to new user-added addressbooks and calendars
 
@@ -1151,6 +1155,10 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     }
     calendar.folderID = sanitize.nonemptystring(folder.FolderId.Id);
     return calendar;
+  }
+
+  async listSharedCalendarsFromOutlook(): Promise<EWSCalendar[]> {
+    return await EWSCalendarShortcut.listCalendars(this);
   }
 
   async listSharedAccountsFromOutlook(): Promise<PersonUID[]> {

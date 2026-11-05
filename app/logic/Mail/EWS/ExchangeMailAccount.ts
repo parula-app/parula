@@ -56,6 +56,23 @@ export class ExchangeMailAccount extends MailAccount {
     return [];
   }
 
+  /** The calendars of colleagues that the user opened in Outlook.
+   * `startupDependentAccounts()` starts them. */
+  protected async addSharedCalendarsFromOutlook() {
+    try {
+      for (let calendar of await this.listSharedCalendarsFromOutlook()) {
+        appGlobal.calendars.add(calendar);
+        await calendar.save();
+      }
+    } catch (ex) {
+      this.errorCallback(ex);
+    }
+  }
+
+  async listSharedCalendarsFromOutlook(): Promise<ExchangeCalendar[]> {
+    return [];
+  }
+
   protected newSharedAccountPerson(emailAddress: string, name: string): PersonUID | null {
     let address = sanitize.emailAddress(emailAddress, null);
     if (!address) {
