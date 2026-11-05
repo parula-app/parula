@@ -40,7 +40,7 @@ export class ExchangeMailAccount extends MailAccount {
     if (this.mainAccount) {
       return persons;
     }
-    for (let person of await this.listSharedAccountsFromOutlook()) {
+    for (let person of await this.listSharedMailAccountsFromOutlook()) {
       if (persons.find(existing => existing.emailAddress == person.emailAddress) ||
           this.isMyEMailAddress(person.emailAddress) ||
           this.dependentAccounts().contents.some(account => account.protocol == this.protocol &&
@@ -52,7 +52,24 @@ export class ExchangeMailAccount extends MailAccount {
     return persons;
   }
 
-  async listSharedAccountsFromOutlook(): Promise<PersonUID[]> {
+  async listSharedMailAccountsFromOutlook(): Promise<PersonUID[]> {
+    return [];
+  }
+
+  /** The calendars of colleagues that the user opened in Outlook.
+   * `startupDependentAccounts()` starts them. */
+  protected async addSharedCalendarsFromOutlook() {
+    try {
+      for (let calendar of await this.listSharedCalendarsFromOutlook()) {
+        appGlobal.calendars.add(calendar);
+        await calendar.save();
+      }
+    } catch (ex) {
+      this.errorCallback(ex);
+    }
+  }
+
+  async listSharedCalendarsFromOutlook(): Promise<ExchangeCalendar[]> {
     return [];
   }
 

@@ -182,6 +182,7 @@ export class OWAAccount extends ExchangeMailAccount {
 
   async syncOnStartup() {
     await this.startupRunOnce.runOnce(async () => {
+      let firstSync = this.rootFolders.isEmpty;
       try {
         // `listFolders()` will subscribe to new user-added calendars
         await super.syncOnStartup();
@@ -202,6 +203,10 @@ export class OWAAccount extends ExchangeMailAccount {
 
         if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new OWAGAL(this));
+        }
+
+        if (firstSync) {
+          await this.addSharedCalendarsFromOutlook();
         }
 
         await this.callOWA(new OWASubscribeToHierarchyNotificationRequest());
@@ -765,7 +770,11 @@ export class OWAAccount extends ExchangeMailAccount {
     return calendar;
   }
 
-  async listSharedAccountsFromOutlook(): Promise<PersonUID[]> {
+  async listSharedCalendarsFromOutlook(): Promise<OWACalendar[]> {
+    return await OWACalendarShortcut.listCalendars(this);
+  }
+
+  async listSharedMailAccountsFromOutlook(): Promise<PersonUID[]> {
     let response = await this.callOWA(new OWAGetOtherMailboxConfigurationRequest());
     return ensureArray(response?.OtherMailboxEntries)
       .map(entry => this.newSharedAccountPerson(entry?.PrincipalSMTPAddress, entry?.DisplayName))
