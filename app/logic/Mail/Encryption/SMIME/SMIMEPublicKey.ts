@@ -26,6 +26,10 @@ export class SMIMEPublicKey extends PublicKey {
     return this.publicKeyArmored;
   }
 
+  get decodedCertificate(): Certificate {
+    return this._decodedCertificate ??= Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
+  }
+
   get commonName(): string {
     let cert = Certificate.decodePEM(this.publicKeyArmored, { label: "Certificate" });
     return certificateCommonName(cert) ?? "";
@@ -51,7 +55,7 @@ export class SMIMEPublicKey extends PublicKey {
       this.keyLengthInBits = id.length * 4;
     }
     this.publicKeyArmored = Certificate.encodePEM(cert, { label: "CERTIFICATE" });
-    this._decodedCertificate = null;
+    this._decodedCertificate = cert;
     this.userIDs.replaceAll(certificateEMailAddresses(cert));
     // Do not overwrite the name that the user gave the key
     this.name ||= this.defaultName;

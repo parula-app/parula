@@ -1,6 +1,6 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, Certificate, OctetString } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
@@ -44,13 +44,18 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     if (!this.certificate) {
       return false;
     }
-    let cert = this._decodedCertificate ??= Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
-    if (rid.type == "subjectKeyIdentifier") {
+    let cert = this.decodedCertificate;
+    switch (rid.type) {
+    case "issuerAndSerialNumber":
+      return rid.value.serialNumber == cert.tbsCertificate.serialNumber &&
+        sameName(rid.value.issuer, cert.tbsCertificate.issuer);
+    case "subjectKeyIdentifier": {
       let ski = cert.tbsCertificate.extensions?.find(ext => ext.extnID == "subjectKeyIdentifier");
       return !!ski && !indexedDB.cmp(OctetString.decode(ski.extnValue), rid.value);
     }
-    return rid.value.serialNumber == cert.tbsCertificate.serialNumber &&
-      sameName(rid.value.issuer, cert.tbsCertificate.issuer);
+    default:
+      return false;
+    }
   }
 
   /** Decrypts our private key with our passphrase */

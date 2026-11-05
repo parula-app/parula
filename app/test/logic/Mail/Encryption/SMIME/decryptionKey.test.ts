@@ -3,6 +3,7 @@ import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
+import { Certificate } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import type { Folder } from "../../../../../logic/Mail/Folder";
 import type { MailAccount } from "../../../../../logic/Mail/MailAccount";
 import type { EMail } from "../../../../../logic/Mail/EMail";
@@ -65,6 +66,14 @@ test("A message for our renewed certificate decrypts, after we added the certifi
   let { email, errors } = await read(folder, "Dana <dana@example.com>", kRenewed);
   expect(errors).toEqual([]);
   expect(email.text.trim()).toBe("Hello Dana");
+});
+
+test("A recipient identifier of an unknown type does not match our certificate", async () => {
+  let key = await SMIMEPrivateKey.importPrivateKey(kDanaKey + "\n" + kDanaCert);
+  let cert = Certificate.decodePEM(kDanaCert, { label: "CERTIFICATE" });
+  let value = { issuer: cert.tbsCertificate.issuer, serialNumber: cert.tbsCertificate.serialNumber };
+  expect(key.isRecipient({ type: "issuerAndSerialNumber", value })).toBe(true);
+  expect(key.isRecipient({ type: "unknown", value })).toBe(false);
 });
 
 /** @returns the INBOX of a new account with this identity */
