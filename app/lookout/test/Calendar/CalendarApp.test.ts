@@ -247,6 +247,96 @@ test("Popup: Reply All on an invitation writes to the participants and closes th
   expect(get(eventPeek)).toBe(null);
 });
 
+test("Popup: Reply on an invitation writes to the organizer and closes the popup", async () => {
+  let event = newPopupEvent();
+  event.myParticipation = InvitationResponse.NoResponseReceived;
+  let replyMail = {};
+  let reply = vi.spyOn(IncomingInvitation, "replyToEventByMail").mockReturnValue(replyMail as any);
+  clickInPopup(event, "Reply");
+  await vi.waitFor(() => expect(openComposer).toHaveBeenCalledWith(replyMail));
+  expect(reply).toHaveBeenCalledWith(event, false);
+  expect(get(eventPeek)).toBe(null);
+});
+
+/** Each way to close the popup, given the event block that it belongs to */
+const kPopupClosers: Record<string, (eventBlock: HTMLElement) => void> = {
+  "Scrolling the week view with the mouse wheel": eventBlock => {
+    // Chrome fires `mousewheel`, the old name of `wheel` that Popup listens to, and the scroll event at the next frame
+    let grid = eventBlock.closest<HTMLElement>(".time-grid");
+    grid.dispatchEvent(new WheelEvent("mousewheel", { deltaY: 300, bubbles: true }));
+    flushSync();
+    grid.dispatchEvent(new UIEvent("scroll"));
+  },
+  "Clicking outside the popup": () => {
+    document.querySelector<HTMLElement>(".calendar-page .folder-pane").click();
+  },
+  "Escape in the popup": () => {
+    handled("Escape", {}, document.querySelector<HTMLElement>(".event-peek"));
+  },
+  "Escape on the calendar": () => {
+    handled("Escape");
+  },
+  "The Close button": () => {
+    document.querySelector<HTMLButtonElement>(`.event-peek button[title="Close"]`).click();
+  },
+  "Switching to the month view": () => {
+    handled("4", { ctrlKey: true, altKey: true });
+  },
+  "The view menu": () => {
+    document.querySelector<HTMLButtonElement>(".view-button").click();
+    flushSync();
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".lo-menu .lo-menuitem"))
+      .find(item => item.textContent.trim() == "Month").click();
+  },
+  "Going to the next week": () => {
+    handled("ArrowRight", { ctrlKey: true, altKey: true });
+  },
+  "The arrow button for the next week": () => {
+    document.querySelectorAll<HTMLButtonElement>(".calendar-header .arrow-button")[1].click();
+  },
+  "Double-clicking the event": eventBlock => {
+    eventBlock.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  },
+  "Right-clicking the event": eventBlock => {
+    eventBlock.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+  },
+  "Enter on the calendar": () => {
+    handled("Enter");
+  },
+  "Delete on the calendar": () => {
+    vi.spyOn(CalendarActions, "deleteDefault").mockImplementation(async () => {});
+    handled("Delete");
+  },
+  "Clicking a free time slot": () => {
+    let column = document.querySelector<HTMLElement>(".time-grid .day-column");
+    column.dispatchEvent(new PointerEvent("pointerdown", { button: 0, bubbles: true }));
+    column.dispatchEvent(new PointerEvent("pointerup", { button: 0, bubbles: true }));
+    column.click();
+  },
+};
+
+for (let [closer, close] of Object.entries(kPopupClosers)) {
+  test(`Popup: ${closer} closes the popup`, () => {
+    let work = newCalendar("Work", [14]);
+    appGlobal.calendars.add(work);
+    try {
+      flushSync();
+      let eventBlock = document.querySelector<HTMLElement>(".time-grid .event-block");
+      eventBlock.click();
+      flushSync();
+      expect(get(eventPeek)?.event).toBe(work.events.first);
+      expect(document.querySelector(".event-peek")).not.toBe(null);
+
+      close(eventBlock);
+      flushSync();
+      expect(get(eventPeek)).toBe(null);
+      expect(document.querySelector(".event-peek")).toBe(null);
+    } finally {
+      appGlobal.calendars.remove(work);
+    }
+  });
+}
+
 test("Typing on selected time slots starts a new event's title", () => {
   expect(handled("M", { shiftKey: true })).toBe(false);
   selectedSlots.set({ start: new Date(2026, 9, 14, 9), end: new Date(2026, 9, 14, 10), allDay: false, calendar: null });
