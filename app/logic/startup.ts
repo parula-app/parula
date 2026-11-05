@@ -37,10 +37,15 @@ if (jpcSecretFromURL) {
 
 /**
  * Desktop: frontend URL hash `jpcSecret=password`
- * Mobile: Capacitor IPC bridge
+ * Android: Capacitor IPC bridge
+ * iOS: Capacitor plugin `JPCSecret` in `NodeRunner.swift`
  */
 async function getJPCSecret(): Promise<string> {
   // #if [MOBILE]
+  if ((globalThis as any).Capacitor.getPlatform() == "ios") {
+    let { secret } = await (globalThis as any).Capacitor.Plugins.JPCSecret.get();
+    return secret;
+  }
   // runtime-registered `Capacitor.Plugins.NodeJS` from `capacitor-nodejs`
   const NodeJS = (globalThis as any).Capacitor?.Plugins?.CapacitorNodeJS;
   await NodeJS.whenReady();
