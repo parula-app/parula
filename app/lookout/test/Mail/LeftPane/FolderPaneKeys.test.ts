@@ -88,6 +88,18 @@ test("Arrow Down and Up select the next and previous folder as shown, skipping c
   expect(selectedFolderName()).toBe(shown[0]);
 });
 
+test("Home and End select the first and last folder as shown", () => {
+  let shown = shownFolders();
+  expect(press("End")).toBe(true);
+  expect(selectedFolderName()).toBe(shown.at(-1));
+  expect(press("End")).toBe(true);
+  expect(selectedFolderName()).toBe(shown.at(-1));
+  expect(press("Home")).toBe(true);
+  expect(selectedFolderName()).toBe(shown[0]);
+  expect(press("Home")).toBe(true);
+  expect(selectedFolderName()).toBe(shown[0]);
+});
+
 test("Arrow Down walks into an expanded subfolder", () => {
   folderRow("Projects").querySelector<HTMLElement>(".expander").click();
   flushSync();
@@ -104,24 +116,27 @@ test("Arrow Down walks into an expanded subfolder", () => {
   expect(selectedFolderName()).toBe("Projects");
 });
 
-test("Arrow keys with modifiers are left alone", () => {
+test("Arrow keys, Home and End with modifiers are left alone", () => {
   let before = selectedFolderName();
-  for (let modifier of ["shiftKey", "ctrlKey", "altKey", "metaKey"]) {
-    let event = new KeyboardEvent("keydown", { key: "ArrowDown", cancelable: true, bubbles: true, [modifier]: true });
-    document.querySelector(".folder-row.selected").dispatchEvent(event);
-    flushSync();
-    expect(event.defaultPrevented).toBe(false);
+  for (let key of ["ArrowDown", "End"]) {
+    for (let modifier of ["shiftKey", "ctrlKey", "altKey", "metaKey"]) {
+      let event = new KeyboardEvent("keydown", { key, cancelable: true, bubbles: true, [modifier]: true });
+      document.querySelector(".folder-row.selected").dispatchEvent(event);
+      flushSync();
+      expect(event.defaultPrevented).toBe(false);
+    }
   }
   expect(selectedFolderName()).toBe(before);
 });
 
-test("Arrow keys in the rename field stay in the field", () => {
+test("Arrow keys, Home and End in the rename field stay in the field", () => {
   renamingFolder.set(account.inbox);
   flushSync();
   let input = document.querySelector(".folder-row.selected input");
   expect(input).toBeTruthy();
-  expect(press("ArrowDown", input)).toBe(false);
-  expect(press("ArrowUp", input)).toBe(false);
+  for (let key of ["ArrowDown", "ArrowUp", "Home", "End"]) {
+    expect(press(key, input)).toBe(false);
+  }
   // The folder that is being renamed stays selected
   expect(document.querySelector(".folder-row.selected input")).toBe(input);
 });
@@ -138,5 +153,15 @@ test("Arrow Up and Down in the account list select the previous and next entry",
     expect(press("ArrowDown", document.querySelector(".account-row.selected"))).toBe(true);
     expect(selectedAccountName()).toBe(entries[i]);
   }
+  expect(selectedFolderName()).toBe(shownFolders()[0]);
+});
+
+test("Home and End in the account list select the first and last entry", () => {
+  let entries = [...document.querySelectorAll(".account-row .name")].map(name => name.textContent);
+  expect(press("Home", document.querySelector(".account-row.selected"))).toBe(true);
+  expect(selectedAccountName()).toBe(entries[0]);
+  expect(press("End", document.querySelector(".account-row.selected"))).toBe(true);
+  expect(selectedAccountName()).toBe(entries.at(-1));
+  // The folders stay those of the account
   expect(selectedFolderName()).toBe(shownFolders()[0]);
 });
