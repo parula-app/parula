@@ -79,7 +79,7 @@ export class PKCS12 {
     while (next) {
       sorted.push(next);
       unsorted.splice(unsorted.indexOf(next), 1);
-      let { issuer } = next.tbsCertificate;
+      let issuer = next.tbsCertificate.issuer;
       next = unsorted.find(cert => sameName(cert.tbsCertificate.subject, issuer));
     }
     return sorted.concat(unsorted);
