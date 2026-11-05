@@ -1,11 +1,12 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, Null } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { appGlobal } from "../../../app";
 import { uint8ArrayToHex } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 export class SMIMEPublicKey extends PublicKey {
   system = EncryptionSystem.SMIME;
@@ -47,7 +48,7 @@ export class SMIMEPublicKey extends PublicKey {
     let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
     if (!this.id) {
       let id = sanitize.bigint(rsa.n).toString(16);
-      this.id = id.slice(-16);
+      this.id = this.keyID(rsa);
       this.keyLengthInBits = id.length * 4;
     }
     this.publicKeyArmored = Certificate.encodePEM(cert, { label: "CERTIFICATE" });
@@ -61,6 +62,11 @@ export class SMIMEPublicKey extends PublicKey {
     this.expires = sanitize.date(notAfter.value);
     let now = Date.now();
     this.obsolete = now < this.created.getTime() || now > this.expires.getTime();
+  }
+
+  /** A hash, because anybody can make a key whose modulus ends in the same digits */
+  protected keyID(rsa: RSAPublicKey): string {
+    return uint8ArrayToHex(sha256(RSAPublicKey.encode(rsa)));
   }
 
   async addCertificate(cert: Certificate): Promise<boolean> {
@@ -78,6 +84,11 @@ export class SMIMEPublicKey extends PublicKey {
         await key.setCertificate(cert);
         return false;
       }
+    }
+    // Thunderbird checks at most 8 certificates, from the leaf up to the root
+    const kMaxChainLength = 7;
+    if (this.chain.length >= kMaxChainLength) {
+      throw new Error("Too many certificates in the chain");
     }
     let key = new SMIMEPublicKey();
     await key.setCertificate(cert);
@@ -157,6 +168,10 @@ export class SMIMEPublicKey extends PublicKey {
 
   fromJSON(json: any) {
     super.fromJSON(json);
+    if (this.publicKeyArmored) {
+      let cert = Certificate.decodePEM(this.publicKeyArmored, { label: "CERTIFICATE" });
+      this.id = this.keyID(RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data));
+    }
     for (let certificate of sanitize.array(json.chain, [])) {
       let key = new SMIMEPublicKey();
       key.fromJSON(certificate);
@@ -191,8 +206,12 @@ function certificateEMailAddresses(cert: Certificate): string[] {
 
 /** The name of the person or organisation that the certificate was issued to */
 function certificateCommonName(cert: Certificate): string | null {
+  const kMaxLength = 64; // RFC 5280 ub-common-name
+  // <copied from="../../../Files/FileType/ExecutableFile.ts">
+  const kFilenameTrickCharacters = /[\u0000-\u001F\u007F\u00AD\u200B-\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/;
+  // </copied>
   let cn = cert.tbsCertificate.subject.find(attr => attr.type == "CN");
-  return sanitize.label(cn?.value?.value, null);
+  return sanitize.label(cn?.value?.value?.split(kFilenameTrickCharacters).join("").slice(0, kMaxLength), null);
 }
 
 async function verifySignature(cert: Certificate, signer: Certificate): Promise<boolean> {
@@ -218,6 +237,7 @@ async function verifySignature(cert: Certificate, signer: Certificate): Promise<
     // Rebuild the whole PKCS#1 v1.5 block and compare byte-for-byte, so that
     // trailing bytes after the DigestInfo or non-canonical padding are rejected
     // rather than silently ignored (RFC8017 EMSA-PKCS1-v1_5 verification).
+    digestInfo.digestAlgorithm.parameters = Null.encode();
     if (indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa))) {
       console.log("non-canonical signature padding");
       return false;
