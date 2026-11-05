@@ -1,7 +1,7 @@
 import type { Event } from "../../logic/Calendar/Event";
 import type { Calendar } from "../../logic/Calendar/Calendar";
 import { Frequency } from "../../logic/Calendar/RecurrenceRule";
-import { selectedCalendar, selectedDate, selectedEvent, startDate } from "../../frontend/Calendar/selected";
+import { selectedCalendar, selectedDate, selectedEvent, shownCalendars, startDate } from "../../frontend/Calendar/selected";
 import { inlineTitle, selectedSlots, updatingCount, type CalendarViewType, type SlotSelection } from "./selected";
 import { getLocalStorage } from "../../frontend/Util/LocalStorage";
 import { CalendarRange } from "./CalendarRange";
@@ -10,7 +10,6 @@ import { openEvent } from "../../frontend/Calendar/open";
 import { calendarMustangApp } from "../../frontend/Calendar/CalendarMustangApp";
 import { showMessageBox, askYesNo } from "../Shared/Dialog/MessageBox";
 import { appName } from "../../logic/build";
-import { appGlobal } from "../../logic/app";
 import { assert } from "../../logic/util/util";
 import { catchErrors } from "../../frontend/Util/error";
 import { gt } from "../../l10n/l10n";
@@ -21,7 +20,7 @@ export type NewEventKind = "appointment" | "meeting" | "all-day" | "recurring" |
 export class CalendarActions {
 
   static newEvent(calendar: Calendar | null, start: Date, end: Date | null, kind: NewEventKind = "appointment") {
-    calendar ??= get(selectedCalendar) ?? appGlobal.calendars.first;
+    calendar = shownCalendars.calendarForNewEvent(calendar ?? get(selectedCalendar));
     assert(calendar, gt`Please set up a calendar first`);
     selectedCalendar.set(calendar);
     let event = calendar.newEvent();
@@ -80,7 +79,7 @@ export class CalendarActions {
   }
 
   static async newEventWithTitle(selection: SlotSelection, title: string) {
-    let calendar = selection.calendar ?? get(selectedCalendar) ?? appGlobal.calendars.first;
+    let calendar = shownCalendars.calendarForNewEvent(selection.calendar ?? get(selectedCalendar));
     assert(calendar, gt`Please set up a calendar first`);
     let event = calendar.newEvent();
     event.startEditing();

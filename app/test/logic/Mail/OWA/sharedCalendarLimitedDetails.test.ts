@@ -4,6 +4,7 @@ import type { OWACalendar } from "../../../../logic/Calendar/OWA/OWACalendar";
 import { newCalendarForProtocol } from "../../../../logic/Calendar/AccountsList/Calendars";
 import { PersonUID } from "../../../../logic/Abstract/PersonUID";
 import { Person } from "../../../../logic/Abstract/Person";
+import { getICal } from "../../../../logic/Calendar/ICal/ICalGenerator";
 import { k1DayMS, k1HourMS } from "../../../../logic/util/date";
 import { InProcessSQLiteDatabase } from "../../util/inProcessSQLite";
 import { mkdtempSync } from "node:fs";
@@ -205,6 +206,28 @@ test("OWA: Sharing: Add a colleague's calendar with titles and locations", async
     expect(request.address).toBe(kBob);
     expect(request.end.getTime() - request.start.getTime()).toBeLessThanOrEqual(kMaxTimeSpanMS);
   }
+});
+
+/** RFC 5545 3.8.4.7: The UID "MUST be specified" and is "the persistent, globally unique identifier" */
+test("OWA: Shared calendar with titles and locations: Each appointment has its own UID, which stays the same", async () => {
+  let uids = calendar.events.contents.map(event => event.calUID);
+  for (let uid of uids) {
+    expect(uid).toBeTruthy();
+  }
+  expect(new Set(uids).size).toBe(uids.length);
+
+  let restored = newCalendarForProtocol("calendar-owa") as OWACalendar;
+  restored.fromConfigJSON(calendar.toConfigJSON());
+  restored.mainAccount = account;
+  await restored.listEvents();
+  expect(restored.events.contents.map(event => event.calUID).sort()).toEqual(uids.sort());
+});
+
+test("OWA: Shared calendar with titles and locations: Forward sends the appointment with a UID", async () => {
+  let dentist = calendar.events.find(event => event.title == "Dentist");
+  let ics = await getICal(dentist); // as `IncomingInvitation.forwardEventByMail()` attaches it
+  expect(ics).toContain("Dentist");
+  expect(ics.match(/^UID:(.*)$/m)?.[1].trim()).toBeTruthy();
 });
 
 test("OWA: Shared calendar with titles and locations: Events are read-only", async () => {

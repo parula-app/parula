@@ -204,6 +204,21 @@ test("EWS: Sharing: Add a colleague's calendar with titles and locations", async
   expect(calendar.events.contents.filter(event => event.title == "Parental leave").length).toBe(1);
 });
 
+/** RFC 5545 3.8.4.7: The UID "MUST be specified" and is "the persistent, globally unique identifier" */
+test("EWS: Shared calendar with titles and locations: Each appointment has its own UID, which stays the same", async () => {
+  let calendar = appGlobal.calendars.find(listed => listed.mainAccount == account && listed.username == kBob);
+  let uids = calendar.events.contents.map(event => event.calUID);
+  for (let uid of uids) {
+    expect(uid).toBeTruthy();
+  }
+  expect(new Set(uids).size).toBe(uids.length);
+
+  let before = calendar.events.contents;
+  await calendar.listEvents();
+  expect(calendar.events.contents.some(event => before.includes(event))).toBe(false); // read again
+  expect(calendar.events.contents.map(event => event.calUID).sort()).toEqual(uids.sort());
+});
+
 test("EWS: Shared calendar with only busy times: Not added as calendar", async () => {
   await expect(account.addSharedCalendar(new PersonUID(kCarol, "Carol"))).rejects.toThrow();
   expect(appGlobal.calendars.contents.some(listed => listed.username == kCarol)).toBe(false);

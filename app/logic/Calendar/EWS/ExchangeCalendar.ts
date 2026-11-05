@@ -4,6 +4,7 @@ import { Participant } from "../Participant";
 import { InvitationResponse } from "../Invitation/InvitationStatus";
 import { k1DayMS } from "../../util/date";
 import { assert } from "../../util/util";
+import { uint8ArrayToHex } from "../../util/blob";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
@@ -27,6 +28,10 @@ export class ExchangeCalendar extends Calendar {
     json.useForInvitations = this.useForInvitations;
     json.hasLimitedDetails = this.hasLimitedDetails;
     return json;
+  }
+
+  get isReadOnly(): boolean {
+    return this.hasLimitedDetails;
   }
 
   /** @param busyType Exchange `BusyType`, e.g. `OOF`
@@ -69,6 +74,10 @@ export class ExchangeCalendar extends Calendar {
           continue; // The server also sends the appointments that started earlier, which we already have
         }
         appointment.calendar = this;
+        // The server gives no UID. Hashed, so that a forwarded appointment doesn't show the owner's address.
+        let identity = new TextEncoder().encode([this.username, appointment.startTime.toISOString(),
+          appointment.endTime.toISOString(), appointment.title, appointment.location].join("\n"));
+        appointment.calUID = uint8ArrayToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", identity)));
         events.add(appointment);
       }
     }
