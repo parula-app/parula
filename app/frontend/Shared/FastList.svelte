@@ -114,7 +114,7 @@
   /** The `items` that the `init` event was dispatched for */
   let initDoneForItems: Collection<T> = null;
 
-  $: headerHeight = headerE?.firstChild?.offsetHeight ?? 10;
+  $: headerHeight = (headerE?.firstElementChild as HTMLElement)?.offsetHeight ?? 10;
 
   /**
    * Height of the DOM elements for a single row.
