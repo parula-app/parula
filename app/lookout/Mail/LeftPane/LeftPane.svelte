@@ -78,6 +78,7 @@
   import { allAccountsAccount } from "../../../logic/Mail/AccountsList/ShowAccounts";
   import { savedSearchFolders, type SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
+  import { onListKey } from "../../../frontend/Util/util";
   import SectionHeader from "./SectionHeader.svelte";
   import FolderList from "./FolderList.svelte";
   import AccountListItem from "./AccountListItem.svelte";
@@ -142,26 +143,6 @@
     if (!folders.includes(selectedFolder)) {
       selectedFolder = folders[0] ?? null;
     }
-  }
-
-  function onListKey(event: KeyboardEvent, rowSelector: string) {
-    if (event.key != "ArrowDown" && event.key != "ArrowUp" && event.key != "Home" && event.key != "End" || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    let rows = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(rowSelector));
-    let pos = rows.findIndex(row => row.classList.contains("selected"));
-    let next = rows[event.key == "Home" ? 0
-      : event.key == "End" ? rows.length - 1
-      : event.key == "ArrowDown" ? pos + 1
-      : pos - 1];
-    if (!next) {
-      return;
-    }
-    next.click();
-    next.focus({ preventScroll: true });
-    next.scrollIntoView({ block: "nearest" });
   }
 
   $: selectedFolder, selectAccountOfFolder();
