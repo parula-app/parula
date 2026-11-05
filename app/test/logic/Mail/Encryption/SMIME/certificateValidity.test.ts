@@ -55,7 +55,7 @@ describe("Validity dates of the certificate and its chain", () => {
     expect(key.trustLevel).toBe(TrustLevel.Sender);
   });
 
-  test("A certificate that is not valid yet is not valid", async () => {
+  test("A certificate that is not yet valid is not valid", async () => {
     setToday("2026-09-15T12:00:00Z");
     let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kIntermediateCA);
     expect(await key.keyStatus()).toBe(KeyStatus.Expired);

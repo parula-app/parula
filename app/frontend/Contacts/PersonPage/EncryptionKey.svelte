@@ -169,7 +169,7 @@
               {:else if keyStatus == KeyStatus.Valid}
                 <hbox>{$t`This private key has a valid certificate.`}</hbox>
               {:else if keyStatus == KeyStatus.Expired}
-                <hbox>{$t`The certificate has expired or is not valid yet`}</hbox>
+                <hbox>{$t`The certificate has expired or is not yet valid`}</hbox>
               {:else}
                 <hbox>{$t`Unexpected private key status`}</hbox>
               {/if}
