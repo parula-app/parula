@@ -104,7 +104,7 @@ export class MessageActions {
       return;
     }
     // <copied from="../../frontend/Mail/Message/MessageToolbar.svelte" editDraft()>
-    await message.loadMIME();
+    await message.compose.editDraft();
     mailMustangApp.writeMail(message);
     // </copied>
   }

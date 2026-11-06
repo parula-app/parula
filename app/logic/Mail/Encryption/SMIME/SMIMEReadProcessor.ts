@@ -1,17 +1,16 @@
 import { EMailProcessor, ProcessingStartOn } from "../../EMailProcessor";
-import type { EMail } from "../../EMail";
-import { MailIdentity } from "../../MailIdentity";
+import { EMail } from "../../EMail";
+import { findAllIdentities } from "../../MailIdentity";
 import { EncryptionSystem } from "../enums";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
-import { ContentInfo, EnvelopedData, AuthEnvelopedData, Certificate, OctetString, SignedData } from "./SMIMEASN1";
+import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, SignedData } from "./SMIMEASN1";
 import { decryptAuthEnveloped } from "./SMIMEDecrypt";
 import { BlockType, unpadPKCS, decrypt } from "./SMIMERSAES";
-import { verifySignedData, sameName } from "./SMIMEVerify";
+import { verifySignedData } from "./SMIMEVerify";
 import { parseMIMEDirectSubpartsBytes, parseHeaderParameters } from "../MIME";
 import { UserError, NotImplemented, assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../../l10n/l10n";
-import { ArrayColl } from "svelte-collections";
 import type { Email as PostalEmail } from "postal-mime";
 
 export class SMIMEReadProcessor extends EMailProcessor {
@@ -61,7 +60,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
     this.checkCipher(envelopedData.content.encryptedContentInfo.contentEncryptionAlgorithm.algorithm, ["aes128cbc", "aes192cbc", "aes256cbc"]);
     let vector = OctetString.decode(envelopedData.content.encryptedContentInfo.contentEncryptionAlgorithm.parameters);
     let encryptedContent = envelopedData.content.encryptedContentInfo.encryptedContent;
-    let symmetricKey = await this.decryptSymmetricKey(email, envelopedData.content.recipientInfos);
+    let symmetricKey = await this.decryptSymmetricKey(envelopedData.content.recipientInfos);
     let key = await crypto.subtle.importKey("raw", symmetricKey, "AES-CBC", false, ["decrypt"]);
     let decryptedContent = await crypto.subtle.decrypt({ name: "AES-CBC", iv: vector }, key, encryptedContent);
     email.wasEncrypted = true;
@@ -76,7 +75,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
     email.system = EncryptionSystem.SMIME;
     let authEnvelopedData = AuthEnvelopedData.decode(blob, { berToDER: true }).content;
     this.checkCipher(authEnvelopedData.authEncryptedContentInfo.contentEncryptionAlgorithm.algorithm, ["aes128gcm", "aes192gcm", "aes256gcm"]);
-    let symmetricKey = await this.decryptSymmetricKey(email, authEnvelopedData.recipientInfos);
+    let symmetricKey = await this.decryptSymmetricKey(authEnvelopedData.recipientInfos);
     email.wasEncrypted = true;
     await this.unwrapMIME(email, await decryptAuthEnveloped(authEnvelopedData, symmetricKey));
   }
@@ -91,30 +90,18 @@ export class SMIMEReadProcessor extends EMailProcessor {
   /** Finds the private key of one of our identities that this message was
    * encrypted to, and decrypts the symmetric content key with it.
    * @throws if the message was not encrypted to any of our keys */
-  protected async decryptSymmetricKey(email: EMail, recipientInfos: any[]): Promise<Uint8Array> {
-    // XXX what if you were BCC'd?
-    for (let recipient of email.allRecipients()) {
-      let identity = MailIdentity.findIdentity(new ArrayColl([recipient]), email.folder?.account)?.identity;
-      if (identity) {
-        for (let privateKey of identity.encryptionPrivateKeys) {
-          if (privateKey instanceof SMIMEPrivateKey) {
-            let cert = Certificate.decodePEM(privateKey.certificate, { label: "CERTIFICATE" });
-            let issuer = cert.tbsCertificate.issuer;
-            for (let recipientInfo of recipientInfos) {
-              if (recipientInfo.type != "ktri" ||
-                  recipientInfo.value.keyEncryptionAlgorithm.algorithm != "rsaEncryption" ||
-                  recipientInfo.value.rid.type != "issuerAndSerialNumber") {
-                // TODO Support subjectKeyIdentifier
-                continue;
-              }
-              let rid = recipientInfo.value.rid.value;
-              if (rid.serialNumber != cert.tbsCertificate.serialNumber ||
-                  !sameName(rid.issuer, issuer)) {
-                continue;
-              }
-              let rawKey = await privateKey.decryptKey();
-              return unpadPKCS(decrypt(recipientInfo.value.encryptedKey, rawKey), BlockType.Encrypted);
+  protected async decryptSymmetricKey(recipientInfos: any[]): Promise<Uint8Array> {
+    for (let identity of findAllIdentities()) {
+      for (let privateKey of identity.encryptionPrivateKeys) {
+        if (privateKey instanceof SMIMEPrivateKey) {
+          for (let recipientInfo of recipientInfos) {
+            if (recipientInfo.type != "ktri" ||
+                recipientInfo.value.keyEncryptionAlgorithm.algorithm != "rsaEncryption" ||
+                !privateKey.isRecipient(recipientInfo.value.rid)) {
+              continue;
             }
+            let rawKey = await privateKey.decryptKey();
+            return unpadPKCS(decrypt(recipientInfo.value.encryptedKey, rawKey), BlockType.Encrypted);
           }
         }
       }
@@ -137,8 +124,10 @@ export class SMIMEReadProcessor extends EMailProcessor {
     }
     let content = OctetString.decode(contentInfo.content);
     // show the msg, even if the signature is invalid
-    await this.unwrapMIME(email, content);
-    email.rememberSigner(await verifySignedData(signedData, content, email.received));
+    let parsed = await this.unwrapMIME(email, content); // changes all of `email`, not just return value
+    let signedFrom = parsed.from?.address;
+    let signer = await verifySignedData(signedData, content, email.received);
+    email.rememberSigner(signedFrom?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
   }
 
   /** Verifies a cleartext message with a detached signature
@@ -159,12 +148,15 @@ export class SMIMEReadProcessor extends EMailProcessor {
       return;
     }
     let signedData = SignedData.decodeFromBase64(signatureBase64, { berToDER: true });
-    email.rememberSigner(await verifySignedData(signedData, clearText, email.received));
+    let signer = await verifySignedData(signedData, clearText, email.received);
+    let innerFrom = (await EMail.getHeadersFromMIME(clearText)).from;
+    email.rememberSigner(!innerFrom || innerFrom.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
   }
 
   /** Replaces the message with the MIME entity extracted from the CMS
-   * wrapper, keeping the other message headers, and parses it. */
-  protected async unwrapMIME(email: EMail, content: Uint8Array) {
+   * wrapper, keeping the other message headers, and parses it.
+   * @returns the parsed entity. Its `From:` is the one in `content`, if it has one. */
+  protected async unwrapMIME(email: EMail, content: Uint8Array): Promise<PostalEmail> {
     let mimeAsText = new TextDecoder().decode(email.mime);
     // Split on CRLF, but keep folded continuation lines (those starting with
     // whitespace) attached to their header.
@@ -175,7 +167,8 @@ export class SMIMEReadProcessor extends EMailProcessor {
     mime.set(headerBytes);
     mime.set(content, headerBytes.length);
     email.mime = mime;
-    await email.parseMIME(); // checks signature recursively
+    let parsed = await email.parseMIME(); // checks signature recursively
     await email.saveCompleteMessage();
+    return parsed;
   }
 }

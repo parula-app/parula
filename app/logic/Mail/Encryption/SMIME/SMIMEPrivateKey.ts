@@ -1,8 +1,9 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
+import { sameName } from "./SMIMEVerify";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
 import { assert } from "../../../util/util";
@@ -36,6 +37,25 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
   async matches(key: RSAPublicKey): Promise<boolean> {
     let rawKey = await this.decryptKey();
     return key.n == rawKey.n && key.e == rawKey.e;
+  }
+
+  /** @param rid as decoded from a `KeyTransRecipientInfo` of the message */
+  isRecipient(rid: any): boolean {
+    if (!this.certificate) {
+      return false;
+    }
+    let cert = this.decodedCertificate;
+    switch (rid.type) {
+    case "issuerAndSerialNumber":
+      return rid.value.serialNumber == cert.tbsCertificate.serialNumber &&
+        sameName(rid.value.issuer, cert.tbsCertificate.issuer);
+    case "subjectKeyIdentifier": {
+      let ski = cert.tbsCertificate.extensions?.find(ext => ext.extnID == "subjectKeyIdentifier");
+      return !!ski && !indexedDB.cmp(OctetString.decode(ski.extnValue), rid.value);
+    }
+    default:
+      return false;
+    }
   }
 
   /** Decrypts our private key with our passphrase */
@@ -136,7 +156,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     let key = new SMIMEPrivateKey();
     key.privateKeyArmored = await encryptPrivateKey(privateKeyPKCS8, passphrase);
     key.passphrase = passphrase;
-    key.id = rsaKey.n.toString(16).slice(-16);
+    key.id = key.keyID(rsaKey);
     key.name = key.defaultName;
     key.userIDs.add(emailAddress);
     key.keyLengthInBits = 4096;
@@ -162,7 +182,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     assert(rawKey.dQ == rawKey.d % (rawKey.q - 1n), "prime 2 exponent does not match private exponent");
     assert(rawKey.qInv * rawKey.q % rawKey.p == 1n, "inverse does not match primes");
     let id = sanitize.bigint(rawKey.n).toString(16);
-    key.id = id.slice(-16);
+    key.id = key.keyID(rawKey);
     key.name = key.defaultName;
     key.keyLengthInBits = id.length * 4;
     key.justCreated = true;
