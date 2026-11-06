@@ -9,7 +9,7 @@
     start={dateStart}
     showDays={7}
     showHours={6}
-    defaultFocusHour={new Date().getHours() - 2}
+    defaultFocusHour={focusHour}
     >
     <hbox class="hover" slot="event-hover" let:start let:end let:empty>
       {#if empty}
@@ -67,7 +67,9 @@
   /** in minutes */
   export let duration: number;
 
-  let dateStart = getToday();
+  /** The week to show first */
+  export let dateStart = getToday();
+  export let focusHour = new Date().getHours() - 2;
 
   function addOption(time: Date) {
     options.add(time);

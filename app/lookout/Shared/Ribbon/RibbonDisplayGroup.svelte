@@ -10,8 +10,8 @@
     onClick={() => { $collapsed.value = !$collapsed.value; }} />
   <RibbonToggleButton label={$t`Quick Access Toolbar`} icon={QuickAccessIcon} size="small"
     tooltip={$t`Show the Quick Access Toolbar`}
-    selected={!$qatHidden.value}
-    onClick={() => { $qatHidden.value = !$qatHidden.value; }} />
+    selected={$qatShown.value}
+    onClick={() => { $qatShown.value = !$qatShown.value; }} />
   <RibbonButton label={$t`Customize Ribbon…`} icon={CustomizeIcon} size="small"
     tooltip={$t`Choose which tabs and groups the ribbon shows`}
     onClick={() => { $isCustomizing = true; }} />
@@ -34,5 +34,5 @@
   const isCustomizing = getContext<Writable<boolean>>("ribbonIsCustomizing");
   const layout = getLocalStorage<RibbonLayout>("lookout.ribbon.layout", "classic");
   const collapsed = getLocalStorage<boolean>("lookout.ribbon.collapsed", false);
-  const qatHidden = getLocalStorage<boolean>("lookout.qat.hidden", false);
+  const qatShown = getLocalStorage<boolean>("lookout.quickaction.shown", false);
 </script>

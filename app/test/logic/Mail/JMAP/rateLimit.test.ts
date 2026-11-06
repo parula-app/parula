@@ -1,5 +1,6 @@
 import { appGlobal } from "../../../../logic/app";
 import { JMAPAccount } from "../../../../logic/Mail/JMAP/JMAPAccount";
+import { waitTime } from "../../../../logic/util/util";
 import { expect, test } from "vitest";
 
 const kURL = "https://example.com/jmap/";
@@ -27,7 +28,7 @@ test("The server's Retry-After delays our next request", async () => {
   await expect(account.httpPost(kURL, {})).rejects.toThrow();
   await expect(account.httpPost(kURL, {})).rejects.toThrow();
 
-  expect(Date.now() - startTime).toBeGreaterThanOrEqual(kRetryAfterSec * 1000);
+  expect(Date.now() - startTime).toBeGreaterThanOrEqual(kRetryAfterSec * 1000 * waitTime.factor); // the app waits less in tests
 });
 
 test("A normal error does not slow the next request down", async () => {
@@ -37,5 +38,5 @@ test("A normal error does not slow the next request down", async () => {
   await expect(account.httpPost(kURL, {})).rejects.toThrow();
   await expect(account.httpPost(kURL, {})).rejects.toThrow();
 
-  expect(Date.now() - startTime).toBeLessThan(kRetryAfterSec * 1000);
+  expect(Date.now() - startTime).toBeLessThan(kRetryAfterSec * 1000 * waitTime.factor); // the app waits less in tests
 });

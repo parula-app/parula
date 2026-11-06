@@ -3,7 +3,7 @@ import { HTTPConnection, type HTTPConnectionOptions } from './HTTPConnection';
 import { NetSession } from './NetSession';
 import JPCWebSocket from '../../lib/jpc-ws';
 import * as OWA from './owa';
-import { appName, production } from '../../app/logic/build';
+import { dataAppName, production } from '../../app/logic/build';
 import { WebContents } from './WebContents';
 import { Observable, notifyChangedProperty } from '../../lib/util/Observable';
 import { ImapFlow } from 'imapflow';
@@ -779,7 +779,7 @@ function directory(type: string): string {
   return app.getPath(type as any);
 }
 
-const kAppDir = production ? appName : appName + "Dev"; // e.g. "Mustang" or "Parula" or "MustangDev"
+const kAppDir = production ? dataAppName : dataAppName + "Dev"; // e.g. "Mustang" or "Parula" or "MustangDev"
 
 /**
  * Get the user config directory on disk.

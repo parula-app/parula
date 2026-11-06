@@ -9,10 +9,11 @@ import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
  * @param signedData decoded `SignedData`
  * @param content the signed bytes: the cleartext MIME part for
  *   `multipart/signed`, or the unwrapped eContent for opaque-signed messages
+ * @param date when the message arrived, at which the certificates must be valid
  * @returns the last hex digits of the signer's RSA modulus,
  *   or null, if the signature does not verify
  */
-export async function verifySignedData(signedData: any, content: Uint8Array): Promise<SMIMEPublicKey | null> {
+export async function verifySignedData(signedData: any, content: Uint8Array, date = new Date()): Promise<SMIMEPublicKey | null> {
   let certificates = sanitize.array(signedData.content.certificates, []);
   let signerInfos = sanitize.array(signedData.content.signerInfos, []);
   if (!certificates.length || !signerInfos.length) {
@@ -87,7 +88,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array): Pr
   // available on all platforms - must not discard it. The trustLevel then
   // stays `Sender`, which is what an unknown CA gives us anyway.
   try {
-    await signer.keyStatus();
+    await signer.keyStatus(date);
   } catch (ex) {
     console.error(ex);
   }

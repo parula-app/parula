@@ -1,4 +1,4 @@
-{#if $position.value == placement && !$isHidden.value}
+{#if $position.value == placement && $isShown.value}
   <hbox class="quick-access {placement}" role="toolbar" aria-label={$t`Quick Access Toolbar`}>
     {#each shownCommands as command (command.id)}
       <QuickAccessButton {command} />
@@ -24,7 +24,7 @@
       {:else}
         <MenuItem label={$t`Show Above the Ribbon`} onClick={() => { $position.value = "above"; }} />
       {/if}
-      <MenuItem label={$t`Hide Quick Access Toolbar`} onClick={() => { $isHidden.value = true; }} />
+      <MenuItem label={$t`Hide Quick Access Toolbar`} onClick={() => { $isShown.value = false; }} />
     </Menu>
   </hbox>
 {/if}
@@ -50,7 +50,7 @@
   export let placement: QuickAccessPosition;
 
   const position = getLocalStorage<QuickAccessPosition>("lookout.qat.position", "above");
-  const isHidden = getLocalStorage<boolean>("lookout.qat.hidden", false);
+  const isShown = getLocalStorage<boolean>("lookout.quickaction.shown", false);
   const chosenIDs = getLocalStorage<string[] | null>("lookout.qat.commands", null);
   const commands = quickAccessCommands;
 

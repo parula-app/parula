@@ -1,7 +1,6 @@
 # Parula
 
-Parula (codename Mustang) is a new full-featured email client,
-chat, video conference, calendar, contacts and files app.
+Parula is a new full-featured email client, chat, video conference, calendar, contacts and files app.
 
 https://parula.app
 

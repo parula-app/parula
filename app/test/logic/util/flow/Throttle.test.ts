@@ -1,5 +1,8 @@
 import { Throttle } from '../../../../logic/util/flow/Throttle';
+import { waitTime } from '../../../../logic/util/util';
 import { expect, test } from 'vitest';
+
+waitTime.factor = 1; // these tests check the real timing of `Throttle`
 
 class WithThrottle {
   throttle = new Throttle(3, 0.1);
