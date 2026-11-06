@@ -91,20 +91,30 @@ export class SMIMEReadProcessor extends EMailProcessor {
    * encrypted to, and decrypts the symmetric content key with it.
    * @throws if the message was not encrypted to any of our keys */
   protected async decryptSymmetricKey(recipientInfos: any[]): Promise<Uint8Array> {
+    let unsupportedAlgorithm: string | number[] | undefined;
     for (let identity of findAllIdentities()) {
       for (let privateKey of identity.encryptionPrivateKeys) {
         if (privateKey instanceof SMIMEPrivateKey) {
           for (let recipientInfo of recipientInfos) {
             if (recipientInfo.type != "ktri" ||
-                recipientInfo.value.keyEncryptionAlgorithm.algorithm != "rsaEncryption" ||
                 !privateKey.isRecipient(recipientInfo.value.rid)) {
               continue;
             }
-            let rawKey = await privateKey.decryptKey();
-            return unpadPKCS(decrypt(recipientInfo.value.encryptedKey, rawKey), BlockType.Encrypted);
+            let { keyEncryptionAlgorithm, encryptedKey } = recipientInfo.value;
+            if (keyEncryptionAlgorithm.algorithm == "rsaEncryption") {
+              let rawKey = await privateKey.decryptKey();
+              return unpadPKCS(decrypt(encryptedKey, rawKey), BlockType.Encrypted);
+            } else if (keyEncryptionAlgorithm.algorithm == "rsaESOAEP") {
+              return await privateKey.decryptOAEP(encryptedKey, keyEncryptionAlgorithm.parameters);
+            }
+            unsupportedAlgorithm = keyEncryptionAlgorithm.algorithm;
           }
         }
       }
+    }
+    if (unsupportedAlgorithm) {
+      let name = typeof unsupportedAlgorithm == "string" ? unsupportedAlgorithm : unsupportedAlgorithm.join(".");
+      throw new NotImplemented(gt`The key of this message is encrypted with ${name}, which is not supported`);
     }
     throw new UserError(gt`This message is encrypted, and the key is not available`);
   }
