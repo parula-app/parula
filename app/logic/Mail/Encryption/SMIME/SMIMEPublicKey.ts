@@ -5,6 +5,7 @@ import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { appGlobal } from "../../../app";
 import { uint8ArrayToHex } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
+import { assert } from "../../../util/util";
 import { ArrayColl } from "svelte-collections";
 
 export class SMIMEPublicKey extends PublicKey {
@@ -185,6 +186,7 @@ export class SMIMEPublicKey extends PublicKey {
   }
 
   protected extension(extnID: string): Uint8Array | undefined {
+    assert(this.certificate, "The S/MIME key has no certificate");
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
     return cert.tbsCertificate.extensions?.find(ext => ext.extnID == extnID)?.extnValue;
   }
