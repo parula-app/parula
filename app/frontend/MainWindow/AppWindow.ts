@@ -65,8 +65,9 @@ export class AppWindow {
 
   protected static ofEvent(): AppWindow | undefined {
     // The event handlers of all windows run in the JS context of the main window, so it has their current event
-    let target = window.event?.target as any;
-    let win = target?.ownerDocument?.defaultView ?? target?.defaultView ?? target?.window;
+    let event = window.event as UIEvent;
+    let target = event?.target as any;
+    let win = event?.view ?? target?.ownerDocument?.defaultView ?? target?.defaultView ?? target?.window;
     return win ? AppWindow.all.find(appWindow => appWindow.window == win) : undefined;
   }
 
