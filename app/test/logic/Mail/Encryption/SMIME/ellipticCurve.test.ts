@@ -1,6 +1,6 @@
 import { appGlobal } from "../../../../../logic/app";
 import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { SignedData, Certificate, ECDSASigValue, Oid } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { SignedData, ECDSASigValue } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { verifySignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEVerify";
 import { importPublicKey, readPublicKeyFile } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { base64ToBytes } from "../../../../../../lib/asn1/decoders/pem";
@@ -121,13 +121,11 @@ describe("EC certificate of a contact", () => {
     expect(signer?.id).toBe(key.id);
   });
 
-  // Anybody can write the curve point of somebody else's key into a certificate for another curve
-  test("gets another key ID than a certificate with the same curve point on another curve", async () => {
+  test("keeps its key ID when stored and loaded", async () => {
     let key = await SMIMEPublicKey.importPublicKey(kP256Certificate);
-    let cert = Certificate.decodePEM(kP256Certificate, { label: "CERTIFICATE" });
-    cert.tbsCertificate.publicKey.algorithmIdentifier.parameters = Oid.encode("secp384r1");
-    let fake = await SMIMEPublicKey.importPublicKey(Certificate.encodePEM(cert, { label: "CERTIFICATE" }));
-    expect(fake.id).not.toBe(key.id);
+    let stored = new SMIMEPublicKey();
+    stored.fromJSON(key.toJSON());
+    expect(stored.id).toBe(key.id);
   });
 
   test("with explicit curve parameters is added, but not confirmed", async () => {

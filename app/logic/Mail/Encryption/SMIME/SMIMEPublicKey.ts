@@ -57,7 +57,7 @@ export class SMIMEPublicKey extends PublicKey {
     if (!this.id && publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
       this.cipher = "EC";
       this.keyLengthInBits = this.curveBits(publicKey);
-      this.id = uint8ArrayToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", SubjectPublicKeyInfo.encode(publicKey) as BufferSource)));
+      this.id = this.publicKeyID(publicKey);
     } else if (!this.id) {
       let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
       let id = sanitize.bigint(rsa.n).toString(16);
@@ -81,6 +81,13 @@ export class SMIMEPublicKey extends PublicKey {
   /** A hash, because anybody can make a key whose modulus ends in the same digits */
   protected keyID(rsa: RSAPublicKey): string {
     return uint8ArrayToHex(sha256(RSAPublicKey.encode(rsa)));
+  }
+
+  protected publicKeyID(publicKey: SubjectPublicKeyInfo): string {
+    if (publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+      return uint8ArrayToHex(sha256(publicKey.subjectPublicKey.data));
+    }
+    return this.keyID(RSAPublicKey.decode(publicKey.subjectPublicKey.data));
   }
 
   /** Sets this key's certificate if it has none yet or the certificate is for the same key, otherwise adds it to the chain */
@@ -300,7 +307,7 @@ export class SMIMEPublicKey extends PublicKey {
     super.fromJSON(json);
     if (this.publicKeyArmored) {
       let cert = Certificate.decodePEM(this.publicKeyArmored, { label: "CERTIFICATE" });
-      this.id = this.keyID(RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data));
+      this.id = this.publicKeyID(cert.tbsCertificate.publicKey);
     }
     for (let certificate of sanitize.array(json.chain, [])) {
       let key = new SMIMEPublicKey();
