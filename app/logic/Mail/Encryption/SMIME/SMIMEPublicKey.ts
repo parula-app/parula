@@ -5,7 +5,7 @@ import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayFromHex } from
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
 import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
-import { assert } from "../../../util/util";
+import { assert, UserError } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -191,6 +191,51 @@ export class SMIMEPublicKey extends PublicKey {
     }
     let rs = Uint8ArrayFromHex(r.toString(16).padStart(size * 2, "0") + s.toString(16).padStart(size * 2, "0"));
     return await crypto.subtle.verify({ name: "ECDSA", hash }, key, rs as BufferSource, content as BufferSource);
+  }
+
+  /** Encrypts the content key to the EC key of this certificate with ECDH, as Outlook does. RFC 5753 section 3.1.1 */
+  async keyAgreeRecipientInfo(symmetricKey: Uint8Array): Promise<any> {
+    let cert = this.decodedCertificate;
+    let publicKey = cert.tbsCertificate.publicKey;
+    let curve = this.curveBits(publicKey);
+    if (!curve) {
+      throw new UserError(gt`Cannot encrypt to ${this.userIDs.first}, because we do not support the elliptic curve of its certificate`);
+    }
+    let algorithm = { name: "ECDH", namedCurve: "P-" + curve };
+    let recipientKey = await crypto.subtle.importKey("spki", SubjectPublicKeyInfo.encode(publicKey) as BufferSource, algorithm, false, []);
+    let ephemeralKey = await crypto.subtle.generateKey(algorithm, true, ["deriveBits"]);
+    let secret = await crypto.subtle.deriveBits({ name: "ECDH", public: recipientKey }, ephemeralKey.privateKey, (curve + 7 >> 3) * 8);
+    // Outlook cannot decrypt it when the parameters are absent
+    let keyWrapAlgorithm = AlgorithmIdentifier.encode({ algorithm: "aes256wrap", parameters: Null.encode() });
+    let keyEncryptionKey = await this.keyEncryptionKey(secret, "SHA-1", keyWrapAlgorithm);
+    let contentKey = await crypto.subtle.importKey("raw", symmetricKey as BufferSource, "AES-CBC", true, ["encrypt"]);
+    return {
+      type: "kari",
+      value: {
+        version: 3n,
+        originator: {
+          type: "originatorKey",
+          value: {
+            algorithm: { algorithm: "ecPublicKey", parameters: Null.encode() },
+            publicKey: { unused: 0, data: new Uint8Array(await crypto.subtle.exportKey("raw", ephemeralKey.publicKey)) },
+          },
+        },
+        keyEncryptionAlgorithm: {
+          algorithm: "dhSinglePassStdDHSHA1KDF",
+          parameters: keyWrapAlgorithm,
+        },
+        recipientEncryptedKeys: [{
+          rid: {
+            type: "issuerAndSerialNumber",
+            value: {
+              issuer: cert.tbsCertificate.issuer,
+              serialNumber: cert.tbsCertificate.serialNumber,
+            },
+          },
+          encryptedKey: new Uint8Array(await crypto.subtle.wrapKey("raw", contentKey, keyEncryptionKey, "AES-KW")),
+        }],
+      },
+    };
   }
 
   /** Derives the key that encrypts the content key from the ECDH secret, with the ANSI X9.63 KDF. RFC 5753 section 7.2

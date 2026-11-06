@@ -10,9 +10,9 @@ import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
 import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
-import { SignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { SignedData, Certificate } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { parseHeaderParameters } from "../../../../../logic/Mail/Encryption/MIME";
-import { kP256Certificate } from "./ellipticCurves";
+import { kSignedSecp256k1 } from "./ellipticCurves";
 import { kOwnP256, kOwnP384, kOwnP521 } from "./ownECKeys";
 import { expect, test, describe, beforeAll } from "vitest";
 
@@ -113,15 +113,16 @@ describe("A message signed with our EC key", () => {
   });
 });
 
-test("Encrypting to a recipient with an EC certificate says that we can't", async () => {
+test("Encrypting to a recipient with an EC certificate on a curve that WebCrypto does not have says that we can't", async () => {
   let mail = folder.newEMail();
   mail.identity = identity;
   mail.from = findOrCreatePersonUID("user@example.com", "User");
-  let recipient = findOrCreatePersonUID("ec256@example.com", "EC 256");
-  recipient.encryptionPublicKey = await SMIMEPublicKey.importPublicKey(kP256Certificate);
+  let recipient = findOrCreatePersonUID("eck1@example.com", "EC k1");
+  let certificate = SignedData.decodeFromBase64(kSignedSecp256k1).content.certificates[0];
+  recipient.encryptionPublicKey = await SMIMEPublicKey.importPublicKey(Certificate.encodePEM(certificate, { label: "CERTIFICATE" }));
   mail.to.add(recipient);
   mail.shouldEncrypt = true;
-  await expect(SMIMESend.encryptAndSign(mail)).rejects.toThrow("ec256@example.com");
+  await expect(SMIMESend.encryptAndSign(mail)).rejects.toThrow("eck1@example.com");
 });
 
 describe("A draft", () => {

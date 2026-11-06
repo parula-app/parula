@@ -140,8 +140,14 @@ export class SMIMESend {
       for (let recipientKey of recipientKeys) {
         let cert = Certificate.decodePEM(recipientKey.certificate, { label: "CERTIFICATE" });
         let publicKey = cert.tbsCertificate.publicKey;
+        if (publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+          // RFC 5652 section 6.1
+          pkcs7.content.version = 2n;
+          pkcs7.content.recipientInfos.push(await recipientKey.keyAgreeRecipientInfo(symmetricKey));
+          continue;
+        }
         if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
-          throw new UserError(gt`Cannot encrypt to ${recipientKey.userIDs.first}, because we can encrypt only to RSA certificates`);
+          throw new UserError(gt`Cannot encrypt to ${recipientKey.userIDs.first}, because we can encrypt only to RSA and EC certificates`);
         }
         let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
         pkcs7.content.recipientInfos.push({

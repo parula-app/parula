@@ -2,15 +2,23 @@ import "../../../../../logic/app";
 import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
+import { findOrCreatePersonUID } from "../../../../../logic/Abstract/PersonUID";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
-import { EnvelopedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
+import { SMIMESend } from "../../../../../logic/Mail/Encryption/SMIME/SMIMESend";
+import { AlgorithmIdentifier, EnvelopedData, Null } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import type { Folder } from "../../../../../logic/Mail/Folder";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { kOwnP256, kOwnP384, kOwnP521 } from "./ownECKeys";
-import { kOpenSSLECDH, kOutlookECDH, kThunderbirdECDH, kECDHKeyID, kECDHSHA224, kECDH3DESWrap } from "./ecdhMessages";
+import { kOpenSSLECDH, kOutlookECDH, kThunderbirdECDH, kECDHKeyID, kECDHSHA224, kECDH3DESWrap, kAliceRSA } from "./ecdhMessages";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { expect, test, describe, beforeAll, beforeEach } from "vitest";
 
-// The browser has this, but Node does not.
+// The browser has these, but Node does not.
+globalThis.window ??= globalThis as any;
 globalThis.indexedDB ??= {
   cmp(a: Uint8Array, b: Uint8Array): number {
     let length = Math.min(a.length, b.length);
@@ -28,7 +36,11 @@ const kOwnKeys: Record<string, string> = { "P-256": kOwnP256, "P-384": kOwnP384,
 let folder: Folder;
 
 beforeAll(async () => {
-  ({ folder } = await setupTestFolder());
+  ({ folder } = await setupTestFolder({
+    // Stands in for nodemailer in the backend
+    getMIMENodemailer: async () => new TextEncoder().encode(kPlainTextMIME.replace(/\n/g, "\r\n")),
+    getCACertificates: async () => [],
+  }));
   appGlobal.emailAccounts.add(folder.account);
 });
 
@@ -89,12 +101,81 @@ describe("A message encrypted with ECDH to our EC key that we cannot decrypt tel
   });
 });
 
+describe("A message that we encrypt to an EC certificate", () => {
+  test.each(Object.keys(kOwnKeys))("on %s decrypts for the recipient, and for us with our RSA key", async (curve) => {
+    await useKey(kAliceRSA, "alice@example.com");
+    let sent = await send(await SMIMEPublicKey.importPublicKey(kOwnKeys[curve]));
+
+    let { email, errors } = await receive(sent);
+    expect(errors).toEqual([]);
+    expect(email.text.trim()).toBe("Hello EC");
+
+    folder.account.identities.clear();
+    await useKey(kOwnKeys[curve]);
+    ({ email, errors } = await receive(sent));
+    expect(errors).toEqual([]);
+    expect(email.text.trim()).toBe("Hello EC");
+  });
+
+  test("has a key wrap algorithm with NULL parameters, which Outlook needs", async () => {
+    await useKey(kAliceRSA, "alice@example.com");
+    let sent = await send(await SMIMEPublicKey.importPublicKey(kOwnP256));
+    let kari = envelopedDataOf(sent).content.recipientInfos.find(recipientInfo => recipientInfo.type == "kari");
+    let keyWrapAlgorithm = AlgorithmIdentifier.decode(kari.value.keyEncryptionAlgorithm.parameters);
+    expect(keyWrapAlgorithm.parameters).toEqual(Null.encode());
+  });
+
+  test("from our own EC key decrypts for us", async () => {
+    await useKey(kOwnP384);
+    let sent = await send(await SMIMEPublicKey.importPublicKey(kAliceRSA));
+    let { email, errors } = await receive(sent);
+    expect(errors).toEqual([]);
+    expect(email.text.trim()).toBe("Hello EC");
+  });
+
+  const kOpenSSL = spawnSync("openssl", ["version"]).status == 0;
+  describe.skipIf(!kOpenSSL)("decrypts with OpenSSL", () => {
+    test.each(Object.keys(kOwnKeys))("on %s", async (curve) => {
+      await useKey(kAliceRSA, "alice@example.com");
+      let sent = await send(await SMIMEPublicKey.importPublicKey(kOwnKeys[curve]));
+      let dir = mkdtempSync(path.join(tmpdir(), "ecdh-"));
+      try {
+        writeFileSync(path.join(dir, "own.pem"), kOwnKeys[curve]);
+        writeFileSync(path.join(dir, "mail.der"), EnvelopedData.encode(envelopedDataOf(sent)));
+        let result = spawnSync("openssl", ["cms", "-decrypt", "-inform", "DER", "-in", path.join(dir, "mail.der"),
+          "-recip", path.join(dir, "own.pem"), "-inkey", path.join(dir, "own.pem")], { encoding: "utf8" });
+        expect(result.stderr).toBe("");
+        expect(result.stdout).toContain("Hello EC");
+      } finally {
+        rmSync(dir, { recursive: true });
+      }
+    });
+  });
+});
+
 /** Our identity uses this key to decrypt and to sign */
-async function useKey(pem: string) {
+async function useKey(pem: string, emailAddress = "user@example.com") {
   let identity = new MailIdentity(folder.account);
-  identity.emailAddress = "user@example.com";
+  identity.emailAddress = emailAddress;
   identity.encryptionPrivateKeys.add(await SMIMEPrivateKey.importPrivateKey(pem));
   folder.account.identities.add(identity);
+}
+
+/** Encrypts a message from our identity to the owner of this key
+ * @returns the MIME source of the encrypted message */
+async function send(recipientKey: SMIMEPublicKey): Promise<string> {
+  let mail = folder.newEMail();
+  mail.identity = folder.account.identities.first;
+  mail.from = findOrCreatePersonUID(mail.identity.emailAddress, "Me");
+  let recipient = findOrCreatePersonUID("recipient-" + recipientKey.id + "@example.com", "Recipient");
+  recipient.encryptionPublicKey = recipientKey;
+  mail.to.add(recipient);
+  mail.shouldEncrypt = true;
+  return (await SMIMESend.encryptAndSign(mail)).sendRawMIME;
+}
+
+function envelopedDataOf(mime: string): any {
+  return EnvelopedData.decode(base64ToBytes(mime.split("\r\n\r\n")[1]));
 }
 
 /** Reads the CMS blob as an encrypted message
@@ -126,3 +207,14 @@ async function receive(mime: string): Promise<{ email: EMail, errors: string[] }
 function base64ToBytes(base64: string): Uint8Array {
   return new Uint8Array(Buffer.from(base64, "base64"));
 }
+
+const kPlainTextMIME = `From: Me <user@example.com>
+To: Recipient <recipient@example.com>
+Subject: ECDH
+Message-ID: <plain-text@example.com>
+Date: Tue, 14 Jul 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Hello EC
+`;
