@@ -194,7 +194,7 @@ export const RDNSequence = define<AttributeValue[]>("RDNSequence", function() {
 });
 
 export interface SubjectPublicKeyInfo {
-  algorithmIdenfitier: AlgorithmIdentifier;
+  algorithmIdentifier: AlgorithmIdentifier;
   subjectPublicKey: BitString;
 }
 export const SubjectPublicKeyInfo = define<SubjectPublicKeyInfo>("SubjectPublicKeyInfo", function() {

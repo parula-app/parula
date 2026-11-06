@@ -2,7 +2,7 @@ import { Group } from "./Group";
 import type { Addressbook } from "../Contacts/Addressbook";
 import { ContactEntry, Person } from "./Person";
 import type { PublicKey } from "../Mail/Encryption/PublicKey";
-import { getPublicKeyForPersonUID } from "../Mail/Encryption/KeyUtils";
+import { getPublicKeyForPersonUID, isUsableKey } from "../Mail/Encryption/KeyUtils";
 import { SMIMEPublicKey } from "../Mail/Encryption/SMIME/SMIMEPublicKey";
 import { appGlobal } from "../app";
 import { Observable, notifyChangedProperty } from "../util/Observable";
@@ -77,7 +77,7 @@ export class PersonUID extends Observable {
     }
     let found = await Promise.all(appGlobal.searchOnlyAddressbooks.contents.map(ab =>
       ab.fetchEncryptionKeys(new ArrayColl([this.emailAddress]))));
-    let key = found.flatMap(keys => keys.contents).find(key => !key.obsolete);
+    let key = found.flatMap(keys => keys.contents).find(key => isUsableKey(key));
     if (key) {
       this.encryptionPublicKey = key;
     }
