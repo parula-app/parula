@@ -7,7 +7,6 @@ import { appGlobal } from "../../../app";
 import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
 import { assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
-import { assert } from "../../../util/util";
 import { ArrayColl } from "svelte-collections";
 import { gt } from "../../../../l10n/l10n";
 
