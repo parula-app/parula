@@ -1,10 +1,10 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
-import { uint8ArrayToHex } from "../../../util/blob";
+import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
 import { assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
@@ -64,7 +64,7 @@ export class SMIMEPublicKey extends PublicKey {
     this.created = sanitize.date(notBefore.value);
     this.expires = sanitize.date(notAfter.value);
     let now = Date.now();
-    this.obsolete = now < this.created.getTime() || now > this.expires.getTime();
+    this.obsolete = now < this.created.getTime();
   }
 
   /** A hash, because anybody can make a key whose modulus ends in the same digits */
@@ -167,8 +167,12 @@ export class SMIMEPublicKey extends PublicKey {
     // cannot sign as another identity today. Do not start trusting the chain
     // itself for identity binding without adding those X.509 path checks first.
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
+    if (!this.allowsEMailProtection()) {
+      return KeyStatus.ChainInvalid;
+    }
     for (let key of this.chain) {
-      if (key.obsolete || !key.isValidAt(date)) {
+      // Not `obsolete`: it also means "expired now", which would reject older mail
+      if (key._obsolete || !key.isValidAt(date)) {
         console.log("obsolete certificate in chain");
         return KeyStatus.ChainInvalid;
       }
@@ -176,11 +180,20 @@ export class SMIMEPublicKey extends PublicKey {
       if (!await verifySignature(cert, signer)) {
         return KeyStatus.ChainInvalid;
       }
+      if (!key.mayIssueCertificates(this.chain.contents.indexOf(key)) || !key.allowsEMailProtection()) {
+        return KeyStatus.ChainInvalid;
+      }
       cert = signer;
     }
+    const kAcceptX509v1Roots = true;
     for (let type of ["bundled", "system", "extra"]) {
       for (let ca of await lazyGetCACertificates(type)) {
         if (await verifySignature(cert, ca)) {
+          let root = new SMIMEPublicKey();
+          await root.setCertificate(ca);
+          if (root._obsolete || !root.isValidAt(date) || !root.allowsEMailProtection() || (!kAcceptX509v1Roots && !ca.tbsCertificate.version)) {
+            continue;
+          }
           let caTrust = type == "bundled" ? TrustLevel.ThirdParty : type == "system" ? TrustLevel.OS : TrustLevel.Personal;
           if (trustOrder(this.trustLevel) < trustOrder(caTrust)) {
             this.trustLevel = caTrust;
@@ -194,6 +207,41 @@ export class SMIMEPublicKey extends PublicKey {
       return KeyStatus.SelfSignedRoot;
     }
     return KeyStatus.ChainIncomplete;
+  }
+
+  /** @param subCAs How many CA certificates are between this one and the leaf */
+  protected mayIssueCertificates(subCAs: number): boolean {
+    let basicConstraints = this.extension("basicConstraints");
+    if (!basicConstraints) {
+      return false;
+    }
+    let { cA, pathLenConstraint } = BasicConstraints.decode(basicConstraints);
+    return cA && (pathLenConstraint == null || subCAs <= pathLenConstraint) && this.allowsAnyKeyUsage(KeyUsageBit.keyCertSign);
+  }
+
+  /** True if the certificate allows at least one of these, e.g. signing needs digitalSignature or nonRepudiation (RFC 8550 section 4.4.2) */
+  allowsAnyKeyUsage(...usages: KeyUsageBit[]): boolean {
+    let keyUsage = this.extension("keyUsage");
+    if (!keyUsage) {
+      return true; // Without keyUsage, all usages are allowed (RFC 5280 section 6.1.4 (n), RFC 8550 section 4.4.2)
+    }
+    let { data } = KeyUsage.decode(keyUsage);
+    return usages.some(bit => (data[bit >> 3] & (0x80 >> (bit % 8))) != 0);
+  }
+
+  protected allowsEMailProtection(): boolean {
+    let extKeyUsage = this.extension("extKeyUsage");
+    if (!extKeyUsage) {
+      return true; // As for keyUsage in allowsAnyKeyUsage() (RFC 8550 section 4.4.4)
+    }
+    const kAcceptAnyPurpose = false;
+    return ExtKeyUsage.decode(extKeyUsage).some(purpose => purpose == "emailProtection" || (purpose == "anyExtendedKeyUsage" && kAcceptAnyPurpose));
+  }
+
+  protected extension(extnID: string): Uint8Array | undefined {
+    assert(this.certificate, "The S/MIME key has no certificate");
+    let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
+    return cert.tbsCertificate.extensions?.find(ext => ext.extnID == extnID)?.extnValue;
   }
 
   /** Reads an S/MIME certificate from a file.
@@ -306,9 +354,22 @@ function lazyGetCACertificates(type: string): Promise<Certificate[]> {
 
 async function getCACertificatesLazy(type: string): Promise<Certificate[]> {
   let certificates: Certificate[] = [];
-  let rootCertificates: string[] = await appGlobal.remoteApp.getCACertificates(type);
+  let rootCertificates: string[] = type == "bundled"
+    ? splitPEM((await import("./roots/mozilla-email-roots.pem?raw")).default)
+    : await appGlobal.remoteApp.getCACertificates(type);
+  let notEmailRootsSHA256: string[] = type == "system" && rootCertificates.length
+    ? (await import("./roots/mozilla-not-email-roots.txt?raw")).default.split(/[\r\n]+/)
+      .filter(line => line && !line.startsWith("#")).map(line => line.split(" ")[0])
+    : [];
   for (let cert of rootCertificates) {
     try {
+      if (notEmailRootsSHA256.length) {
+        let der = base64ToUint8Array(cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", ""));
+        let hash = new Uint8Array(await crypto.subtle.digest("SHA-256", der));
+        if (notEmailRootsSHA256.includes(uint8ArrayToHex(hash))) {
+          continue;
+        }
+      }
       certificates.push(Certificate.decodePEM(cert, { label: "CERTIFICATE" }));
     } catch (ex) {
       console.log("Error decoding certificate", cert);
