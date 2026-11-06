@@ -112,19 +112,17 @@ export class SMIMEPublicKey extends PublicKey {
     await this.addCertificates(fileContent);
   }
 
-  protected async addCertificatesFromDER(der: Uint8Array) {
-    let cert: Certificate;
+  /** @param der An X.509 certificate, or a PKCS#7 with certificates */
+  static certificatesFromDER(der: Uint8Array): Certificate[] {
     try {
-      cert = Certificate.decode(der);
+      return [Certificate.decode(der)];
     } catch (ex) {
-      await this.addPKCS7Certificates(der);
-      return;
+      return SignedData.decode(der, { berToDER: true }).content.certificates ?? [];
     }
-    await this.addCertificate(cert);
   }
 
-  protected async addPKCS7Certificates(der: Uint8Array) {
-    let certificates = new ArrayColl<Certificate>(SignedData.decode(der, { berToDER: true }).content.certificates);
+  protected async addCertificatesFromDER(der: Uint8Array) {
+    let certificates = new ArrayColl<Certificate>(SMIMEPublicKey.certificatesFromDER(der));
     assert(certificates.hasItems, gt`Could not find a certificate in this file`);
     function isIssuer(issuer: Certificate, cert: Certificate): boolean {
       return issuer != cert && sameName(issuer.tbsCertificate.subject, cert.tbsCertificate.issuer);

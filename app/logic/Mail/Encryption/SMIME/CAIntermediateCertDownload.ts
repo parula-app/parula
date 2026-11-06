@@ -1,4 +1,5 @@
-import { AuthorityInfoAccess, Certificate, SignedData } from "./SMIMEASN1";
+import { AuthorityInfoAccess, Certificate } from "./SMIMEASN1";
+import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { appGlobal } from "../../../app";
 import { makeAbortable } from "../../../util/flow/Abortable";
 import { Timeout } from "../../../util/flow/Timeout";
@@ -52,7 +53,7 @@ export class CAIntermediateCertDownload {
       let answer = new Uint8Array(await makeAbortable(ky.get(url, { result: "arrayBuffer" }), abort));
       const kMaxBytes = 256 * 1024;
       assert(answer.length <= kMaxBytes, `The CA certificate at ${url} is too large`);
-      return this.readCertificates(answer);
+      return SMIMEPublicKey.certificatesFromDER(answer);
     } catch (ex) {
       minorError(ex);
       const kRetryAfterMS = 10 * 60 * 1000;
@@ -60,15 +61,6 @@ export class CAIntermediateCertDownload {
       return [];
     } finally {
       timeout.fulfilled();
-    }
-  }
-
-  /** RFC 5280 4.2.2.1: A DER certificate, or a PKCS#7 with certificates (.p7c) */
-  protected readCertificates(answer: Uint8Array): Certificate[] {
-    try {
-      return [Certificate.decode(answer)];
-    } catch (ex) {
-      return SignedData.decode(answer, { berToDER: true }).content.certificates ?? [];
     }
   }
 }
