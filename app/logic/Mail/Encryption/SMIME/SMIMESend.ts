@@ -124,7 +124,8 @@ export class SMIMESend {
       mime = new TextEncoder().encode(content);
       let recipientKeys = recipients.contents.flatMap(puid =>
         getPublicKeyForPersonUID(puid, SMIMEPublicKey));
-      if (!(await Promise.all(recipientKeys.map(key => key.matches(rawKey)))).some(Boolean)) {
+      let myPublicKey = privateKey.decodedCertificate.tbsCertificate.publicKey;
+      if (!(await Promise.all(recipientKeys.map(key => key.matches(myPublicKey)))).some(Boolean)) {
         recipientKeys.push(privateKey);
       }
       let symmetricKey = new Uint8Array(32);

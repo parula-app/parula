@@ -3,7 +3,7 @@ import { setupTestFolder } from "../../SQL/setup";
 import { getPublicKeyByKeyID } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
 import type { EMail } from "../../../../../logic/Mail/EMail";
-import { kClearSigned, kOpaqueSigned } from "./signedMessages";
+import { kClearSigned, kOpaqueSigned, kECClearSigned } from "./signedMessages";
 import { expect, test, describe } from "vitest";
 
 // The browser has this, but Node does not.
@@ -65,6 +65,14 @@ describe("Signature of a received message, without an own private key", () => {
     let email = await readMessage(kOpaqueSigned);
     expect(email.text.trim()).toBe("Hello, this is signed.");
     expect(await signedWithKeyName(email)).toBe("F9D7");
+  });
+
+  test("clear-signed message, signed with an EC key", async () => {
+    let email = await readMessage(kECClearSigned);
+    expect(email.text.trim()).toBe("Hello, this is signed with an EC key.");
+    expect(await signedWithKeyName(email)).toBeTruthy();
+    // The certificate is kept for the sender
+    expect(email.from.encryptionPublicKey?.userIDs.contents).toEqual(["ec256@example.com"]);
   });
 
   test("an unknown CA leaves the trust level to the user", async () => {

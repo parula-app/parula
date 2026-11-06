@@ -109,3 +109,45 @@ XRpmQu5NpqERE1Vyw0YIc0uaolRAE/oCOusg74n6LU1jCHrQkUd3v/rtbn0JBuji
 Cla1Ekw+ndF8WJpMPM8UDMtACYQ/yYxPWS4=
 
 `;
+
+/** Detached signature, by `kP256Certificate` in ellipticCurves.ts:
+ * openssl cms -sign -text -nosmimecap -in body.txt -signer ec.pem -inkey ec.key -md sha256 */
+export const kECClearSigned = `From: EC 256 <ec256@example.com>
+To: User <user@example.com>
+Subject: Signed with an EC key
+Date: Fri, 06 Nov 2026 12:00:00 +0000
+Message-ID: <sig-ec256@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg="sha-256"; boundary="----B5F724191B56BDA350D4EA77EB9AB36C"
+
+This is an S/MIME signed message
+
+------B5F724191B56BDA350D4EA77EB9AB36C
+Content-Type: text/plain
+
+Hello, this is signed with an EC key.
+
+------B5F724191B56BDA350D4EA77EB9AB36C
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+MIICvAYJKoZIhvcNAQcCoIICrTCCAqkCAQExDTALBglghkgBZQMEAgEwCwYJKoZI
+hvcNAQcBoIIBjzCCAYswggExoAMCAQICCQCyrrtQim/h5zAKBggqhkjOPQQDAjAR
+MQ8wDQYDVQQDDAZFQyAyNTYwHhcNMjYxMTA2MTI0NDQwWhcNNDYxMTAxMTI0NDQw
+WjARMQ8wDQYDVQQDDAZFQyAyNTYwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQV
+A92HmOWvmA+o7fEYNTD7hcJR+/DNhPxB0BzxzEe7yqDCqKsUzQxTJYkhQoGfLQ3H
+k4xhXXIULWihG5JVhcajo3IwcDAMBgNVHRMBAf8EAjAAMA4GA1UdDwEB/wQEAwID
+iDATBgNVHSUEDDAKBggrBgEFBQcDBDAcBgNVHREEFTATgRFlYzI1NkBleGFtcGxl
+LmNvbTAdBgNVHQ4EFgQUG5kJTFRpFM4Xprb1++0SoVQEqe8wCgYIKoZIzj0EAwID
+SAAwRQIgV/7yq7qVt0xZy3wxYVOLcJ7Co53pf3mAliuCm/W2SfUCIQDG8pPaFMGU
+3s5YO8EWDmRRTtexTLCUUMuQUIIDRPettzGB9DCB8QIBATAeMBExDzANBgNVBAMM
+BkVDIDI1NgIJALKuu1CKb+HnMAsGCWCGSAFlAwQCAaBpMBgGCSqGSIb3DQEJAzEL
+BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI2MTEwNjEyNDQ1M1owLwYJKoZI
+hvcNAQkEMSIEIOd4Qk7pRtlxO8kfJKtMIdOJkfDwHmNE346pU/v7OFXSMAoGCCqG
+SM49BAMCBEgwRgIhAMsAW+cx1DnouB4YYf6Nmu398hfqjduj+iHbaExkwzmLAiEA
+3seWrPZR8VdB2KU6ic9mCys8dKPf5ZD6ly7rkW7nQQo=
+
+------B5F724191B56BDA350D4EA77EB9AB36C--
+
+`;
