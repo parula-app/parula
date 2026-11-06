@@ -18,6 +18,23 @@ globalThis.indexedDB ??= {
   },
 } as any;
 
+test("An encrypted message sent as a file (application/octet-stream, smime.p7m) is decrypted", async () => {
+  let { folder } = await setupTestFolder();
+  let identity = new MailIdentity(folder.account);
+  identity.emailAddress = "bob@example.com";
+  identity.realname = "Bob";
+  identity.encryptionPrivateKeys.add(await SMIMEPrivateKey.importPrivateKey(kBobKey + "\n" + kBobCert));
+  folder.account.identities.add(identity);
+  appGlobal.emailAccounts.add(folder.account);
+
+  let email = folder.newEMail();
+  email.mime = new TextEncoder().encode(kEncryptedAsFile.replace(/\n/g, "\r\n"));
+  await email.parseMIME();
+
+  expect(email.wasEncrypted).toBe(true);
+  expect(email.text.trim()).toBe("Hello Bob");
+});
+
 test("An encrypted message that is not for us tells the user why it stays empty", async () => {
   let { folder } = await setupTestFolder();
   let identity = new MailIdentity(folder.account);
@@ -240,4 +257,28 @@ NurMlr2laCZMsr1Zx0pOSJSFQQsrscx60XQMEmXvU4E8LiN05lTtX7L2C058tull
 KhSbek7zTcxKM8lj07ePPapfMFQGCSqGSIb3DQEHATAeBglghkgBZQMEAS8wEQQM
 fw2BDm/Bxdr9fDejAgEQgCciaMA9DQG6G/Hc2cjBxZGypsR39Aa2sokkfPh21WKy
 yB6ZR+7OBkwEENnbI5Yb8ATYPUYONTnK1KM=
+`;
+
+/** `printf 'Content-Type: text/plain\r\n\r\nHello Bob\r\n' > body.txt`,
+ * `openssl cms -encrypt -binary -aes-256-cbc -in body.txt -outform DER cert.pem`, sent as
+ * `application/octet-stream`, named only by the `name` parameter (MS-OXOSMIME 2.1.3.2.1.1) */
+const kEncryptedAsFile = `From: Alice <alice@example.com>
+To: Bob <bob@example.com>
+Subject: Encrypted, sent as a file
+Date: Tue, 14 Jul 2026 10:00:00 +0000
+Message-ID: <octet-stream@example.com>
+MIME-Version: 1.0
+Content-Type: application/octet-stream; name="smime.p7m"
+Content-Transfer-Encoding: base64
+
+MIIBugYJKoZIhvcNAQcDoIIBqzCCAacCAQAxggFCMIIBPgIBADAmMA4xDDAKBgNV
+BAMMA0JvYgIUR1y+gd/vMo3Jefdqh9xJSZ9XsIwwDQYJKoZIhvcNAQEBBQAEggEA
+AzP7p9fT95TTQkz2vkuiSMPEn5hQTz6C77MixcubIjZwQR9MWVwoWOeVcwcVil4F
+3OXA5FEvaGJ4/aeknynSauZ+R9aPVJxNCqlQ1WrE9wfPS8utr0FwI5w9sxaH3UGh
+k0F9mP4kJYTNVhPg547NLVaal0D6qH72Zw8/sKE9ZIRHyZ5OG1Lg/Z7hoQ1MEEdX
+x/x1uO1VNEzPqKOQ7q4Y3YYDJqTPUA3RyQFWclzSP74IdDscE4g0LPwnbss+RUoo
+WKlRYbuPdjt24HGw/OUyH9609ZsTVbuhYvTfDmbP3ncSnAXVW7/p45/6v//efI98
+K+7TRnGMmx7lSBUD11UEHzBcBgkqhkiG9w0BBwEwHQYJYIZIAWUDBAEqBBCykBYx
+NyXeXhBVKxCx6m6ygDAZC6weVC6fnV9G0ARE5H0wcR0L+8bTBQi9EdrCWm+zWJLU
+WV3rNfYc/066OHMCgO4=
 `;
