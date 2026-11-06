@@ -39,6 +39,8 @@ interface Version {
   conference?: string;
   organizer?: string;
   rrule?: string;
+  /** Replaces the `DTSTART` value, e.g. with one that we cannot read */
+  startValue?: string;
 }
 
 function invitationICal(version: Version): string {
@@ -53,7 +55,7 @@ function invitationICal(version: Version): string {
     "UID:" + kCalUID,
     "DTSTAMP:" + version.stamp,
     "SEQUENCE:" + (version.sequence ?? 0),
-    "DTSTART:" + toICalDate(start),
+    "DTSTART:" + (version.startValue ?? toICalDate(start)),
     "DTEND:" + toICalDate(new Date(start.getTime() + k1Hour)),
     "SUMMARY:" + (version.title ?? "Planning"),
     "DESCRIPTION:" + (version.description ?? "What we do next year"),
@@ -335,4 +337,16 @@ test("The version and the moved state are kept in the database", async () => {
 
   expect(loaded.sequence).toEqual(3);
   expect(loaded.isMoved).toBe(true);
+});
+
+test("An update without a readable start time leaves the meeting in the calendar as it is", async () => {
+  let setupResult = await acceptedMeeting({ rrule: "FREQ=WEEKLY;COUNT=5" });
+  let { event } = setupResult;
+
+  await receive(setupResult, { stamp: "20260902T100000Z", sequence: 1, location: "Room 2", rrule: "FREQ=WEEKLY;COUNT=5", startValue: "20261028T1730" });
+
+  expect(event.startTime).toEqual(kStartTime);
+  expect(event.recurrenceRule).toBeTruthy();
+  expect(event.location).toEqual("Room 1");
+  expect(event.myParticipation).toEqual(InvitationResponse.Accept);
 });

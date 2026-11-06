@@ -98,7 +98,7 @@
   const savedSearches = savedSearchFolders;
   $: allAccountSearches = $savedSearches.contents.filter(folder => !folder.search.account || !$accounts.contains(folder.search.account));
   const collapsedIDs = getLocalStorage<string[]>("lookout.mail.collapsedSections", []);
-  const separateAccountList = getLocalStorage<boolean>("lookout.mail.separateAccountList", false);
+  const separateAccountList = getLocalStorage<boolean>("lookout.mail.separateAccountList", true);
   const folderPane = getLocalStorage<FolderPaneMode>("lookout.mail.folderPane", FolderPaneMode.Normal);
 
   $: accountTrees = mainAccountsFirst($accounts.contents);

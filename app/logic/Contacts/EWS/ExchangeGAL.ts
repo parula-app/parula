@@ -4,6 +4,7 @@ import type { MailAccount } from "../../Mail/MailAccount";
 import type { PublicKey } from "../../Mail/Encryption/PublicKey";
 import { usesCrypto } from "../../Mail/Encryption/KeyUtils";
 import { SMIMEPrivateKey } from "../../Mail/Encryption/SMIME/SMIMEPrivateKey";
+import { KeyStatus, SMIMEPublicKey } from "../../Mail/Encryption/SMIME/SMIMEPublicKey";
 import { getBaseDomainFromHost, getDomainForEmailAddress } from "../../util/netUtil";
 import { logErrorToServer } from "../../util/error";
 import { AbstractFunction } from "../../util/util";
@@ -66,10 +67,25 @@ export class ExchangeGAL extends SearchOnlyAddressbook {
     }
     let lookup = this.encryptionKeyLookups.get(emailAddress);
     if (!lookup) {
-      lookup = this.requestEncryptionKeys(emailAddress);
+      lookup = this.requestTrustedEncryptionKeys(emailAddress);
       this.encryptionKeyLookups.set(emailAddress, lookup);
     }
     return await lookup;
+  }
+
+  /** The server could hand out a certificate of its own, so we take only those that a trusted CA issued */
+  protected async requestTrustedEncryptionKeys(emailAddress: string): Promise<Collection<PublicKey>> {
+    let trusted = new ArrayColl<PublicKey>();
+    for (let key of await this.requestEncryptionKeys(emailAddress)) {
+      try {
+        if (key instanceof SMIMEPublicKey && await key.keyStatus() == KeyStatus.Valid) {
+          trusted.add(key);
+        }
+      } catch (ex) {
+        this.errorCallback(ex);
+      }
+    }
+    return trusted;
   }
 
   /** The GAL search leaves out the S/MIME certificates,

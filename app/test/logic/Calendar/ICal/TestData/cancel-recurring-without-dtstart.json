@@ -1,0 +1,20 @@
+[
+  5,
+  {
+    "title": "Weekly meeting",
+    "allDay": false,
+    "calUID": "cancel-recurring-without-dtstart@example.com",
+    "participants": [
+      {
+        "emailAddress": "organizer@example.com",
+        "name": "Organizer",
+        "response": 1
+      },
+      {
+        "emailAddress": "attendee@example.com",
+        "name": "Attendee",
+        "response": 0
+      }
+    ]
+  }
+]

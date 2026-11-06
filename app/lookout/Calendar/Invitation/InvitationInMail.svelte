@@ -52,8 +52,10 @@
       </hbox>
     {/if}
     <grid class="details">
-      <ClockIcon size={16} />
-      <span class:cancelled={isCancelled}>{when}</span>
+      {#if when}
+        <ClockIcon size={16} />
+        <span class:cancelled={isCancelled}>{when}</span>
+      {/if}
       {#if $event.location}
         <LocationIcon size={16} />
         <span>{$event.location}</span>
@@ -67,7 +69,7 @@
         </hbox>
       {/if}
     </grid>
-    {#if kind != "reply"}
+    {#if kind != "reply" && $event.startTime}
       <EventInDayView event={$event} onShowInCalendar={showInCalendar} />
     {/if}
   {/if}
@@ -115,7 +117,7 @@
   $: hasCalEvent = !!calEvent;
   $: isCancelled = kind == "cancellation" || !!calEvent?.isCancelled;
   $: statusText = response && invitationStatusText(message, incoming, response, calEvent);
-  $: when = $event ? eventWhenText($event, getDateTimeLocale()) : "";
+  $: when = $event?.startTime ? eventWhenText($event, getDateTimeLocale()) : "";
   $: conflict = kind == "invitation" && !isCancelled && $event && response != InvitationResponse.Decline
     ? eventConflict(calEvent ?? $event, $calendarEvents.filter(dayEvent => !dayEvent.isSameUID($event)))
     : null;

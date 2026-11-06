@@ -591,10 +591,13 @@ export class IMAPFolder extends Folder {
   protected async moveOrCopyMessagesOnServer(action: "move" | "copy", messages: Collection<IMAPEMail>) {
     let actionVerb = sanitize.translate(action, { move: "Move", copy: "Copy" });
     let sourceFolder = messages.first.folder;
-    let ids = messages.contents.map(msg => msg.uid).join(",");
+    const kBatchSize = 200; // All UIDs in one command would exceed the line length
     await sourceFolder.runCommand(async conn => {
-      this.account.log(this, conn, action, "message from", sourceFolder.id, ids);
-      await conn["message" + actionVerb](ids, this.path, { uid: true });
+      for (let i = 0; i < messages.length; i += kBatchSize) {
+        let ids = messages.getIndexRange(i, kBatchSize).map(msg => msg.uid).join(",");
+        this.account.log(this, conn, action, "message from", sourceFolder.id, ids);
+        await conn["message" + actionVerb](ids, this.path, { uid: true });
+      }
     });
   }
 

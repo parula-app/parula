@@ -1,18 +1,20 @@
-<SectionTitle label={$t`Invite`}>
-  <!--
-  <hbox flex />
-  <hbox class="buttons">
-    <RoundButton
-        label={$t`Expand dialog size to full window`}
-        icon={OptionalParticipantsIcon}
-        onClick={onOptionalParticipants}
-        classes="plain"
-        border={false}
-        iconSize="16px"
-        />
-  </hbox>
-  -->
-</SectionTitle>
+<hbox class="title">
+  <SectionTitle label={$t`Invite`}>
+    <!--
+    <hbox flex />
+    <hbox class="buttons">
+      <RoundButton
+          label={$t`Expand dialog size to full window`}
+          icon={OptionalParticipantsIcon}
+          onClick={onOptionalParticipants}
+          classes="plain"
+          border={false}
+          iconSize="16px"
+          />
+    </hbox>
+    -->
+  </SectionTitle>
+</hbox>
 <vbox class="participants">
   <PersonsAutocomplete persons={event.participants} placeholder={$t`Add participants`} {onAddPerson}>
     <hbox slot="person-pill-before-avatar" let:person={participant}>
@@ -27,15 +29,8 @@
   </PersonsAutocomplete>
 </vbox>
 
-<vbox class="availability-grid">
-  <ExpandSection>
-    <hbox slot="header" class="header">{$t`Availability of participants`}</hbox>
-    <AvailabilityGrid
-      participants={event.participants}
-      start={$event.startTime}
-      calendar={$event.calendar}
-      />
-  </ExpandSection>
+<vbox class="availability" class:expanded={isAvailabilityExpanded} class:enlarged={isAvailabilityEnlarged}>
+  <Availability {event} bind:expanded={isAvailabilityExpanded} bind:enlarged={isAvailabilityEnlarged} />
 </vbox>
 
 <script lang="ts">
@@ -47,14 +42,19 @@
   import PersonAvailability from "./PersonAvailability.svelte";
   import ParticipantConfirmIcon from "./ParticipantConfirmIcon.svelte";
   import ParticipantConfirmText from "./ParticipantConfirmText.svelte";
-  import ExpandSection from "../../Shared/ExpandSection.svelte";
-  import AvailabilityGrid from "./AvailabilityGrid.svelte";
+  import Availability from "./Availability/Availability.svelte";
   import SectionTitle from "./SectionTitle.svelte";
   import { showError } from "../../Util/error";
   // import OptionalParticipantsIcon from "lucide-svelte/icons/circle-dashed";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
+  /** Whether the availability is shown
+   * out */
+  export let isAvailabilityExpanded = false;
+  /** Whether the availability fills the dialog
+   * in/out */
+  export let isAvailabilityEnlarged = false;
 
   function onAddPerson(person: PersonUID) {
     let participant = new Participant(person.emailAddress, person.name, InvitationResponse.Unknown);
@@ -77,10 +77,14 @@
   .participants :global(.person:has(.declined) .name) {
     text-decoration: line-through;
   }
-  .availability-grid {
+  .availability {
     margin-block-start: 18px;
   }
-  .availability-grid .header {
-    opacity: 50%;
+  .availability.expanded {
+    flex: 1 0 auto;
+  }
+  .availability.enlarged {
+    flex: 1 1 0;
+    min-height: 0;
   }
 </style>
