@@ -7,7 +7,7 @@ import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, SignedData 
 import { decryptAuthEnveloped } from "./SMIMEDecrypt";
 import { BlockType, unpadPKCS, decrypt } from "./SMIMERSAES";
 import { verifySignedData } from "./SMIMEVerify";
-import { parseMIMEDirectSubpartsBytes, parseHeaderParameters, toCRLFBytes } from "../MIME";
+import { parseMIMEDirectSubpartsBytes, parseHeaderParameters } from "../MIME";
 import { UserError, NotImplemented, assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../../l10n/l10n";
@@ -139,7 +139,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
       return;
     }
     email.system = EncryptionSystem.SMIME;
-    let parts = parseMIMEDirectSubpartsBytes(toCRLFBytes(email.mime), contentTypeHeader);
+    let parts = parseMIMEDirectSubpartsBytes(email.mime, contentTypeHeader);
     assert(parts.length == 2, "multipart/signed must have exactly 2 subparts: cleartext and signature, but got " + parts.length);
     let [clearText, signature] = parts;
     let signatureBase64 = new TextDecoder().decode(signature).split("\r\n\r\n")[1];
