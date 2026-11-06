@@ -6,7 +6,7 @@ import { decrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
-import { assert, NotImplemented, UserError } from "../../../util/util";
+import { assert, NotImplemented } from "../../../util/util";
 import { gt } from "../../../../l10n/l10n";
 
 export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
@@ -70,21 +70,19 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
 
   /** Decrypts our private key with our passphrase, in the PKCS#8 form that `crypto.subtle.importKey()` reads */
   protected async decryptKeyPKCS8(): Promise<Uint8Array> {
-    let pkcs8: Uint8Array;
     if (this.passphrase) {
       let encryptedKey = EncryptedPrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "ENCRYPTED PRIVATE KEY" });
       if (encryptedKey.encryptionAlgorithm.algorithm != "pkcs5PBES2") {
         throw new Error("Unsupported private key encryption algorithm");
       }
-      pkcs8 = await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
+      return await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
     } else {
-      pkcs8 = Any.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
+      return Any.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
     }
-    return pkcs8;
   }
 
   /** @param parameters `RSAES-OAEP-params` of the `keyEncryptionAlgorithm`, RFC 4055 section 4.1 */
-  async decryptOAEP(encryptedKey: Uint8Array, parameters: Uint8Array | undefined): Promise<Uint8Array> {
+  async decryptOAEP(encryptedKey: Uint8Array<ArrayBuffer>, parameters: Uint8Array | undefined): Promise<Uint8Array> {
     let { hashFunc, maskGenFunc, pSourceFunc } = RSAESOAEPParams.decode(parameters ?? RSAESOAEPParams.encode({}));
     let maskHashFunc = maskGenFunc.parameters ? AlgorithmIdentifier.decode(maskGenFunc.parameters) : { algorithm: "sha1" };
     let hash = sanitize.translate(hashFunc.algorithm, DigestAlgorithm, null);
@@ -94,9 +92,9 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     let label = pSourceFunc.parameters ? OctetString.decode(pSourceFunc.parameters) : undefined;
     let key = await crypto.subtle.importKey("pkcs8", await this.decryptKeyPKCS8() as BufferSource, { name: "RSA-OAEP", hash }, false, ["decrypt"]);
     try {
-      return new Uint8Array(await crypto.subtle.decrypt({ name: "RSA-OAEP", label: label as BufferSource }, key, encryptedKey as BufferSource));
+      return new Uint8Array(await crypto.subtle.decrypt({ name: "RSA-OAEP", label: label as BufferSource }, key, encryptedKey));
     } catch (ex) {
-      throw new UserError(gt`Could not decrypt this message`);
+      throw new Error(gt`Could not decrypt this message`);
     }
   }
 
