@@ -14,9 +14,9 @@ export function getDomainForEmailAddress(emailAddress: string): string {
  * and for an IP address like "192.168.1.5" or "[::1]" returns the IP address.
  */
 export function getBaseDomainFromHost(hostname: string): string {
-  // No DNS name has a ":" or ends in a number
+  // Has a ":" -> IPv6 address; ends in a number -> IPv4 address
   if (hostname?.includes(":") || /^[0-9]+$/.test(hostname?.split(".").pop())) {
-    return hostname;
+    return hostname; // IP address
   }
   return psl.get(hostname);
 }

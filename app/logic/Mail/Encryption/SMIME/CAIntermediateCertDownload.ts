@@ -1,9 +1,8 @@
 import { AuthorityInfoAccess, Certificate } from "./SMIMEASN1";
-import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { appGlobal } from "../../../app";
 import { makeAbortable } from "../../../util/flow/Abortable";
 import { Timeout } from "../../../util/flow/Timeout";
-import { minorError } from "../../../util/error";
+import { k1MinuteMS } from "../../../util/date";
 import { assert, type URLString } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 
@@ -14,10 +13,10 @@ import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
  */
 export class CAIntermediateCertDownload {
   /** By URL */
-  protected readonly downloads = new Map<URLString, Promise<Certificate[]>>();
+  protected readonly downloads = new Map<URLString, Promise<Uint8Array>>();
 
-  /** @returns the certificates at `url`, see `issuerURL()` */
-  async download(url: URLString): Promise<Certificate[]> {
+  /** @returns the file at `url`, see `issuerURL()`: a DER certificate or a PKCS#7 with certificates */
+  async download(url: URLString): Promise<Uint8Array> {
     let download = this.downloads.get(url);
     if (!download) {
       download = this.fetchCertificates(url);
@@ -44,7 +43,7 @@ export class CAIntermediateCertDownload {
     return null;
   }
 
-  protected async fetchCertificates(url: URLString): Promise<Certificate[]> {
+  protected async fetchCertificates(url: URLString): Promise<Uint8Array> {
     const kTimeoutSeconds = 10;
     let abort = new AbortController();
     let timeout = new Timeout(kTimeoutSeconds, () => abort.abort());
@@ -53,12 +52,10 @@ export class CAIntermediateCertDownload {
       let answer = new Uint8Array(await makeAbortable(ky.get(url, { result: "arrayBuffer" }), abort));
       const kMaxBytes = 256 * 1024;
       assert(answer.length <= kMaxBytes, `The CA certificate at ${url} is too large`);
-      return SMIMEPublicKey.certificatesFromDER(answer);
+      return answer;
     } catch (ex) {
-      minorError(ex);
-      const kRetryAfterMS = 10 * 60 * 1000;
-      setTimeout(() => this.downloads.delete(url), kRetryAfterMS);
-      return [];
+      setTimeout(() => this.downloads.delete(url), 10 * k1MinuteMS); // retry after 10 min
+      throw ex;
     } finally {
       timeout.fulfilled();
     }

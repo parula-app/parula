@@ -2,6 +2,7 @@ import { KeyStatus, SMIMEPublicKey, verifySignature } from "./SMIMEPublicKey";
 import { Certificate, SignedData } from "./SMIMEASN1";
 import { CAIntermediateCertDownload } from "./CAIntermediateCertDownload";
 import { getBaseDomainFromURL } from "../../../util/netUtil";
+import { LoopGuard } from "../../../util/flow/LoopGuard";
 import { minorError } from "../../../util/error";
 import { assert, type URLString } from "../../../util/util";
 import { ArrayColl } from "svelte-collections";
@@ -88,41 +89,58 @@ export class SMIMEDirectory {
   protected async importTrustedKey(pem: string): Promise<SMIMEPublicKey | null> {
     let key = await SMIMEPublicKey.importPublicKey(pem);
     let status = await key.keyStatus();
-    while (status == KeyStatus.ChainIncomplete && await this.addMissingIssuer(key)) {
+    const kMaxDownloads = 5;
+    let loop = new LoopGuard(kMaxDownloads, () =>
+      minorError(new Error(`The certificate chain of ${key.userIDs.first} is too long`)));
+    while (status == KeyStatus.ChainIncomplete && loop.nextRound() && await this.addMissingIssuer(key)) {
       status = await key.keyStatus();
     }
     return status == KeyStatus.Valid ? key : null;
   }
 
-  /** Adds the CA certificate that issued the end of the chain of `key`,
-   * from the URL in that certificate, if the URL is on the domain of the directory server */
+  /**
+   * Adds the CA certificate that issued the end of the chain of `key`,
+   * from the URL in that certificate, if the URL is on the domain of the directory server.
+   * @returns true, if it added a certificate to `key.chain`.
+   *   false, if it found none, or only one that is already in the chain.
+   */
   protected async addMissingIssuer(key: SMIMEPublicKey): Promise<boolean> {
-    const kMaxChainLength = 5;
-    if (key.chain.length >= kMaxChainLength) {
-      minorError(new Error(`The certificate chain of ${key.userIDs.first} is too long`));
-      return false;
-    }
-    let cert = Certificate.decodePEM((key.chain.last ?? key).certificate, { label: "CERTIFICATE" });
-    let url = SMIMEDirectory.intermediateCertDownload.issuerURL(cert);
+    let chainEnd = Certificate.decodePEM((key.chain.last ?? key).certificate, { label: "CERTIFICATE" });
+    let url = SMIMEDirectory.intermediateCertDownload.issuerURL(chainEnd);
     if (!url) {
       return false;
     }
+    // Only download from user's own directory server,
+    // to avoid certs in emails causing pingbacks to the sender, same as remote images.
     let domain = getBaseDomainFromURL(url);
     if (!domain || domain != getBaseDomainFromURL(this.serverURL)) {
       return false;
     }
-    for (let issuer of await SMIMEDirectory.intermediateCertDownload.download(url)) {
-      if (!await verifySignature(cert, issuer)) {
-        continue;
-      }
-      let issuerKey = new SMIMEPublicKey();
-      await issuerKey.setCertificate(issuer);
-      if (key.chain.some(chainKey => chainKey.fingerprint == issuerKey.fingerprint)) {
-        return false;
-      }
-      key.chain.add(issuerKey);
-      return true;
+    let issuers: Certificate[];
+    try {
+      let file = await SMIMEDirectory.intermediateCertDownload.download(url);
+      issuers = SMIMEPublicKey.certificatesFromDER(file);
+    } catch (ex) {
+      minorError(ex);
+      return false;
     }
-    return false;
+    // A PKCS#7 file can hold several certificates: take the one that signed the end of the chain
+    let issuer: Certificate | null = null;
+    for (let downloaded of issuers) {
+      if (await verifySignature(chainEnd, downloaded)) {
+        issuer = downloaded;
+        break;
+      }
+    }
+    if (!issuer) {
+      return false;
+    }
+    let issuerKey = new SMIMEPublicKey();
+    await issuerKey.setCertificate(issuer);
+    if (key.chain.some(chainKey => chainKey.fingerprint == issuerKey.fingerprint)) {
+      return false;
+    }
+    key.chain.add(issuerKey);
+    return true;
   }
 }
