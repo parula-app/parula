@@ -86,6 +86,20 @@ describe("S/MIME signed part with its own From:", () => {
   });
 });
 
+describe("S/MIME opaque-signed content with its own From:", () => {
+  test("that is the outer From: is signed", async () => {
+    let email = await readMessage(kOpaqueSignedWithInnerFrom);
+    expectSigned(email);
+  });
+
+  test("that is another address than the outer From: is not signed", async () => {
+    // The certificate is also for bob@, but the signed content says that Alice wrote it
+    let email = await readMessage(kOpaqueSignedWithInnerFrom.replace("From: Alice <alice@example.com>", "From: Bob <bob@example.com>"));
+    expect(email.from.emailAddress).toBe("bob@example.com");
+    expectNotSigned(email);
+  });
+});
+
 /* openssl req -x509 -newkey rsa:2048 -nodes -days 7300 \
  *   -subj "/CN=Bob/emailAddress=bob@example.com" \
  *   -addext "basicConstraints=critical,CA:FALSE" \
@@ -216,4 +230,55 @@ o86BJ/3hwl2KF2WOp22InpV3by3MOPz9AMNr3XrYD4hSCISZ+XlRsyYY9749lbNF
 
 ------D3DBE3101F3EB954BE6767B05631E979--
 
+`;
+
+/* Same certificate commands as above, but another key
+ * openssl smime -sign -nodetach -binary -md sha256
+ * The signed content carries `From:`, as with header protection, RFC 9788. */
+const kOpaqueSignedWithInnerFrom = `From: Alice <alice@example.com>
+To: User <user@example.com>
+Subject: Opaque-signed test with protected headers
+Date: Fri, 06 Nov 2026 09:00:00 +0000
+Message-ID: <sig-opaque-innerfrom@example.com>
+MIME-Version: 1.0
+Content-Disposition: attachment; filename="smime.p7m"
+Content-Type: application/x-pkcs7-mime; smime-type=signed-data; name="smime.p7m"
+Content-Transfer-Encoding: base64
+
+MIIGqAYJKoZIhvcNAQcCoIIGmTCCBpUCAQExDzANBglghkgBZQMEAgEFADB/Bgkq
+hkiG9w0BBwGgcgRwQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PXV0
+Zi04OyBocD0iY2xlYXIiDQpGcm9tOiBBbGljZSA8YWxpY2VAZXhhbXBsZS5jb20+
+DQoNCkhlbGxvLCB0aGlzIGlzIHNpZ25lZC4NCqCCA5wwggOYMIICgKADAgECAhRS
+Y56Gm6ZLVOLffmTRLAkj0bF9zjANBgkqhkiG9w0BAQsFADAyMQ4wDAYDVQQDDAVB
+bGljZTEgMB4GCSqGSIb3DQEJARYRYWxpY2VAZXhhbXBsZS5jb20wHhcNMjYxMTA2
+MTAyODUzWhcNNDYxMTAxMTAyODUzWjAyMQ4wDAYDVQQDDAVBbGljZTEgMB4GCSqG
+SIb3DQEJARYRYWxpY2VAZXhhbXBsZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IB
+DwAwggEKAoIBAQDLJoSeiKZGXDV/UqFPAUnFuXfBJCOkLMw+PRf0+7dNjz/3OqbA
+U4x+UUxnO8HZixCiAcSDkLoky4I/sDYX5zVk5q6uIRvf/IRK1dStQh/QvDhl5+nj
+DHHHOMCNgkiOOwCtz8eMi0eGe/vMo4dM+AND1fUYiKe9Wg2dOU3TvqgC+kdQUNbi
+ikVbtDCsA1YmNiK0sUn3HQV2RycREQqOlP7fD9YEUHCqaqJ0jq8kvJBg5TPsSTns
+dPAH4uo0t+DuyqVEsi+pywK7ow5d2SATXkRYZxtfWGyy0+oxmrCCLggNnGnx1I1K
+Bxp0TREPi7rp2pNoKADUDf0e1JcVRFHfqeC7AgMBAAGjgaUwgaIwHQYDVR0OBBYE
+FE+6emaolps/ciICmPn8V/zqWiOuMB8GA1UdIwQYMBaAFE+6emaolps/ciICmPn8
+V/zqWiOuMC0GA1UdEQQmMCSBEWFsaWNlQGV4YW1wbGUuY29tgQ9ib2JAZXhhbXBs
+ZS5jb20wDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYI
+KwYBBQUHAwQwDQYJKoZIhvcNAQELBQADggEBAMF5RLn1F3vFuEl3ZDwphmtZ2+1s
+LYQj+DDKhYXAALGHsxpbqOoxjzs8KWOMmIFhjEQJLu71vsbLOzhPHN75C63FhKwD
+sXG3qqPDHkCqf9TnkLLirGEXpJCRy32pTqajbcKCr36XBu5MO1ZYtrFbbObgmTBx
+Jcw3cXjOzoC4lyYg1rVp0UyuGx5kXMF2hmYY7uTaEVdxEgdf0Fp5voUgz65qp6By
+r1yfw4uZtXli9G1arRF3StRzv8sD4t46eTdKkz6MFqvQt+MVflDwNJ8mG0MNRPUh
+1TDzyXUcpQ8WhzFq6vYW4C5b4YCKbWV//WJTr4LgnYcU/FtRY1t+YMMcJz0xggJc
+MIICWAIBATBKMDIxDjAMBgNVBAMMBUFsaWNlMSAwHgYJKoZIhvcNAQkBFhFhbGlj
+ZUBleGFtcGxlLmNvbQIUUmOehpumS1Ti335k0SwJI9Gxfc4wDQYJYIZIAWUDBAIB
+BQCggeQwGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcN
+MjYxMTA2MTAyODUzWjAvBgkqhkiG9w0BCQQxIgQg9p7Vk4kZx2O3zue+IGRiW4jg
+mIYGuT346YPOxynWSLMweQYJKoZIhvcNAQkPMWwwajALBglghkgBZQMEASowCwYJ
+YIZIAWUDBAEWMAsGCWCGSAFlAwQBAjAKBggqhkiG9w0DBzAOBggqhkiG9w0DAgIC
+AIAwDQYIKoZIhvcNAwICAUAwBwYFKw4DAgcwDQYIKoZIhvcNAwICASgwDQYJKoZI
+hvcNAQEBBQAEggEAnWhrIikjJEBKXZPmXVouu55Q63/7M11PjdXG6TMlWReQIFSU
+z7FoBYS8YdRVgIQqB4o/MEkZ+kF6aJHapvBm+qSlJVdkcpnRez/fWJo9tlpJLFUS
+uHTQ7VISxQ+jNKatQ0Ut8hsXoc7XDxHXyVHrskOghJAYfJDu5Cvl2Msgmb+egaVv
+xwAkLtwaveuDG8a4PDtdftfnBUarL9rAW7dSQ7ExM4C78ozU1zOdeVn9EOCcqLUH
+4N0StiF5FUsv2s1ukl3vve7pQplsBAkXAytypdtzxphdJEmYLtUA9bdSqwXOF3LO
+ZuZnE5nKJtvsdSEsi1se1r3axTKJ66hVB1h/1w==
 `;

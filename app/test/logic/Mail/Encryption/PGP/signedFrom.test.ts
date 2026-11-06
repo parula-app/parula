@@ -72,6 +72,11 @@ async function newContact(sender: MailIdentity, ...emailAddresses: string[]): Pr
  * @param outerFrom `From:` of the message as it arrives. The outer headers
  *   are not signed, so anybody can put anything there. */
 async function sendAndReceive(signedHeaders: string, encrypt: boolean, sender = alice, outerFrom = "Alice <alice@example.com>"): Promise<EMail> {
+  let sent = await send(signedHeaders, encrypt, sender);
+  return await receive(`From: ${outerFrom}\r\n` + sent.replace(/^From: .*\r\n/m, ""));
+}
+
+async function send(signedHeaders: string, encrypt: boolean, sender = alice): Promise<string> {
   innerMIME = signedHeaders + kBody;
   let mail = folder.newEMail();
   mail.identity = sender;
@@ -79,11 +84,12 @@ async function sendAndReceive(signedHeaders: string, encrypt: boolean, sender = 
   mail.to.add(userUID);
   mail.signedByKeyID = sender.encryptionPrivateKeys.first.id;
   mail.shouldEncrypt = encrypt;
-  let sent = (await PGPSend.encryptAndSign(mail)).sendRawMIME;
-  sent = `From: ${outerFrom}\r\n` + sent.replace(/^From: .*\r\n/m, "");
+  return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
+}
 
+async function receive(mime: string): Promise<EMail> {
   let email = folder.newEMail();
-  email.mime = new TextEncoder().encode(sent);
+  email.mime = new TextEncoder().encode(mime);
   await email.parseMIME();
   return email;
 }
@@ -145,6 +151,20 @@ describe("PGP encrypted and signed message", () => {
   });
 });
 
+describe("PGP message that was signed, then encrypted without signing again", () => {
+  test("is signed", async () => {
+    let signedMIME = await send(kHeaders, false);
+    let openPGP = await import("openpgp");
+    let encrypted = await openPGP.encrypt({
+      message: await openPGP.createMessage({ text: signedMIME }),
+      encryptionKeys: await (userUID.encryptionPublicKey as PGPPublicKey).openPGPPublicKey(openPGP),
+    });
+    let email = await receive(kEncryptedHeaders + encrypted + "\r\n--encrypted--\r\n");
+    expect(email.wasEncrypted).toBe(true);
+    expectSigned(email);
+  });
+});
+
 const kContentHeaders = `Content-Type: text/plain; charset=utf-8
 `;
 
@@ -161,3 +181,20 @@ const kHeadersFromCEO = kHeaders.replace("From: Alice <alice@example.com>", "Fro
 const kBody = `
 Hello
 `;
+
+const kEncryptedHeaders = [
+  "From: Alice <alice@example.com>",
+  "To: User <user@example.com>",
+  "MIME-Version: 1.0",
+  'Content-Type: multipart/encrypted; protocol="application/pgp-encrypted"; boundary="encrypted"',
+  "",
+  "--encrypted",
+  "Content-Type: application/pgp-encrypted",
+  "",
+  "Version: 1",
+  "",
+  "--encrypted",
+  'Content-Type: application/octet-stream; name="encrypted.asc"',
+  "",
+  "",
+].join("\r\n");

@@ -183,15 +183,16 @@ export class EMail extends Message {
    * with it. The key travels with the message - in the CMS blob for S/MIME,
    * in the AutoCrypt header for PGP - so this is the only place where we
    * have it for senders who are not in the addressbook.
-   * Only keys that were issued for the `From:` address describe the sender.
+   * Only keys that were issued for the `From:` address describe the sender,
+   * otherwise the message is not signed.
    * @param signer null, if the signature did not verify */
   rememberSigner(signer: PublicKey | null) {
+    if (!signer?.isForEMailAddress(this.from?.emailAddress)) {
+      signer = null;
+    }
     this.signedKey = signer;
     this.signedByKeyID = signer?.id ?? null;
     if (!signer) {
-      return;
-    }
-    if (!signer.isForEMailAddress(this.from?.emailAddress)) {
       return;
     }
     let known = this.from.encryptionPublicKey;
@@ -200,9 +201,9 @@ export class EMail extends Message {
     }
   }
 
-  /** The outer headers aren't signed. If the signed content has its own
+  /** The outer headers aren't signed. If the signed part has its own
    * `From:`, the signature counts only if it's the same as the outer one.
-   * @param signedMIME what the signature covers */
+   * @param signedMIME the signed part of a `multipart/signed`, which the reader doesn't parse otherwise */
   async signedFromMatches(signedMIME: Uint8Array): Promise<boolean> {
     let mime = new TextDecoder().decode(signedMIME);
     let headerEnd = mime.indexOf("\r\n\r\n");

@@ -37,6 +37,7 @@ export class PGPReadProcessor extends EMailProcessor {
     email.system = EncryptionSystem.PGP;
     let openPGP = await import("openpgp");
     if (isLogging) console.log("MIME", mime, "encrypted", encrypted);
+    let outerFrom = email.from.emailAddress;
     let senderPublicKeys = await this.getPublicKeysForEmailAddress(email.from, email.sent, email);
     let senderOpenPGPKeys: OpenPGP.PublicKey[] = [];
     for (let publicKey of senderPublicKeys) {
@@ -61,11 +62,12 @@ export class PGPReadProcessor extends EMailProcessor {
         date: email.sent,
       });
       email.wasEncrypted = true;
+      let signer: PGPPublicKey | null = null;
       if (decryptedResult.signatures?.length) {
-        await this.verifySigner(email, decryptedResult.signatures, decryptedResult.data, senderPublicKeys, openPGP);
+        signer = await this.checkSignatures(decryptedResult.signatures, senderPublicKeys, email.sent, openPGP);
       }
       // TODO If inner MIME doesn't contain headers, keep the outer ones
-      await this.updateMIME(email, decryptedResult.data);
+      await this.updateMIME(email, decryptedResult.data, outerFrom, signer);
     } else if (detachedSignature) { // why `else`: don't overwrite the signature within the encrypted part
       await email.parseHeaders();
       let signedPart = getSignedCleartext(email);
@@ -85,7 +87,8 @@ export class PGPReadProcessor extends EMailProcessor {
         format: "binary",
         // date: email.sent, // TODO plus a few minutes. Getting "Signature creation time is in the future"
       });
-      await this.verifySigner(email, verificationResult.signatures, signedBinary, senderPublicKeys, openPGP);
+      let signer = await this.checkSignatures(verificationResult.signatures, senderPublicKeys, email.sent, openPGP);
+      email.rememberSigner(await email.signedFromMatches(signedBinary) ? signer : null);
       email.attachments.remove(detachedSignaturePart);
     }
   }
@@ -120,20 +123,19 @@ export class PGPReadProcessor extends EMailProcessor {
     return null;
   }
 
-  /** The outer headers aren't signed, so the signature counts only if the
-   * key is for `From:`. Otherwise, the message is not signed. */
-  protected async verifySigner(email: EMail, signatures: OpenPGPVerificationResult[], signedContent: Uint8Array, senderPublicKeys: Collection<PGPPublicKey>, openPGP: OpenPGPModule) {
-    let signer = await this.checkSignatures(signatures, senderPublicKeys, email.sent, openPGP);
-    let isFrom = signer?.isForEMailAddress(email.from.emailAddress) && await email.signedFromMatches(signedContent);
-    email.rememberSigner(isFrom ? signer : null);
-  }
-
   /** Replace the email with this new decrypted email */
-  async updateMIME(email: EMail, content: Uint8Array) {
+  async updateMIME(email: EMail, content: Uint8Array, outerFrom: string, signer: PGPPublicKey | null) {
     email.downloadComplete = false;
     email.mime = content;
     email.resetProperties();
     await email.parseMIME();
+    if (email.from.emailAddress.toLowerCase() != outerFrom.toLowerCase()) {
+      // Treat as phishing
+      console.warn("PGP signature ignored, because inner signed From: is", email.from.emailAddress, "but outer header From: is", outerFrom);
+      email.rememberSigner(null);
+    } else if (signer) { // else keep a signature that parseMIME() found inside
+      email.rememberSigner(signer);
+    }
     await email.saveCompleteMessage();
   }
 
