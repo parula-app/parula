@@ -19,7 +19,7 @@ globalThis.indexedDB ??= {
 } as any;
 
 /**
- * All fixtures below contain the same 1024 bit key and certificate for
+ * Most fixtures below contain the same 1024 bit key and certificate for
  * `test@example.com`, and were made with `openssl pkcs12 -export`,
  * each with the ciphers that one of the common exporters uses.
  */
@@ -124,6 +124,28 @@ describe("PKCS#12 import", () => {
     // The key must still work after we encrypted it with the passphrase again
     let rawKey = await key.decryptKey();
     expect(rawKey.n).toBe(RSAPrivateKey.decode(PrivateKeyInfo.decode(p12.keys[0]).privateKey).n);
+  });
+
+  test("The certificates can be in any order in the file", async () => {
+    let keys: SMIMEPrivateKey[] = [];
+    for (let fixture of [kLeafFirstFixture, kRootFirstFixture]) {
+      let p12 = await readFixture(fixture);
+      let key = await SMIMEPrivateKey.importPrivateKey(await p12.toPEM(), kPassphrase);
+      // The certificate of the key, not of a CA
+      let certificate = Certificate.decodePEM(key.certificate, { label: "CERTIFICATE" });
+      let publicKey = RSAPublicKey.decode(certificate.tbsCertificate.publicKey.subjectPublicKey.data);
+      expect(publicKey.n).toBe(RSAPrivateKey.decode(PrivateKeyInfo.decode(p12.keys[0]).privateKey).n);
+      // The chain goes from the CA that issued it up to the root
+      expect(key.chain.contents.map(ca => ca.commonName)).toEqual(["Test Intermediate CA", "Test Root CA"]);
+      keys.push(key);
+    }
+    expect(keys[1].certificate).toBe(keys[0].certificate);
+  });
+
+  test("A key that is not RSA is rejected as unsupported", async () => {
+    let p12 = await readFixture(kECFixture);
+    await expect(async () => SMIMEPrivateKey.importPrivateKey(await p12.toPEM(), kPassphrase))
+      .rejects.toThrow(/unsupported/i);
   });
 
   test("The file that the user picked is read as .p12 or as PEM", async () => {
@@ -278,6 +300,145 @@ const kTripleDESChainFixture = `
   EAdjJsQJdhni0uR5RMLmrjmbdIsan+ikxhoPS6tj6jJGFngr7b6d/EIAAQ+R+tleqdtkl/ZlhqIx
   JTAjBgkqhkiG9w0BCRUxFgQUKahUr+VaNwpFeLs/0tN7ZLON0+kwMTAhMAkGBSsOAwIaBQAEFPKM
   cKU81QDv97Net38MmYKZoviZBAhwAxESlWr9oAICCAA=
+`;
+
+/** AES again, but another key, whose certificate for `test@example.com` comes
+ * first, then the intermediate CA that issued it, then the root CA */
+const kLeafFirstFixture = `
+  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
+  5QQIuyx8aSHtB0gCAggA
+`;
+
+/** The same key and certificates, but the root CA first and the certificate of the key last.
+ * OpenSSL always writes the certificate of the key first, so this was made with
+ * `openssl pkcs12 -export -nocerts -certfile root-intermediate-leaf.pem`. */
+const kRootFirstFixture = `
+  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
+`;
+
+/** AES again, but with an EC key, which we do not support */
+const kECFixture = `
+  MIIEbAIBAzCCBCIGCSqGSIb3DQEHAaCCBBMEggQPMIIECzCCAsIGCSqGSIb3DQEHBqCCArMwggKv
+  AgEAMIICqAYJKoZIhvcNAQcBMFcGCSqGSIb3DQEFDTBKMCkGCSqGSIb3DQEFDDAcBAiEhB3mk5TR
+  8AICCAAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEHF6wgKB9ieNMWeZFQcxRsGAggJArhWq
+  3QCy9Ig7RoDq98WdKFoe1NfUjU/D2KjLEk/LuD1nsfS4lAYa+t0s/HaMMYOtyfmzH/quIttxdfGQ
+  InSEHwbcwziRm9cS04xcTjatyNRaEHAdlRGnE9AEfmG2r9o4jslxjWHgkoM0MuyQfZOzgvHrYOjF
+  MTkQTdhgg+2aXYVIPo6Eh61bLvNxv9wzmvkb5myMnZn9LBJDKzmfnK6Qmb23Y1jVRRoFHXY2eLhr
+  3Lqhby/PcKcP8++imvwJOhawDtyHLa8xh+vFsk1ziQZ657Oy8DWRV4Ase0q04jcXSFf/jmvQ2rOe
+  q/16+S4RXGLfd9EVcX+3ceRvKNj4K1ArZdNJhBD7wQF7GdBKJzwh5r1RKpd5p3w2QYm6tVu05fHK
+  YH/+31XSm29Wuwwd9NBAxqXAwg8PqVO+Uim9yJmNVGmDTz0bRSCo+FPaSjVgXfthCPXuP/SkgsIw
+  ztm4PAFbBDdsGO55RUmEb3ps0cgb5wQ7b0r1TPXUlMrjy1XiyxZ2Sq6wxnvDSN+Jt1z1iS8ZU/hd
+  FilvmygF360xo4h/NBQRuQdmkyrURpXjGiiLlKyWsEAhO1fHgBI79yhnxqohkavRf3TzwFMDn6HB
+  7Xe+yq80VzDq0+7ek/G884gom60ZwipdeuaDhs8Rslo6rVY6umJ389FUJF/PhsJq5oHWz6qTJsdg
+  1sBMj1I6VE4Hw6S6I7qfsdDYcno3jpvY4okUR+yhbuePkzCaSNRN4Edbdxqb5HFAa1t06W39zdgS
+  3DcgMIIBQQYJKoZIhvcNAQcBoIIBMgSCAS4wggEqMIIBJgYLKoZIhvcNAQwKAQKgge8wgewwVwYJ
+  KoZIhvcNAQUNMEowKQYJKoZIhvcNAQUMMBwECC7/Ma532/O6AgIIADAMBggqhkiG9w0CCQUAMB0G
+  CWCGSAFlAwQBKgQQbg0G2/EpDnxNM8XzZP2DvwSBkMyGRGagJoDiWzo+XLOw3wNOa39CfVBvQKLS
+  C+zwpJEeBz/NoFptrPhMUZb9QfZe/k2XA0qFP1aicxEQkT2u5pA1Ci/cBMC441n2mPnSxAVGSM4n
+  walKUBMz8udl12B6yX37s4dqeV5nHv9TX1P0JxRLVK0L8apx/lDmrhDEgGFgGNjG0BiMzFjwSFHs
+  ZSUnDjElMCMGCSqGSIb3DQEJFTEWBBTEFPesDESg9jOF324tupadREBEWzBBMDEwDQYJYIZIAWUD
+  BAIBBQAEIMdtEf88grvt6RYgRqc0u3D2atlf9MrzwCCMiDuCme3pBAjfq2YOT6S+3AICCAA=
 `;
 
 /** pbeWithSHAAnd128BitRC2CBC for the certificate,

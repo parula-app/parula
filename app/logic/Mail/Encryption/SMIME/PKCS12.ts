@@ -1,4 +1,5 @@
-import { Any, AuthenticatedSafe, CertBag, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, SafeContents, type AlgorithmIdentifier } from "./SMIMEASN1";
+import { Any, AuthenticatedSafe, CertBag, Certificate, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SafeContents, type AlgorithmIdentifier } from "./SMIMEASN1";
+import { sameName } from "./SMIMEVerify";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { rc2Decrypt, rc4Decrypt, tripleDESDecrypt } from "./legacyCiphers";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
@@ -45,7 +46,8 @@ export class PKCS12 {
 
   /**
    * Converts what we read to the PEM format that our S/MIME code reads:
-   * first the private key, then the certificates. The key is encrypted
+   * first the private key, then its certificate, then the CA that issued
+   * that, and so on, whatever their order in the file. The key is encrypted
    * again with the same passphrase, so that it is never stored in the clear.
    * A file with an empty passphrase gives an unencrypted key, which is the
    * form that `SMIMEPrivateKey` expects when there is no passphrase.
@@ -59,10 +61,31 @@ export class PKCS12 {
     let parts = [this.passphrase
       ? await encryptPrivateKey(this.keys[0], this.passphrase)
       : Any.encodePEM(this.keys[0], { label: "PRIVATE KEY" })];
-    for (let certificate of this.certificates) {
-      parts.push(Any.encodePEM(certificate, { label: "CERTIFICATE" }));
+    for (let certificate of this.certificatesSortedByChain()) {
+      parts.push(Certificate.encodePEM(certificate, { label: "CERTIFICATE" }));
     }
     return parts.join("\n") + "\n";
+  }
+
+  /** The certificate that matches the private key first, then its issuer, and so on up to the root,
+   * then the rest in file order (all of them, for a key that is not RSA). `addCertificate()` takes
+   * the first as the key's own and the rest as its chain, which `keyStatus()` checks in this order. */
+  protected certificatesSortedByChain(): Certificate[] {
+    let unsorted = this.certificates.map(der => Certificate.decode(der));
+    let privateKeyInfo = PrivateKeyInfo.decode(this.keys[0]);
+    if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
+      return unsorted;
+    }
+    let { n } = RSAPrivateKey.decode(privateKeyInfo.privateKey);
+    let sorted: Certificate[] = [];
+    let next = unsorted.find(cert => RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data).n == n);
+    while (next) {
+      sorted.push(next);
+      unsorted.splice(unsorted.indexOf(next), 1);
+      let issuer = next.tbsCertificate.issuer;
+      next = unsorted.find(cert => sameName(cert.tbsCertificate.subject, issuer));
+    }
+    return sorted.concat(unsorted);
   }
 
   /** Checks that the file was not modified, using the MAC over its contents.

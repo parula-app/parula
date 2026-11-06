@@ -52,6 +52,7 @@ const oids = {
   "1.2.840.113549.1.9.3": "contentType",
   "1.2.840.113549.1.9.4": "messageDigest",
   "1.2.840.113549.1.9.5": "signingTime",
+  "1.2.840.113549.1.9.14": "extensionRequest",
   "1.2.840.113549.1.9.15": "smimeCapabilities",
   "1.2.840.113549.1.9.16.1.23": "authEnvelopedData",
   "1.2.840.113549.1.9.22.1": "x509Certificate",
@@ -229,6 +230,10 @@ const Extension = define<Extension>("Extension", function() {
     this.key("critical").optional().bool(),
     this.key("extnValue").octstr(),
   );
+});
+
+export const Extensions = define<Extension[]>("Extensions", function() {
+  this.seqof(Extension);
 });
 
 const GeneralName = define("GeneralName", function() {
@@ -561,7 +566,7 @@ export const CertificationRequestInfo = define("CertificationRequestInfo", funct
     this.key("version").int(),
     this.key("subject").seqof(AttributeValue),
     this.key("subjectPublicKeyInfo").use(SubjectPublicKeyInfo),
-    this.key("attributes").implicit(0).setof(Any),
+    this.key("attributes").implicit(0).use(Attributes),
   );
 });
 
