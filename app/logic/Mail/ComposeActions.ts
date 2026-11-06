@@ -211,6 +211,11 @@ export class ComposeActions {
     return clone;
   }
 
+  async editDraft(): Promise<void> {
+    await this.email.loadMIME();
+    this.email.shouldEncrypt ||= this.email.wasEncrypted;
+  }
+
   async convertInlineAttachmentsURLs() {
     let changed = false;
     let html = new DOMParser().parseFromString(this.email.rawHTMLDangerous ?? "", "text/html");
@@ -393,10 +398,9 @@ export class ComposeActions {
     let previousDrafts = this.getDrafts();
 
     this.email.isDraft = true;
-    // TODO encrypt
-    assert(!this.email.shouldEncrypt, "TODO encrypt drafts");
+    let draft = this.email.shouldEncrypt ? await SendEncrypted.encryptDraft(this.email) : this.email;
 
-    await draftFolder.addMessage(this.email);
+    await draftFolder.addMessage(draft);
 
     await this.deleteDrafts(previousDrafts);
   }
