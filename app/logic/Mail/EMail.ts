@@ -201,16 +201,6 @@ export class EMail extends Message {
     }
   }
 
-  /** The outer headers aren't signed. If the signed part has its own
-   * `From:`, the signature counts only if it's the same as the outer one.
-   * @param signedMIME the signed part of a `multipart/signed`, which the reader doesn't parse otherwise */
-  async signedFromMatches(signedMIME: Uint8Array): Promise<boolean> {
-    let mime = new TextDecoder().decode(signedMIME);
-    let headerEnd = mime.indexOf("\r\n\r\n");
-    let signedFrom = (await new PostalMIME().parse(headerEnd < 0 ? mime : mime.slice(0, headerEnd))).from;
-    return !signedFrom || signedFrom.address?.toLowerCase() == this.from.emailAddress.toLowerCase();
-  }
-
   /** Marks as spam, and deletes or moves the message, as configured */
   async treatSpam(isSpam = true) {
     if (this.pID) {

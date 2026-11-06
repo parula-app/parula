@@ -1,4 +1,5 @@
-import { EMailProcessor, ProcessingStartOn } from "../../EMailProcessor";
+import { EncryptionReadProcessor } from "../EncryptionReadProcessor";
+import { ProcessingStartOn } from "../../EMailProcessor";
 import type { EMail } from "../../EMail";
 import { MailIdentity } from "../../MailIdentity";
 import { EncryptionSystem } from "../enums";
@@ -14,7 +15,7 @@ import { gt } from "../../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
 import type { Email as PostalEmail } from "postal-mime";
 
-export class SMIMEReadProcessor extends EMailProcessor {
+export class SMIMEReadProcessor extends EncryptionReadProcessor {
   runOn = ProcessingStartOn.Parse;
   async process(email: EMail, postal: PostalEmail) {
     // There is a direct accessor to the content type in the PostalMIME object
@@ -159,7 +160,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
     }
     let signedData = SignedData.decodeFromBase64(signatureBase64, { berToDER: true });
     let signer = await verifySignedData(signedData, clearText, email.received);
-    email.rememberSigner(await email.signedFromMatches(clearText) ? signer : null);
+    email.rememberSigner(await this.signedFromMatches(email, clearText) ? signer : null);
   }
 
   /** Replaces the message with the MIME entity extracted from the CMS
