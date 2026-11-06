@@ -1,7 +1,7 @@
 // The key classes use the app singleton. Importing it first breaks the
 // import cycle, which would otherwise leave the base classes undefined.
 import { appGlobal } from "../../../../../logic/app";
-import { Attributes, Certificate, DigestInfo, Null, OctetString, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SignedData, TBSCertificate, UTCTime } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { Attributes, BasicConstraints, Certificate, DigestInfo, Null, OctetString, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SignedData, TBSCertificate, UTCTime } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { verifySignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEVerify";
 import { encrypt, decrypt, padFF } from "../../../../../logic/Mail/Encryption/SMIME/SMIMERSAES";
@@ -182,7 +182,9 @@ describe("Signature", () => {
 
   test("of a CA verifies only with the exact PKCS #1 block", async () => {
     let caKey = await generateRSAKey();
-    let ca = await signCertificate(craftCertificate("CA", "CA", caKey), caKey);
+    let caCertificate = craftCertificate("CA", "CA", caKey);
+    caCertificate.tbsCertificate.extensions = [{ extnID: "basicConstraints", critical: true, extnValue: BasicConstraints.encode({ cA: true }) }];
+    let ca = await signCertificate(caCertificate, caKey);
     async function keyStatus(leaf: Certificate): Promise<KeyStatus> {
       let key = new SMIMEPublicKey();
       await key.addCertificate(leaf);
