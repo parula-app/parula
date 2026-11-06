@@ -17,6 +17,9 @@
   export let folder: Directory;
 
   async function deleteFolder() {
+    if (!confirm($t`Do you want to permanently delete the folder ${folder.name} and all its files?`)) {
+      return;
+    }
     await folder.deleteIt();
 
     if ($selectedFolder == folder) {

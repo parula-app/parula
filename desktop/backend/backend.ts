@@ -126,11 +126,11 @@ function createType3MessageFromType2Message(WWWAuthenticate, username, password)
   return createType3Message(decodeType2Message(WWWAuthenticate), username, password);
 }
 
-async function readFile(path: string): Promise<ArrayBufferLike> {
+async function readFile(path: string): Promise<Uint8Array> {
   let fileHandle = await fsPromises.open(path, "r");
-  let { buffer } = await fileHandle.readFile();
+  let contents = await fileHandle.readFile();
   await fileHandle.close();
-  return buffer;
+  return new Uint8Array(contents.buffer, contents.byteOffset, contents.length);
 }
 async function writeFile(path: string, permissions: number, contents: Uint8Array): Promise<void> {
   await fsPromises.rm(path, { force: true });
