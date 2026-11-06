@@ -61,13 +61,16 @@ export class PKCS12 {
     let parts = [this.passphrase
       ? await encryptPrivateKey(this.keys[0], this.passphrase)
       : Any.encodePEM(this.keys[0], { label: "PRIVATE KEY" })];
-    for (let certificate of this.sortedCertificates()) {
+    for (let certificate of this.certificatesSortedByChain()) {
       parts.push(Certificate.encodePEM(certificate, { label: "CERTIFICATE" }));
     }
     return parts.join("\n") + "\n";
   }
 
-  protected sortedCertificates(): Certificate[] {
+  /** The certificate that matches the private key first, then its issuer, and so on up to the root,
+   * then the rest in file order (all of them, for a key that is not RSA). `addCertificate()` takes
+   * the first as the key's own and the rest as its chain, which `keyStatus()` checks in this order. */
+  protected certificatesSortedByChain(): Certificate[] {
     let unsorted = this.certificates.map(der => Certificate.decode(der));
     let privateKeyInfo = PrivateKeyInfo.decode(this.keys[0]);
     if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
