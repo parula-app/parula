@@ -125,3 +125,14 @@ describe("The signature counts as valid only if the certificate was valid when t
     expect(key.isValidAt(email.received)).toBe(false);
   });
 });
+
+describe("The trust that the user set", () => {
+  test("A certificate that the user distrusted stays distrusted, although a trusted CA issued it", async () => {
+    setToday("2026-10-22T12:00:00Z");
+    let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kIntermediateCA);
+    key.trustLevel = TrustLevel.Distrusted;
+    await key.keyStatus();
+    expect(key.trustLevel).toBe(TrustLevel.Distrusted);
+    expect(key.obsolete).toBe(true);
+  });
+});
