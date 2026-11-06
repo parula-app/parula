@@ -4,7 +4,7 @@ import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, Subject
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
-import { uint8ArrayToHex } from "../../../util/blob";
+import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
 import { assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
@@ -286,9 +286,22 @@ function lazyGetCACertificates(type: string): Promise<Certificate[]> {
 
 async function getCACertificatesLazy(type: string): Promise<Certificate[]> {
   let certificates: Certificate[] = [];
-  let rootCertificates: string[] = await appGlobal.remoteApp.getCACertificates(type);
+  let rootCertificates: string[] = type == "bundled"
+    ? splitPEM((await import("./roots/mozilla-email-roots.pem?raw")).default)
+    : await appGlobal.remoteApp.getCACertificates(type);
+  let notEmailRootsSHA256: string[] = type == "system" && rootCertificates.length
+    ? (await import("./roots/mozilla-not-email-roots.txt?raw")).default.split(/[\r\n]+/)
+      .filter(line => line && !line.startsWith("#")).map(line => line.split(" ")[0])
+    : [];
   for (let cert of rootCertificates) {
     try {
+      if (notEmailRootsSHA256.length) {
+        let der = base64ToUint8Array(cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", ""));
+        let hash = new Uint8Array(await crypto.subtle.digest("SHA-256", der));
+        if (notEmailRootsSHA256.includes(uint8ArrayToHex(hash))) {
+          continue;
+        }
+      }
       certificates.push(Certificate.decodePEM(cert, { label: "CERTIFICATE" }));
     } catch (ex) {
       console.log("Error decoding certificate", cert);
