@@ -132,7 +132,7 @@
     {/if}
   </RibbonTab>
 
-  {#if canSchedule && isMeeting && !isIncoming}
+  {#if !isIncoming}
     <RibbonTab label={schedulingLabel} bind:isSelected={isSchedulingSelected}>
       <RibbonGroup label={$t`Scheduling *=> Ribbon group to find a time when all attendees are available`}>
         <RibbonButton label={$t`Refresh Availability`} icon={RefreshIcon}
@@ -233,7 +233,6 @@
   export let editor: Editor;
   export let openedTool: EditorTool | null = null;
   export let showEmojis = false;
-  export let canSchedule = false;
   export let schedulingLabel: string;
   export let trackingLabel: string;
   export let isSchedulingSelected = false;

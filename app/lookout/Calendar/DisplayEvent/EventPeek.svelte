@@ -109,18 +109,18 @@
   }
 
   function onOpen() {
-    onClose();
     catchErrors(() => openEvent(event, true));
+    onClose();
   }
 
   function reply(toAll: boolean) {
-    onClose();
     openComposer(IncomingInvitation.replyToEventByMail(event, toAll));
+    onClose();
   }
 
   function onDelete() {
-    onClose();
     catchErrors(() => CalendarActions.deleteDefault(event));
+    onClose();
   }
 
   function respond(response: InvitationResponseInMessage) {

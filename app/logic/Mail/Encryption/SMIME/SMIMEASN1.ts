@@ -52,6 +52,7 @@ const oids = {
   "1.2.840.113549.1.9.3": "contentType",
   "1.2.840.113549.1.9.4": "messageDigest",
   "1.2.840.113549.1.9.5": "signingTime",
+  "1.2.840.113549.1.9.14": "extensionRequest",
   "1.2.840.113549.1.9.15": "smimeCapabilities",
   "1.2.840.113549.1.9.16.1.23": "authEnvelopedData",
   "1.2.840.113549.1.9.22.1": "x509Certificate",
@@ -230,6 +231,10 @@ const Extension = define<Extension>("Extension", function() {
   );
 });
 
+export const Extensions = define<Extension[]>("Extensions", function() {
+  this.seqof(Extension);
+});
+
 const GeneralName = define("GeneralName", function() {
   this.choice({
     otherName: this.seq().obj(this.key("typeid").objid(oids), this.key("value").any().explicit(0)).implicit(0),
@@ -243,6 +248,14 @@ const GeneralName = define("GeneralName", function() {
 
 export const SubjectAlternativeName = define("SubjectAlternativeName", function() {
   this.seqof(GeneralName);
+});
+
+export const KeyUsage = define<BitString>("KeyUsage", function() {
+  this.bitstr();
+});
+
+export const ExtKeyUsage = define<string[]>("ExtKeyUsage", function() {
+  this.seqof(Oid);
 });
 
 /** The part of a certificate that is (to be) signed */
@@ -530,7 +543,7 @@ export const CertificationRequestInfo = define("CertificationRequestInfo", funct
     this.key("version").int(),
     this.key("subject").seqof(AttributeValue),
     this.key("subjectPublicKeyInfo").use(SubjectPublicKeyInfo),
-    this.key("attributes").implicit(0).setof(Any),
+    this.key("attributes").implicit(0).use(Attributes),
   );
 });
 

@@ -2,9 +2,10 @@ import { OWANotifications } from "./OWANotifications";
 import { EventDecoder } from "../../../util/eventSource";
 import { sleep } from "../../../util/util";
 import { URLPart } from "../../../util/blob";
+import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 
 export class OWAOffice365Notifications extends OWANotifications {
-  async start(): Promise<never> {
+  protected async listen(): Promise<never> {
     let cid = "00000000-0000-0000-0000-000000000000".replace(/0/g, () => Math.floor(Math.random() * 16).toString(16));
     let json: any;
     let timerOptions: { headers: { Authorization: string } };
@@ -29,6 +30,7 @@ export class OWAOffice365Notifications extends OWANotifications {
             "Last-Event-ID": "null", // TODO Will be needed for reconnection
             Authorization: `Bearer ${response.AccessToken}`,
           },
+          signal: this.abort.signal,
         };
         // Negotiate and start requests use the main access token.
         let options = {
@@ -46,6 +48,8 @@ export class OWAOffice365Notifications extends OWANotifications {
             (allowed ? `, server allows ${allowed}` : ""));
         }
         json = await response.json();
+        // SignalR: The client should reconnect when nothing arrived for this many seconds
+        this.watchdog.restart(2 * sanitize.integerRange(json.KeepAliveTimeout, 1, 1500, 45));
         // Tell the server to start sending events.
         url = this.account.url + URLPart`notificationchannel/start?transport=serverSentEvents&cid=${cid}&connectionToken=${json.ConnectionToken}`;
         response = await fetch(url, options);
@@ -68,15 +72,19 @@ export class OWAOffice365Notifications extends OWANotifications {
         if (!stream.ok) {
           throw new Error(`stream fetch failed with HTTP ${stream.status} ${stream.statusText}`);
         }
+        this.connected();
         let eventStream = stream.body.pipeThrough(new TextDecoderStream()).pipeThrough(new TransformStream(new EventDecoder()));
         for await (let event of eventStream) {
           // Ignore the initial event and any heartbeat events
           if (event.data == "initialized" || event.data == "{}") {
+            this.watchdog.restart();
             continue;
           }
+          this.watchdog.fulfilled(); // processing the notifications may take longer
           await sleep(0.1); // Avoid racing with ourselves, if we caused the notification
           let json = JSON.parse(event.data);
           await this.account.onNotificationMessages(json.M);
+          this.watchdog.restart();
         }
         clearInterval(pingTimer);
         clearTimeout(abortTimer);

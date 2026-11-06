@@ -4,6 +4,7 @@ import { RecurrenceRule } from "../RecurrenceRule";
 import { ParticipationStatus, InvitationResponse } from "../Invitation/InvitationStatus";
 import { ContentDisposition } from "../../Abstract/Attachment";
 import { ICalContainer, ICalParser } from "./ICalParser";
+import { ICalTimezone } from "./ICalTimezone";
 import { WindowsToIANATimezone } from "./WindowsTimezone";
 import { fileExtensionForMIMEType } from "../../util/util";
 import { base64ToUint8Array, stringFromDataURL } from "../../util/blob";
@@ -18,7 +19,7 @@ import type { ArrayColl } from "svelte-collections";
  */
 export function convertICalToEvent(ics: string, event: Event): boolean {
   let parsed = new ICalParser(ics);
-  let vevents = parsed.containers.vevent;
+  let vevents = parsed.containers.vcalendar?.[0].containers.vevent;
   if (!vevents?.length) {
     return false;
   }
@@ -37,11 +38,11 @@ export function convertICalToEvent(ics: string, event: Event): boolean {
  */
 export function convertICalToEvents(iCalFile: string, newEvent: () => Event, errorCallback: (ex: Error) => void): Event[] {
   let events = [];
-  let parsed = new ICalParser(iCalFile);
-  if (!parsed.containers.vevent) {
+  let vevents = new ICalParser(iCalFile).containers.vcalendar?.flatMap(vcalendar => vcalendar.containers.vevent ?? []) ?? [];
+  if (!vevents.length) {
     throw new Error(gt`No iCal found`);
   }
-  for (let iCal of parsed.containers.vevent) {
+  for (let iCal of vevents) {
     try {
       let event = newEvent();
       convertICalContainerToEvent(iCal, event);
@@ -93,22 +94,22 @@ export function convertICalContainerToEvent(vevent: ICalContainer, event: Event)
     }
   }
   if (vevent.entries.dtstart) {
-    [event.startTime, event.timezone] = parseDate(vevent.entries.dtstart[0]);
+    [event.startTime, event.timezone] = parseDate(vevent.entries.dtstart[0], vevent);
   }
   if (vevent.entries.dtend) {
-    [event.endTime] = parseDate(vevent.entries.dtend[0]);
+    [event.endTime] = parseDate(vevent.entries.dtend[0], vevent);
   }
   if (vevent.entries.recurrenceid) {
-    [event.recurrenceStartTime] = parseDate(vevent.entries.recurrenceid[0]);
+    [event.recurrenceStartTime] = parseDate(vevent.entries.recurrenceid[0], vevent);
   }
   if (vevent.entries.dtstamp) {
-    [event.lastUpdateTime] = parseDate(vevent.entries.dtstamp[0]);
+    [event.lastUpdateTime] = parseDate(vevent.entries.dtstamp[0], vevent);
   }
   event.sequence = sanitize.integer(vevent.entries.sequence?.[0].value, 0);
   if (vevent.entries.dtstart?.[0].properties.value?.toLowerCase() == "date") {
     event.allDay = true;
   }
-  if (vevent.entries.rrule) {
+  if (vevent.entries.rrule && event.startTime) {
     event.recurrenceRule = RecurrenceRule.fromCalString(event.duration, event.timezone, event.startTime, vevent.entries.rrule[0].line);
   } else {
     event.recurrenceRule = null;
@@ -190,7 +191,11 @@ function readAttachments(vevent: ICalContainer, event: Event): void {
 
 const icalDateRegex = /^(\d{4})(\d\d)(\d\dT\d\d)(\d\d)(\d\dZ?)$/;
 
-export function parseDate(icalDate: { value: string, properties: { tzid?: string } }): [Date | null, string | null] {
+/**
+ * @param container The iCal component that contains the date, e.g. the `VEVENT`.
+ *   The `VTIMEZONE`s next to it define the `TZID`s that are not IANA timezone names.
+ */
+export function parseDate(icalDate: { value: string, properties: { tzid?: string } }, container?: ICalContainer): [Date | null, string | null] {
   let value = icalDate.value;
   let tzid = icalDate.properties.tzid || null;
   if (value.length == 8) {
@@ -228,6 +233,16 @@ export function parseDate(icalDate: { value: string, properties: { tzid?: string
     }
     return [local, tzid];
   } catch (ex) {
-    return [null, null];
+    return [vtimezoneToUTC(container, tzid, utc), null];
   }
+}
+
+/**
+ * For a `TZID` that is not an IANA timezone name, which the `VTIMEZONE`
+ * next to `container` defines, RFC 5545 3.2.19
+ * @param local The local time in the UTC fields
+ */
+function vtimezoneToUTC(container: ICalContainer | undefined, tzid: string, local: Date): Date | null {
+  let vtimezone = container?.parent.containers.vtimezone?.find(vtimezone => vtimezone.entries.tzid?.[0].value == tzid);
+  return vtimezone ? new ICalTimezone(vtimezone).toUTC(local) : null;
 }

@@ -1,8 +1,9 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
 import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo } from "./SMIMEASN1";
-import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayToHex } from "./SMIMERSAES";
+import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { appGlobal } from "../../../app";
+import { uint8ArrayToHex } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
 
@@ -60,7 +61,7 @@ export class SMIMEPublicKey extends PublicKey {
     // Do not overwrite the name that the user gave the key
     this.name ||= this.defaultName;
     let hash = new Uint8Array(await crypto.subtle.digest("SHA-256", Certificate.encode(cert)));
-    this.fingerprint = Uint8ArrayToHex(hash);
+    this.fingerprint = uint8ArrayToHex(hash);
     let { notBefore, notAfter } = cert.tbsCertificate.validity;
     this.created = sanitize.date(notBefore.value);
     this.expires = sanitize.date(notAfter.value);
@@ -101,9 +102,16 @@ export class SMIMEPublicKey extends PublicKey {
     }
   }
 
-  async keyStatus(): Promise<KeyStatus> {
+  isValidAt(date: Date): boolean {
+    return date.getTime() >= this.created.getTime() && date.getTime() <= this.expires.getTime();
+  }
+
+  async keyStatus(date = new Date()): Promise<KeyStatus> {
     if (!this.certificate) {
       return KeyStatus.NoCertificate;
+    }
+    if (!this.isValidAt(date)) {
+      return KeyStatus.Expired;
     }
     // This checks only that each certificate is validly signed by the next one
     // up to a trusted root. It does not verify basicConstraints (CA:TRUE) or
@@ -113,7 +121,7 @@ export class SMIMEPublicKey extends PublicKey {
     // itself for identity binding without adding those X.509 path checks first.
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
     for (let key of this.chain) {
-      if (key.obsolete) {
+      if (key.obsolete || !key.isValidAt(date)) {
         console.log("obsolete certificate in chain");
         return KeyStatus.ChainInvalid;
       }
@@ -260,6 +268,7 @@ export enum KeyStatus {
   ChainIncomplete,
   SelfSignedRoot,
   Valid,
+  Expired,
 }
 
 export function splitPEM(key: string): string[] {

@@ -41,6 +41,15 @@ export function goBack() {
 /** When `goTo()` is called, we need to update `selectedApp` accordingly */
 function syncSelectedApp(params: { location: RawLocation }) {
   let url = params.location.pathname as string;
+  // Windows share their URL, e.g. one window per event, so find the window by its params
+  let pageParams = getParams(params.location.state);
+  for (let app of mustangApps) {
+    let subApp = app.subApps.find(subApp => subApp.windowParams == pageParams && url.startsWith(subApp.appURL));
+    if (subApp) {
+      selectedApp.set(subApp);
+      return;
+    }
+  }
   let matchingLength = 0;
   let selectedAppURL = get(selectedApp)?.appURL;
   if (selectedAppURL &&
@@ -55,7 +64,6 @@ function syncSelectedApp(params: { location: RawLocation }) {
     }
   }
 }
-history.listen(syncSelectedApp);
 
 export function bringAppToFront() {
   window.focus();
@@ -92,3 +100,6 @@ function deletePage(id: HistoryIDObj | AnyObject): void {
   }
   historyParams.delete(id.id);
 }
+
+// After `historyParams`, because `listen()` calls `syncSelectedApp()` right away
+history.listen(syncSelectedApp);
