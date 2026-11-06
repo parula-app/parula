@@ -1,4 +1,4 @@
-import { Any, AuthenticatedSafe, CertBag, Certificate, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SafeContents, type AlgorithmIdentifier } from "./SMIMEASN1";
+import { Any, AuthenticatedSafe, CertBag, Certificate, ECPrivateKey, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SafeContents, type AlgorithmIdentifier, type SubjectPublicKeyInfo } from "./SMIMEASN1";
 import { sameName } from "./SMIMEVerify";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { rc2Decrypt, rc4Decrypt, tripleDESDecrypt } from "./legacyCiphers";
@@ -68,17 +68,13 @@ export class PKCS12 {
   }
 
   /** The certificate that matches the private key first, then its issuer, and so on up to the root,
-   * then the rest in file order (all of them, for a key that is not RSA). `addCertificate()` takes
+   * then the rest in file order (all of them, for a key that is neither RSA nor EC). `addCertificate()` takes
    * the first as the key's own and the rest as its chain, which `keyStatus()` checks in this order. */
   protected certificatesSortedByChain(): Certificate[] {
     let unsorted = this.certificates.map(der => Certificate.decode(der));
     let privateKeyInfo = PrivateKeyInfo.decode(this.keys[0]);
-    if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
-      return unsorted;
-    }
-    let { n } = RSAPrivateKey.decode(privateKeyInfo.privateKey);
     let sorted: Certificate[] = [];
-    let next = unsorted.find(cert => RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data).n == n);
+    let next = unsorted.find(cert => this.isOfKey(cert.tbsCertificate.publicKey, privateKeyInfo));
     while (next) {
       sorted.push(next);
       unsorted.splice(unsorted.indexOf(next), 1);
@@ -86,6 +82,22 @@ export class PKCS12 {
       next = unsorted.find(cert => sameName(cert.tbsCertificate.subject, issuer));
     }
     return sorted.concat(unsorted);
+  }
+
+  /** Whether the public key of a certificate belongs to the private key: the same RSA modulus, or the same EC point */
+  protected isOfKey(publicKey: SubjectPublicKeyInfo, privateKeyInfo: PrivateKeyInfo): boolean {
+    let algorithm = privateKeyInfo.privateKeyAlgorithm.algorithm;
+    if (publicKey.algorithmIdentifier.algorithm != algorithm) {
+      return false;
+    }
+    if (algorithm == "ecPublicKey") {
+      let point = ECPrivateKey.decode(privateKeyInfo.privateKey).publicKey?.data;
+      return !!point && !indexedDB.cmp(point, publicKey.subjectPublicKey.data);
+    }
+    if (algorithm == "rsaEncryption") {
+      return RSAPublicKey.decode(publicKey.subjectPublicKey.data).n == RSAPrivateKey.decode(privateKeyInfo.privateKey).n;
+    }
+    return false;
   }
 
   /** Checks that the file was not modified, using the MAC over its contents.

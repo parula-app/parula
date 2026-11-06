@@ -255,6 +255,22 @@ export const ECDSASigValue = define<ECDSASigValue>("ECDSASigValue", function() {
   );
 });
 
+/** An EC private key, inside the `PrivateKeyInfo`. RFC 5915 section 3 */
+export interface ECPrivateKey {
+  version: bigint;
+  privateKey: Uint8Array;
+  parameters?: Uint8Array;
+  publicKey?: BitString;
+}
+export const ECPrivateKey = define<ECPrivateKey>("ECPrivateKey", function() {
+  this.seq().obj(
+    this.key("version").int(),
+    this.key("privateKey").octstr(),
+    this.key("parameters").optional().explicit(0).use(Any),
+    this.key("publicKey").optional().explicit(1).bitstr(),
+  );
+});
+
 /** A certificate extension */
 interface Extension {
   extnID: string | number[],
@@ -399,7 +415,12 @@ export const RSAPrivateKey = define<RSAPrivateKey>("RSAPrivateKey", function() {
   );
 });
 
-export const PrivateKeyInfo = define("PrivateKeyInfo", function() {
+export interface PrivateKeyInfo {
+  version: bigint;
+  privateKeyAlgorithm: AlgorithmIdentifier;
+  privateKey: Uint8Array;
+}
+export const PrivateKeyInfo = define<PrivateKeyInfo>("PrivateKeyInfo", function() {
   this.seq().obj(
     this.key("version").int(),
     this.key("privateKeyAlgorithm").use(AlgorithmIdentifier),
