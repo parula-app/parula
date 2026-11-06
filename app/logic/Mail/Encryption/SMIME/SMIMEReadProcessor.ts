@@ -163,7 +163,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
   /** The outer headers aren't signed, so the signature counts only if the
    * certificate was issued for `From:`. Otherwise, the message is not signed. */
   protected async verify(email: EMail, signedData: any, content: Uint8Array) {
-    let signer = await verifySignedData(signedData, content);
+    let signer = await verifySignedData(signedData, content, email.received);
     let isFrom = signer?.isForEMailAddress(email.from.emailAddress) && await email.signedFromMatches(content);
     email.rememberSigner(isFrom ? signer : null);
   }
