@@ -22,6 +22,7 @@ import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { PromiseAllDone } from "../util/flow/PromiseAllDone";
 import { Lock } from "../util/flow/Lock";
 import { RunOnce } from "../util/flow/RunOnce";
+import { LoopGuard } from "../util/flow/LoopGuard";
 import { notifyChangedProperty } from "../util/Observable";
 import { gt } from "../../l10n/l10n";
 import { Collection, ArrayColl, MapColl, SetColl } from "svelte-collections";
@@ -358,6 +359,7 @@ export class EMail extends Message {
     });
   }
 
+  protected processorLoop: LoopGuard | null = null;
   async parseMIME(): Promise<MIME> {
     assert(this.mime?.length, "MIME source not yet downloaded");
     assert(this.mime instanceof Uint8Array, "MIME source should be a byte array");
@@ -433,14 +435,26 @@ export class EMail extends Message {
     await Promise.all(this.attachments.contents.map(a => a.checkExecutable()));
 
     // Run processors, filters, calendar invitations, SML, etc.
-    for (let processor of EMailProcessorList.processors) {
-      if (processor.runOn != ProcessingStartOn.Parse) {
-        continue;
+    const kMaxLayers = 10;
+    let isOutermost = !this.processorLoop;
+    this.processorLoop ??= new LoopGuard(kMaxLayers, () => {
+      throw new Error("Too many nested encryption or signature layers");
+    });
+    try {
+      this.processorLoop.nextRound();
+      for (let processor of EMailProcessorList.processors) {
+        if (processor.runOn != ProcessingStartOn.Parse) {
+          continue;
+        }
+        try {
+          await processor.process(this, mail);
+        } catch (ex) {
+          this.folder.account.errorCallback(ex);
+        }
       }
-      try {
-        await processor.process(this, mail);
-      } catch (ex) {
-        this.folder.account.errorCallback(ex);
+    } finally {
+      if (isOutermost) {
+        this.processorLoop = null;
       }
     }
     return mail;
