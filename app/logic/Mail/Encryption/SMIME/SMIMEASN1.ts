@@ -533,10 +533,7 @@ const RecipientInfo = define("RecipientInfo", function() {
     ktri: this.seq().obj(
       this.key("version").int(),
       this.key("rid").choice({
-        issuerAndSerialNumber: this.seq().obj(
-          this.key("issuer").seqof(AttributeValue),
-          this.key("serialNumber").int(),
-        ),
+        issuerAndSerialNumber: this.use(IssuerAndSerialNumber),
         subjectKeyIdentifier: this.implicit(0).octstr(),
       }),
       this.key("keyEncryptionAlgorithm").use(AlgorithmIdentifier),
@@ -677,10 +674,7 @@ export const SignerInfo = define("SignerInfo", function() {
   this.seq().obj(
     this.key("version").int(),
     this.key("sid").choice({
-      issuerAndSerialNumber: this.seq().obj(
-        this.key("issuer").seqof(AttributeValue),
-        this.key("serialNumber").int(),
-      ),
+      issuerAndSerialNumber: this.use(IssuerAndSerialNumber),
       subjectKeyIdentifier: this.implicit(0).octstr(), // TODO
     }),
     this.key("digestAlgorithm").use(AlgorithmIdentifier),

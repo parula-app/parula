@@ -140,34 +140,37 @@ export class SMIMESend {
       for (let recipientKey of recipientKeys) {
         let cert = Certificate.decodePEM(recipientKey.certificate, { label: "CERTIFICATE" });
         let publicKey = cert.tbsCertificate.publicKey;
-        if (publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+        switch (publicKey.algorithmIdentifier.algorithm) {
+        case "ecPublicKey":
           // RFC 5652 section 6.1
           pkcs7.content.version = 2n;
           pkcs7.content.recipientInfos.push(await recipientKey.keyAgreeRecipientInfo(symmetricKey));
-          continue;
+          break;
+        case "rsaEncryption": {
+          let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
+          pkcs7.content.recipientInfos.push({
+            type: "ktri",
+            value: {
+              version: 0n,
+              rid: {
+                type: "issuerAndSerialNumber",
+                value: {
+                  issuer: cert.tbsCertificate.issuer,
+                  serialNumber: cert.tbsCertificate.serialNumber,
+                }
+              },
+              keyEncryptionAlgorithm: {
+                algorithm: "rsaEncryption",
+                parameters: Null.encode(),
+              },
+              encryptedKey: encrypt(padRandom(symmetricKey, rsa), rsa),
+            },
+          });
+          break;
         }
-        if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
+        default:
           throw new UserError(gt`Cannot encrypt to ${recipientKey.userIDs.first}, because we can encrypt only to RSA and EC certificates`);
         }
-        let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-        pkcs7.content.recipientInfos.push({
-          type: "ktri",
-          value: {
-            version: 0n,
-            rid: {
-              type: "issuerAndSerialNumber",
-              value: {
-                issuer: cert.tbsCertificate.issuer,
-                serialNumber: cert.tbsCertificate.serialNumber,
-              }
-            },
-            keyEncryptionAlgorithm: {
-              algorithm: "rsaEncryption",
-              parameters: Null.encode(),
-            },
-            encryptedKey: encrypt(padRandom(symmetricKey, rsa), rsa),
-          },
-        });
       }
       let der = EnvelopedData.encode(pkcs7);
       let base64 = der.toBase64?.() ?? toBase64(der);
