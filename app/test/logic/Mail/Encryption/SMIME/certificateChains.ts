@@ -5,7 +5,7 @@
  * where the section `cert` of `ext.cnf` has the extensions listed above each certificate.
  * The root uses `-signkey root.key` instead of `-CA` and `-CAkey`. */
 
-/** Self-signed, in the bundled CA certificates of the tests.
+/** Self-signed, in the system CA certificates of the tests.
  * basicConstraints = critical, CA:TRUE
  * keyUsage = critical, keyCertSign, cRLSign */
 export const kRootCA = `
@@ -409,7 +409,7 @@ zhB7wj9MTyqHyE4DHhXzSF0=
 -----END CERTIFICATE-----
 `;
 
-/** A root for TLS server certificates, self-signed, in the bundled CA certificates of the tests.
+/** A root for TLS server certificates, self-signed, in the system CA certificates of the tests.
  * basicConstraints = critical, CA:TRUE
  * keyUsage = critical, keyCertSign, cRLSign
  * extendedKeyUsage = serverAuth */
@@ -459,7 +459,7 @@ Z7xjaJlw/iFepYCVyi47Zn2JEjoI
 -----END CERTIFICATE-----
 `;
 
-/** Self-signed, valid only in 2020, in the bundled CA certificates of the tests.
+/** Self-signed, valid only in 2020, in the system CA certificates of the tests.
  * Extensions as `kRootCA`. Made with `openssl ca -selfsign -startdate 20200101000000Z -enddate 20210101000000Z`,
  * because `openssl x509` can't set dates in the past. */
 export const kExpiredRootCA = `
@@ -508,7 +508,7 @@ AMUEnniR3O9OTYE7hmqJ+2qCb8tcxnz/At1r/YFQtBXDcGB0hgtRuTNesurSwX8T
 -----END CERTIFICATE-----
 `;
 
-/** A version 1 certificate, without any extensions, self-signed, in the bundled CA certificates of the tests.
+/** A version 1 certificate, without any extensions, self-signed, in the system CA certificates of the tests.
  * Made without `-extfile`. */
 export const kX509v1RootCA = `
 -----BEGIN CERTIFICATE-----
