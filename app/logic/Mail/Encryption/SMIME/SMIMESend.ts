@@ -7,7 +7,7 @@ import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
 import { Oid, UTCTime, Attributes, DigestInfo, SignedData, Certificate, RSAPublicKey, Null, OctetString, EnvelopedData, SMIMECapabilities } from "./SMIMEASN1";
 import { decrypt, padFF, padRandom, encrypt } from "./SMIMERSAES";
 import { splitMIMEHeaders, kLineBreak, newBoundary } from "../MIME";
-import { assert } from "../../../util/util";
+import { UserError, assert } from "../../../util/util";
 import { gt } from "../../../../l10n/l10n";
 
 export class SMIMESend {
@@ -150,7 +150,11 @@ export class SMIMESend {
       };
       for (let recipientKey of recipientKeys) {
         let cert = Certificate.decodePEM(recipientKey.certificate, { label: "CERTIFICATE" });
-        let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
+        let publicKey = cert.tbsCertificate.publicKey;
+        if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
+          throw new UserError(gt`Cannot encrypt to ${recipientKey.userIDs.first}, because we can encrypt only to RSA certificates`);
+        }
+        let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
         pkcs7.content.recipientInfos.push({
           type: "ktri",
           value: {
