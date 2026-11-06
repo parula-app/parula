@@ -5,7 +5,7 @@ import { appGlobal } from "../../app";
 import { retryOnTransientError } from "../../util/netUtil";
 import { Lock } from "../../util/flow/Lock";
 import { Timeout } from "../../util/flow/Timeout";
-import { assert } from "../../util/util";
+import { assert, waitTime } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
 /**
@@ -125,7 +125,7 @@ export class NTLMConnection {
       let locked = await this.handshakeLock.lock();
       let timeout = new Timeout(11, () => locked.release()); // if we hang, let the others connect
       try {
-        return await this.send(type1, "", { timeoutSec: 10 });
+        return await this.send(type1, "", { timeoutSec: 10 * waitTime.factor }); // tests wait less
       } finally {
         timeout.fulfilled();
         locked.release();

@@ -15,7 +15,10 @@ import { CreateMIME } from "../SMTP/CreateMIME";
 import { ensureLicensed } from "../../util/LicenseClient";
 import { appGlobal } from "../../app";
 import { appName, appVersion } from "../../build";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { RunOnce } from "../../util/flow/RunOnce";
+import { Semaphore } from "../../util/flow/Semaphore";
+import { Throttle } from "../../util/flow/Throttle";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert, type URLString } from "../../util/util";
 import { blobToBase64 } from "../../util/blob";
@@ -32,6 +35,10 @@ export class GraphAccount extends ExchangeMailAccount {
   logging = false;
   protected loginRunOnce = new RunOnce();
   protected startupRunOnce = new RunOnce();
+  /** Outlook allows only 4 concurrent requests per app and mailbox, and answers more with 429 */
+  protected readonly requestSemaphore = new Semaphore(4);
+  /** Outlook allows only 10000 requests in 10 minutes per app and mailbox */
+  protected readonly throttle = new Throttle(1000, 60);
 
   constructor() {
     super();
@@ -137,11 +144,12 @@ export class GraphAccount extends ExchangeMailAccount {
     let firstResults = await this.graphGet<T>(path, args, options);
     allResults.addAll(firstResults);
     let deltaURL: URLString;
-    let i = 0;
     let nextURL = (firstResults as any).nextURL;
-    while (nextURL) {
-      if (i++ > 30000) { // loop protection
-        return [];
+    let loop = new LoopGuard(30000, () =>
+      this.errorCallback(new Error(`${this.name}: The server keeps returning more results. Stopped.`)));
+    while (nextURL && loop.nextRound()) {
+      if (loop.isSameAsLastRound(nextURL)) {
+        break;
       }
       // nextURL already includes the $select. And ky searchParams would overwrite the skip token.
       let nextResults = await this.graphGet<T>(nextURL);
@@ -246,7 +254,9 @@ export class GraphAccount extends ExchangeMailAccount {
    */
   async httpCall(url: string, options?: any): Promise<any> {
     let ky = await this.ky(options);
+    let lock = await this.requestSemaphore.lock();
     try {
+      await this.throttle.throttle();
       let method = options?.method?.toLowerCase() ?? "get";
       if (this.logging) {
         console.log("Calling <" + url + ">", method.toUpperCase(), "with options", options);
@@ -255,6 +265,8 @@ export class GraphAccount extends ExchangeMailAccount {
       return await ky[method](url, { json: options?.json, body: options?.body });
     } catch (ex) {
       await this.httpError(ex);
+    } finally {
+      lock.release();
     }
   }
 

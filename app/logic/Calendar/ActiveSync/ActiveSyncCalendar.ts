@@ -1,5 +1,6 @@
 import { ExchangeCalendar } from "../EWS/ExchangeCalendar";
 import type { Participant } from "../Participant";
+import { FreeBusyEvent, FreeBusyStatus } from "../FreeBusyEvent";
 import { ActiveSyncEvent, fromCompact } from "./ActiveSyncEvent";
 import { ActiveSyncIncomingInvitation } from "./ActiveSyncIncomingInvitation";
 import type { ActiveSyncAccount, ActiveSyncPingable } from "../../Mail/ActiveSync/ActiveSyncAccount";
@@ -43,7 +44,7 @@ export class ActiveSyncCalendar extends ExchangeCalendar implements ActiveSyncPi
     return new ActiveSyncIncomingInvitation(this, message);
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: { from: Date, to: Date, free: boolean }[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
     return Promise.all(participants.map(async participant => {
       let request = {
         To: participant.emailAddress,
@@ -60,11 +61,31 @@ export class ActiveSyncCalendar extends ExchangeCalendar implements ActiveSyncPi
         return { participant };
       }
       let freebusy = sanitize.nonemptystring(result.Response.Recipient.Availability.MergedFreeBusy, "");
-      let availability = freebusy.split("").map((c: string, i: number) => ({
-        from: new Date(from.getTime() + i * kHalfHour),
-        to: new Date(from.getTime() + (i + 1) * kHalfHour),
-        free: c == "0",
-      }));
+      const kStatuses = {
+        "0": FreeBusyStatus.Free,
+        "1": FreeBusyStatus.Tentative,
+        "2": FreeBusyStatus.Busy,
+        "3": FreeBusyStatus.OutOfOffice,
+        "4": null, // No data
+      };
+      let statuses = freebusy.split("").map((c: string) => sanitize.translate(c, kStatuses, null));
+      if (!statuses.some(status => status)) {
+        return { participant };
+      }
+      let availability: FreeBusyEvent[] = [];
+      for (let [i, status] of statuses.entries()) {
+        if (!status) {
+          continue;
+        }
+        let start = new Date(from.getTime() + i * kHalfHour);
+        let end = new Date(from.getTime() + (i + 1) * kHalfHour);
+        let last = availability.at(-1);
+        if (last && last.busyStatus == status && last.endTime.getTime() == start.getTime()) {
+          last.endTime = end;
+        } else {
+          availability.push(new FreeBusyEvent(start, end, status));
+        }
+      }
       return { participant, availability };
     }));
   }

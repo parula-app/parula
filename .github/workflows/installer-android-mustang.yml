@@ -1,4 +1,4 @@
-name: Installers for Android
+name: Mustang Installers for Android
 
 on:
   workflow_dispatch: # manually triggered
