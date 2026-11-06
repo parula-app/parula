@@ -1,6 +1,6 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, NameConstraints } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
@@ -171,6 +171,9 @@ export class SMIMEPublicKey extends PublicKey {
     if (!this.allowsEMailProtection()) {
       return KeyStatus.ChainInvalid;
     }
+    // `userIDs` has the emailAddress of the subject only when the subjectAltName has none
+    let emailAddresses = new ArrayColl(this.userIDs);
+    emailAddresses.addAll(cert.tbsCertificate.subject.filter(attr => attr.type == "E").map(attr => attr.value.value.toLowerCase()));
     for (let key of this.chain) {
       // Not `obsolete`: it also means "expired now", which would reject older mail
       if (key._obsolete || !key.isValidAt(date)) {
@@ -181,7 +184,7 @@ export class SMIMEPublicKey extends PublicKey {
       if (!await verifySignature(cert, signer)) {
         return KeyStatus.ChainInvalid;
       }
-      if (!key.mayIssueCertificates(this.chain.contents.indexOf(key)) || !key.allowsEMailProtection()) {
+      if (!key.mayIssueCertificates(this.chain.contents.indexOf(key)) || !key.allowsEMailProtection() || !key.mayIssueForEMailAddresses(emailAddresses)) {
         return KeyStatus.ChainInvalid;
       }
       cert = signer;
@@ -192,7 +195,7 @@ export class SMIMEPublicKey extends PublicKey {
         if (await verifySignature(cert, ca)) {
           let root = new SMIMEPublicKey();
           await root.setCertificate(ca);
-          if (root._obsolete || !root.isValidAt(date) || !root.allowsEMailProtection() || (!kAcceptX509v1Roots && !ca.tbsCertificate.version)) {
+          if (root._obsolete || !root.isValidAt(date) || !root.allowsEMailProtection() || !root.mayIssueForEMailAddresses(emailAddresses) || (!kAcceptX509v1Roots && !ca.tbsCertificate.version)) {
             continue;
           }
           let caTrust = type == "bundled" ? TrustLevel.ThirdParty : type == "system" ? TrustLevel.OS : TrustLevel.Personal;
@@ -218,6 +221,44 @@ export class SMIMEPublicKey extends PublicKey {
     }
     let { cA, pathLenConstraint } = BasicConstraints.decode(basicConstraints);
     return cA && (pathLenConstraint == null || subCAs <= pathLenConstraint) && this.allowsAnyKeyUsage(KeyUsageBit.keyCertSign);
+  }
+
+  /** The rfc822Name name constraints of a CA (RFC 5280 section 4.2.1.10).
+   * Other name forms don't limit email addresses. */
+  protected mayIssueForEMailAddresses(emailAddresses: ArrayColl<string>): boolean {
+    let nameConstraints = this.extension("nameConstraints");
+    if (!nameConstraints) {
+      return true;
+    }
+    function rfc822Names(subtrees: any[] | undefined): string[] {
+      return (subtrees ?? []).filter(subtree => subtree.base.type == "rfc822Name").map(subtree => subtree.base.value);
+    }
+    function isWithin(emailAddress: string, subtree: string): boolean {
+      let domain = emailAddress.slice(emailAddress.lastIndexOf("@") + 1);
+      if (!subtree) {
+        return true;
+      }
+      if (subtree.startsWith(".")) {
+        return domain.endsWith(sanitize.hostname(subtree));
+      }
+      if (subtree.startsWith("@")) { // Windows Server documents "@example.com" for "example.com"
+        return domain == sanitize.hostname(subtree.slice(1));
+      }
+      if (subtree.includes("@")) {
+        return emailAddress == sanitize.emailAddress(subtree);
+      }
+      return domain == sanitize.hostname(subtree);
+    }
+    try {
+      let { permittedSubtrees, excludedSubtrees } = NameConstraints.decode(nameConstraints);
+      let permitted = rfc822Names(permittedSubtrees);
+      let excluded = rfc822Names(excludedSubtrees);
+      return emailAddresses.every(emailAddress =>
+        (!permitted.length || permitted.some(subtree => isWithin(emailAddress, subtree))) &&
+        !excluded.some(subtree => isWithin(emailAddress, subtree)));
+    } catch (ex) {
+      return false; // A name form that we can't decode, e.g. x400Address, or an invalid constraint
+    }
   }
 
   /** True if the certificate allows at least one of these, e.g. signing needs digitalSignature or nonRepudiation (RFC 8550 section 4.4.2) */
@@ -293,7 +334,7 @@ function certificateEMailAddresses(cert: Certificate): string[] {
         return emailAddresses;
       }
     } catch (ex) {
-      // Entry types that we do not implement, e.g. directoryName, fail to decode
+      // Entry types that we do not implement, e.g. x400Address, fail to decode
       console.error(ex);
     }
   }

@@ -3,7 +3,7 @@ import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/
 import { SignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { verifySignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEVerify";
 import { TrustLevel, trustOrder } from "../../../../../logic/Mail/Encryption/enums";
-import { kRootCA, kPathLen0CA, kAlice, kSubCA, kCarol, kNoCertSignCA, kBob, kMailCA, kTLSServer, kCEO, kOldCertificate, kDan, kGrace, kTLSCA, kHeidi, kTLSRootCA, kJudy, kExpiredRootCA, kIvan, kX509v1RootCA, kFrank, kSignedContent, kSignedByAlice, kSignedByErin } from "./certificateChains";
+import { kRootCA, kPathLen0CA, kAlice, kSubCA, kCarol, kNoCertSignCA, kBob, kMailCA, kTLSServer, kCEO, kOldCertificate, kDan, kGrace, kTLSCA, kHeidi, kTLSRootCA, kJudy, kExpiredRootCA, kIvan, kX509v1RootCA, kFrank, kSignedContent, kSignedByAlice, kSignedByErin, kExampleCA, kXavier, kYvonne, kZoe, kX400CA, kNadia, kNotExampleNetRootCA, kUma } from "./certificateChains";
 import { expect, test, describe } from "vitest";
 
 // The browser has this, but Node does not.
@@ -23,7 +23,7 @@ globalThis.indexedDB ??= {
 // so this has to be the same for all tests in this file.
 appGlobal.remoteApp = {
   async getCACertificates(type: string): Promise<string[]> {
-    return type == "system" ? [kRootCA, kTLSRootCA, kExpiredRootCA, kX509v1RootCA] : [];
+    return type == "system" ? [kRootCA, kTLSRootCA, kExpiredRootCA, kX509v1RootCA, kNotExampleNetRootCA] : [];
   },
 };
 
@@ -55,6 +55,29 @@ describe("Certificate chain", () => {
 
   test("with more CA certificates than the pathlen of a CA allows is not trusted", async () => {
     await expectNotTrusted(kCarol + kSubCA + kPathLen0CA);
+  });
+
+  test("through a CA that may issue only for example.com and example.org, for addresses there, is trusted", async () => {
+    let key = await SMIMEPublicKey.importPublicKey(kXavier + kExampleCA);
+    expect(key.userIDs.contents).toEqual(["xavier@example.com", "xavier@example.org"]);
+    expect(await key.keyStatus()).toBe(KeyStatus.Valid);
+  });
+
+  // The directoryName constraint of the CA must not switch off its email constraints
+  test("through a CA that may issue only for example.com and example.org, for another domain, is not trusted", async () => {
+    await expectNotTrusted(kYvonne + kExampleCA);
+  });
+
+  test("through a CA that may issue only for example.com and example.org, with another domain in the subject, is not trusted", async () => {
+    await expectNotTrusted(kZoe + kExampleCA);
+  });
+
+  test("through a CA with a name constraint that we can't read is not trusted", async () => {
+    await expectNotTrusted(kNadia + kX400CA);
+  });
+
+  test("to a root that may not issue for example.net, for an address there, is not trusted", async () => {
+    await expectNotTrusted(kUma);
   });
 
   test("of a TLS server certificate is not trusted for email", async () => {
