@@ -3,7 +3,7 @@ import { setupTestFolder } from "../../SQL/setup";
 import { getPublicKeyByKeyID } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
 import type { EMail } from "../../../../../logic/Mail/EMail";
-import { kClearSigned, kOpaqueSigned } from "./signedMessages";
+import { kClearSigned, kOpaqueSigned, kClearSignedLatin1 } from "./signedMessages";
 import { expect, test, describe } from "vitest";
 
 // The browser has this, but Node does not.
@@ -28,15 +28,17 @@ globalThis.indexedDB ??= {
  * not implement it. Only the trust level depends on it, so the signature
  * must survive. `SMIMEPublicKey` caches the CA certificates per process,
  * so this has to be the same for all tests in this file.
+ *
+ * A string gets CRLF line endings, bytes are read as they are.
  */
-async function readMessage(mime: string): Promise<EMail> {
+async function readMessage(mime: string | Uint8Array): Promise<EMail> {
   let { folder } = await setupTestFolder({
     getCACertificates: async () => {
       throw new Error("getCACertificates is not a function");
     },
   });
   let email = folder.newEMail();
-  email.mime = new TextEncoder().encode(toCRLF(mime));
+  email.mime = typeof mime == "string" ? new TextEncoder().encode(toCRLF(mime)) : mime;
   await email.parseMIME();
   return email;
 }
@@ -71,5 +73,19 @@ describe("Signature of a received message, without an own private key", () => {
     let email = await readMessage(kClearSigned);
     let key = await getPublicKeyByKeyID(email.signedByKeyID, email);
     expect(key.trustLevel).toBe(TrustLevel.Sender);
+  });
+});
+
+describe("Signature of a message saved with LF line endings, e.g. as .eml file", () => {
+  test("clear-signed message", async () => {
+    let email = await readMessage(new TextEncoder().encode(kClearSigned));
+    expect(email.text.trim()).toBe("Hello, this is signed.");
+    expect(await signedWithKeyName(email)).toBe(email.signedKey.name);
+  });
+
+  test("8-bit text in ISO-8859-1", async () => {
+    let email = await readMessage(Uint8Array.from(kClearSignedLatin1, c => c.charCodeAt(0)));
+    expect(email.text.trim()).toBe("Grüße aus Köln");
+    expect(await signedWithKeyName(email)).toBe(email.signedKey.name);
   });
 });
