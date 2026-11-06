@@ -1,11 +1,14 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
+import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
-import { uint8ArrayToHex } from "../../../util/blob";
+import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
+import { assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
+import { gt } from "../../../../l10n/l10n";
 
 export class SMIMEPublicKey extends PublicKey {
   system = EncryptionSystem.SMIME;
@@ -63,6 +66,7 @@ export class SMIMEPublicKey extends PublicKey {
     this.obsolete = now < this.created.getTime() || now > this.expires.getTime();
   }
 
+  /** Sets this key's certificate if it has none yet or the certificate is for the same key, otherwise adds it to the chain */
   async addCertificate(cert: Certificate): Promise<boolean> {
     let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
     if (!this.publicKeyArmored) {
@@ -89,16 +93,61 @@ export class SMIMEPublicKey extends PublicKey {
     let parts = splitPEM(publicKey);
     for (let part of parts) {
       if (part.startsWith("-----BEGIN CERTIFICATE-----")) {
-        await this.addCertificate(Certificate.decodePEM(part, { label: "CERTIFICATE" }));
+        // Some CAs label PKCS#7 as CERTIFICATE
+        await this.addCertificatesFromDER(Any.decodePEM(part, { label: "CERTIFICATE" }));
       } else if (part.startsWith("-----BEGIN TRUSTED CERTIFICATE-----")) {
         await this.addCertificate(Certificate.decodePEM(part, { label: "TRUSTED CERTIFICATE" }));
+      } else if (part.startsWith("-----BEGIN PKCS7-----")) {
+        await this.addCertificatesFromDER(Any.decodePEM(part, { label: "PKCS7" }));
       }
     }
   }
 
-  async keyStatus(): Promise<KeyStatus> {
+  /** For the file that the user picked to add a certificate */
+  async addCertificateFile(fileContent: string) {
+    assert(fileContent.includes("-----BEGIN CERTIFICATE-----") ||
+      fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----") ||
+      fileContent.includes("-----BEGIN PKCS7-----"),
+      gt`Could not find a certificate in this file`);
+    await this.addCertificates(fileContent);
+  }
+
+  protected async addCertificatesFromDER(der: Uint8Array) {
+    let cert: Certificate;
+    try {
+      cert = Certificate.decode(der);
+    } catch (ex) {
+      await this.addPKCS7Certificates(der);
+      return;
+    }
+    await this.addCertificate(cert);
+  }
+
+  protected async addPKCS7Certificates(der: Uint8Array) {
+    let certificates = new ArrayColl<Certificate>(SignedData.decode(der, { berToDER: true }).content.certificates);
+    assert(certificates.hasItems, gt`Could not find a certificate in this file`);
+    function isIssuer(issuer: Certificate, cert: Certificate): boolean {
+      return issuer != cert && sameName(issuer.tbsCertificate.subject, cert.tbsCertificate.issuer);
+    }
+    // PKCS#7 has the certificates in no order, so start with the one that issued none of the others
+    let cert = certificates.find(issuer => !certificates.some(issued => isIssuer(issuer, issued)));
+    while (cert) {
+      certificates.remove(cert);
+      await this.addCertificate(cert);
+      cert = certificates.find(issuer => isIssuer(issuer, cert));
+    }
+  }
+
+  isValidAt(date: Date): boolean {
+    return date.getTime() >= this.created.getTime() && date.getTime() <= this.expires.getTime();
+  }
+
+  async keyStatus(date = new Date()): Promise<KeyStatus> {
     if (!this.certificate) {
       return KeyStatus.NoCertificate;
+    }
+    if (!this.isValidAt(date)) {
+      return KeyStatus.Expired;
     }
     // This checks only that each certificate is validly signed by the next one
     // up to a trusted root. It does not verify basicConstraints (CA:TRUE) or
@@ -108,7 +157,7 @@ export class SMIMEPublicKey extends PublicKey {
     // itself for identity binding without adding those X.509 path checks first.
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
     for (let key of this.chain) {
-      if (key.obsolete) {
+      if (key.obsolete || !key.isValidAt(date)) {
         console.log("obsolete certificate in chain");
         return KeyStatus.ChainInvalid;
       }
@@ -237,9 +286,22 @@ function lazyGetCACertificates(type: string): Promise<Certificate[]> {
 
 async function getCACertificatesLazy(type: string): Promise<Certificate[]> {
   let certificates: Certificate[] = [];
-  let rootCertificates: string[] = await appGlobal.remoteApp.getCACertificates(type);
+  let rootCertificates: string[] = type == "bundled"
+    ? splitPEM((await import("./roots/mozilla-email-roots.pem?raw")).default)
+    : await appGlobal.remoteApp.getCACertificates(type);
+  let notEmailRootsSHA256: string[] = type == "system" && rootCertificates.length
+    ? (await import("./roots/mozilla-not-email-roots.txt?raw")).default.split(/[\r\n]+/)
+      .filter(line => line && !line.startsWith("#")).map(line => line.split(" ")[0])
+    : [];
   for (let cert of rootCertificates) {
     try {
+      if (notEmailRootsSHA256.length) {
+        let der = base64ToUint8Array(cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", ""));
+        let hash = new Uint8Array(await crypto.subtle.digest("SHA-256", der));
+        if (notEmailRootsSHA256.includes(uint8ArrayToHex(hash))) {
+          continue;
+        }
+      }
       certificates.push(Certificate.decodePEM(cert, { label: "CERTIFICATE" }));
     } catch (ex) {
       console.log("Error decoding certificate", cert);
@@ -255,6 +317,7 @@ export enum KeyStatus {
   ChainIncomplete,
   SelfSignedRoot,
   Valid,
+  Expired,
 }
 
 export function splitPEM(key: string): string[] {

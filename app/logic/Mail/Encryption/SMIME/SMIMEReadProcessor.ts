@@ -8,7 +8,7 @@ import { decryptAuthEnveloped } from "./SMIMEDecrypt";
 import { BlockType, unpadPKCS, decrypt } from "./SMIMERSAES";
 import { verifySignedData, sameName } from "./SMIMEVerify";
 import { parseMIMEDirectSubpartsBytes, parseHeaderParameters } from "../MIME";
-import { UserError, assert } from "../../../util/util";
+import { UserError, NotImplemented, assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
@@ -58,9 +58,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
   protected async readEncrypted(email: EMail, blob: Uint8Array) {
     email.system = EncryptionSystem.SMIME;
     let envelopedData = EnvelopedData.decode(blob, { berToDER: true });
-    if (!sanitize.enum(envelopedData.content.encryptedContentInfo.contentEncryptionAlgorithm.algorithm, ["aes128cbc", "aes192cbc", "aes256cbc"], null)) {
-      return;
-    }
+    this.checkCipher(envelopedData.content.encryptedContentInfo.contentEncryptionAlgorithm.algorithm, ["aes128cbc", "aes192cbc", "aes256cbc"]);
     let vector = OctetString.decode(envelopedData.content.encryptedContentInfo.contentEncryptionAlgorithm.parameters);
     let encryptedContent = envelopedData.content.encryptedContentInfo.encryptedContent;
     let symmetricKey = await this.decryptSymmetricKey(email, envelopedData.content.recipientInfos);
@@ -77,13 +75,17 @@ export class SMIMEReadProcessor extends EMailProcessor {
   protected async readAuthEncrypted(email: EMail, blob: Uint8Array) {
     email.system = EncryptionSystem.SMIME;
     let authEnvelopedData = AuthEnvelopedData.decode(blob, { berToDER: true }).content;
-    if (!sanitize.enum(authEnvelopedData.authEncryptedContentInfo.contentEncryptionAlgorithm.algorithm,
-        ["aes128gcm", "aes192gcm", "aes256gcm"], null)) {
-      return;
-    }
+    this.checkCipher(authEnvelopedData.authEncryptedContentInfo.contentEncryptionAlgorithm.algorithm, ["aes128gcm", "aes192gcm", "aes256gcm"]);
     let symmetricKey = await this.decryptSymmetricKey(email, authEnvelopedData.recipientInfos);
     email.wasEncrypted = true;
     await this.unwrapMIME(email, await decryptAuthEnveloped(authEnvelopedData, symmetricKey));
+  }
+
+  protected checkCipher(algorithm: string | number[], supported: string[]) {
+    if (!sanitize.enum(algorithm, supported, null)) {
+      let name = typeof algorithm == "string" ? algorithm : algorithm.join(".");
+      throw new NotImplemented(gt`This message is encrypted with ${name}, which is not supported`);
+    }
   }
 
   /** Finds the private key of one of our identities that this message was
@@ -136,7 +138,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
     let content = OctetString.decode(contentInfo.content);
     // show the msg, even if the signature is invalid
     await this.unwrapMIME(email, content);
-    email.rememberSigner(await verifySignedData(signedData, content));
+    email.rememberSigner(await verifySignedData(signedData, content, email.received));
   }
 
   /** Verifies a cleartext message with a detached signature
@@ -157,7 +159,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
       return;
     }
     let signedData = SignedData.decodeFromBase64(signatureBase64, { berToDER: true });
-    email.rememberSigner(await verifySignedData(signedData, clearText));
+    email.rememberSigner(await verifySignedData(signedData, clearText, email.received));
   }
 
   /** Replaces the message with the MIME entity extracted from the CMS
