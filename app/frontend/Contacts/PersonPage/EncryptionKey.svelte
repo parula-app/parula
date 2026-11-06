@@ -161,6 +161,8 @@
                 <hbox>{$t`WARNING This certificate uses a self-signed root certificate`}</hbox>
               {:else if keyStatus == KeyStatus.Valid}
                 <hbox>{$t`This certificate is valid`}</hbox>
+              {:else if keyStatus == KeyStatus.Expired}
+                <hbox>{$t`The certificate has expired or is not yet valid`}</hbox>
               {:else}
                 <hbox>{$t`Unexpected certificate status`}</hbox>
               {/if}
