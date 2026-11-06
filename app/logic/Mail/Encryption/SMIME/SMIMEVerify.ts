@@ -36,10 +36,11 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     return null;
   }
   let digestAlgorithm = sanitize.translate(signerInfo.digestAlgorithm.algorithm, DigestAlgorithm);
+  let isPSS = signerInfo.signatureAlgorithm.algorithm == "rsassaPss";
   // RFC 5652 section 10.1.2: signers write rsaEncryption, but verifiers
   // should also accept e.g. sha256WithRSAEncryption, which some clients
   // write instead. Its hash must match the digest algorithm.
-  if (signerInfo.signatureAlgorithm.algorithm != "rsaEncryption" &&
+  if (signerInfo.signatureAlgorithm.algorithm != "rsaEncryption" && !isPSS &&
       sanitize.translate(signerInfo.signatureAlgorithm.algorithm, SignatureAlgorithm, null) != digestAlgorithm) {
     console.log("signature was not signed with RSA");
     return null;
@@ -47,6 +48,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
   let messageDigest = new Uint8Array(await crypto.subtle.digest(digestAlgorithm, content as BufferSource));
   // Without signed attributes, the signature covers the content digest directly.
   let signedDigest = messageDigest;
+  let signedContent = content;
   if (signerInfo.signedAttrs) {
     let digestAttribute = signerInfo.signedAttrs.find(attr => attr.attrType == "messageDigest");
     if (!digestAttribute) {
@@ -57,8 +59,8 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
       console.log("signed digest did not match message");
       return null;
     }
-    let signedAttrs = Attributes.encode(signerInfo.signedAttrs);
-    signedDigest = new Uint8Array(await crypto.subtle.digest(digestAlgorithm, signedAttrs));
+    signedContent = Attributes.encode(signerInfo.signedAttrs);
+    signedDigest = new Uint8Array(await crypto.subtle.digest(digestAlgorithm, signedContent));
   }
   /* `await crypto.subtle.verify()` returns `false` on
    * correctly signed messages...
@@ -68,21 +70,27 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     return rsa.n.toString(16);
   }
   */
-  let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-  let digestInfo = DigestInfo.decode(unpadPKCS(encrypt(signerInfo.signature, rsa), BlockType.Signed));
-  if (digestInfo.digestAlgorithm.algorithm != signerInfo.digestAlgorithm.algorithm) {
-    console.log("signature algorithm mismatch");
-    return null;
-  }
-  if (indexedDB.cmp(digestInfo.digest, signedDigest)) {
-    console.log("signature did not match the signed digest");
-    return null;
-  }
   let signer = new SMIMEPublicKey();
   while (cert && await signer.addCertificate(cert)) {
     cert = certificates.find(chain =>
       sameName(chain.tbsCertificate.subject, cert.tbsCertificate.issuer));
   };
+  if (isPSS) {
+    if (!await signer.verifyRSAPSS(signerInfo.signature, signerInfo.signatureAlgorithm.parameters, signedContent, digestAlgorithm)) {
+      return null;
+    }
+  } else {
+    let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
+    let digestInfo = DigestInfo.decode(unpadPKCS(encrypt(signerInfo.signature, rsa), BlockType.Signed));
+    if (digestInfo.digestAlgorithm.algorithm != signerInfo.digestAlgorithm.algorithm) {
+      console.log("signature algorithm mismatch");
+      return null;
+    }
+    if (indexedDB.cmp(digestInfo.digest, signedDigest)) {
+      console.log("signature did not match the signed digest");
+      return null;
+    }
+  }
   if (!signer.allowsAnyKeyUsage(KeyUsageBit.digitalSignature, KeyUsageBit.nonRepudiation)) {
     return null;
   }

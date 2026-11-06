@@ -1,6 +1,6 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, AlgorithmIdentifier, Certificate, RSAPublicKey, RSASSAPSSParams, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, AlgorithmIdentifier, Certificate, RSAPublicKey, RSASSAPSSParams, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, type WebCryptoAlgorithm } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
@@ -147,14 +147,18 @@ export class SMIMEPublicKey extends PublicKey {
     return date.getTime() >= this.created.getTime() && date.getTime() <= this.expires.getTime();
   }
 
-  /** @param parameters `RSASSA-PSS-params` of the signature algorithm, RFC 4055 section 3.1 */
-  async verifyRSAPSS(signature: Uint8Array, parameters: Uint8Array, content: Uint8Array): Promise<boolean> {
+  /** @param parameters `RSASSA-PSS-params` of the signature algorithm, RFC 4055 section 3.1
+   * @param digestAlgorithm Of a CMS signer, which must be the same hash, RFC 4056 section 3 */
+  async verifyRSAPSS(signature: Uint8Array, parameters: Uint8Array, content: Uint8Array, digestAlgorithm?: WebCryptoAlgorithm): Promise<boolean> {
     try {
       let { hashAlgorithm, maskGenAlgorithm, saltLength, trailerField } = RSASSAPSSParams.decode(parameters);
       let maskHashAlgorithm = maskGenAlgorithm.parameters ? AlgorithmIdentifier.decode(maskGenAlgorithm.parameters) : { algorithm: "sha1" };
       let hash = sanitize.translate(hashAlgorithm.algorithm, DigestAlgorithm, null);
       // WebCrypto uses the same hash for the mask
       if (!hash || maskGenAlgorithm.algorithm != "mgf1" || maskHashAlgorithm.algorithm != hashAlgorithm.algorithm || trailerField != 1n) {
+        return false;
+      }
+      if (digestAlgorithm && hash != digestAlgorithm) {
         return false;
       }
       // WebCrypto does not import a key that is only for PSS (id-RSASSA-PSS)
