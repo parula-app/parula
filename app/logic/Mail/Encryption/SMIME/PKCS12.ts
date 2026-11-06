@@ -74,7 +74,7 @@ export class PKCS12 {
     let unsorted = this.certificates.map(der => Certificate.decode(der));
     let privateKeyInfo = PrivateKeyInfo.decode(this.keys[0]);
     let sorted: Certificate[] = [];
-    let next = unsorted.find(cert => this.isOfKey(cert.tbsCertificate.publicKey, privateKeyInfo));
+    let next = unsorted.find(cert => PKCS12.isOfKey(cert.tbsCertificate.publicKey, privateKeyInfo));
     while (next) {
       sorted.push(next);
       unsorted.splice(unsorted.indexOf(next), 1);
@@ -85,19 +85,21 @@ export class PKCS12 {
   }
 
   /** Whether the public key of a certificate belongs to the private key: the same RSA modulus, or the same EC point */
-  protected isOfKey(publicKey: SubjectPublicKeyInfo, privateKeyInfo: PrivateKeyInfo): boolean {
+  protected static isOfKey(publicKey: SubjectPublicKeyInfo, privateKeyInfo: PrivateKeyInfo): boolean {
     let algorithm = privateKeyInfo.privateKeyAlgorithm.algorithm;
     if (publicKey.algorithmIdentifier.algorithm != algorithm) {
       return false;
     }
-    if (algorithm == "ecPublicKey") {
+    switch (algorithm) {
+    case "ecPublicKey": {
       let point = ECPrivateKey.decode(privateKeyInfo.privateKey).publicKey?.data;
       return !!point && !indexedDB.cmp(point, publicKey.subjectPublicKey.data);
     }
-    if (algorithm == "rsaEncryption") {
+    case "rsaEncryption":
       return RSAPublicKey.decode(publicKey.subjectPublicKey.data).n == RSAPrivateKey.decode(privateKeyInfo.privateKey).n;
+    default:
+      return false;
     }
-    return false;
   }
 
   /** Checks that the file was not modified, using the MAC over its contents.
