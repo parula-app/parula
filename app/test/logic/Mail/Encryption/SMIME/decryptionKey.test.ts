@@ -308,6 +308,23 @@ QGmqsVtapipQ/kjFq4BAue8cbhDmtS5uOCGS7I2CheWr+S4InRZPbqPAPll5wWaR
 2JW5Xjwid/12CIUXy9kQXWdGUuGtYgknzc1V/4Lwrw==
 `;
 
+/** `openssl cms -encrypt -aes-256-cbc` to kDanaCompanyCert, which names the
+ * recipient by issuer and serial number */
+const kCompany = `
+MIICEgYJKoZIhvcNAQcDoIICAzCCAf8CAQAxggGKMIIBhgIBADBuMGIxEzARBgoJ
+kiaJk/IsZAEZFgNjb20xFzAVBgoJkiaJk/IsZAEZFgdleGFtcGxlMRgwFgYDVQRh
+DA9WQVRERS0xMjM0NTY3ODkxGDAWBgNVBAMMD1Rlc3QgQ29tcGFueSBDQQIIJD1L
+jnsivu0wDQYJKoZIhvcNAQEBBQAEggEAddw9S0VNuavFEpQH9LnBxCOw22TGRK5X
+PzBQAD27GBGNsHFHbhxcf4YteD2jTi4g0ltP7Xvo0P4Q7dKBSbQSFDutcBNystPz
+Dw5f50ixOHqlcQQ1D3M8OhJFBJOdaBsPhZCiUrRXBtX6OdhRZz+bykTYa3QhkMOf
+j3snUySS92HrblzOl6z94epVDaJo6x6CAEox4uuewNU/LXiUH7gTmpsCaIG/Mxby
+2xcFlJUH/ibtO6NI9/1tEUtBBBFYuldzUHq7ILC40ug4jEtXn5P8k6MBvoZzwbnk
+TUQQXurysh12lcPqmYofcyW3MGYpmjp6GCXft88/HO2SpWZFA814lDBsBgkqhkiG
+9w0BBwEwHQYJYIZIAWUDBAEqBBBmLu224PMpmmnksuz0CY5RgEAcwbATenYYmoa1
+drLY/3F+q/u02t2pIVuNZrVrpCETZXchHKRyjsJ8LN1+sJ2JFH8hD68YmHRqkHZP
+A3WqF3ga
+`;
+
 /** `openssl cms -encrypt -aes-256-cbc -keyid` to kDanaCert, which names the
  * recipient by subject key identifier */
 const kSKI = `
@@ -363,21 +380,4 @@ Hvr5/5t4x58ENMp2S0UAtSC2/ifFVqG9z+5DZ2SY2+7NpVqkaqdYJgmwuoFNmBPG
 9ccJz95pLm/grbbY1alAxwUwbAYJKoZIhvcNAQcBMB0GCWCGSAFlAwQBKgQQgRbY
 9nTpb8qQjJ0arfh8iYBAWRfqATx0ULKazPZF7sxLQlSpgUDTPcXFE6rbW/ox02Zc
 i/cnfStdTyhtDkOej7cN+ybucpU0BgcBsM3m0JR2lw==
-`;
-
-/** `openssl cms -encrypt -aes-256-cbc` to kDanaCompanyCert, which names the
- * recipient by issuer and serial number */
-const kCompany = `
-MIICEgYJKoZIhvcNAQcDoIICAzCCAf8CAQAxggGKMIIBhgIBADBuMGIxEzARBgoJ
-kiaJk/IsZAEZFgNjb20xFzAVBgoJkiaJk/IsZAEZFgdleGFtcGxlMRgwFgYDVQRh
-DA9WQVRERS0xMjM0NTY3ODkxGDAWBgNVBAMMD1Rlc3QgQ29tcGFueSBDQQIIJD1L
-jnsivu0wDQYJKoZIhvcNAQEBBQAEggEAddw9S0VNuavFEpQH9LnBxCOw22TGRK5X
-PzBQAD27GBGNsHFHbhxcf4YteD2jTi4g0ltP7Xvo0P4Q7dKBSbQSFDutcBNystPz
-Dw5f50ixOHqlcQQ1D3M8OhJFBJOdaBsPhZCiUrRXBtX6OdhRZz+bykTYa3QhkMOf
-j3snUySS92HrblzOl6z94epVDaJo6x6CAEox4uuewNU/LXiUH7gTmpsCaIG/Mxby
-2xcFlJUH/ibtO6NI9/1tEUtBBBFYuldzUHq7ILC40ug4jEtXn5P8k6MBvoZzwbnk
-TUQQXurysh12lcPqmYofcyW3MGYpmjp6GCXft88/HO2SpWZFA814lDBsBgkqhkiG
-9w0BBwEwHQYJYIZIAWUDBAEqBBBmLu224PMpmmnksuz0CY5RgEAcwbATenYYmoa1
-drLY/3F+q/u02t2pIVuNZrVrpCETZXchHKRyjsJ8LN1+sJ2JFH8hD68YmHRqkHZP
-A3WqF3ga
 `;
