@@ -1,6 +1,6 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
@@ -88,7 +88,21 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
           data: RSAPublicKey.encode(key),
         },
       },
-      attributes: [],
+      attributes: [{
+        attrType: "extensionRequest",
+        attrValue: [Extensions.encode([{
+          extnID: "subjectAlternativeName",
+          extnValue: SubjectAlternativeName.encode([{ type: "rfc822Name", value: subject.E }]),
+        }, {
+          extnID: "keyUsage",
+          critical: true,
+          // digitalSignature and keyEncipherment
+          extnValue: KeyUsage.encode({ unused: 5, data: Uint8Array.of(0b10100000) }),
+        }, {
+          extnID: "extKeyUsage",
+          extnValue: ExtKeyUsage.encode(["emailProtection"]),
+        }])],
+      }],
     };
     let digestInfo = {
       digestAlgorithm: {

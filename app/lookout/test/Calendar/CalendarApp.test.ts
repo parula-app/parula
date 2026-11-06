@@ -5,6 +5,7 @@ import { Event } from "../../../logic/Calendar/Event";
 import { Calendar } from "../../../logic/Calendar/Calendar";
 import { appGlobal } from "../../../logic/app";
 import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
+import { InvitationResponse } from "../../../logic/Calendar/Invitation/InvitationStatus";
 import CalendarApp from "../../Calendar/CalendarApp.svelte";
 import { CalendarActions } from "../../Calendar/CalendarActions";
 import { eventPeek, inlineTitle, selectedSlots, type CalendarViewType } from "../../Calendar/selected";
@@ -200,6 +201,50 @@ test("Item commands", async () => {
   expect(get(selectedSlots)).toBe(null);
   expect(get(eventPeek)).toBe(null);
   expect(get(inlineTitle)).toBe(null);
+});
+
+/** Opens the popup of the event, as a left click on the event does, and clicks the button with this title in the popup */
+function clickInPopup(event: Event, buttonTitle: string) {
+  let anchor = document.createElement("div");
+  document.querySelector(".calendar-page").append(anchor);
+  eventPeek.set({ event, anchor });
+  flushSync();
+  document.querySelector<HTMLButtonElement>(`.event-peek button[title="${buttonTitle}"]`).click();
+  flushSync();
+}
+
+function newPopupEvent(): Event {
+  let event = new Event();
+  event.title = "Meeting";
+  event.startTime = new Date(2026, 9, 14, 10);
+  event.endTime = new Date(2026, 9, 14, 11);
+  return event;
+}
+
+test("Popup: Delete deletes the event and closes the popup", async () => {
+  let event = newPopupEvent();
+  let deleteDefault = vi.spyOn(CalendarActions, "deleteDefault").mockImplementation(async () => {});
+  clickInPopup(event, "Delete");
+  await vi.waitFor(() => expect(deleteDefault).toHaveBeenCalledWith(event));
+  expect(get(eventPeek)).toBe(null);
+});
+
+test("Popup: Open opens the event and closes the popup", async () => {
+  let event = newPopupEvent();
+  clickInPopup(event, "Open");
+  await vi.waitFor(() => expect(openEvent).toHaveBeenCalledWith(event, true));
+  expect(get(eventPeek)).toBe(null);
+});
+
+test("Popup: Reply All on an invitation writes to the participants and closes the popup", async () => {
+  let event = newPopupEvent();
+  event.myParticipation = InvitationResponse.NoResponseReceived;
+  let replyMail = {};
+  let reply = vi.spyOn(IncomingInvitation, "replyToEventByMail").mockReturnValue(replyMail as any);
+  clickInPopup(event, "Reply All");
+  await vi.waitFor(() => expect(openComposer).toHaveBeenCalledWith(replyMail));
+  expect(reply).toHaveBeenCalledWith(event, true);
+  expect(get(eventPeek)).toBe(null);
 });
 
 test("Typing on selected time slots starts a new event's title", () => {
