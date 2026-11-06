@@ -68,6 +68,13 @@ test("A message for our renewed certificate decrypts, after we added the certifi
   expect(email.text.trim()).toBe("Hello Dana");
 });
 
+test("A message for our certificate from a CA whose name has DC= parts, as Windows company CAs have, decrypts", async () => {
+  let folder = await addAccount("dana@example.com", kDanaKey, kDanaCompanyCert);
+  let { email, errors } = await read(folder, "Dana <dana@example.com>", kCompany);
+  expect(errors).toEqual([]);
+  expect(email.text.trim()).toBe("Hello Dana");
+});
+
 test("A recipient identifier of an unknown type does not match our certificate", async () => {
   let key = await SMIMEPrivateKey.importPrivateKey(kDanaKey + "\n" + kDanaCert);
   let cert = Certificate.decodePEM(kDanaCert, { label: "CERTIFICATE" });
@@ -201,6 +208,34 @@ ESkeBhDwRTFCW3//6VxIKmqd1FS9Ydg=
 -----END CERTIFICATE-----
 `;
 
+/** For the key of kDanaKey, issued by a CA whose name has DC= parts, as Windows company CAs (AD CS) have,
+ * and the organizationIdentifier of eIDAS CAs:
+ * -subj "/DC=com/DC=example/organizationIdentifier=VATDE-123456789/CN=Test Company CA"
+ * Extensions as kDanaCert, and basicConstraints = critical, CA:FALSE */
+const kDanaCompanyCert = `
+-----BEGIN CERTIFICATE-----
+MIIDhzCCAm+gAwIBAgIIJD1Ljnsivu0wDQYJKoZIhvcNAQELBQAwYjETMBEGCgmS
+JomT8ixkARkWA2NvbTEXMBUGCgmSJomT8ixkARkWB2V4YW1wbGUxGDAWBgNVBGEM
+D1ZBVERFLTEyMzQ1Njc4OTEYMBYGA1UEAwwPVGVzdCBDb21wYW55IENBMB4XDTI2
+MTEwNjEzMzkyN1oXDTQ2MTEwMTEzMzkyN1owDzENMAsGA1UEAwwERGFuYTCCASIw
+DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAM9E7XmJAMnp3U5qzwuwhAPqLnFv
+k3rVQJ1T8DRs0ttOaUW+RyAWd/dY/oblm+crW/Ph/DVNFOSftEkiCToyMDbU3zZN
+WbiNBczMKKBKJ6+tBCb1+k2E3lgr1y6ve5EJ/fDLYEb1TiHYFPaLITtr/rV2wXZX
+Tv/GeWGww95C1nwMKQDo6Li0QkxsUi7PwiPYTXiClkrMDoNHIdRMmBe00IJnBw7R
+iHgwuAEm9vbZXoibck4OTE8lR87gnqn2mIChjQ7AfayGGEBacQ5slmqLNkre/0ji
+qyuYUji8t9+wAzWfly5d1r7clwhZt3ozXtwB/xzwJk+GK+3J3iY3ttV7Ay0CAwEA
+AaOBkzCBkDAMBgNVHRMBAf8EAjAAMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAK
+BggrBgEFBQcDBDAbBgNVHREEFDASgRBkYW5hQGV4YW1wbGUuY29tMB0GA1UdDgQW
+BBQxj5IXLzScmiovBQKur4BboeH23TAfBgNVHSMEGDAWgBQBvHNdyrFzZaScoAdZ
+Hul73B/qLTANBgkqhkiG9w0BAQsFAAOCAQEAMMGH7dv8dvnEYYxhWVVuX9vzHyj2
+uJsC5W/S2od+jHTKPzBYDXftCQsFkGx65ZJA2Z5BfI8TTAbiyFxiPtV/lFVJlo6u
+kOucs2Rlki0W6+4s65grOD54DH12SymYhWoq8y9LGdC/KiSZ8SN5ZR8RvWlCLnhf
++C1Ec/FrX8YaQDWXMpxnEknZU3MnN424hBMAM1eUClLn1hvx9iX6QFM2UuEgTupb
+uWXD7ihK+4z+n4AQlxomySAz3SxfDFnL8JLGm99yx/bL564DN7eolxVkf0w1vEr9
+1aGcbJlEYmqVw31kWSRSXmdhH7yy+Kbp3FJqiAZoY40K3CCRNecP61XiQA==
+-----END CERTIFICATE-----
+`;
+
 /* Another key of Dana, for dana@example.net, with a certificate from
  * `openssl ca -selfsign -startdate 20200101000000Z -enddate 20210101000000Z`,
  * so it expired long ago.
@@ -328,4 +363,21 @@ Hvr5/5t4x58ENMp2S0UAtSC2/ifFVqG9z+5DZ2SY2+7NpVqkaqdYJgmwuoFNmBPG
 9ccJz95pLm/grbbY1alAxwUwbAYJKoZIhvcNAQcBMB0GCWCGSAFlAwQBKgQQgRbY
 9nTpb8qQjJ0arfh8iYBAWRfqATx0ULKazPZF7sxLQlSpgUDTPcXFE6rbW/ox02Zc
 i/cnfStdTyhtDkOej7cN+ybucpU0BgcBsM3m0JR2lw==
+`;
+
+/** `openssl cms -encrypt -aes-256-cbc` to kDanaCompanyCert, which names the
+ * recipient by issuer and serial number */
+const kCompany = `
+MIICEgYJKoZIhvcNAQcDoIICAzCCAf8CAQAxggGKMIIBhgIBADBuMGIxEzARBgoJ
+kiaJk/IsZAEZFgNjb20xFzAVBgoJkiaJk/IsZAEZFgdleGFtcGxlMRgwFgYDVQRh
+DA9WQVRERS0xMjM0NTY3ODkxGDAWBgNVBAMMD1Rlc3QgQ29tcGFueSBDQQIIJD1L
+jnsivu0wDQYJKoZIhvcNAQEBBQAEggEAddw9S0VNuavFEpQH9LnBxCOw22TGRK5X
+PzBQAD27GBGNsHFHbhxcf4YteD2jTi4g0ltP7Xvo0P4Q7dKBSbQSFDutcBNystPz
+Dw5f50ixOHqlcQQ1D3M8OhJFBJOdaBsPhZCiUrRXBtX6OdhRZz+bykTYa3QhkMOf
+j3snUySS92HrblzOl6z94epVDaJo6x6CAEox4uuewNU/LXiUH7gTmpsCaIG/Mxby
+2xcFlJUH/ibtO6NI9/1tEUtBBBFYuldzUHq7ILC40ug4jEtXn5P8k6MBvoZzwbnk
+TUQQXurysh12lcPqmYofcyW3MGYpmjp6GCXft88/HO2SpWZFA814lDBsBgkqhkiG
+9w0BBwEwHQYJYIZIAWUDBAEqBBBmLu224PMpmmnksuz0CY5RgEAcwbATenYYmoa1
+drLY/3F+q/u02t2pIVuNZrVrpCETZXchHKRyjsJ8LN1+sJ2JFH8hD68YmHRqkHZP
+A3WqF3ga
 `;
