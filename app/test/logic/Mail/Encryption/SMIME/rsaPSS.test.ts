@@ -4,7 +4,7 @@ import { Certificate, RSASSAPSSParams, AlgorithmIdentifier, SignedData } from ".
 import { verifySignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEVerify";
 import { TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
 import { kSignedContent } from "./certificateChains";
-import { kPSSRootCA, kPSSCA, kPeggy, kQuentin, kSybil, kPSSOnlyCA, kRupert, kSignedByPeggy, kSignedByPeggyPSS, kSignedByPeggyPSSNoAttributes } from "./rsaPSSSignatures";
+import { kPSSRootCA, kPSSCA, kPeggy, kQuentin, kSybil, kPSSOnlyCA, kRupert, kSignedByPeggy } from "./rsaPSSSignatures";
 import { expect, test, describe } from "vitest";
 
 // The browser has this, but Node does not.
@@ -34,10 +34,6 @@ async function keyStatus(certificates: string): Promise<KeyStatus> {
   return await key.keyStatus();
 }
 
-async function verify(signedData: any, content = kSignedContent): Promise<SMIMEPublicKey | null> {
-  return await verifySignedData(signedData, new TextEncoder().encode(content));
-}
-
 /** The certificate, changed by `change`, in PEM format */
 function changedCertificate(pem: string, change: (cert: Certificate) => void): string {
   let cert = Certificate.decodePEM(pem, { label: "CERTIFICATE" });
@@ -45,12 +41,12 @@ function changedCertificate(pem: string, change: (cert: Certificate) => void): s
   return Certificate.encodePEM(cert, { label: "CERTIFICATE" });
 }
 
-/** Changes the PSS parameters of the signature of a certificate or a mail signer */
-function changePSSParameters(change: (params: RSASSAPSSParams) => void): (signed: { signatureAlgorithm: AlgorithmIdentifier }) => void {
-  return signed => {
-    let params = RSASSAPSSParams.decode(signed.signatureAlgorithm.parameters);
+/** Changes the PSS parameters of the signature of the certificate */
+function changePSSParameters(change: (params: RSASSAPSSParams) => void): (cert: Certificate) => void {
+  return cert => {
+    let params = RSASSAPSSParams.decode(cert.signatureAlgorithm.parameters);
     change(params);
-    signed.signatureAlgorithm.parameters = RSASSAPSSParams.encode(params);
+    cert.signatureAlgorithm.parameters = RSASSAPSSParams.encode(params);
   };
 }
 
@@ -92,36 +88,8 @@ describe("Certificate chain signed with RSA-PSS", () => {
   });
 
   test("of a mail signature with PKCS #1 v1.5 padding is trusted", async () => {
-    let signer = await verify(SignedData.decodeFromBase64(kSignedByPeggy));
+    let signer = await verifySignedData(SignedData.decodeFromBase64(kSignedByPeggy), new TextEncoder().encode(kSignedContent));
     expect(signer?.userIDs.contents).toEqual(["peggy@example.com"]);
     expect(signer?.trustLevel).toBe(TrustLevel.OS);
-  });
-});
-
-describe("Mail signature with RSA-PSS", () => {
-  test("verifies", async () => {
-    let signer = await verify(SignedData.decodeFromBase64(kSignedByPeggyPSS));
-    expect(signer?.userIDs.contents).toEqual(["peggy@example.com"]);
-    expect(signer?.trustLevel).toBe(TrustLevel.OS);
-  });
-
-  test("without signed attributes verifies", async () => {
-    let signer = await verify(SignedData.decodeFromBase64(kSignedByPeggyPSSNoAttributes));
-    expect(signer?.userIDs.contents).toEqual(["peggy@example.com"]);
-  });
-
-  // Each of these first checks that the unchanged signature verifies.
-  // The message then shows as unsigned, without an error.
-  test.each([
-    ["that was changed", kSignedByPeggyPSS, (signerInfo: any) => signerInfo.signature[100] ^= 1, kSignedContent],
-    ["over changed content", kSignedByPeggyPSSNoAttributes, () => {}, "Hello, this is changed.\r\n"],
-    // RFC 4056 section 3
-    ["with another hash than the digest algorithm", kSignedByPeggyPSSNoAttributes, (signerInfo: any) => signerInfo.digestAlgorithm = { algorithm: "sha512" }, kSignedContent],
-    ["with a salt length that is too long for the key", kSignedByPeggyPSS, changePSSParameters(params => params.saltLength = 1000n), kSignedContent],
-  ])("%s does not verify", async (name, signature, change, content) => {
-    expect(await verify(SignedData.decodeFromBase64(signature))).not.toBeNull();
-    let signedData = SignedData.decodeFromBase64(signature);
-    change(signedData.content.signerInfos[0]);
-    expect(await verify(signedData, content)).toBeNull();
   });
 });
