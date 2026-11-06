@@ -115,7 +115,7 @@ export class SMIMEPublicKey extends PublicKey {
     // itself for identity binding without adding those X.509 path checks first.
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
     for (let key of this.chain) {
-      if (!key.isValidAt(date)) {
+      if (key.obsolete || !key.isValidAt(date)) {
         console.log("obsolete certificate in chain");
         return KeyStatus.ChainInvalid;
       }
