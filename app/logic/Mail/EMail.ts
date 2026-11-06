@@ -92,6 +92,8 @@ export class EMail extends Message {
   /** Body has been loaded already */
   @notifyChangedProperty
   loadedBody = false;
+  /** A processor failed during the last `parseMIME()` */
+  parseError: Error | null = null;
   /** For SQLEMail and alternatives only */
   readonly storageLock = new Lock();
   /** For composer only. Optional. */
@@ -442,6 +444,7 @@ export class EMail extends Message {
     });
     try {
       this.processorLoop.nextRound();
+      this.parseError = null;
       for (let processor of EMailProcessorList.processors) {
         if (processor.runOn != ProcessingStartOn.Parse) {
           continue;
@@ -449,6 +452,7 @@ export class EMail extends Message {
         try {
           await processor.process(this, mail);
         } catch (ex) {
+          this.parseError ??= ex;
           this.folder.account.errorCallback(ex);
         }
       }
@@ -606,6 +610,9 @@ export class EMail extends Message {
         if (!this._rawHTML && !this._text) {
           await this.download();
         }
+      }
+      if (!this._rawHTML && !this._text && this.parseError) {
+        throw this.parseError;
       }
 
       let html = this.html;
