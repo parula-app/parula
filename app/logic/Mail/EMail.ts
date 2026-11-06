@@ -183,16 +183,16 @@ export class EMail extends Message {
    * with it. The key travels with the message - in the CMS blob for S/MIME,
    * in the AutoCrypt header for PGP - so this is the only place where we
    * have it for senders who are not in the addressbook.
-   * Only keys that were issued for the `From:` address describe the sender.
+   * Only keys that were issued for the `From:` address describe the sender,
+   * otherwise the message is not signed.
    * @param signer null, if the signature did not verify */
   rememberSigner(signer: PublicKey | null) {
+    if (!signer?.isForEMailAddress(this.from?.emailAddress)) {
+      signer = null;
+    }
     this.signedKey = signer;
     this.signedByKeyID = signer?.id ?? null;
     if (!signer) {
-      return;
-    }
-    let emailAddress = this.from?.emailAddress?.toLowerCase();
-    if (!emailAddress || !signer.userIDs.some(userID => userID.toLowerCase() == emailAddress)) {
       return;
     }
     let known = this.from.encryptionPublicKey;
@@ -461,6 +461,14 @@ export class EMail extends Message {
         this.folder.account.errorCallback(ex);
       }
     }
+  }
+
+  /** Parses raw MIME text message and returns only the headers parsed. */
+  static async getHeadersFromMIME(mime: Uint8Array): Promise<MIME> {
+    let mimeAsText = new TextDecoder().decode(mime);
+    let headerEnd = mimeAsText.indexOf("\r\n\r\n");
+    let headersStr = headerEnd < 0 ? mimeAsText : mimeAsText.slice(0, headerEnd);
+    return await new PostalMIME().parse(headersStr);
   }
 
   /** @param name must be lowercase

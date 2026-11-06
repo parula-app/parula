@@ -154,12 +154,8 @@ export class SMIMEPublicKey extends PublicKey {
     if (!this.isValidAt(date)) {
       return KeyStatus.Expired;
     }
-    // This checks only that each certificate is validly signed by the next one
-    // up to a trusted root. It does not verify basicConstraints (CA:TRUE) or
-    // keyUsage/extKeyUsage (emailProtection). Identity is bound elsewhere, by
-    // matching the signer's stored key ID against `email.from`, so a rogue leaf
-    // cannot sign as another identity today. Do not start trusting the chain
-    // itself for identity binding without adding those X.509 path checks first.
+    // `EMail.rememberSigner()` trusts the email addresses in the certificate,
+    // so it needs the basicConstraints and keyUsage/extKeyUsage checks here.
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
     if (!this.allowsEMailProtection()) {
       return KeyStatus.ChainInvalid;
