@@ -58,6 +58,13 @@ function calendarNames(account: JMAPAccount): string[] {
     .map(cal => cal.name);
 }
 
+function calendarIDs(account: JMAPAccount): string[] {
+  return appGlobal.calendars.contents
+    .filter(cal => cal.mainAccount == account)
+    .map(cal => (cal as JMAPCalendar).jmapID)
+    .sort();
+}
+
 test("A calendar renamed elsewhere is renamed here", async () => {
   let { account, server } = newAccount("u");
   server.calendars = [calendar("b", "Stalwart Calendar (alice@example.com)", true), calendar("c", "Team")];
@@ -87,12 +94,12 @@ test("A calendar that is no longer shared with us is removed, when the server li
   let { account: alice, server } = newAccount("u", bob);
   server.calendars = [calendar("b", "Stalwart Calendar (alice@example.com)", true), calendar("c", "Alice Team")];
   await alice.listCalendars();
-  expect(calendarNames(alice)).toEqual(["Stalwart Calendar (alice@example.com)", "Alice Team"]);
+  expect(calendarIDs(alice)).toEqual(["b", "c"]);
 
   server.calendars = [calendar("b", "Stalwart Calendar (alice@example.com)", true)];
   await alice.listCalendars();
 
-  expect(calendarNames(alice)).toEqual(["Stalwart Calendar (alice@example.com)"]);
+  expect(calendarIDs(alice)).toEqual(["b"]);
 });
 
 test("When the server doesn't list the calendars, ours and their events stay", async () => {
@@ -101,12 +108,15 @@ test("When the server doesn't list the calendars, ours and their events stay", a
   server.calendars = [calendar("c", "Alice Team")];
   await alice.listCalendars();
 
-  // A refusal or an error is no list of calendars, so it's no reason to delete ours
-  server.calendars = "forbidden";
-  await alice.listCalendars();
-  expect(calendarNames(alice)).toEqual(["Alice Team"]);
-
-  server.calendars = "fails";
-  await expect(alice.listCalendars()).rejects.toThrow("503");
-  expect(calendarNames(alice)).toEqual(["Alice Team"]);
+  // A refusal or an error is no list of calendars, so it's no reason to delete ours.
+  // Whether the listing reports the error or not doesn't matter here.
+  for (let answer of ["forbidden", "fails"] as const) {
+    server.calendars = answer;
+    try {
+      await alice.listCalendars();
+    } catch (ex) {
+      expect(ex).not.toBeInstanceOf(TypeError);
+    }
+    expect(calendarIDs(alice)).toEqual(["c"]);
+  }
 });

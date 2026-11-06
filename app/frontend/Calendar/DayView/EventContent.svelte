@@ -5,7 +5,10 @@
     title={eventAsText}>
     {#if showTime}
       <!--{event.startTime.toLocaleTimeString(getDateTimeLocale(), { hour: "numeric", minute: "numeric" })}-->
-      <hbox class="time">{startTime}</hbox>
+      <hbox class="time">
+        <span class="with-ampm">{startTime}</span>
+        <span class="without-ampm">{getTimeStringWithoutAMPM($event.startTime)}</span>
+      </hbox>
     {/if}
     <hbox class="title">{$event.title}</hbox>
   </hbox>
@@ -16,7 +19,7 @@
   import { openEvent } from "../open";
   import { selectedEvent } from "../selected";
   import Clickable from "../../Shared/Clickable.svelte";
-  import { getDurationString } from "../../../logic/util/date";
+  import { getDurationString, getTimeStringWithoutAMPM } from "../../../logic/util/date";
   import { getDateTimeLocale } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -45,7 +48,7 @@
     margin-block-end: 2px;
     margin-inline-end: 3px;
     border-radius: 3px;
-    container-type: inline-size;
+    container-type: size;
     --stripe-color: rgb(from var(--color) r g b / 50%);
   }
   @media (prefers-color-scheme: dark) {
@@ -99,6 +102,34 @@
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .without-ampm {
+    display: none;
+  }
+  @container (width < 8.5ch) {
+    .with-ampm {
+      display: none;
+    }
+    .without-ampm {
+      display: inline;
+    }
+  }
+  @container (height < 1.9em) {
+    .time,
+    .title {
+      margin-block: auto;
+      white-space: nowrap;
+      font-size: clamp(8px, (100cqh - 2px) / 1.2, 1em);
+      line-height: 1.2;
+    }
+  }
+  @container (width < 5.3ch) {
+    .time,
+    .title {
+      margin-inline-start: 2px;
+      font-size: clamp(8px, (100cqh - 2px) / 1.2, 10px);
+      line-height: 1.2;
+    }
   }
   @container (width < 3ch) {
     .time {

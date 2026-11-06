@@ -3,17 +3,22 @@
 {#if event.isIncomingMeeting && !event.isCancelled}
   <MenuDivider />
   {#each responses as response}
-    <SubMenu label={response.label} icon={response.icon}>
-      <MenuItem label={$t`Send the Response Now`} icon={SendIcon}
-        checked={event.myParticipation == response.value}
-        onClick={() => event.respondToInvitation(response.value)} />
+    <SubMenu label={response.label} icon={response.icon} classes={response.classes}>
+      <ResponseMenuItems response={response.value} checked={event.myParticipation == response.value}
+        onRespond={sendReply => event.respondToInvitation(response.value, sendReply)} />
     </SubMenu>
   {/each}
 {/if}
 {#if !event.isCancelled}
   <MenuDivider />
+  {#if event.isIncomingMeeting}
+    <MenuItem label={$t`Reply`} icon={ReplyIcon}
+      onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, false))} />
+    <MenuItem label={$t`Reply All`} icon={ReplyAllIcon}
+      onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, true))} />
+  {/if}
   <MenuItem label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
-    onClick={async () => openComposer(await OutgoingInvitation.forwardEventByMail(event))} />
+    onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
 {/if}
 <MenuDivider />
 {#if event.isCancelled}
@@ -53,16 +58,18 @@
   import { CalendarActions } from "../CalendarActions";
   import { openEvent } from "../../../frontend/Calendar/open";
   import { openComposer } from "../../../frontend/Mail/open";
-  import { OutgoingInvitation } from "../../../logic/Calendar/Invitation/OutgoingInvitation";
+  import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
   import SubMenu from "../../Shared/Menu/SubMenu.svelte";
-  import SendIcon from "lucide-svelte/icons/send";
+  import ResponseMenuItems from "../Invitation/ResponseMenuItems.svelte";
   import OpenIcon from "lucide-svelte/icons/square-pen";
   import AcceptIcon from "lucide-svelte/icons/check";
   import TentativeIcon from "lucide-svelte/icons/circle-help";
   import DeclineIcon from "lucide-svelte/icons/x";
   import ForwardIcon from "lucide-svelte/icons/forward";
+  import ReplyIcon from "lucide-svelte/icons/reply";
+  import ReplyAllIcon from "lucide-svelte/icons/reply-all";
   import CancelIcon from "lucide-svelte/icons/calendar-x-2";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import { t } from "../../../l10n/l10n";
@@ -70,9 +77,9 @@
   export let event: Event;
 
   $: responses = [
-    { value: InvitationResponse.Accept, label: $t`Accept *=> Accept the invitation to the meeting`, icon: AcceptIcon },
-    { value: InvitationResponse.Tentative, label: $t`Tentative *=> Not sure to join this business meeting`, icon: TentativeIcon },
-    { value: InvitationResponse.Decline, label: $t`Decline *=> Decline the invitation to the meeting`, icon: DeclineIcon },
-  ] as { value: InvitationResponseInMessage, label: string, icon: typeof AcceptIcon }[];
+    { value: InvitationResponse.Accept, label: $t`Accept *=> Accept the invitation to the meeting`, icon: AcceptIcon, classes: "accept" },
+    { value: InvitationResponse.Tentative, label: $t`Tentative *=> Not sure to join this business meeting`, icon: TentativeIcon, classes: "" },
+    { value: InvitationResponse.Decline, label: $t`Decline *=> Decline the invitation to the meeting`, icon: DeclineIcon, classes: "decline" },
+  ] as { value: InvitationResponseInMessage, label: string, icon: typeof AcceptIcon, classes: string }[];
   $: isRecurring = event.recurrenceCase == RecurrenceCase.Instance || event.recurrenceCase == RecurrenceCase.Exception;
 </script>

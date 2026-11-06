@@ -168,7 +168,7 @@
     await message.treatSpam(!message.isSpam);
   }
   async function editDraft() {
-    await message.loadMIME();
+    await message.compose.editDraft();
     mailMustangApp.writeMail(message);
   }
 

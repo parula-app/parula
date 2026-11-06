@@ -2,6 +2,7 @@ import "../../../../../logic/app";
 import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
+import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { expect, test } from "vitest";
 
 // The browser has this, but Node does not.
@@ -33,6 +34,46 @@ test("An encrypted message that is not for us tells the user why it stays empty"
 
   expect(errors.map(ex => ex.message)).toEqual(["This message is encrypted, and the key is not available"]);
 });
+
+test("A message encrypted with 3DES, which we can't decrypt, tells the user which cipher it uses", async () => {
+  let errors = await readAsBob("enveloped-data", kDES3);
+  expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/\bdes/i)]);
+});
+
+test("A message encrypted with AES-CCM, which we can't decrypt, tells the user which cipher it uses", async () => {
+  let errors = await readAsBob("authEnveloped-data", kAESCCM);
+  expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/\bccm|2\.16\.840\.1\.101\.3\.4\.1\.47/i)]);
+});
+
+/** Reads the CMS blob as a message to Bob, whose private key we have.
+ * @returns the errors that the user sees */
+async function readAsBob(smimeType: string, cms: string): Promise<Error[]> {
+  let { folder } = await setupTestFolder();
+  let identity = new MailIdentity(folder.account);
+  identity.emailAddress = "bob@example.com";
+  identity.realname = "Bob";
+  identity.encryptionPrivateKeys.add(await SMIMEPrivateKey.importPrivateKey(kBobKey + "\n" + kBobCert));
+  folder.account.identities.add(identity);
+  appGlobal.emailAccounts.add(folder.account);
+  let errors: Error[] = [];
+  folder.account.errorCallback = (ex) => errors.push(ex);
+
+  let email = folder.newEMail();
+  email.mime = new TextEncoder().encode(`From: Alice <alice@example.com>
+To: Bob <bob@example.com>
+Subject: Encrypted
+Date: Tue, 14 Jul 2026 10:00:00 +0000
+Message-ID: <${smimeType}@example.com>
+MIME-Version: 1.0
+Content-Disposition: attachment; filename="smime.p7m"
+Content-Type: application/pkcs7-mime; smime-type=${smimeType}; name="smime.p7m"
+Content-Transfer-Encoding: base64
+
+${cms}
+`.replace(/\n/g, "\r\n"));
+  await email.parseMIME();
+  return errors;
+}
 
 /** `openssl smime -sign | openssl smime -encrypt`, to a certificate that is not ours */
 const kEncrypted = `From: Alice <alice@example.com>
@@ -111,4 +152,92 @@ sF4lpN22hBEJeL/Ophn6Bgp84v4WwbCJAZawO9JNhL+d/WBn0yf05KU4yfqKcOH4
 7PuydLTcEr70Q/jZ72vn9j9Hag/j5WGgXhS84bQljzWU+rKtn6jxLC3pcMmEygV1
 OTI4DTbekCe8ODSpWFo/1MynsRWTDM2B+enLAnX2XLMdVwQ=
 
+`;
+
+/* openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 7300 -nodes \
+ *   -subj "/CN=Bob" -addext "subjectAltName=email:bob@example.com" \
+ *   -addext "keyUsage=critical,digitalSignature,keyEncipherment" \
+ *   -addext "extendedKeyUsage=emailProtection"
+ * Test key only. Do not use it for anything else. */
+const kBobKey = `
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCMKgS25Gdvex4p
+Bgn3KRjfkslLJCet+UXq8Ih8ipTKQEm/m8XkYj0oF6FFjJFC2ApjpCtGa/RvqUO5
+uCCS96xZNL+ykPMRCGq7hb3FaYIvxDuP5bGI3ArW9vK5a8MNTXiVflR5a0NiFnDi
+Sk/90SREBNNnjUQZlB9HbGwFiJH2px131odtoYg/tSxbCZsUAIsKxGGj1vLuOadX
+HPuY3KkeL4eBFzMS5+U4rdWdJN1sSehT61y5B2R2Kauz+F0hPAZD+MpFjTe5k0M5
+SilXKT6oZt5rVrnC/N1lBqR132079k5TU04fpL6B6ym/Dg57YRk4Ev0L/ILSQH10
+/1xIk+dTAgMBAAECggEABVcggNto+X1mY8fAH3OoZ/ROyRcij+VcfZwWhzA8hQw4
+Ax3rR01a6SklUuINMs/KbYt2vqMkWBDJ7MyQKSlYnrl8yE/vgumgL27kER55AFro
+rg3hWsaPfys/ikMJ1nrqKj/69flZQuZ5/JU6QQBz8keAyoQ+YP8cxfrijr9qWExt
+ShHqdORVg9aD1B8p1yPHmXZlgXCREtbpLdTxTO75imVQtzItYhnEe3U17oZqSMxu
+llQLywyT0+yYsH2RuiFl6qmZrGgyBiobMO6KdEPJPYWc4E/8FOL/7Ddno4lfHtEV
+aqMU5FeaTg66RTLLgef2mf59R0cAvflu/tWeNBVfAQKBgQDBBtIjsBxGKjPcm+RO
+bMccXBlVexYEcf1asB6lQ8za6qmo5w7Oden7DDSNvmZzZ1R/YAHGBIgqBKCSKHcB
+/QEwO38SD1JiQN0fHsaw5LpoCfun+6SGmPdImMCc3rd/AZRUsNd6sQKmA4wMF5u8
+1i6/62juN4TUt02ftgKZgAkk0wKBgQC55Dtj9w6zJjabPajxYGt9hfeIbxO3skRL
+WI0JJSe/TCSqkfHHUH6FeRcGE9Cuylgz3tSPG81dC3tMfW7hK38CURx94B+5PaUV
+85UQnHFZglexRD2XPWPsBdugJpWqVqh8sBF0jg6Z6Zt34caFPrpYR1Liqpv4pE/B
+UdcHTKKjgQKBgDNxV+u+8aoZcTzoJw5nmyEJwo6vgQyqPHVA3sn4qc3mIFUtTxri
+/fq0JAVqqu8yqKhRs+dMKeXY2dpaAm17Oifak2ECyFf7JXM3xog6TRuRHYqFXDGq
+7qxgWWT1Tj4A88EmaCcAqc4Iv/gxCoZnJopreMmT7kiqmXtpDIRQRR+VAoGAIsqu
+uvUAkVMzoTaXKiYruCCcxbJUdGsvERMPwohruggcTLhoEi/knkKdpouK4UwJ2ht4
+mRhRBXsippxLZmVnrh1UQdLy3Q7GmScv3R4KsQAOPaVSCb55tzEZfA38sRbrDfs+
+KRx1ayUn7fYZ29JzuhYPU1EvRAgszTfuEPWs8wECgYEAhc5B2D1XACwTyuhht1tv
+PcEwvcoSul0UtBY79K2P8s3B8E05XR0mJhEHJaV54poTFNDx6BKLB1fH7yL+PcWn
+Tjd1TwOQC9grGxpb5BgpDLcVuiVCGXfhEFhCqRseiAVn0kpCNVH4hb8hxSZq7oX8
+H7rcr64uyHERw2PjhIP5teQ=
+-----END PRIVATE KEY-----
+`;
+
+const kBobCert = `
+-----BEGIN CERTIFICATE-----
+MIIDQDCCAiigAwIBAgIUR1y+gd/vMo3Jefdqh9xJSZ9XsIwwDQYJKoZIhvcNAQEL
+BQAwDjEMMAoGA1UEAwwDQm9iMB4XDTI2MTAyMjExNDYzOFoXDTQ2MTAxNzExNDYz
+OFowDjEMMAoGA1UEAwwDQm9iMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEAjCoEtuRnb3seKQYJ9ykY35LJSyQnrflF6vCIfIqUykBJv5vF5GI9KBehRYyR
+QtgKY6QrRmv0b6lDubggkvesWTS/spDzEQhqu4W9xWmCL8Q7j+WxiNwK1vbyuWvD
+DU14lX5UeWtDYhZw4kpP/dEkRATTZ41EGZQfR2xsBYiR9qcdd9aHbaGIP7UsWwmb
+FACLCsRho9by7jmnVxz7mNypHi+HgRczEuflOK3VnSTdbEnoU+tcuQdkdimrs/hd
+ITwGQ/jKRY03uZNDOUopVyk+qGbea1a5wvzdZQakdd9tO/ZOU1NOH6S+gespvw4O
+e2EZOBL9C/yC0kB9dP9cSJPnUwIDAQABo4GVMIGSMB0GA1UdDgQWBBRso3GRZK61
+Oo4SMGKQL3LIIuZRwzAfBgNVHSMEGDAWgBRso3GRZK61Oo4SMGKQL3LIIuZRwzAP
+BgNVHRMBAf8EBTADAQH/MBoGA1UdEQQTMBGBD2JvYkBleGFtcGxlLmNvbTAOBgNV
+HQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwQwDQYJKoZIhvcNAQELBQAD
+ggEBAD3GYoVzsIXRFlVcK+KxBUxQAyDKz5t2IiOptHUG8UWsRaiyyCKy1A4UhYzt
+ifcuf/NLuI03eL4650sruz+s2+Mu4PDhsyklu/woO83tP5fapUYgOh5RV09HInIb
+bPaEV0Sg4ppTjlWGMT/28UDyXXjePZWO4x5txw+KYLGoiP1Vf8mnym40Wx4uszLW
+so7PU/MDIyDk1qtdogmsrPkzFAJis5d/OUGJimX1E1gTqXLtadegWebqVoZ6NWgR
+ydHgOYnFseafqBoAVLLutfNSutmP767D1FLmps+ax/q8iPut5LOxTeUmy1TLgT11
+nFLNbqBl0u5ZF6ziP5sXPqvwrbg=
+-----END CERTIFICATE-----
+`;
+
+/** `openssl cms -encrypt -des3 -recip cert.pem`, as older Outlook versions sent by default */
+const kDES3 = `
+MIIBqQYJKoZIhvcNAQcDoIIBmjCCAZYCAQAxggFCMIIBPgIBADAmMA4xDDAKBgNV
+BAMMA0JvYgIUR1y+gd/vMo3Jefdqh9xJSZ9XsIwwDQYJKoZIhvcNAQEBBQAEggEA
+bndbKEsTiFQ8ubsclU1ZItXy/ooMjqHE+nAv+4+JeQ70kUkwXIlaX/HkAAVNjiVR
+p8Ao5O/fY9XtSpu9fymnVgeLdSbEibHSGB69tJoHGVQZbH+BRd2dYC1sNAXyV3ui
+y087Sp8SOZk9Oswot+JtZ6AFLREBuL8KwdqW7cPxoljjUpr2afkaTj6ndihoZbZ0
+YBQm4rit0mQLBhKaIeiX/3ysEwofuDFGQmcWyZfW0mqGd0TBDIXkqd+jjIXMu0c4
+tI82LDn79LHcdlbd2nep651ctXkcmw84rNusVUiep3O8nL8Qd5yU5STebwT2SJH+
+X88iNpTNYUD7cKWL7J8YRDBLBgkqhkiG9w0BBwEwFAYIKoZIhvcNAwcECC02l+XV
+sKnwgCgGl9Qho4xYTx9tfopWdzuW10PcXFCQIEcCxpxYrhj3j+m201GO3y8M
+`;
+
+/** `openssl cms -encrypt -aes-256-gcm -recip cert.pem -outform DER`, with the cipher OID
+ * changed to AES-256-CCM (2.16.840.1.101.3.4.1.47, RFC 5084), which has the same parameters.
+ * OpenSSL can't write AES-CCM itself. */
+const kAESCCM = `
+MIIBxgYLKoZIhvcNAQkQARegggG1MIIBsQIBADGCAUIwggE+AgEAMCYwDjEMMAoG
+A1UEAwwDQm9iAhRHXL6B3+8yjcl592qH3ElJn1ewjDANBgkqhkiG9w0BAQEFAASC
+AQAZ2wnvb8lQZi6T8T+kH9IoVSvCiSC+9Faf08Qc+uIHNXGMnD9MqDzoz/4LP2zt
+6/z1sfBTbfLT+4gxnxGX6ROzsIgFFoaCDZ3wShKmz34/kuHeV9Wl3DvfUVcuupv8
+NurMlr2laCZMsr1Zx0pOSJSFQQsrscx60XQMEmXvU4E8LiN05lTtX7L2C058tull
+8dc5Eh5Qh/czzKxN5n49RG2A75jDQoGaYVkZwnZLpF3HqQ+APlUwmcZ0BKn0sLea
++RSJXYRFZKA9DKXKGTePME3L2jd7cSQSNTCIFlKE1OUMLua95sw5CvutryFTeZps
+KhSbek7zTcxKM8lj07ePPapfMFQGCSqGSIb3DQEHATAeBglghkgBZQMEAS8wEQQM
+fw2BDm/Bxdr9fDejAgEQgCciaMA9DQG6G/Hc2cjBxZGypsR39Aa2sokkfPh21WKy
+yB6ZR+7OBkwEENnbI5Yb8ATYPUYONTnK1KM=
 `;

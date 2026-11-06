@@ -106,7 +106,7 @@
   }
 
   let fileSelector: FileSelector;
-  // <copied to="../../../lookout/Files/FilesRibbon.svelte">
+  // <copied to="../../../lookout/Files/FilesRibbon.svelte, ../drag.ts">
   async function addFile() {
     let fileBlobs = await fileSelector.selectFiles();
     if (!fileBlobs?.length) {

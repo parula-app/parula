@@ -134,6 +134,12 @@
     border-radius: var(--lo-radius-small);
     color: var(--lo-accent-text);
   }
+  .lo-menuitem.accept .icon {
+    color: var(--lo-success);
+  }
+  .lo-menuitem.decline .icon {
+    color: var(--lo-danger);
+  }
   .disabled .icon,
   .disabled .check {
     color: var(--lo-fg-disabled);

@@ -64,8 +64,7 @@ export class WebMailBackend {
   }
   async setTheme() {
   }
-  /** The browser does not let us at its root store, so S/MIME certificates
-   * stay at the trust level that the user gives them. */
+  /** The browser does not let us at its root store */
   async getCACertificates(type: string): Promise<string[]> {
     return [];
   }

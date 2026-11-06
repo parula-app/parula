@@ -1,7 +1,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="lo-submenu" class:open={isOpen} bind:this={anchorEl}
   on:keydown={onKeyDown}>
-  <MenuItem {label} {icon} {disabled} {tooltip} hasSubMenu keepOpen onClick={() => open(true)} bind:buttonEl={itemEl} />
+  <MenuItem {label} {icon} {disabled} {tooltip} {classes} hasSubMenu keepOpen onClick={() => open(true)} bind:buttonEl={itemEl} />
   {#if !disabled}
     <div class="submenu-layer" use:moveOutOfParentMenu>
       <Menu bind:isMenuOpen={isOpen} anchor={anchorEl} placement="right-start" isSubMenu
@@ -24,6 +24,7 @@
   export let icon: ConstructorOfATypedSvelteComponent = null;
   export let disabled: boolean | string = false;
   export let tooltip: string = null;
+  export let classes = "";
 
   const closeAllMenus = getContext<() => void>("lo-close-all-menus");
   const openSubMenu = getContext<Writable<object>>("lo-open-submenu");

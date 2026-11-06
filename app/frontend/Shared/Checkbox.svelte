@@ -98,6 +98,12 @@
   .checkbox {
     align-items: center;
   }
+  .checkbox.disabled {
+    opacity: 50%;
+  }
+  .checkbox.disabled input {
+    cursor: default;
+  }
   label {
     display: flex;
     align-items: center;
