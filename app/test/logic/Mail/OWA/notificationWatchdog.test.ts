@@ -20,6 +20,8 @@ class TestOWAAccount extends OWAAccount {
   readonly requests: any[] = [];
   /** The number of mails in each mail folder on the server, by folder ID */
   readonly serverCounts = new Map<string, number>();
+  /** The next folder listings fail with these errors, one each */
+  readonly folderListingErrors: Error[] = [];
 
   async callOWA(request: any): Promise<any> {
     this.requests.push(request);
@@ -27,6 +29,10 @@ class TestOWAAccount extends OWAAccount {
       return { AccessToken: "notification-token" };
     }
     if (request.action == "FindFolder") {
+      let error = this.folderListingErrors.shift();
+      if (error) {
+        throw error;
+      }
       let folders = [...this.serverCounts.keys()].map(folderID => this.serverFolderJSON(folderID));
       return { RootFolder: { ParentFolder: { FolderId: { Id: "msgfolderroot-id" } }, Folders: folders } };
     }
@@ -309,6 +315,71 @@ test("OWA: After the notifications were opened again, one request gets the count
   expect(new Set(fetchedFolderIDs)).toEqual(new Set(["listed-folder-3"]));
   expect(account.inboxChecks).toBe(0);
   expect(account.errors).toEqual([]);
+  await account.disconnect();
+});
+
+test("OWA: When the folder listing after the notifications were opened again fails, the error is reported once, and no mail folder is fetched", async () => {
+  let account = newTestAccount();
+  newMailFolder(account, "listed-folder", true);
+  let listeners = serveExchange([() => exchangeStream(2), exchangeStream, exchangeStream]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(30 * 1000);
+  newMailOnServer(account, "inbox-folder", "listed-folder");
+  account.folderListingErrors.push(new Error("Folder listing failed"));
+  await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+
+  expect(account.errors.length).toBe(1);
+  expect(account.errors[0].message).toContain("Folder listing failed");
+  // An error that won't go away by itself is not tried again
+  expect(listeners()).toBe(2);
+  expect(account.inboxChecks).toBe(0);
+  expect(account.requests.filter(request => request.action == "FindItem")).toEqual([]);
+  await account.disconnect();
+});
+
+test("OWA: When the folder listing after the notifications were opened again fails only for a while, e.g. the network changed, we fetch what changed meanwhile later", async () => {
+  let account = newTestAccount();
+  let listeners = serveExchange([() => exchangeStream(2), exchangeStream, exchangeStream]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(30 * 1000);
+  newMailOnServer(account, "inbox-folder");
+  account.folderListingErrors.push(new Error("net::ERR_NETWORK_CHANGED"));
+  await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+  expect(account.inboxChecks).toBeGreaterThan(0);
+  expect(account.errors).toEqual([]);
+  // Tried again after a while, not right away
+  expect(listeners()).toBeLessThanOrEqual(3);
+  await account.disconnect();
+});
+
+test("OWA: When fetching one mail folder fails after the notifications were opened again, the other folders are still fetched", async () => {
+  synced = [];
+  let account = newTestAccount();
+  newMailFolder(account, "listed-folder-1", true, () => synced.push("listed-folder-1"));
+  newMailFolder(account, "broken-folder", true, () => {
+    throw new Error("Folder fetch failed");
+  });
+  newMailFolder(account, "listed-folder-2", true, () => synced.push("listed-folder-2"));
+  let listeners = serveExchange([() => exchangeStream(2), exchangeStream]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(30 * 1000);
+  newMailOnServer(account, "inbox-folder", "listed-folder-1", "broken-folder", "listed-folder-2");
+  await vi.advanceTimersByTimeAsync(3 * 60 * 1000);
+
+  expect(listeners()).toBe(2);
+  expect(account.inboxChecks).toBeGreaterThan(0);
+  expect(synced).toContain("listed-folder-1");
+  expect(synced).toContain("listed-folder-2");
+  expect(account.errors.length).toBe(1);
+  expect(account.errors[0].message).toContain("Folder fetch failed");
+  // The notifications stay open
+  let messages = account.messages;
+  await vi.advanceTimersByTimeAsync(60 * 1000);
+  expect(account.messages).toBeGreaterThan(messages);
   await account.disconnect();
 });
 
