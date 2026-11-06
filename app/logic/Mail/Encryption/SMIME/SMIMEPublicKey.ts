@@ -66,6 +66,7 @@ export class SMIMEPublicKey extends PublicKey {
     this.obsolete = now < this.created.getTime() || now > this.expires.getTime();
   }
 
+  /** Sets this key's certificate if it has none yet or the certificate is for the same key, otherwise adds it to the chain */
   async addCertificate(cert: Certificate): Promise<boolean> {
     let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
     if (!this.publicKeyArmored) {

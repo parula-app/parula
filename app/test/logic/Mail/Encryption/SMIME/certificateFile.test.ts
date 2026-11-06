@@ -180,6 +180,8 @@ const kFiles: [string, File, boolean][] = [
 async function expectUserCertificate(key: SMIMEPublicKey, hasChain: boolean) {
   expect(key.commonName).toBe("Test User");
   expect(key.userIDs.contents).toEqual(["user@example.com"]);
+  // The CAs are in the chain, in issuing order, and did not replace the user's certificate
+  expect(key.chain.contents.map(ca => ca.commonName)).toEqual(hasChain ? ["Test Intermediate CA", "Test Root CA"] : []);
   if (hasChain) {
     expect(await key.keyStatus()).toBe(KeyStatus.Valid);
   }
