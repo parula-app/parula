@@ -72,6 +72,7 @@ const oids = {
   "1.2.840.113549.2.9": "hmacWithSHA256",
   "1.2.840.113549.2.10": "hmacWithSHA384",
   "1.2.840.113549.2.11": "hmacWithSHA512",
+  "1.2.840.113549.3.2": "rc2CBC",
   "1.2.840.113549.3.7": "desEDE3CBC",
   "1.3.6.1.5.5.7.1.1": "authorityInfoAccess",
   "1.3.6.1.5.5.7.3.4": "emailProtection",
@@ -496,6 +497,15 @@ export const EnvelopedData = define("EnvelopedData", function() {
       ),
       this.key("unprotectedAttrs").implicit(1).optional().use(Attributes),
     ),
+  );
+});
+
+/** The parameters of the RC2-CBC cipher. RFC 3370 section 5.2. */
+export const RC2CBCParameters = define("RC2CBCParameters", function() {
+  this.seq().obj(
+    /** Encodes the effective key length */
+    this.key("rc2ParameterVersion").int(),
+    this.key("iv").octstr(),
   );
 });
 

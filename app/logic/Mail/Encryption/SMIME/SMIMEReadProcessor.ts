@@ -3,8 +3,9 @@ import { EMail } from "../../EMail";
 import { findAllIdentities } from "../../MailIdentity";
 import { EncryptionSystem } from "../enums";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
-import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, SignedData } from "./SMIMEASN1";
+import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, RC2CBCParameters, SignedData, type AlgorithmIdentifier } from "./SMIMEASN1";
 import { decryptAuthEnveloped } from "./SMIMEDecrypt";
+import { rc2Decrypt, tripleDESDecrypt } from "./legacyCiphers";
 import { BlockType, unpadPKCS, decrypt } from "./SMIMERSAES";
 import { verifySignedData } from "./SMIMEVerify";
 import { parseMIMEDirectSubpartsBytes, parseHeaderParameters } from "../MIME";
@@ -57,14 +58,28 @@ export class SMIMEReadProcessor extends EMailProcessor {
   protected async readEncrypted(email: EMail, blob: Uint8Array) {
     email.system = EncryptionSystem.SMIME;
     let envelopedData = EnvelopedData.decode(blob, { berToDER: true });
-    this.checkCipher(envelopedData.content.encryptedContentInfo.contentEncryptionAlgorithm.algorithm, ["aes128cbc", "aes192cbc", "aes256cbc"]);
-    let vector = OctetString.decode(envelopedData.content.encryptedContentInfo.contentEncryptionAlgorithm.parameters);
-    let encryptedContent = envelopedData.content.encryptedContentInfo.encryptedContent;
+    let { contentEncryptionAlgorithm, encryptedContent } = envelopedData.content.encryptedContentInfo;
+    this.checkCipher(contentEncryptionAlgorithm.algorithm, ["aes128cbc", "aes192cbc", "aes256cbc", "desEDE3CBC", "rc2CBC"]);
     let symmetricKey = await this.decryptSymmetricKey(envelopedData.content.recipientInfos);
-    let key = await crypto.subtle.importKey("raw", symmetricKey, "AES-CBC", false, ["decrypt"]);
-    let decryptedContent = await crypto.subtle.decrypt({ name: "AES-CBC", iv: vector }, key, encryptedContent);
+    let decryptedContent = await this.decryptContent(contentEncryptionAlgorithm, symmetricKey, encryptedContent);
     email.wasEncrypted = true;
-    await this.unwrapMIME(email, new Uint8Array(decryptedContent));
+    await this.unwrapMIME(email, decryptedContent);
+  }
+
+  protected async decryptContent(algorithm: AlgorithmIdentifier, key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
+    switch (algorithm.algorithm) {
+    case "desEDE3CBC":
+      return tripleDESDecrypt(data, key, OctetString.decode(algorithm.parameters));
+    case "rc2CBC": {
+      let { rc2ParameterVersion, iv } = RC2CBCParameters.decode(algorithm.parameters);
+      return rc2Decrypt(data, key, iv, sanitize.translate(rc2ParameterVersion, { 58: 128, 120: 64, 160: 40 }));
+    }
+    default: {
+      let vector = OctetString.decode(algorithm.parameters);
+      let aesKey = await crypto.subtle.importKey("raw", key, "AES-CBC", false, ["decrypt"]);
+      return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-CBC", iv: vector }, aesKey, data));
+    }
+    }
   }
 
   /** Decrypts a message that was encrypted with an authenticating cipher,
