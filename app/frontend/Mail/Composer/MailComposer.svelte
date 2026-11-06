@@ -414,7 +414,10 @@
       return;
     }
     mail.compose.saveAsDraft()
-      .catch(showError);
+      .catch(ex => {
+        showError(ex);
+        mailMustangApp.writeMail(mail);
+      });
   });
 
   let showSMLAdd = false;
