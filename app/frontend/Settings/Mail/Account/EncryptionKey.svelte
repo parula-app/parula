@@ -285,6 +285,7 @@
   import type { SMIMEPrivateKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
   import { SMIMEPublicKey, KeyStatus } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
   import { MailIdentity } from "../../../../logic/Mail/MailIdentity";
+  import { readPublicKeyFile } from "../../../../logic/Mail/Encryption/KeyUtils";
   import { saveBlobAsFile } from "../../../Util/util";
   import { appName } from "../../../../logic/build";
   import FileSelector from "../../../Mail/Composer/Attachments/FileSelector.svelte";
@@ -308,8 +309,7 @@
   import ChevronUp from "lucide-svelte/icons/chevron-up";
   import ChevronDown from "lucide-svelte/icons/chevron-down";
   import { getDateString, getDateTimeString } from "../../../../logic/util/date";
-  import { assert } from "../../../../logic/util/util";
-  import { gt, t } from "../../../../l10n/l10n";
+  import { t } from "../../../../l10n/l10n";
 
   export let key: PublicKey & PrivateKey;
   export let identity: MailIdentity;
@@ -354,17 +354,14 @@
     await identity.account.save();
   }
   let fileSelector: FileSelector;
-  const acceptFileTypes = [ "application/x-x509-email-cert", "application/x-x509-ca-cert", "application/pkix-cert", ".crt", "application/x-pem-file", ".pem" ];
+  const acceptFileTypes = [ "application/x-x509-email-cert", "application/x-x509-ca-cert", "application/pkix-cert", ".crt", "application/x-pem-file", ".pem", ".p7b", ".p7c" ];
   async function onAddCertificateSMIME() {
     let file = await fileSelector.selectFile();
     if (!file) {
       return;
     }
-    let fileContent = await file.text();
-    assert(fileContent.includes("-----BEGIN CERTIFICATE-----") ||
-      fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----"),
-      gt`Could not find a certificate in this file. It must be in PEM format.`);
-    await (key as SMIMEPrivateKey).addCertificates(fileContent);
+    let fileContent = await readPublicKeyFile(file);
+    await (key as SMIMEPrivateKey).addCertificateFile(fileContent);
     keyStatusAsync = (key as SMIMEPrivateKey).keyStatus();
     await identity.account.save();
   }

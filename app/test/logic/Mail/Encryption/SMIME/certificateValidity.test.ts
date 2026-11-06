@@ -27,7 +27,7 @@ beforeAll(async () => {
   // `SMIMEPublicKey` caches the CA certificates per process,
   // so this is the same for all tests in this file.
   ({ folder } = await setupTestFolder({
-    getCACertificates: async (type: string) => type == "bundled" ? [kRootCA] : [],
+    getCACertificates: async (type: string) => type == "system" ? [kRootCA] : [],
   }));
 });
 
@@ -45,7 +45,7 @@ describe("Validity dates of the certificate and its chain", () => {
     setToday("2026-10-22T12:00:00Z");
     let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kIntermediateCA);
     expect(await key.keyStatus()).toBe(KeyStatus.Valid);
-    expect(key.trustLevel).toBe(TrustLevel.ThirdParty);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
   });
 
   test("An expired certificate is not valid", async () => {
@@ -73,7 +73,7 @@ describe("Validity dates of the certificate and its chain", () => {
     setToday("2026-11-20T12:00:00Z"); // only the intermediate certificate expired, on 2026-11-15
     let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kExpiredIntermediateCA);
     expect(await key.keyStatus(new Date("2026-10-22T12:00:00Z"))).toBe(KeyStatus.Valid);
-    expect(key.trustLevel).toBe(TrustLevel.ThirdParty);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
   });
 
   test("An intermediate certificate that is obsolete for another reason than its dates makes the certificate invalid", async () => {
@@ -106,7 +106,7 @@ describe("The signature counts as valid only if the certificate was valid when t
     setToday("2027-02-01T12:00:00Z"); // both Alice's and the intermediate certificate expired
     let email = await readMessage("2026-10-22T12:00:00Z");
     let key = await getPublicKeyByKeyID(email.signedByKeyID, email);
-    expect(key.trustLevel).toBe(TrustLevel.ThirdParty);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
     expect(key.isValidAt(email.received)).toBe(true);
   });
 
