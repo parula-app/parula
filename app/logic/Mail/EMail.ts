@@ -463,6 +463,14 @@ export class EMail extends Message {
     }
   }
 
+  /** Parses raw MIME text message and returns only the headers parsed. */
+  async getHeadersFromMIME(mime: Uint8Array): Promise<MIME> {
+    let mimeAsText = new TextDecoder().decode(mime);
+    let headerEnd = mimeAsText.indexOf("\r\n\r\n");
+    let headersStr = headerEnd < 0 ? mimeAsText : mimeAsText.slice(0, headerEnd);
+    return await new PostalMIME().parse(headersStr);
+  }
+
   /** @param name must be lowercase
    * @returns the header value, normalized for comparison */
   protected mimeHeader(mail: MIME, name: string): string {

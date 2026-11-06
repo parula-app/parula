@@ -1,5 +1,4 @@
-import { EncryptionReadProcessor } from "../EncryptionReadProcessor";
-import { ProcessingStartOn } from "../../EMailProcessor";
+import { EMailProcessor, ProcessingStartOn } from "../../EMailProcessor";
 import type { EMail } from "../../EMail";
 import { PGPPrivateKey } from "./PGPPrivateKey";
 import { PGPPublicKey, type OpenPGPModule } from "./PGPPublicKey";
@@ -25,7 +24,7 @@ https://mailman3.ietf.org/mailman3/lists/openpgp@ietf.org/
 
 const isLogging = true;
 
-export class PGPReadProcessor extends EncryptionReadProcessor {
+export class PGPReadProcessor extends EMailProcessor {
   runOn = ProcessingStartOn.Parse;
   async process(email: EMail, mime: MIME) {
     let encrypted = attachmentOfType(email, "application/pgp-encrypted")?.content &&
@@ -89,7 +88,8 @@ export class PGPReadProcessor extends EncryptionReadProcessor {
         // date: email.sent, // TODO plus a few minutes. Getting "Signature creation time is in the future"
       });
       let signer = await this.checkSignatures(verificationResult.signatures, senderPublicKeys, email.sent, openPGP);
-      email.rememberSigner(await this.signedFromMatches(email, signedBinary) ? signer : null);
+      let innerFrom = (await email.getHeadersFromMIME(signedBinary)).from;
+      email.rememberSigner(!innerFrom || innerFrom.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
       email.attachments.remove(detachedSignaturePart);
     }
   }

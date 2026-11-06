@@ -30,7 +30,7 @@ beforeAll(async () => {
   folder.account.identities.add(user);
   appGlobal.emailAccounts.add(folder.account);
   userUID = findOrCreatePersonUID("user@example.com", "User");
-  userUID.encryptionPublicKey = await publicKeyOf(user);
+  userUID.encryptionPublicKey = await PGPPublicKey.importPublicKey((user.encryptionPrivateKeys.first as PGPPrivateKey).publicKeyArmored);
   addressbook = new Addressbook();
   appGlobal.addressbooks.add(addressbook);
   // Not added to the account: Alice is somebody else
@@ -51,10 +51,6 @@ async function newIdentity(emailAddress: string, realname: string): Promise<Mail
   return identity;
 }
 
-async function publicKeyOf(identity: MailIdentity): Promise<PGPPublicKey> {
-  return await PGPPublicKey.importPublicKey((identity.encryptionPrivateKeys.first as PGPPrivateKey).publicKeyArmored);
-}
-
 /** @returns the contact of the sender, with his public key */
 async function newContact(sender: MailIdentity, ...emailAddresses: string[]): Promise<Person> {
   let person = addressbook.newPerson();
@@ -62,7 +58,7 @@ async function newContact(sender: MailIdentity, ...emailAddresses: string[]): Pr
   for (let emailAddress of emailAddresses) {
     person.emailAddresses.add(new ContactEntry(emailAddress));
   }
-  person.addEncryptionPublicKey(await publicKeyOf(sender));
+  person.addEncryptionPublicKey(await PGPPublicKey.importPublicKey((sender.encryptionPrivateKeys.first as PGPPrivateKey).publicKeyArmored));
   addressbook.persons.add(person);
   return person;
 }
