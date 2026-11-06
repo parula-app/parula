@@ -126,6 +126,28 @@ export function toCRLF(content: string): string {
   }
 }
 
+/** Like `toCRLF()`, but byte-wise, so that 8-bit content like ISO-8859-1 survives */
+export function toCRLFBytes(content: Uint8Array): Uint8Array {
+  let bareLFs = 0;
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] == 0x0A && content[i - 1] != 0x0D) {
+      bareLFs++;
+    }
+  }
+  if (!bareLFs) {
+    return content;
+  }
+  let result = new Uint8Array(content.length + bareLFs);
+  let pos = 0;
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] == 0x0A && content[i - 1] != 0x0D) {
+      result[pos++] = 0x0D;
+    }
+    result[pos++] = content[i];
+  }
+  return result;
+}
+
 export function newBoundary(): string {
   return "----" + crypto.randomUUID().replace(/-/g, "");
 }
