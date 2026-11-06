@@ -162,13 +162,14 @@ export class SMIMEPublicKey extends PublicKey {
       return false;
     }
     let { cA, pathLenConstraint } = BasicConstraints.decode(basicConstraints);
-    return cA && (pathLenConstraint == null || subCAs <= pathLenConstraint) && this.allowsKeyUsage(KeyUsageBit.keyCertSign);
+    return cA && (pathLenConstraint == null || subCAs <= pathLenConstraint) && this.allowsAnyKeyUsage(KeyUsageBit.keyCertSign);
   }
 
-  allowsKeyUsage(...usages: KeyUsageBit[]): boolean {
+  /** True if the certificate allows at least one of these, e.g. signing needs digitalSignature or nonRepudiation (RFC 8550 section 4.4.2) */
+  allowsAnyKeyUsage(...usages: KeyUsageBit[]): boolean {
     let keyUsage = this.extension("keyUsage");
     if (!keyUsage) {
-      return true;
+      return true; // Without keyUsage, all usages are allowed (RFC 5280 section 6.1.4 (n), RFC 8550 section 4.4.2)
     }
     let { data } = KeyUsage.decode(keyUsage);
     return usages.some(bit => (data[bit >> 3] & (0x80 >> (bit % 8))) != 0);
@@ -177,10 +178,10 @@ export class SMIMEPublicKey extends PublicKey {
   protected allowsEMailProtection(): boolean {
     let extKeyUsage = this.extension("extKeyUsage");
     if (!extKeyUsage) {
-      return true;
+      return true; // As for keyUsage in allowsAnyKeyUsage() (RFC 8550 section 4.4.4)
     }
     const kAcceptAnyPurpose = false;
-    return ExtKeyUsage.decode(extKeyUsage).some(purpose => purpose == "emailProtection" || (kAcceptAnyPurpose && purpose == "anyExtendedKeyUsage"));
+    return ExtKeyUsage.decode(extKeyUsage).some(purpose => purpose == "emailProtection" || (purpose == "anyExtendedKeyUsage" && kAcceptAnyPurpose));
   }
 
   protected extension(extnID: string): Uint8Array | undefined {

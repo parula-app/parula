@@ -83,7 +83,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     cert = certificates.find(chain =>
       sameName(chain.tbsCertificate.subject, cert.tbsCertificate.issuer));
   };
-  if (!signer.allowsKeyUsage(KeyUsageBit.digitalSignature, KeyUsageBit.nonRepudiation)) {
+  if (!signer.allowsAnyKeyUsage(KeyUsageBit.digitalSignature, KeyUsageBit.nonRepudiation)) {
     return null;
   }
   // Update the signer's trustLevel if possible. The signature is already
