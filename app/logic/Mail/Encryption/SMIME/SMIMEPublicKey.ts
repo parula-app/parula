@@ -5,6 +5,7 @@ import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { appGlobal } from "../../../app";
 import { uint8ArrayToHex } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
+import { assert } from "../../../util/util";
 import { ArrayColl } from "svelte-collections";
 
 export class SMIMEPublicKey extends PublicKey {
@@ -28,6 +29,7 @@ export class SMIMEPublicKey extends PublicKey {
   }
 
   get decodedCertificate(): Certificate {
+    assert(this.certificate, "Certificate PEM is missing");
     return this._decodedCertificate ??= Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
   }
 
