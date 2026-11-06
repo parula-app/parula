@@ -21,7 +21,7 @@ globalThis.indexedDB ??= {
 // `keyStatus()` asks the backend for the CA certificates. We trust our test root CA.
 appGlobal.remoteApp ??= {
   async getCACertificates(type: string): Promise<string[]> {
-    return type == "bundled" ? [kRootCert] : [];
+    return type == "system" ? [kRootCert] : [];
   },
 };
 
