@@ -136,7 +136,11 @@ export class EWSFolder extends ExchangeFolder {
       }
       if (!isNewMail) {
         // Without a sync state, the server lists all emails, but no deletions
-        await this.deleteUnlistedMessagesLocally(listedIDs);
+        for (let email of this.messages.contents) { // copy: deleteMessageLocally() removes from this.messages
+          if (email.itemID && !listedIDs.has(email.itemID)) {
+            await email.deleteMessageLocally();
+          }
+        }
       }
       return newMsgs;
     } finally {
