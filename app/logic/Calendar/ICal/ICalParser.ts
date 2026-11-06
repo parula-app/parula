@@ -28,6 +28,7 @@ export class ICalEntry {
 
 export class ICalContainer {
   entries: Record<string, ICalEntry[]> = Object.create(null);
+  containers: Record<string, ICalContainer[]> = Object.create(null);
   parent: ICalContainer | ICalParser;
   constructor(parent: ICalContainer | ICalParser) {
     this.parent = parent;
@@ -44,12 +45,12 @@ export class ICalParser {
       i++;
       if (/^BEGIN:([-\w]+)$/i.test(line)) {
         let name = RegExp.$1.toLowerCase();
-        current = new ICalContainer(current);
-        this.containers[name] = append(this.containers[name], current);
+        let container = new ICalContainer(current);
+        current.containers[name] = append(current.containers[name], container);
+        current = container;
       } else if (/^END:([-\w]+)$/i.test(line)) {
         let name = RegExp.$1.toLowerCase();
-        assert(this.containers[name] && this.containers[name].at(-1) == current, gt`END without matching BEGIN` + gt`. Line ${i}: ${line}`);
-        assert(current instanceof ICalContainer, "END without BEGIN");
+        assert(current instanceof ICalContainer && current.parent.containers[name]?.at(-1) == current, gt`END without matching BEGIN` + gt`. Line ${i}: ${line}`);
         current = current.parent;
       } else {
         assert(current instanceof ICalContainer, gt`Item outside container` + gt`. Line ${i}: ${line}`);

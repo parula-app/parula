@@ -350,7 +350,7 @@ test("A search folder shows under its account, and selecting folders doesn't pil
   let sent = new Folder(inbox.account);
   sent.name = "Sent";
   inbox.account.rootFolders.add(sent);
-  let separateAccountList = getLocalStorage<boolean>("lookout.mail.separateAccountList", false);
+  let separateAccountList = getLocalStorage<boolean>("lookout.mail.separateAccountList", true);
   separateAccountList.value = true;
   savedSearchFolders.add(searchFolder);
   try {
@@ -366,7 +366,7 @@ test("A search folder shows under its account, and selecting folders doesn't pil
     expect(searchFolder._observers.length).toBe(subscriptions);
   } finally {
     savedSearchFolders.remove(searchFolder);
-    separateAccountList.value = false;
+    separateAccountList.value = true;
   }
   flushSync();
   expect(document.querySelectorAll(".search-folders-row").length).toBe(0);

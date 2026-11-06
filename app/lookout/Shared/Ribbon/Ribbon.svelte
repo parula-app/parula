@@ -24,11 +24,11 @@
     <slot name="tab-row-end" />
     <TellMe {ribbonEl} bind:isSurveying={isTellMeSurveying} />
     <ContextMenu bind:this={contextMenu}>
-      {#if !$qatHidden.value}
+      {#if $qatShown.value}
         <MenuItem label={$qatPosition.value == "below" ? $t`Show Quick Access Toolbar Above the Ribbon` : $t`Show Quick Access Toolbar Below the Ribbon`}
           onClick={() => { $qatPosition.value = $qatPosition.value == "below" ? "above" : "below"; }} />
       {:else}
-        <MenuItem label={$t`Show Quick Access Toolbar`} onClick={() => { $qatHidden.value = false; }} />
+        <MenuItem label={$t`Show Quick Access Toolbar`} onClick={() => { $qatShown.value = true; }} />
       {/if}
       <MenuDivider />
       <MenuItem label={$t`Customize the Ribbon…`} onClick={() => $isCustomizing = true} />
@@ -110,7 +110,7 @@
     }
   }
   const layoutSetting = getLocalStorage<RibbonLayout>("lookout.ribbon.layout", "classic");
-  const qatHidden = getLocalStorage<boolean>("lookout.qat.hidden", false);
+  const qatShown = getLocalStorage<boolean>("lookout.quickaction.shown", false);
   const qatPosition = getLocalStorage<QuickAccessPosition>("lookout.qat.position", "above");
   const customization = getLocalStorage<Record<string, RibbonHiddenParts>>("lookout.ribbon.customization", {});
   let contextMenu: ContextMenu;

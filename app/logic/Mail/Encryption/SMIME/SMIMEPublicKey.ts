@@ -1,8 +1,9 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
 import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo } from "./SMIMEASN1";
-import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayToHex } from "./SMIMERSAES";
+import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { appGlobal } from "../../../app";
+import { uint8ArrayToHex } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
 
@@ -54,7 +55,7 @@ export class SMIMEPublicKey extends PublicKey {
     // Do not overwrite the name that the user gave the key
     this.name ||= this.defaultName;
     let hash = new Uint8Array(await crypto.subtle.digest("SHA-256", Certificate.encode(cert)));
-    this.fingerprint = Uint8ArrayToHex(hash);
+    this.fingerprint = uint8ArrayToHex(hash);
     let { notBefore, notAfter } = cert.tbsCertificate.validity;
     this.created = sanitize.date(notBefore.value);
     this.expires = sanitize.date(notAfter.value);

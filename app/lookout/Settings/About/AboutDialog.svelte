@@ -17,7 +17,7 @@
   import { t } from "../../../l10n/l10n";
 
   // <copied from="../../../frontend/Settings/About/About.svelte">
-  const company = appName == "Parula" ? "Beonex GmbH" : "Mustang GmbH";
+  const company = appName == "Parula" || appName == "Lookout" ? "Beonex GmbH" : "Mustang GmbH";
   // </copied>
 </script>
 
