@@ -131,7 +131,7 @@ export class SMIMEPublicKey extends PublicKey {
       }
       cert = signer;
     }
-    const kAcceptX509v1Roots = false;
+    const kAcceptX509v1Roots = true;
     for (let type of ["bundled", "system", "extra"]) {
       for (let ca of await lazyGetCACertificates(type)) {
         if (await verifySignature(cert, ca)) {

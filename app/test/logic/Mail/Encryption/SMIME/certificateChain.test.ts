@@ -79,10 +79,12 @@ describe("Certificate chain", () => {
     await expectNotTrusted(kIvan);
   });
 
-  // Windows, Thunderbird and Apple Mail accept it.
-  // Only with `kAcceptX509v1Roots` in `keyStatus()`, which is off.
-  test("to a version 1 root is not trusted", async () => {
-    await expectNotTrusted(kFrank);
+  // As in Windows (Outlook), Thunderbird and Apple Mail. `kAcceptX509v1Roots` in `keyStatus()`.
+  // A version 1 certificate is still not trusted as issuer below the root, see above.
+  test("to a version 1 root is trusted", async () => {
+    let key = await SMIMEPublicKey.importPublicKey(kFrank);
+    expect(await key.keyStatus()).toBe(KeyStatus.Valid);
+    expect(key.trustLevel).toBe(TrustLevel.ThirdParty);
   });
 });
 
