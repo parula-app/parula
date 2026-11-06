@@ -89,6 +89,7 @@ const oids = {
   "2.5.29.19": "basicConstraints",
   "2.5.29.35": "authorityKeyIdentifier",
   "2.5.29.37": "extKeyUsage",
+  "2.5.29.37.0": "anyExtendedKeyUsage",
   "2.16.840.1.101.3.4.1.2": "aes128cbc",
   "2.16.840.1.101.3.4.1.6": "aes128gcm",
   "2.16.840.1.101.3.4.1.22": "aes192cbc",
@@ -250,6 +251,28 @@ export const SubjectAlternativeName = define("SubjectAlternativeName", function(
   this.seqof(GeneralName);
 });
 
+export interface BasicConstraints {
+  cA: boolean;
+  pathLenConstraint?: bigint;
+}
+export const BasicConstraints = define<BasicConstraints>("BasicConstraints", function() {
+  this.seq().obj(
+    this.key("cA").def(false).bool(),
+    this.key("pathLenConstraint").optional().int(),
+  );
+});
+
+export enum KeyUsageBit {
+  digitalSignature,
+  nonRepudiation,
+  keyEncipherment,
+  dataEncipherment,
+  keyAgreement,
+  keyCertSign,
+  cRLSign,
+  encipherOnly,
+  decipherOnly,
+}
 export const KeyUsage = define<BitString>("KeyUsage", function() {
   this.bitstr();
 });

@@ -1,4 +1,4 @@
-import { DigestAlgorithm, SignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, type TBSCertificate } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, encrypt } from "./SMIMERSAES";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
@@ -83,6 +83,9 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     cert = certificates.find(chain =>
       sameName(chain.tbsCertificate.subject, cert.tbsCertificate.issuer));
   };
+  if (!signer.allowsAnyKeyUsage(KeyUsageBit.digitalSignature, KeyUsageBit.nonRepudiation)) {
+    return null;
+  }
   // Update the signer's trustLevel if possible. The signature is already
   // proven here, so a failure to reach the CA certificates - they are not
   // available on all platforms - must not discard it. The trustLevel then
