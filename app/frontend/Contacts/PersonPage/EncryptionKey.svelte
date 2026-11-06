@@ -148,14 +148,7 @@
         {#if chain}
           <vbox>
             {#await keyStatusAsync then keyStatus}
-              {#if keyStatus == KeyStatus.NoCertificate}
-                <hbox>
-                  <Button
-                    label={$t`Please add this private key's certificate.`}
-                    onClick={onAddCertificateSMIME}
-                    />
-                </hbox>
-              {:else if keyStatus == KeyStatus.ChainInvalid}
+              {#if keyStatus == KeyStatus.ChainInvalid}
                 <hbox>{$t`The certificate chain could not be verified.`}</hbox>
               {:else if keyStatus == KeyStatus.ChainIncomplete}
                 <hbox>
@@ -165,11 +158,11 @@
                     />
                 </hbox>
               {:else if keyStatus == KeyStatus.SelfSignedRoot}
-                <hbox>{$t`WARNING This private key uses a self-signed root certificate.`}</hbox>
+                <hbox>{$t`WARNING This certificate uses a self-signed root certificate`}</hbox>
               {:else if keyStatus == KeyStatus.Valid}
-                <hbox>{$t`This private key has a valid certificate.`}</hbox>
+                <hbox>{$t`This certificate is valid`}</hbox>
               {:else}
-                <hbox>{$t`Unexpected private key status`}</hbox>
+                <hbox>{$t`Unexpected certificate status`}</hbox>
               {/if}
             {:catch error}
               <ErrorMessageInline ex={error} />
