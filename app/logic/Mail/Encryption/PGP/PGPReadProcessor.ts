@@ -1,5 +1,5 @@
 import { EMailProcessor, ProcessingStartOn } from "../../EMailProcessor";
-import type { EMail } from "../../EMail";
+import { EMail } from "../../EMail";
 import { PGPPrivateKey } from "./PGPPrivateKey";
 import { PGPPublicKey, type OpenPGPModule } from "./PGPPublicKey";
 import { readAutoCryptKeys } from "./AutoCrypt";
@@ -88,7 +88,7 @@ export class PGPReadProcessor extends EMailProcessor {
         // date: email.sent, // TODO plus a few minutes. Getting "Signature creation time is in the future"
       });
       let signer = await this.checkSignatures(verificationResult.signatures, senderPublicKeys, email.sent, openPGP);
-      let innerFrom = (await email.getHeadersFromMIME(signedBinary)).from;
+      let innerFrom = (await EMail.getHeadersFromMIME(signedBinary)).from;
       email.rememberSigner(!innerFrom || innerFrom.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
       email.attachments.remove(detachedSignaturePart);
     }

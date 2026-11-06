@@ -1,5 +1,5 @@
 import { EMailProcessor, ProcessingStartOn } from "../../EMailProcessor";
-import type { EMail } from "../../EMail";
+import { EMail } from "../../EMail";
 import { MailIdentity } from "../../MailIdentity";
 import { EncryptionSystem } from "../enums";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
@@ -137,7 +137,8 @@ export class SMIMEReadProcessor extends EMailProcessor {
     }
     let content = OctetString.decode(contentInfo.content);
     // show the msg, even if the signature is invalid
-    let signedFrom = (await this.unwrapMIME(email, content)).from?.address;
+    let parsed = await this.unwrapMIME(email, content); // changes all of `email`, not just return value
+    let signedFrom = parsed.from?.address;
     let signer = await verifySignedData(signedData, content, email.received);
     email.rememberSigner(signedFrom?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
   }
@@ -161,7 +162,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
     }
     let signedData = SignedData.decodeFromBase64(signatureBase64, { berToDER: true });
     let signer = await verifySignedData(signedData, clearText, email.received);
-    let innerFrom = (await email.getHeadersFromMIME(clearText)).from;
+    let innerFrom = (await EMail.getHeadersFromMIME(clearText)).from;
     email.rememberSigner(!innerFrom || innerFrom.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
   }
 
