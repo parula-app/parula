@@ -59,19 +59,9 @@
 
   function checkDirty() {
     // If there's no text at all, simply close the window without offering to save
-    let text = notQuote().body.textContent ?? "";
-    text = text.replace(/\s+/g, "").trim();
-    if (text.length < 100) { // Ignore attribution line before quote. TODO Match more precisely
+    if (!mail.compose.hasOwnText()) {
       isMenuOpen = false;
       dispatchEvent("close");
     }
-  }
-
-  function notQuote(): Document {
-    let doc = new DOMParser().parseFromString(mail.html, "text/html");
-    for (let blockquote of doc.body.querySelectorAll("blockquote")) {
-      blockquote.remove();
-    }
-    return doc;
   }
 </script>

@@ -1,5 +1,5 @@
 export function hasUserText(html: string): boolean {
-  // <copied from="../../../frontend/Mail/Composer/CloseButton.svelte" checkDirty()>
+  // <copied from="../../../logic/Mail/ComposeActions.ts" hasOwnText()>
   let text = withoutQuotes(html).body.textContent ?? "";
   text = text.replace(/\s+/g, "").trim();
   return text.length >= 100; // Ignore attribution line before quote. TODO Match more precisely
@@ -7,7 +7,7 @@ export function hasUserText(html: string): boolean {
 }
 
 function withoutQuotes(html: string): Document {
-  // <copied from="../../../frontend/Mail/Composer/CloseButton.svelte" notQuote()>
+  // <copied from="../../../logic/Mail/ComposeActions.ts" hasOwnText()>
   let doc = new DOMParser().parseFromString(html, "text/html");
   for (let blockquote of doc.body.querySelectorAll("blockquote")) {
     blockquote.remove();

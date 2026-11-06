@@ -3,10 +3,12 @@ import { MustangApp } from "../AppsBar/MustangApp";
 import { openApp } from "../AppsBar/selectedApp";
 import { OAuth2Tab, oAuth2TabsOpen } from "../../logic/Auth/UI/OAuth2Tab";
 import { appGlobal } from "../../logic/app";
+import { PromiseAllDone } from "../../logic/util/flow/PromiseAllDone";
 import mailIcon from '../asset/icon/appBar/mail.svg?raw';
 import EditIcon from "lucide-svelte/icons/pencil";
 import AuthIcon from "lucide-svelte/icons/key-round";
 import { derived } from "svelte/store";
+import { ArrayColl, type Collection } from "svelte-collections";
 import { gt } from "../../l10n/l10n";
 
 export class MailMustangApp extends MustangApp {
@@ -14,6 +16,8 @@ export class MailMustangApp extends MustangApp {
   name = gt`Mail`;
   icon = mailIcon;
   appURL = "/mail";
+  /** Mails that the user is writing outside of the composer sub-apps, e.g. Lookout's inline replies */
+  inlineDrafts: Collection<EMail> = new ArrayColl<EMail>();
 
   writeMail(mail: EMail) {
     let composerApp = new WriteMailMustangApp();
@@ -21,6 +25,31 @@ export class MailMustangApp extends MustangApp {
     composerApp.windowParams = { mail: mail };
     mailMustangApp.subApps.add(composerApp);
     openApp(composerApp, composerApp.windowParams);
+  }
+
+  /** The mails that the user is writing, if they already have some text of the user */
+  draftsWithText(): ArrayColl<EMail> {
+    let drafts = new ArrayColl<EMail>();
+    for (let app of this.subApps) {
+      if (app instanceof WriteMailMustangApp && app.windowParams.mail.compose.hasOwnText()) {
+        drafts.add(app.windowParams.mail);
+      }
+    }
+    for (let mail of this.inlineDrafts) {
+      if (mail.compose.hasOwnText()) {
+        drafts.add(mail);
+      }
+    }
+    return drafts;
+  }
+
+  /** @see `ComposeActions.saveDraftOnQuit()` */
+  async saveDraftsOnQuit(): Promise<void> {
+    let saves = new PromiseAllDone();
+    for (let mail of this.draftsWithText()) {
+      saves.add(mail.compose.saveDraftOnQuit());
+    }
+    await saves.wait();
   }
 
   login(tab: OAuth2Tab): LoginDialogMustangApp {

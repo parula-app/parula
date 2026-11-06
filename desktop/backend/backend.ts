@@ -79,6 +79,7 @@ async function createSharedAppObject() {
     askForMediaAccess,
     onScreenSharingSelect,
     restartApp,
+    onQuit,
     checkForUpdate,
     installUpdate,
     setTheme,
@@ -363,6 +364,32 @@ function isOSNotificationSupported(): boolean {
 function restartApp() {
   app.relaunch();
   app.quit();
+}
+
+let saveDraftsOnQuit: (() => Promise<boolean>) | null = null;
+
+/** The frontend saves the mails that the user is writing, before the app quits.
+ * @param saveDrafts @returns whether the app may quit */
+function onQuit(saveDrafts: () => Promise<boolean>) {
+  saveDraftsOnQuit = saveDrafts;
+}
+
+/** @returns whether the app may quit */
+export async function saveBeforeQuit(): Promise<boolean> {
+  if (!saveDraftsOnQuit) {
+    return true;
+  }
+  const kFrontendHangsSeconds = 10;
+  let timer: NodeJS.Timeout | undefined;
+  let frontendHangs = new Promise<boolean>(resolve => timer = setTimeout(() => resolve(true), kFrontendHangsSeconds * 1000));
+  try {
+    return await Promise.race([saveDraftsOnQuit(), frontendHangs]);
+  } catch (ex) { // e.g. the frontend reloaded or crashed
+    console.error(ex);
+    return true;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 class UpdateState {

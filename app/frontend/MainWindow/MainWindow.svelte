@@ -6,7 +6,7 @@
   on:resize={saveWindowSettingsDebounced}
   on:blur={() => catchErrors(saveWindowSettings)}
   on:visibilitychange={() => catchErrors(saveWindowSettings)}
-  on:beforeunload={() => catchErrors(saveWindowSettings)}
+  on:beforeunload={(event) => catchErrors(() => onBeforeUnload(event))}
   on:click|capture={(event) => catchErrors(() => onClickTopLevel(event))} />
 
 {#if frontend == "lookout"}
@@ -86,11 +86,11 @@
   import CalendarInBackground from "../Calendar/CalendarInBackground.svelte";
   import MeetBackground from "../Meet/MeetBackground.svelte";
   import WebAppsInBackground from "../WebApps/Runner/WebAppsInBackground.svelte";
-  import { catchErrors } from "../Util/error";
+  import { catchErrors, showError } from "../Util/error";
   import { assert } from "../../logic/util/util";
   import { getUILocale, t } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
-  import { appName, defaultFrontend } from "../../logic/build";
+  import { appName, defaultFrontend, webMail } from "../../logic/build";
   import { onMount } from "svelte";
   import debounce from "lodash/debounce";
   import { Router } from "svelte-navigator";
@@ -124,6 +124,9 @@
 
   async function startup() {
     await getStartObjects();
+    // #if [!WEBMAIL && !MOBILE]
+    await appGlobal.remoteApp.onQuit(saveDraftsOnQuit);
+    // #endif
     if (appGlobal.emailAccounts.isEmpty && appGlobal.chatAccounts.isEmpty) {
       await setup();
     } else {
@@ -131,6 +134,17 @@
       // Setting $selectedApp late would overwrite commandline/URL handlers
       $selectedAccount = appGlobal.emailAccounts.first;
       // `MailApp` selects the inbox, once we read the folders
+    }
+  }
+
+  /** @returns whether the app may quit */
+  async function saveDraftsOnQuit(): Promise<boolean> {
+    try {
+      await mailMustangApp.saveDraftsOnQuit();
+      return true;
+    } catch (ex) {
+      showError(ex);
+      return false;
     }
   }
 
@@ -173,6 +187,13 @@
     windowPositionSetting.value = [ window.screenX, window.screenY ];
   }
   const saveWindowSettingsDebounced = debounce(() => catchErrors(saveWindowSettings), 1000);
+
+  function onBeforeUnload(event: BeforeUnloadEvent) {
+    saveWindowSettings();
+    if (webMail && mailMustangApp.draftsWithText().hasItems) {
+      event.preventDefault();
+    }
+  }
 
   async function onClickTopLevel(event: MouseEvent) {
     let targetE = event.target as HTMLElement;
