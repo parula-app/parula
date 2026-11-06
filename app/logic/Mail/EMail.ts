@@ -358,6 +358,7 @@ export class EMail extends Message {
     });
   }
 
+  protected processorDepth = 0;
   async parseMIME(): Promise<MIME> {
     assert(this.mime?.length, "MIME source not yet downloaded");
     assert(this.mime instanceof Uint8Array, "MIME source should be a byte array");
@@ -433,14 +434,19 @@ export class EMail extends Message {
     await Promise.all(this.attachments.contents.map(a => a.checkExecutable()));
 
     // Run processors, filters, calendar invitations, SML, etc.
+    const kMaxDepth = 10;
+    assert(this.processorDepth < kMaxDepth, "Too many nested encryption or signature layers");
     for (let processor of EMailProcessorList.processors) {
       if (processor.runOn != ProcessingStartOn.Parse) {
         continue;
       }
+      this.processorDepth++;
       try {
         await processor.process(this, mail);
       } catch (ex) {
         this.folder.account.errorCallback(ex);
+      } finally {
+        this.processorDepth--;
       }
     }
     return mail;

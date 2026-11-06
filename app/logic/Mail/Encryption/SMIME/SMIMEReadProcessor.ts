@@ -16,7 +16,6 @@ import type { Email as PostalEmail } from "postal-mime";
 
 export class SMIMEReadProcessor extends EMailProcessor {
   runOn = ProcessingStartOn.Parse;
-  protected unwrapDepth = new WeakMap<EMail, number>();
   async process(email: EMail, postal: PostalEmail) {
     // There is a direct accessor to the content type in the PostalMIME object
     // itself, but we don't have that here. And to get the headers in the
@@ -166,9 +165,6 @@ export class SMIMEReadProcessor extends EMailProcessor {
   /** Replaces the message with the MIME entity extracted from the CMS
    * wrapper, keeping the other message headers, and parses it. */
   protected async unwrapMIME(email: EMail, content: Uint8Array) {
-    const kMaxDepth = 10;
-    let depth = this.unwrapDepth.get(email) ?? 0;
-    assert(depth < kMaxDepth, "Too many nested S/MIME layers");
     let mimeAsText = new TextDecoder().decode(email.mime);
     // Split on CRLF, but keep folded continuation lines (those starting with
     // whitespace) attached to their header.
@@ -179,12 +175,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
     mime.set(headerBytes);
     mime.set(content, headerBytes.length);
     email.mime = mime;
-    this.unwrapDepth.set(email, depth + 1);
-    try {
-      await email.parseMIME(); // checks signature recursively
-    } finally {
-      this.unwrapDepth.set(email, depth);
-    }
+    await email.parseMIME(); // checks signature recursively
     await email.saveCompleteMessage();
   }
 }
