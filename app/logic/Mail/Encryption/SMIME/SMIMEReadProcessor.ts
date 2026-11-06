@@ -95,6 +95,13 @@ export class SMIMEReadProcessor extends EMailProcessor {
       for (let privateKey of identity.encryptionPrivateKeys) {
         if (privateKey instanceof SMIMEPrivateKey) {
           for (let recipientInfo of recipientInfos) {
+            if (recipientInfo.type == "kari") {
+              let encryptedKey = recipientInfo.value.recipientEncryptedKeys.find(recipientKey => privateKey.isRecipient(recipientKey.rid))?.encryptedKey;
+              if (encryptedKey) {
+                return await privateKey.decryptKeyAgreement(recipientInfo.value, encryptedKey);
+              }
+              continue;
+            }
             if (recipientInfo.type != "ktri" ||
                 recipientInfo.value.keyEncryptionAlgorithm.algorithm != "rsaEncryption" ||
                 !privateKey.isRecipient(recipientInfo.value.rid)) {

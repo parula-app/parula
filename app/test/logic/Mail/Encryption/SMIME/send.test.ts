@@ -10,6 +10,10 @@ import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
 import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
+import { SignedData, Certificate } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { parseHeaderParameters } from "../../../../../logic/Mail/Encryption/MIME";
+import { kSignedSecp256k1 } from "./ellipticCurves";
+import { kOwnP256, kOwnP384, kOwnP521 } from "./ownECKeys";
 import { expect, test, describe, beforeAll } from "vitest";
 
 // The browser has these, but Node does not.
@@ -50,12 +54,12 @@ beforeAll(async () => {
 });
 
 /** Sends the message to ourselves, and reads it, as the recipient would. */
-async function sendAndReceive(sign: boolean, encrypt: boolean): Promise<EMail> {
+async function sendAndReceive(sign: boolean, encrypt: boolean, myIdentity = identity): Promise<EMail> {
   let mail = folder.newEMail();
-  mail.identity = identity;
+  mail.identity = myIdentity;
   mail.from = findOrCreatePersonUID("user@example.com", "User");
   mail.to.add(mail.from);
-  mail.signedByKeyID = sign ? key.id : null;
+  mail.signedByKeyID = sign ? myIdentity.encryptionPrivateKeys.first.id : null;
   mail.shouldEncrypt = encrypt;
   let sent = await SMIMESend.encryptAndSign(mail);
 
@@ -85,6 +89,40 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
     expect(email.signedByKeyID).toBe(key.id);
   });
+});
+
+describe("A message signed with our EC key", () => {
+  test.each([
+    ["P-256", kOwnP256, "sha256", "ecdsaWithSHA256", "sha-256"],
+    ["P-384", kOwnP384, "sha384", "ecdsaWithSHA384", "sha-384"],
+    ["P-521", kOwnP521, "sha512", "ecdsaWithSHA512", "sha-512"],
+  ])("on %s is verified, and uses the hash that fits the curve", async (name, pem, digestAlgorithm, signatureAlgorithm, micalg) => {
+    let ecIdentity = new MailIdentity(folder.account);
+    ecIdentity.emailAddress = "user@example.com";
+    let ecKey = await SMIMEPrivateKey.importPrivateKey(pem);
+    ecIdentity.encryptionPrivateKeys.add(ecKey);
+    let email = await sendAndReceive(true, false, ecIdentity);
+    expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
+    expect(email.signedByKeyID).toBe(ecKey.id);
+    let signature = new Uint8Array(await email.attachments.last.content.arrayBuffer());
+    let signerInfo = SignedData.decode(signature, { berToDER: true }).content.signerInfos[0];
+    expect(signerInfo.digestAlgorithm.algorithm).toBe(digestAlgorithm);
+    expect(signerInfo.signatureAlgorithm.algorithm).toBe(signatureAlgorithm);
+    let contentType = new TextDecoder().decode(email.mime).match(/^Content-Type: (.*)$/m)[1];
+    expect(parseHeaderParameters(contentType).micalg).toBe(micalg);
+  });
+});
+
+test("Encrypting to a recipient with an EC certificate on a curve that WebCrypto does not have says that we can't", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  let recipient = findOrCreatePersonUID("eck1@example.com", "EC k1");
+  let certificate = SignedData.decodeFromBase64(kSignedSecp256k1).content.certificates[0];
+  recipient.encryptionPublicKey = await SMIMEPublicKey.importPublicKey(Certificate.encodePEM(certificate, { label: "CERTIFICATE" }));
+  mail.to.add(recipient);
+  mail.shouldEncrypt = true;
+  await expect(SMIMESend.encryptAndSign(mail)).rejects.toThrow("eck1@example.com");
 });
 
 describe("A draft", () => {
