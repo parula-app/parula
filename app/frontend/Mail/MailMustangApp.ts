@@ -76,9 +76,7 @@ const tabsObserver = {
   },
   removed(tabs: OAuth2Tab[]) {
     for (let tab of tabs) {
-      for (let appWindow of AppWindow.all) {
-        appWindow.uiState(mailMustangApp.subApps).remove(tab.mustangApp);
-      }
+      mailMustangApp.subApps.remove(tab.mustangApp);
     }
     openApp(mailMustangApp, {});
   },

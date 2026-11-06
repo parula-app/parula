@@ -397,9 +397,8 @@
       appWindow.close();
       return;
     }
-    let subApps = appWindow.uiState(mailMustangApp.subApps);
-    let me = subApps.find(app => app instanceof WriteMailMustangApp && app.windowParams.mail == mail);
-    subApps.remove(me);
+    let me = mailMustangApp.subApps.find(app => app instanceof WriteMailMustangApp && app.windowParams.mail == mail);
+    mailMustangApp.subApps.remove(me);
     goBack();
   }
 
