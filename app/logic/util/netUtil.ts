@@ -11,8 +11,13 @@ export function getDomainForEmailAddress(emailAddress: string): string {
  * Returns the base domain of hostname.
  * E.g. for "www2.static.amazon.com" returns "amazon.com"
  * and for "www2.static.amazon.co.uk" returns "amazon.co.uk"
+ * and for an IP address like "192.168.1.5" or "[::1]" returns the IP address.
  */
 export function getBaseDomainFromHost(hostname: string): string {
+  // No DNS name has a ":" or ends in a number
+  if (hostname?.includes(":") || /^[0-9]+$/.test(hostname?.split(".").pop())) {
+    return hostname;
+  }
   return psl.get(hostname);
 }
 

@@ -26,6 +26,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
  * Two CAs that issued each other's certificate: "AIA Test Loop CA A" and "... B", each with
  * `authorityInfoAccess=caIssuers;URI:http://loop.example.com/a.cer` (B) or `.../b.cer` (A),
  * and "AIA Loop User" <loop@example.com>, issued by B, with `caIssuers;URI:http://loop.example.com/b.cer`.
+ * "AIA IP User" <ip@example.com>, like the leaf above, but only with `caIssuers;URI:http://192.168.1.5/intermediate.cer`.
  */
 
 /** Trusted by the OS */
@@ -40,6 +41,10 @@ const kIntermediateCAAsPKCS7 = "MIIGjAYJKoZIhvcNAQcCoIIGfTCCBnkCAQExADALBgkqhkiG
 /** Issued by `kIntermediateCA`, which is at `kIntermediateCAURL` */
 const kUserCertificate = "MIIEbjCCA1agAwIBAgIUQ6e13JQZPdCuOFh10K6lLzCyN7wwDQYJKoZIhvcNAQELBQAwIzEhMB8GA1UEAwwYQUlBIFRlc3QgSW50ZXJtZWRpYXRlIENBMB4XDTI2MTEwNTExMDg0MFoXDTQ2MTAzMTExMDg0MFowODEWMBQGA1UEAwwNQUlBIFRlc3QgVXNlcjEeMBwGCSqGSIb3DQEJARYPYWlhQGV4YW1wbGUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAut6mrPtKgHMgZPt5y31dRZ6XUebTwb9WyrOhy9eZ4FEs2VC1Pd+sRSxgXDIoHbadaAhps15Ai/XxmveqNhJD5MjhF2/mlWlBAY7/peXb7LWdNlDp+XimgfNyUAL8avfmeEbiGsatAkbF6lgVrF3LBTtOhY4HjVwJuscGsvp+Mm3rS0AihirdbP7kadTgYfkJlUqOikVd/dRPKNyJcXFaB07PAigT3ZDiQaIgKfiP07lMIvN8zhkHioehhSLrz+s01E2LYFqsNFDXeafbZuvyz0Wd5RrwxMQ8M7GxPRTma3bSHgT7z6IWpbFhcy11te5evIcT0+SGUEySqi7VZHRIeQIDAQABo4IBgzCCAX8wDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwQwGgYDVR0RBBMwEYEPYWlhQGV4YW1wbGUuY29tMIHtBggrBgEFBQcBAQSB4DCB3TAkBggrBgEFBQcwAYYYaHR0cDovL29jc3AuZXhhbXBsZS5jb20vMFMGCCsGAQUFBzAChkdsZGFwOi8vbGRhcC5leGFtcGxlLmNvbS9jbj1BSUElMjBUZXN0JTIwSW50ZXJtZWRpYXRlJTIwQ0E/Y0FDZXJ0aWZpY2F0ZTAsBggrBgEFBQcwAoYgZmlsZTovLy9ldGMvc3NsL2ludGVybWVkaWF0ZS5jZXIwMgYIKwYBBQUHMAKGJmh0dHA6Ly9jYS5leGFtcGxlLmNvbS9pbnRlcm1lZGlhdGUuY2VyMB0GA1UdDgQWBBQJCq6UcH78jbjFNWk5kLS9sX1jWDAfBgNVHSMEGDAWgBTV3au4x8Gnd+L47R6lO7iSaV1uADANBgkqhkiG9w0BAQsFAAOCAQEAS6xjJcjYKNDXAXYWa2dECXtE7FkJ5dBlXWxQKWgyRocomKoixKHOTCRQdW4UjFlA0DNQ9CfeI8qH2x1l8rTUtK+CIMdyHqZrPGYff/24eCQGM1cEtkvR7a44fE/EY43LMV1oCUV+T1lxOE6Fngwh5LcJcEJeJBnYnzTzj+1lwEO4FS4w/wV/7RbFwnGyhodoF44pYXyM789I7CjhoFBGOEB5tfWxUTgkSTiPKO0gvD6ffa3owqsIRjn9CU2fqJ+sA6Uos2B4hJjPPIH6UQR1SYL2N6YhwHi8AaujMi515djSVItRJSwOQ1eEbeeoBlpixjBCcshltTJ6VfFjp0NCww==";
 const kIntermediateCAURL = "http://ca.example.com/intermediate.cer";
+
+/** Issued by `kIntermediateCA`, which is at `kIntermediateCAIPURL` */
+const kIPUserCertificate = "MIIDuTCCAqGgAwIBAgIUW4tbu/Z2rfPNRws4sM0dI5wecegwDQYJKoZIhvcNAQELBQAwIzEhMB8GA1UEAwwYQUlBIFRlc3QgSW50ZXJtZWRpYXRlIENBMB4XDTI2MTEwNjA5MDMxOVoXDTQ2MTEwMTA5MDMxOVowNTEUMBIGA1UEAwwLQUlBIElQIFVzZXIxHTAbBgkqhkiG9w0BCQEWDmlwQGV4YW1wbGUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn/BubuLw+RBZzW0+oNLVj1cu6laj0Bgqngk5yUhBNZNj24aEDLYVGnGg+R2qNoTbHEcvwVXrLGqHIDLBA1XmGch+KaZ6sLaiO4MEwA3/iJlTbsR0IAhCVhEpdB05ikWkeMfFFm31UVPFgW+qA/UWQN7uLJmEdRUQdYBtzRDOqKNXBQwp8f6OqSMaiKvlsBX3QDvawdEKjNBeCViVaocX34gdrLssfc+Z1lRQ4gUiEClqzNCRnHO6ndECCb95KZk5VwLByoChbl9i4msdvR2VovHATd2CIEt5EH2MP5TTkxN5adUlZnc03ZzUoNeImeKTK2H1ad0BK5a6lTekRskljwIDAQABo4HSMIHPMAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMEMBkGA1UdEQQSMBCBDmlwQGV4YW1wbGUuY29tMD8GCCsGAQUFBwEBBDMwMTAvBggrBgEFBQcwAoYjaHR0cDovLzE5Mi4xNjguMS41L2ludGVybWVkaWF0ZS5jZXIwHQYDVR0OBBYEFCYZO1ly0jR+q/VHpxt0ZSyVxBAaMB8GA1UdIwQYMBaAFNXdq7jHwad34vjtHqU7uJJpXW4AMA0GCSqGSIb3DQEBCwUAA4IBAQBTNph0OqQPz/FQ0/d5UZrkaBvvzX5htJ/3UtwKs9p4L2cZ2eVluxTSE0FhQqJRfkFlLUO+0IKfKPgw12+7/36MYO45BHDX8K2H3X+vroSTy7XVeGDUg6G16+ZlZurO2acurjqXH0NQeq7m4PWIItVh5sWJlFzx0ebct8La1JJiaNuIv3WfZ+Ue91F3O6tcosdkfdU8GyFMynsjldh2OPYN4fBwjKn01ga4KmpNw+FUQK7bujdRuCk+nm/rxg1CEhfTdkC+OMEvNkCwHn9Qm81c82tXvNhuE+V2H55Cohtn68s5XeUCql4JKh5rl1XIHB73k4MzftnGgpQmR0dYaisc";
+const kIntermediateCAIPURL = "http://192.168.1.5/intermediate.cer";
 
 /** CA A, issued by CA B, at `http://loop.example.com/a.cer` */
 const kLoopCAA = "MIIDizCCAnOgAwIBAgIUWefMFyoyO0KD8wHjnpxUzFFYpdUwDQYJKoZIhvcNAQELBQAwHTEbMBkGA1UEAwwSQUlBIFRlc3QgTG9vcCBDQSBCMB4XDTI2MTEwNTExMDg0MVoXDTQ2MTAzMTExMDg0MVowHTEbMBkGA1UEAwwSQUlBIFRlc3QgTG9vcCBDQSBBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArL61KrN8FAPWYKfGOZ5evktjS/1ER1alFkcyuxJTi3IzndOgZMhaPTuP44Dztq5T4oUWEBkBEki8F7KWIEupOHGDlMlX6pZIeZAueYKh76nr3F0sppYEDm1fIHI27RWsSU05yRGpp/8rENtfVN6wYqxTBAjJzAOnRuf8/NSe8xAKECNlS/AFze85XTIwEaqqRRBOteMOIK3seM4UrJs67IG217K4q63A9Ds1R+y5x1ft9viYyX+h4nD9/ovlQoj8aAe1xbRj4zp48Xi6optalfIQgrlzI7SYspapITzqbS58jKKu0+Fn6q35KRouWoN94QqnKeqe7VNy0315IyxDNQIDAQABo4HCMIG/MA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMDkGCCsGAQUFBwEBBC0wKzApBggrBgEFBQcwAoYdaHR0cDovL2xvb3AuZXhhbXBsZS5jb20vYi5jZXIwHQYDVR0OBBYEFFunFWKnC2il4OChRJ+QZDaXk///MEIGA1UdIwQ7MDmhIaQfMB0xGzAZBgNVBAMMEkFJQSBUZXN0IExvb3AgQ0EgQoIUDIjBJJf7QyO5qaDrCRQ2QKkucFcwDQYJKoZIhvcNAQELBQADggEBAHetTo8o/sLbomMvgAL2+bMtR/hhrq6TyAmkWvsklROr+Zr0w2kf6c0ruhFqxtpDUxvKF73cCk7J//cDVysWDLuvWW9RH9g4C3KUuRNVyHtXKso9WdHNj8UZ49trKyTDXFbNEzrwKf5HMXgiTEDMWDU3fBe1qVk1a3c4mw4vv5t50s4ElssF1BOdHv8EluDoG9XRtDwF0kOq55kM4wpgcg9PdSM9Fq+Gt3HcPdNIzuS0Nu0OCPKHeH3G000vQbEls919TSb7kOy/G0RmGGjwMtkKR67g+4bkDcIy6qFlFURBBvTEjZYcRLAnrYc5ZifzjkVO837sCJNJd609A2NIS3k=";
@@ -129,6 +134,20 @@ test("Only http and https URLs, not file: or ldap:", async () => {
 test("CA URL on another domain than the directory server: no request, and no certificate", async () => {
   webServer[kIntermediateCAURL] = der(kIntermediateCA);
   let keys = await directoryKeys(kUserCertificate, "https://outlook.office365.com/EWS/Exchange.asmx");
+  expect(keys.length).toBe(0);
+  expect(requests).toEqual([]);
+});
+
+test("CA URL on the IP address of the directory server", async () => {
+  webServer[kIntermediateCAIPURL] = der(kIntermediateCA);
+  let keys = await directoryKeys(kIPUserCertificate, "https://192.168.1.5/EWS/Exchange.asmx");
+  expect(keys.length).toBe(1);
+  expect(requests).toEqual([kIntermediateCAIPURL]);
+});
+
+test("CA URL on another IP address than the directory server, which ends in the same numbers: no request", async () => {
+  webServer[kIntermediateCAIPURL] = der(kIntermediateCA);
+  let keys = await directoryKeys(kIPUserCertificate, "https://10.0.1.5/EWS/Exchange.asmx");
   expect(keys.length).toBe(0);
   expect(requests).toEqual([]);
 });
