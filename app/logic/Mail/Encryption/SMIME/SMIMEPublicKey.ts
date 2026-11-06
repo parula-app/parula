@@ -63,7 +63,7 @@ export class SMIMEPublicKey extends PublicKey {
     this.created = sanitize.date(notBefore.value);
     this.expires = sanitize.date(notAfter.value);
     let now = Date.now();
-    this.obsolete = now < this.created.getTime() || now > this.expires.getTime();
+    this.obsolete = now < this.created.getTime();
   }
 
   /** Sets this key's certificate if it has none yet or the certificate is for the same key, otherwise adds it to the chain */
@@ -160,7 +160,8 @@ export class SMIMEPublicKey extends PublicKey {
       return KeyStatus.ChainInvalid;
     }
     for (let key of this.chain) {
-      if (key.obsolete || !key.isValidAt(date)) {
+      // Not `obsolete`: it also means "expired now", which would reject older mail
+      if (key._obsolete || !key.isValidAt(date)) {
         console.log("obsolete certificate in chain");
         return KeyStatus.ChainInvalid;
       }
@@ -179,7 +180,7 @@ export class SMIMEPublicKey extends PublicKey {
         if (await verifySignature(cert, ca)) {
           let root = new SMIMEPublicKey();
           await root.setCertificate(ca);
-          if (root.obsolete || !root.allowsEMailProtection() || (!kAcceptX509v1Roots && !ca.tbsCertificate.version)) {
+          if (root._obsolete || !root.isValidAt(date) || !root.allowsEMailProtection() || (!kAcceptX509v1Roots && !ca.tbsCertificate.version)) {
             continue;
           }
           let caTrust = type == "bundled" ? TrustLevel.ThirdParty : type == "system" ? TrustLevel.OS : TrustLevel.Personal;

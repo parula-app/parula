@@ -68,6 +68,36 @@ describe("Validity dates of the certificate and its chain", () => {
     expect(await key.keyStatus()).not.toBe(KeyStatus.Valid);
     expect(key.trustLevel).toBe(TrustLevel.Sender);
   });
+
+  test("An intermediate certificate that expired since then is valid at a time before it expired", async () => {
+    setToday("2026-11-20T12:00:00Z"); // only the intermediate certificate expired, on 2026-11-15
+    let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kExpiredIntermediateCA);
+    expect(await key.keyStatus(new Date("2026-10-22T12:00:00Z"))).toBe(KeyStatus.Valid);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
+  });
+
+  test("A root certificate that expired since then is valid at a time before it expired", async () => {
+    setToday("2050-06-01T12:00:00Z"); // all certificates expired, the root on 2050-01-01
+    let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kIntermediateCA);
+    expect(await key.keyStatus(new Date("2026-10-22T12:00:00Z"))).toBe(KeyStatus.Valid);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
+  });
+
+  test("An intermediate certificate that is obsolete for another reason than its dates makes the certificate invalid", async () => {
+    setToday("2026-10-22T12:00:00Z");
+    let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kIntermediateCA);
+    // e.g. disabled by the user or revoked, while within its validity dates
+    key.chain.first.obsolete = true;
+    expect(await key.keyStatus()).not.toBe(KeyStatus.Valid);
+    expect(key.trustLevel).toBe(TrustLevel.Sender);
+  });
+
+  test("An expired certificate is obsolete, so it is not used for new mail", async () => {
+    setToday("2026-12-15T12:00:00Z"); // Alice's certificate expired, the intermediate certificate did not
+    let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kIntermediateCA);
+    expect(key.obsolete).toBe(true);
+    expect(key.chain.first.obsolete).toBe(false);
+  });
 });
 
 describe("The signature counts as valid only if the certificate was valid when the message arrived", () => {
