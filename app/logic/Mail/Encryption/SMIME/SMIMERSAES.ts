@@ -194,7 +194,7 @@ function UbigintToHex(data: bigint, k: number): string {
   return data.toString(16).padStart(k * 2, "0");
 }
 
-function Uint8ArrayFromHex(hex: string): Uint8Array {
+export function Uint8ArrayFromHex(hex: string): Uint8Array {
   return Uint8Array.fromHex?.(hex) ?? Uint8Array.from(hex.match(/../g), s => parseInt(s, 16));
 }
 
