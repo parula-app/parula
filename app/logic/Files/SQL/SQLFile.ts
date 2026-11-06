@@ -42,6 +42,7 @@ export class SQLFile {
     } else {
       await (await getDatabase()).run(sql`
         UPDATE file SET
+          directoryID = ${directory.dbID},
           name = ${file.name}, path = ${file.path}, pathLocal = ${pathLocal},
           size = ${file.size}, mimetype = ${file.mimetype},
           lastMod = ${lastMod}, lastModOnServer = ${lastModOnserver},

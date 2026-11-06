@@ -327,6 +327,7 @@ export function getAllAccounts(): Collection<Account> {
   allAccounts.addAll(appGlobal.addressbooks);
   allAccounts.addAll(appGlobal.calendars);
   allAccounts.addAll(appGlobal.meetAccounts);
+  allAccounts.addAll(appGlobal.fileSharingAccounts);
   return allAccounts;
 }
 

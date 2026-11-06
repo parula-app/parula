@@ -12,7 +12,6 @@
 
 <script lang="ts">
   import type { FileOrDirectory } from "../../logic/Files/FileOrDirectory";
-  import { File } from "../../logic/Files/File";
   import { Directory } from "../../logic/Files/Directory";
   import Dialog from "../Shared/Dialog/Dialog.svelte";
   import FormGrid from "../Shared/Form/FormGrid.svelte";
@@ -24,11 +23,6 @@
   let name = file.name;
 
   async function onOK() {
-    if (file instanceof File) {
-      file.setFileName(name.trim());
-    } else {
-      file.name = name.trim();
-    }
-    await file.save();
+    await file.rename(name.trim());
   }
 </script>

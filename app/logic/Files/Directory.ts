@@ -126,6 +126,13 @@ export class Directory extends FileOrDirectory {
     await this.account.storage?.deleteDirectory(this);
   }
 
+  /** The `json` column of the DB row, for properties without a column of their own */
+  toExtraJSON(): any {
+    return {};
+  }
+  fromExtraJSON(json: any) {
+  }
+
   /** Root-relative path of a child file of this directory. */
   childPath(name: string, directory = false): string {
     return this.path + name + (directory ? "/" : "");

@@ -7,7 +7,7 @@
   {:else}
     <Clickable onDoubleClick={onRenameStart}>
       <hbox class="name">
-        {file.name}
+        {$file.name}
       </hbox>
     </Clickable>
   {/if}
@@ -47,14 +47,8 @@
     isRenaming = true;
   }
   async function onRenameSave() {
-    if (file instanceof File) {
-      file.name = name + (file.ext ? "." + file.ext : "");
-      file.nameWithoutExt = name;
-    } else {
-      file.name = name;
-    }
     isRenaming = false;
-    await file.save();
+    await file.rename(file instanceof File && file.ext ? name + "." + file.ext : name);
   }
 </script>
 
