@@ -305,10 +305,10 @@ function certificateEMailAddresses(cert: Certificate): string[] {
 function certificateCommonName(cert: Certificate): string | null {
   const kMaxLength = 64; // RFC 5280 ub-common-name
   // <copied from="../../../Files/FileType/ExecutableFile.ts">
-  const kFilenameTrickCharacters = /[\u0000-\u001F\u007F\u00AD\u200B-\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/;
+  const kFilenameTrickCharacters = /[\u0000-\u001F\u007F\u00AD\u200B-\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/g;
   // </copied>
   let cn = cert.tbsCertificate.subject.find(attr => attr.type == "CN");
-  return sanitize.label(cn?.value?.value?.split(kFilenameTrickCharacters).join("").slice(0, kMaxLength), null);
+  return sanitize.label(cn?.value?.value?.replace(kFilenameTrickCharacters, "").slice(0, kMaxLength), null);
 }
 
 async function verifySignature(cert: Certificate, signer: Certificate): Promise<boolean> {
