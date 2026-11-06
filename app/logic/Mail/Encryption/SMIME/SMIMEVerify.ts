@@ -106,6 +106,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
 
 /** Compares two X.501 names, e.g. certificate issuer and subject */
 export function sameName(a: TBSCertificate["issuer"], b: TBSCertificate["issuer"]): boolean {
+  // Attribute types that our OID map lacks, e.g. domainComponent, decode to number arrays
   return a.length == b.length &&
-    a.every((attr, i) => attr.type == b[i].type && attr.value.value == b[i].value.value);
+    a.every((attr, i) => String(attr.type) == String(b[i].type) && attr.value.value == b[i].value.value);
 }
