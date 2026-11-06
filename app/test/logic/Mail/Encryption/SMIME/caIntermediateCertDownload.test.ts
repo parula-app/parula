@@ -2,9 +2,10 @@
 import "../../../../../logic/app";
 import { appGlobal } from "../../../../../logic/app";
 import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { readCertificates } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEDirectory";
+import { SMIMEDirectory } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEDirectory";
 import { Certificate } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
-import { trustTestCAs } from "../../../Contacts/testCertificate";
+import { kUntrustedSMIMECertificate, trustTestCAs } from "../../../Contacts/testCertificate";
+import type { ArrayColl } from "svelte-collections";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 /* The certificates below were generated with OpenSSL 3, each DER-encoded and then base64-encoded:
@@ -47,6 +48,9 @@ const kLoopCAB = "MIIDizCCAnOgAwIBAgIUA5USoid8EshMC8zB7LJ8zoyuarMwDQYJKoZIhvcNAQ
 /** Issued by CA B. No trusted root issued CA A or B. */
 const kLoopUserCertificate = "MIID1jCCAr6gAwIBAgIUD8pJ+0JeNJWkVRCaK+m9leHcbqswDQYJKoZIhvcNAQELBQAwHTEbMBkGA1UEAwwSQUlBIFRlc3QgTG9vcCBDQSBCMB4XDTI2MTEwNTExMDg0MVoXDTQ2MTAzMTExMDg0MVowOTEWMBQGA1UEAwwNQUlBIExvb3AgVXNlcjEfMB0GCSqGSIb3DQEJARYQbG9vcEBleGFtcGxlLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAL2hr+JD765hGor2+ZlRRQ56AYGykvzy9mKJeQOfL0oPcNBX2Qg3NRWmMe7U23BNVBqAgbYnvfRuIaQ3/IXe+tRz892U6q3b8zO2Nwo1HVIZ3Hi9ML04hIm99RYLe1LLUfbjGIt2J4wjEokMu30urzVe2itIgk4DY6mfz6xZ4LgIVyR+x9Hnsvc4ZfRrJuR4D7pe2U640oJjCU0DQ8I6a1UswWXx3VCGzFKf0CDpX0W6ROjBrKaIHEEg5r43XX7+HpAtBchspV8FTSWWAdqwXLf+6QVgOMFb0mZkZ9Ash0I8XEyUiAmqlGgk8ygfWKSpoWUkmzr+JJVqye4fo4rGf9UCAwEAAaOB8TCB7jAMBgNVHRMBAf8EAjAAMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDBDAbBgNVHREEFDASgRBsb29wQGV4YW1wbGUuY29tMDkGCCsGAQUFBwEBBC0wKzApBggrBgEFBQcwAoYdaHR0cDovL2xvb3AuZXhhbXBsZS5jb20vYi5jZXIwHQYDVR0OBBYEFFvb/+cAfwwAtOOOFUBtlGq8STYkMEIGA1UdIwQ7MDmhIaQfMB0xGzAZBgNVBAMMEkFJQSBUZXN0IExvb3AgQ0EgQoIUDIjBJJf7QyO5qaDrCRQ2QKkucFcwDQYJKoZIhvcNAQELBQADggEBAHCZ9UJJTTo/w1D9+fnmtb2GZqVHTNwhas2CTRnb2g+e2pvqxv2BZx65X8RW4qWrY+52RnObLvEGE+riVFLaTwXVucWSchnxtYBqgSSlqWN5QWIjA9l3wok3tbtH90nDSNYLWFzRvnjL7Fk0vMPyRoU7me6TYmTdP1mnRNTlbXOfTwCK4/3dPRRVhGRavtQuDlfsG6RITTHzQLsXuZwvTTcHY5ncs2cS6W9YbfHMGt+vp16qrFEL/wfk4r6hASRCXHEY9HtGZqv1xiM52CPhL9NtSUvMYUrdwhHrVIfpZTfAn3BS+afKpHTTTqsPJ0gF8sHq0qZrI+24wI8eWfcYzIo=";
 
+/** The Exchange server whose GAL has the certificates. On the same base domain as the CA URLs above. */
+const kServerURL = "https://mail.example.com/EWS/Exchange.asmx";
+
 /** What the web servers answer, by URL. Other URLs fail. */
 let webServer: Record<string, Uint8Array>;
 /** The URLs that we fetched */
@@ -80,17 +84,17 @@ appGlobal.remoteApp = {
 beforeEach(() => {
   webServer = {};
   requests = [];
-  (SMIMEPublicKey as any).caIssuers.downloads.clear();
+  (SMIMEDirectory as any).intermediateCertDownload.downloads.clear();
 });
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
-/** A certificate that the company directory, e.g. ActiveSync, returned, without its CA certificates */
-async function directoryKey(certificate: string): Promise<SMIMEPublicKey> {
-  let keys = await readCertificates([certificate], ex => { throw ex; });
-  return keys.first;
+/** The keys that we take from a certificate that the company directory,
+ * e.g. ActiveSync, returned without its CA certificates */
+async function directoryKeys(certificate: string, serverURL = kServerURL): Promise<ArrayColl<SMIMEPublicKey>> {
+  return await new SMIMEDirectory(serverURL).readCertificates([certificate], ex => { throw ex; });
 }
 
 /** The certificate of the signer of a received mail, without its CA certificates */
@@ -100,82 +104,98 @@ async function signerKey(certificate: string): Promise<SMIMEPublicKey> {
 
 test("Directory certificate without its intermediate CA: get the CA from the URL in the certificate", async () => {
   webServer[kIntermediateCAURL] = der(kIntermediateCA);
-  let key = await directoryKey(kUserCertificate);
-  expect(await key.keyStatus()).toBe(KeyStatus.Valid);
+  let keys = await directoryKeys(kUserCertificate);
+  expect(keys.length).toBe(1);
+  expect(keys.first.userIDs.contents).toContain("aia@example.com");
+  expect(await keys.first.keyStatus()).toBe(KeyStatus.Valid);
   expect(requests).toEqual([kIntermediateCAURL]);
 });
 
 test("Directory certificate without its intermediate CA, which comes as PKCS#7", async () => {
   webServer[kIntermediateCAURL] = der(kIntermediateCAAsPKCS7);
-  let key = await directoryKey(kUserCertificate);
-  expect(await key.keyStatus()).toBe(KeyStatus.Valid);
+  let keys = await directoryKeys(kUserCertificate);
+  expect(keys.length).toBe(1);
+  expect(await keys.first.keyStatus()).toBe(KeyStatus.Valid);
 });
 
 test("Only http and https URLs, not file: or ldap:", async () => {
-  await (await directoryKey(kUserCertificate)).keyStatus();
+  await directoryKeys(kUserCertificate);
   expect(requests.length).toBeGreaterThan(0);
   for (let url of requests) {
     expect(url).toMatch(/^https?:\/\//);
   }
 });
 
+test("CA URL on another domain than the directory server: no request, and no certificate", async () => {
+  webServer[kIntermediateCAURL] = der(kIntermediateCA);
+  let keys = await directoryKeys(kUserCertificate, "https://outlook.office365.com/EWS/Exchange.asmx");
+  expect(keys.length).toBe(0);
+  expect(requests).toEqual([]);
+});
+
 test("Ask the web server only once, also for other certificates from the same CA", async () => {
   webServer[kIntermediateCAURL] = der(kIntermediateCA);
-  expect(await (await directoryKey(kUserCertificate)).keyStatus()).toBe(KeyStatus.Valid);
-  expect(await (await directoryKey(kUserCertificate)).keyStatus()).toBe(KeyStatus.Valid);
+  expect((await directoryKeys(kUserCertificate)).length).toBe(1);
+  expect((await directoryKeys(kUserCertificate)).length).toBe(1);
   expect(requests.length).toBe(1);
 });
 
 test("Ask again only a while after the web server failed", async () => {
   vi.useFakeTimers();
-  expect(await (await directoryKey(kUserCertificate)).keyStatus()).not.toBe(KeyStatus.Valid);
-  expect(await (await directoryKey(kUserCertificate)).keyStatus()).not.toBe(KeyStatus.Valid);
+  expect((await directoryKeys(kUserCertificate)).length).toBe(0);
+  expect((await directoryKeys(kUserCertificate)).length).toBe(0);
   expect(requests.length).toBe(1);
   vi.advanceTimersByTime(24 * 60 * 60 * 1000);
   webServer[kIntermediateCAURL] = der(kIntermediateCA);
-  expect(await (await directoryKey(kUserCertificate)).keyStatus()).toBe(KeyStatus.Valid);
+  expect((await directoryKeys(kUserCertificate)).length).toBe(1);
   expect(requests.length).toBe(2);
 });
 
 test("The CA from the URL needs a trusted root itself", async () => {
   webServer["http://loop.example.com/b.cer"] = der(kLoopCAB);
-  let key = await directoryKey(kLoopUserCertificate);
-  expect(await key.keyStatus()).not.toBe(KeyStatus.Valid);
+  expect((await directoryKeys(kLoopUserCertificate)).length).toBe(0);
   expect(requests).toContain("http://loop.example.com/b.cer");
 });
 
 test("CAs that issued each other: no endless loop", async () => {
   webServer["http://loop.example.com/a.cer"] = der(kLoopCAA);
   webServer["http://loop.example.com/b.cer"] = der(kLoopCAB);
-  let key = await directoryKey(kLoopUserCertificate);
-  expect(await key.keyStatus()).not.toBe(KeyStatus.Valid);
+  expect((await directoryKeys(kLoopUserCertificate)).length).toBe(0);
   expect(requests.length).toBeLessThan(10);
 });
 
 test("The web server sends another certificate than the CA", async () => {
   webServer[kIntermediateCAURL] = der(kLoopCAB);
-  let key = await directoryKey(kUserCertificate);
-  expect(await key.keyStatus()).not.toBe(KeyStatus.Valid);
+  expect((await directoryKeys(kUserCertificate)).length).toBe(0);
 });
 
 test("The web server sends something that is not a certificate", async () => {
   webServer[kIntermediateCAURL] = new TextEncoder().encode("<html><body>Moved</body></html>");
-  let key = await directoryKey(kUserCertificate);
-  expect(await key.keyStatus()).not.toBe(KeyStatus.Valid);
+  expect((await directoryKeys(kUserCertificate)).length).toBe(0);
 });
 
 test("The web server sends a huge answer", async () => {
   let huge = new Uint8Array(20 * 1024 * 1024);
   huge.set(der(kIntermediateCA));
   webServer[kIntermediateCAURL] = huge;
-  let key = await directoryKey(kUserCertificate);
-  expect(await key.keyStatus()).not.toBe(KeyStatus.Valid);
+  expect((await directoryKeys(kUserCertificate)).length).toBe(0);
 });
 
 test("The web server fails", async () => {
-  let key = await directoryKey(kUserCertificate);
-  expect(await key.keyStatus()).not.toBe(KeyStatus.Valid);
+  expect((await directoryKeys(kUserCertificate)).length).toBe(0);
   expect(requests).toEqual([kIntermediateCAURL]);
+});
+
+test("A directory certificate that no trusted CA issued is not taken", async () => {
+  let keys = await new SMIMEDirectory(kServerURL).readDirectoryCertificates([kUntrustedSMIMECertificate], [], ex => { throw ex; });
+  expect(keys.length).toBe(0);
+});
+
+test("userSMIMECertificate is not trusted: take userCertificate", async () => {
+  webServer[kIntermediateCAURL] = der(kIntermediateCA);
+  let keys = await new SMIMEDirectory(kServerURL).readDirectoryCertificates([kUntrustedSMIMECertificate], [kUserCertificate], ex => { throw ex; });
+  expect(keys.length).toBe(1);
+  expect(keys.first.userIDs.contents).toContain("aia@example.com");
 });
 
 test("Certificate of the signer of a received mail: no request, which would tell the sender that the mail was read", async () => {

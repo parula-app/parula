@@ -2,10 +2,8 @@ import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
 import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
-import { CAIssuers } from "./CAIssuers";
 import { appGlobal } from "../../../app";
 import { uint8ArrayToHex } from "../../../util/blob";
-import { minorError } from "../../../util/error";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
 
@@ -18,9 +16,6 @@ export class SMIMEPublicKey extends PublicKey {
   declare publicKeyArmored: string;
 
   chain = new ArrayColl<SMIMEPublicKey>();
-  /** Published by a directory, e.g. the Exchange GAL, for a recipient */
-  fromDirectory = false;
-  protected static readonly caIssuers = new CAIssuers();
 
   constructor() {
     super();
@@ -138,36 +133,7 @@ export class SMIMEPublicKey extends PublicKey {
     if (await verifySignature(cert, cert)) {
       return KeyStatus.SelfSignedRoot;
     }
-    if (await this.addMissingIssuer(cert)) {
-      return await this.keyStatus();
-    }
     return KeyStatus.ChainIncomplete;
-  }
-
-  /** Adds the CA certificate that issued `cert`, the end of our chain, if we can get it */
-  protected async addMissingIssuer(cert: Certificate): Promise<boolean> {
-    // Fetching the URL in the certificate of a received mail would tell the sender that the user read it
-    if (!this.fromDirectory) {
-      return false;
-    }
-    const kMaxChainLength = 5;
-    if (this.chain.length >= kMaxChainLength) {
-      minorError(new Error(`The certificate chain of ${this.userIDs.first} is too long`));
-      return false;
-    }
-    for (let issuer of await SMIMEPublicKey.caIssuers.download(cert)) {
-      if (!await verifySignature(cert, issuer)) {
-        continue;
-      }
-      let key = new SMIMEPublicKey();
-      await key.setCertificate(issuer);
-      if (this.chain.some(chainKey => chainKey.fingerprint == key.fingerprint)) {
-        return false;
-      }
-      this.chain.add(key);
-      return true;
-    }
-    return false;
   }
 
   /** Reads an S/MIME certificate from a file.
@@ -229,7 +195,7 @@ function certificateCommonName(cert: Certificate): string | null {
   return sanitize.label(cn?.value?.value, null);
 }
 
-async function verifySignature(cert: Certificate, signer: Certificate): Promise<boolean> {
+export async function verifySignature(cert: Certificate, signer: Certificate): Promise<boolean> {
   try {
     if (indexedDB.cmp(RDNSequence.encode(cert.tbsCertificate.issuer), RDNSequence.encode(signer.tbsCertificate.subject))) {
       console.log("subject did not match issuer");

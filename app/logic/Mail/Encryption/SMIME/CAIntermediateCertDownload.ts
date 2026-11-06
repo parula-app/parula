@@ -11,16 +11,12 @@ import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
  * from the URL in its Authority Information Access extension.
  * The CA certificate gets no trust from this. It must chain to a trusted root.
  */
-export class CAIssuers {
+export class CAIntermediateCertDownload {
   /** By URL */
   protected readonly downloads = new Map<URLString, Promise<Certificate[]>>();
 
-  /** @returns the certificates at the URL that `cert` names for its issuer */
-  async download(cert: Certificate): Promise<Certificate[]> {
-    let url = this.url(cert);
-    if (!url) {
-      return [];
-    }
+  /** @returns the certificates at `url`, see `issuerURL()` */
+  async download(url: URLString): Promise<Certificate[]> {
     let download = this.downloads.get(url);
     if (!download) {
       download = this.fetchCertificates(url);
@@ -29,8 +25,9 @@ export class CAIssuers {
     return await download;
   }
 
-  /** Only http and https. E.g. `file:` would read local files. */
-  protected url(cert: Certificate): URLString | null {
+  /** @returns the URL that `cert` names for the certificate of its issuer.
+   * Only http and https. E.g. `file:` would read local files. */
+  issuerURL(cert: Certificate): URLString | null {
     let aia = cert.tbsCertificate.extensions?.find(ext => ext.extnID == "authorityInfoAccess");
     if (!aia) {
       return null;
