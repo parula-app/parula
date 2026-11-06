@@ -16,6 +16,7 @@ import type { Addressbook } from "../Contacts/Addressbook";
 import type { SetupInfo } from "./AutoConfig/SetupInfo";
 import type { SearchEMail } from "./Store/SearchEMail";
 import { appGlobal } from "../app";
+import { getConfigDir } from "../util/backend-wrapper";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { AbstractFunction, assert } from "../util/util";
 import { notifyChangedProperty } from "../util/Observable";
@@ -54,6 +55,10 @@ export class MailAccount extends TCPAccount {
   async syncOnStartup() {
     await super.syncOnStartup();
     await this.listFolders();
+    // #if [!WEBMAIL && !MOBILE]
+    this.uploadLocalDrafts()
+      .catch(this.errorCallback);
+    // #endif
     assert(this.inbox, gt`Inbox not found`);
     await this.inbox.getNewMessages();
   }
@@ -162,6 +167,44 @@ export class MailAccount extends TCPAccount {
     email.from.emailAddress = this.emailAddress;
     email.from.name = this.realname;
     return email;
+  }
+
+  /** Keeps a draft on disk, when we could not save it on the server.
+   * `uploadLocalDrafts()` uploads it on the next start. */
+  async saveDraftLocally(messageID: string, mime: Uint8Array): Promise<void> {
+    let dir = await this.localDraftsDir();
+    await appGlobal.remoteApp.fs.mkdir(dir, { recursive: true, mode: 0o700 });
+    await appGlobal.remoteApp.writeFile(`${dir}/${sanitize.filename(messageID, crypto.randomUUID())}.eml`, 0o600, mime);
+  }
+
+  /** Uploads the drafts that `saveDraftLocally()` kept on disk */
+  async uploadLocalDrafts(): Promise<void> {
+    let dir = await this.localDraftsDir();
+    let filenames: string[];
+    try {
+      filenames = await appGlobal.remoteApp.fs.readdir(dir);
+    } catch (ex) {
+      if (ex.code == "ENOENT") {
+        return;
+      }
+      throw ex;
+    }
+    let draftFolder = this.getSpecialFolder(SpecialFolder.Drafts);
+    for (let filename of filenames) {
+      try {
+        let draft = draftFolder.newEMail();
+        draft.mime = await appGlobal.remoteApp.readFile(`${dir}/${filename}`);
+        draft.isDraft = true;
+        await draftFolder.addMessage(draft);
+        await appGlobal.remoteApp.deleteFile(`${dir}/${filename}`);
+      } catch (ex) {
+        this.errorCallback(ex);
+      }
+    }
+  }
+
+  protected async localDraftsDir(): Promise<string> {
+    return `${await getConfigDir()}/drafts/${sanitize.filename(this.id)}`;
   }
 
   async save(): Promise<void> {
