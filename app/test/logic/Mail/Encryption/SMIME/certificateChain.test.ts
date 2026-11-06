@@ -23,7 +23,7 @@ globalThis.indexedDB ??= {
 // so this has to be the same for all tests in this file.
 appGlobal.remoteApp = {
   async getCACertificates(type: string): Promise<string[]> {
-    return type == "bundled" ? [kRootCA, kTLSRootCA, kExpiredRootCA, kX509v1RootCA] : [];
+    return type == "system" ? [kRootCA, kTLSRootCA, kExpiredRootCA, kX509v1RootCA] : [];
   },
 };
 
@@ -38,7 +38,7 @@ describe("Certificate chain", () => {
   test("from the root through a CA, which may not issue CA certificates, is trusted", async () => {
     let key = await SMIMEPublicKey.importPublicKey(kAlice + kPathLen0CA);
     expect(await key.keyStatus()).toBe(KeyStatus.Valid);
-    expect(key.trustLevel).toBe(TrustLevel.ThirdParty);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
   });
 
   test("through a TLS server certificate as issuer is not trusted", async () => {
@@ -84,14 +84,14 @@ describe("Certificate chain", () => {
   test("to a version 1 root is trusted", async () => {
     let key = await SMIMEPublicKey.importPublicKey(kFrank);
     expect(await key.keyStatus()).toBe(KeyStatus.Valid);
-    expect(key.trustLevel).toBe(TrustLevel.ThirdParty);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
   });
 });
 
 describe("Signature", () => {
   test("by a certificate from a trusted CA is trusted", async () => {
     let signer = await verifySignedData(SignedData.decodeFromBase64(kSignedByAlice), new TextEncoder().encode(kSignedContent));
-    expect(signer?.trustLevel).toBe(TrustLevel.ThirdParty);
+    expect(signer?.trustLevel).toBe(TrustLevel.OS);
   });
 
   test("by a certificate that is only for encryption is not trusted", async () => {

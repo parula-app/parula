@@ -73,7 +73,9 @@ const oids = {
   "1.2.840.113549.2.10": "hmacWithSHA384",
   "1.2.840.113549.2.11": "hmacWithSHA512",
   "1.2.840.113549.3.7": "desEDE3CBC",
+  "1.3.6.1.5.5.7.1.1": "authorityInfoAccess",
   "1.3.6.1.5.5.7.3.4": "emailProtection",
+  "1.3.6.1.5.5.7.48.2": "caIssuers",
   //"1.3.6.1.5.5.8.1.2": "hmacWithSHA1",
   "1.3.14.3.2.26": "sha1",
   "2.1.0.1.1": "printstr",
@@ -247,6 +249,18 @@ const GeneralName = define("GeneralName", function() {
   });
 });
 
+const AccessDescription = define("AccessDescription", function() {
+  this.seq().obj(
+    this.key("accessMethod").objid(oids),
+    this.key("accessLocation").use(GeneralName),
+  );
+});
+
+/** Where to get the certificate of the CA that issued a certificate, RFC 5280 4.2.2.1 */
+export const AuthorityInfoAccess = define("AuthorityInfoAccess", function() {
+  this.seqof(AccessDescription);
+});
+
 export const SubjectAlternativeName = define("SubjectAlternativeName", function() {
   this.seqof(GeneralName);
 });
@@ -413,7 +427,7 @@ const RecipientInfo = define("RecipientInfo", function() {
           this.key("issuer").seqof(AttributeValue),
           this.key("serialNumber").int(),
         ),
-        subjectKeyIdentifier: this.implicit(0).octstr(), // TODO
+        subjectKeyIdentifier: this.implicit(0).octstr(),
       }),
       this.key("keyEncryptionAlgorithm").use(AlgorithmIdentifier),
       this.key("encryptedKey").octstr(),

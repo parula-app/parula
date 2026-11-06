@@ -6,8 +6,10 @@ import { findOrCreatePersonUID } from "../../../../../logic/Abstract/PersonUID";
 import { PGPSend } from "../../../../../logic/Mail/Encryption/PGP/PGPSend";
 import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
 import { PGPPublicKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPublicKey";
+import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
+import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
-import type { Folder } from "../../../../../logic/Mail/Folder";
+import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
 import { expect, test, describe, beforeAll } from "vitest";
 
 let folder: Folder;
@@ -16,8 +18,8 @@ let key: PGPPrivateKey;
 
 beforeAll(async () => {
   ({ folder } = await setupTestFolder({
-    // Stands in for nodemailer in the backend
-    getMIMENodemailer: async () => new TextEncoder().encode(kMIME.replace(/\n/g, "\r\n")),
+    // Stands in for nodemailer in the backend, which writes a `raw` message as it is
+    getMIMENodemailer: async (mail: any) => new TextEncoder().encode(mail.raw ?? kMIME.replace(/\n/g, "\r\n")),
   }));
   identity = new MailIdentity(folder.account);
   identity.emailAddress = "user@example.com";
@@ -77,6 +79,50 @@ describe("PGP message with non-ASCII sender name and a long subject", () => {
     expect(email.subject).toBe(kSubject);
     expect(email.from.name).toBe("User Müller");
     expect(email.signedByKeyID).toBe(key.id);
+  });
+});
+
+describe("An encrypted draft", () => {
+  let drafts: Folder;
+  let savedMIME: Uint8Array;
+
+  beforeAll(() => {
+    drafts = new Folder(folder.account);
+    drafts.specialFolder = SpecialFolder.Drafts;
+    // Keeps what an IMAP server would get
+    drafts.addMessage = async (message: EMail) => {
+      savedMIME = message.mime ?? await CreateMIME.getMIME(message);
+    };
+    folder.account.rootFolders.add(drafts);
+  });
+
+  /** To a recipient whose key we don't have yet */
+  async function saveDraft(): Promise<Uint8Array> {
+    let mail = folder.newEMail();
+    mail.identity = identity;
+    mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
+    mail.to.add(findOrCreatePersonUID("no-key@example.com", "No Key"));
+    mail.subject = kSubject;
+    mail.shouldEncrypt = true;
+    await mail.compose.saveAsDraft();
+    return savedMIME;
+  }
+
+  test("is saved without the text in clear", async () => {
+    let mime = new TextDecoder().decode(await saveDraft());
+    expect(mime).not.toContain("K=C3=B6ln");
+  });
+
+  test("reopens with its subject and text, and with encryption on", async () => {
+    let draft = drafts.newEMail();
+    draft.mime = await saveDraft();
+    await draft.parseMIME(); // as the download does
+    await draft.compose.editDraft();
+    expect(draft.system).toBe(EncryptionSystem.PGP);
+    expect(draft.wasEncrypted).toBe(true);
+    expect(draft.subject).toBe(kSubject);
+    expect(draft.text.trim()).toBe("Grüße aus Köln!");
+    expect(draft.shouldEncrypt).toBe(true);
   });
 });
 
