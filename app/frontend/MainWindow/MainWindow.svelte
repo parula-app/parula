@@ -1,13 +1,9 @@
-<svelte:head>
-  <title>{ appName }</title>
-</svelte:head>
 <svelte:window
   bind:outerWidth={windowWidth}
   on:resize={saveWindowSettingsDebounced}
   on:blur={() => catchErrors(saveWindowSettings)}
   on:visibilitychange={() => catchErrors(saveWindowSettings)}
-  on:beforeunload={() => catchErrors(saveWindowSettings)}
-  on:click|capture={(event) => catchErrors(() => onClickTopLevel(event))} />
+  on:beforeunload={() => catchErrors(saveWindowSettings)} />
 
 {#if frontend == "lookout"}
   {#await lookoutWindow then lookout}
@@ -51,9 +47,11 @@
     </hbox>
   </vbox>
 {/if}
-<MeetBackground />
-<MailInBackground />
-<CalendarInBackground />
+{#if isFirstWindow}
+  <MeetBackground />
+  <MailInBackground />
+  <CalendarInBackground />
+{/if}
 <WebAppsInBackground />
 
 <script lang="ts">
@@ -86,6 +84,7 @@
   import CalendarInBackground from "../Calendar/CalendarInBackground.svelte";
   import MeetBackground from "../Meet/MeetBackground.svelte";
   import WebAppsInBackground from "../WebApps/Runner/WebAppsInBackground.svelte";
+  import { AppWindow } from "./AppWindow";
   import { catchErrors } from "../Util/error";
   import { assert } from "../../logic/util/util";
   import { getUILocale, t } from "../../l10n/l10n";
@@ -103,15 +102,26 @@
   // For Vite, the import must be in `<script>` to pre-bundle, otherwise "504 Outdated Optimize Dep"
   $: lookoutWindow = frontend == "lookout" ? import("../../lookout/MainWindow/MainWindow.svelte") : null;
 
+  const appWindow = AppWindow.current();
+  const isFirstWindow = appWindow == AppWindow.main;
+  appWindow.title = appName;
+
   // $: sidebarApp = $mustangApps.filter(app => app.showSidebar).first; // TODO watch `app` property changes
   $: $sidebarApp = $meetMustangApp.showSidebar ? meetMustangApp : null;
   $: sidebar = $sidebarApp?.sidebar;
+  // <copied to="SecondaryWindow.svelte">
   $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
+  // </copied>
   categoriesLoaded; /* make sure to import the file, so that that categories load */
 
   onMount(() => catchErrors(onLoad));
 
   async function onLoad() {
+    if (!isFirstWindow) {
+      openApp(mailMustangApp, {});
+      $selectedAccount = appGlobal.emailAccounts.first;
+      return;
+    }
     loadMustangApps();
     openApp(mailMustangApp, {});
     // #if [MOBILE]
@@ -154,17 +164,22 @@
     assert(["system", "light", "dark"].includes(theme), $t`Bad theme name ` + theme);
     appGlobal.remoteApp.setTheme(theme);
   }
+  // <copied to="SecondaryWindow.svelte">
   let colorsSetting = getLocalStorage("appearance.colors", {});
-  $: applyColors($colorsSetting.value);
+  $: applyColors($colorsSetting.value, appWindow.window.document);
+  // </copied>
 
   let windowWidth: number;
   $: windowWidth, setSmall()
   function setSmall() {
+    if (!isFirstWindow) {
+      return;
+    }
     appGlobal.isSmall = windowWidth < 600;
   }
 
   function saveWindowSettings() {
-    if (appGlobal.isMobile || document.hidden) {
+    if (appGlobal.isMobile || document.hidden || !isFirstWindow) {
       return;
     }
     let windowSizeSetting = getLocalStorage("window.size", []);
@@ -174,35 +189,6 @@
   }
   const saveWindowSettingsDebounced = debounce(() => catchErrors(saveWindowSettings), 1000);
 
-  async function onClickTopLevel(event: MouseEvent) {
-    let targetE = event.target as HTMLElement;
-    let linkE = targetE.closest && targetE.closest("a[href]");
-    let url = linkE?.getAttribute("href");
-    if (!url) {
-      return;
-    }
-    // _blank should open in external browser
-    if (linkE.getAttribute("target") == "_blank") {
-      // Let default handler open in external browser
-      return;
-      /* // ... unless it's a link in an email that we can handle internally
-      if (linkE.getAttribute("source") == "convert-html" &&
-          appGlobal.meetAccounts.some(acc => acc.isMeetingURL(new URL(url)))) {
-        // open internally, continue below
-      } else {
-        // Let default handler open in external browser
-        return;
-      }*/
-    }
-    // open internally
-    let urlObj = new URL(url); // throws, if invalid
-    let protocol = urlObj.protocol.replace(":", "");
-    let urlEvent = new Event("url-" + protocol); // e.g. "url-mailto"
-    (urlEvent as any).url = url;
-    targetE.dispatchEvent(urlEvent);
-    event.stopPropagation();
-    event.preventDefault();
-  }
 </script>
 
 <style>

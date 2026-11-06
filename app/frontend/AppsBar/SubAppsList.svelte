@@ -13,12 +13,16 @@
 
 <script lang="ts">
   import type { MustangApp } from "./MustangApp";
-  import { openApp } from "./selectedApp";
+  import { openApp, selectedApp as selectedAppOfWindow } from "./selectedApp";
+  import { AppWindow } from "../MainWindow/AppWindow";
   import SubAppButton from "./SubAppButton.svelte";
   import AppIcon from "./AppIcon.svelte";
   import { catchErrors } from "../Util/error";
   import { CollectionObserver } from "svelte-collections";
   import { onDestroy, onMount } from "svelte";
+  import { get } from "svelte/store";
+
+  const appWindow = AppWindow.current();
 
   export let mainApp: MustangApp;
   /* in/out */
@@ -27,6 +31,11 @@
   $: subApps = $mainApp.subApps;
 
   function onSelectApp(app: MustangApp) {
+    let shownIn = AppWindow.all.find(other => other != appWindow && other.isMainWindow && get(other.uiState(selectedAppOfWindow)) == app);
+    if (shownIn) {
+      shownIn.focus();
+      return;
+    }
     openApp(app, app.windowParams);
   }
 
