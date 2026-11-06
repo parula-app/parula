@@ -7,6 +7,7 @@ import { appGlobal } from "../../../app";
 import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
 import { assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
+import { assert } from "../../../util/util";
 import { ArrayColl } from "svelte-collections";
 import { gt } from "../../../../l10n/l10n";
 
@@ -19,6 +20,7 @@ export class SMIMEPublicKey extends PublicKey {
   declare publicKeyArmored: string;
 
   chain = new ArrayColl<SMIMEPublicKey>();
+  protected _decodedCertificate: Certificate | null = null; // cache only
 
   constructor() {
     super();
@@ -27,6 +29,11 @@ export class SMIMEPublicKey extends PublicKey {
 
   get certificate(): string {
     return this.publicKeyArmored;
+  }
+
+  get decodedCertificate(): Certificate {
+    assert(this.certificate, "Certificate PEM is missing");
+    return this._decodedCertificate ??= Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
   }
 
   get commonName(): string {
@@ -54,6 +61,7 @@ export class SMIMEPublicKey extends PublicKey {
       this.keyLengthInBits = id.length * 4;
     }
     this.publicKeyArmored = Certificate.encodePEM(cert, { label: "CERTIFICATE" });
+    this._decodedCertificate = cert;
     this.userIDs.replaceAll(certificateEMailAddresses(cert));
     // Do not overwrite the name that the user gave the key
     this.name ||= this.defaultName;

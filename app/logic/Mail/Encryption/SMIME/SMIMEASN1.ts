@@ -413,7 +413,7 @@ const RecipientInfo = define("RecipientInfo", function() {
           this.key("issuer").seqof(AttributeValue),
           this.key("serialNumber").int(),
         ),
-        subjectKeyIdentifier: this.implicit(0).octstr(), // TODO
+        subjectKeyIdentifier: this.implicit(0).octstr(),
       }),
       this.key("keyEncryptionAlgorithm").use(AlgorithmIdentifier),
       this.key("encryptedKey").octstr(),

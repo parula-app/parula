@@ -1,8 +1,9 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
+import { sameName } from "./SMIMEVerify";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
 import { assert } from "../../../util/util";
@@ -36,6 +37,25 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
   async matches(key: RSAPublicKey): Promise<boolean> {
     let rawKey = await this.decryptKey();
     return key.n == rawKey.n && key.e == rawKey.e;
+  }
+
+  /** @param rid as decoded from a `KeyTransRecipientInfo` of the message */
+  isRecipient(rid: any): boolean {
+    if (!this.certificate) {
+      return false;
+    }
+    let cert = this.decodedCertificate;
+    switch (rid.type) {
+    case "issuerAndSerialNumber":
+      return rid.value.serialNumber == cert.tbsCertificate.serialNumber &&
+        sameName(rid.value.issuer, cert.tbsCertificate.issuer);
+    case "subjectKeyIdentifier": {
+      let ski = cert.tbsCertificate.extensions?.find(ext => ext.extnID == "subjectKeyIdentifier");
+      return !!ski && !indexedDB.cmp(OctetString.decode(ski.extnValue), rid.value);
+    }
+    default:
+      return false;
+    }
   }
 
   /** Decrypts our private key with our passphrase */
