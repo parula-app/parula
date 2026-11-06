@@ -61,6 +61,7 @@ const oids = {
   "1.2.840.113549.1.9.14": "extensionRequest",
   "1.2.840.113549.1.9.15": "smimeCapabilities",
   "1.2.840.113549.1.9.16.1.23": "authEnvelopedData",
+  "1.2.840.113549.1.9.16.3.6": "cms3DESwrap",
   "1.2.840.113549.1.9.22.1": "x509Certificate",
   "1.2.840.113549.1.12.1.1": "pbeWithSHAAnd128BitRC4",
   "1.2.840.113549.1.12.1.2": "pbeWithSHAAnd40BitRC4",
@@ -86,6 +87,16 @@ const oids = {
   "1.3.14.3.2.26": "sha1",
   "1.3.132.0.34": "secp384r1",
   "1.3.132.0.35": "secp521r1",
+  "1.3.132.1.11.0": "dhSinglePassStdDHSHA224KDF",
+  "1.3.132.1.11.1": "dhSinglePassStdDHSHA256KDF",
+  "1.3.132.1.11.2": "dhSinglePassStdDHSHA384KDF",
+  "1.3.132.1.11.3": "dhSinglePassStdDHSHA512KDF",
+  "1.3.132.1.14.0": "dhSinglePassCofactorDHSHA224KDF",
+  "1.3.132.1.14.1": "dhSinglePassCofactorDHSHA256KDF",
+  "1.3.132.1.14.2": "dhSinglePassCofactorDHSHA384KDF",
+  "1.3.132.1.14.3": "dhSinglePassCofactorDHSHA512KDF",
+  "1.3.133.16.840.63.0.2": "dhSinglePassStdDHSHA1KDF",
+  "1.3.133.16.840.63.0.3": "dhSinglePassCofactorDHSHA1KDF",
   "2.1.0.1.1": "printstr",
   "2.5.4.3": "CN", // commonName
   "2.5.4.6": "C", // country
@@ -101,10 +112,13 @@ const oids = {
   "2.5.29.37": "extKeyUsage",
   "2.5.29.37.0": "anyExtendedKeyUsage",
   "2.16.840.1.101.3.4.1.2": "aes128cbc",
+  "2.16.840.1.101.3.4.1.5": "aes128wrap",
   "2.16.840.1.101.3.4.1.6": "aes128gcm",
   "2.16.840.1.101.3.4.1.22": "aes192cbc",
+  "2.16.840.1.101.3.4.1.25": "aes192wrap",
   "2.16.840.1.101.3.4.1.26": "aes192gcm",
   "2.16.840.1.101.3.4.1.42": "aes256cbc",
+  "2.16.840.1.101.3.4.1.45": "aes256wrap",
   "2.16.840.1.101.3.4.1.46": "aes256gcm",
   "2.16.840.1.101.3.4.2.1": "sha256",
   "2.16.840.1.101.3.4.2.2": "sha384",
@@ -142,6 +156,25 @@ export const NamedCurve: Record<string, number> = {
   secp256r1: 256,
   secp384r1: 384,
   secp521r1: 521,
+}
+
+/** Extracts the WebCrypto hash algorithm of the KDF of an ECDH key agreement. Cofactor ECDH is standard ECDH on these curves. */
+export const KeyAgreementAlgorithm: Record<string, WebCryptoAlgorithm> = {
+  dhSinglePassStdDHSHA1KDF: "SHA-1",
+  dhSinglePassStdDHSHA256KDF: "SHA-256",
+  dhSinglePassStdDHSHA384KDF: "SHA-384",
+  dhSinglePassStdDHSHA512KDF: "SHA-512",
+  dhSinglePassCofactorDHSHA1KDF: "SHA-1",
+  dhSinglePassCofactorDHSHA256KDF: "SHA-256",
+  dhSinglePassCofactorDHSHA384KDF: "SHA-384",
+  dhSinglePassCofactorDHSHA512KDF: "SHA-512",
+}
+
+/** The size in bits of the key of an AES key wrap algorithm. RFC 3565 */
+export const KeyWrapAlgorithm: Record<string, number> = {
+  aes128wrap: 128,
+  aes192wrap: 192,
+  aes256wrap: 256,
 }
 
 /** Extracts the WebCrypto hash algorithm used by a key derivation algorithm. */
@@ -474,6 +507,27 @@ export const RSAESOAEPParams = define("RSAESOAEPParams", function() {
   );
 });
 
+const IssuerAndSerialNumber = define("IssuerAndSerialNumber", function() {
+  this.seq().obj(
+    this.key("issuer").seqof(AttributeValue),
+    this.key("serialNumber").int(),
+  );
+});
+
+const RecipientEncryptedKey = define("RecipientEncryptedKey", function() {
+  this.seq().obj(
+    this.key("rid").choice({
+      issuerAndSerialNumber: this.use(IssuerAndSerialNumber),
+      rKeyId: this.implicit(0).seq().obj(
+        this.key("subjectKeyIdentifier").octstr(),
+        this.key("date").optional().gentime(),
+        this.key("other").optional().use(Any),
+      ),
+    }),
+    this.key("encryptedKey").octstr(),
+  );
+});
+
 const RecipientInfo = define("RecipientInfo", function() {
   this.choice({
     ktri: this.seq().obj(
@@ -488,11 +542,34 @@ const RecipientInfo = define("RecipientInfo", function() {
       this.key("keyEncryptionAlgorithm").use(AlgorithmIdentifier),
       this.key("encryptedKey").octstr(),
     ),
-    kari: this.explicit(1).any(), // Not supported
+    kari: this.implicit(1).seq().obj(
+      this.key("version").int(),
+      this.key("originator").explicit(0).choice({
+        issuerAndSerialNumber: this.use(IssuerAndSerialNumber),
+        subjectKeyIdentifier: this.implicit(0).octstr(),
+        originatorKey: this.implicit(1).seq().obj(
+          this.key("algorithm").use(AlgorithmIdentifier),
+          this.key("publicKey").bitstr(),
+        ),
+      }),
+      this.key("ukm").optional().explicit(1).octstr(),
+      this.key("keyEncryptionAlgorithm").use(AlgorithmIdentifier),
+      this.key("recipientEncryptedKeys").seqof(RecipientEncryptedKey),
+    ),
     kekri: this.explicit(2).any(), // Not supported
     pwri: this.explicit(3).any(), // Not supported
     ori: this.explicit(4).any(), // Not supported
   });
+});
+
+/** The input of the KDF of an ECDH key agreement. RFC 5753 section 7.2 */
+export const ECCCMSSharedInfo = define("ECCCMSSharedInfo", function() {
+  this.seq().obj(
+    // The key wrap algorithm as the sender encoded it, because senders differ in whether its parameters are NULL or absent
+    this.key("keyInfo").use(Any),
+    this.key("entityUInfo").optional().explicit(0).octstr(),
+    this.key("suppPubInfo").explicit(2).octstr(),
+  );
 });
 
 /** Raw DER, e.g. to keep bytes that we do not need to look into */

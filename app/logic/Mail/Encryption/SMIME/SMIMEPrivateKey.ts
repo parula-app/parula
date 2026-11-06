@@ -1,13 +1,14 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, ECPrivateKey, ECDSASigValue, SubjectPublicKeyInfo, CertificationRequestInfo, DigestInfo, DigestAlgorithm, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, type AlgorithmIdentifier } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, ECPrivateKey, ECDSASigValue, SubjectPublicKeyInfo, CertificationRequestInfo, DigestInfo, DigestAlgorithm, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, AlgorithmIdentifier, KeyAgreementAlgorithm, KeyWrapAlgorithm } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { uint8ArrayToHex } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
-import { assert } from "../../../util/util";
+import { assert, NotImplemented, UserError } from "../../../util/util";
+import { gt } from "../../../../l10n/l10n";
 
 export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
   /**
@@ -56,7 +57,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     return { algorithmIdentifier: privateKeyInfo.privateKeyAlgorithm, subjectPublicKey: publicKey };
   }
 
-  /** @param rid as decoded from a `KeyTransRecipientInfo` of the message */
+  /** @param rid as decoded from a `KeyTransRecipientInfo` or `RecipientEncryptedKey` of the message */
   isRecipient(rid: any): boolean {
     if (!this.certificate) {
       return false;
@@ -70,8 +71,35 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
       let ski = cert.tbsCertificate.extensions?.find(ext => ext.extnID == "subjectKeyIdentifier");
       return !!ski && !indexedDB.cmp(OctetString.decode(ski.extnValue), rid.value);
     }
+    case "rKeyId":
+      return this.isRecipient({ type: "subjectKeyIdentifier", value: rid.value.subjectKeyIdentifier });
     default:
       return false;
+    }
+  }
+
+  /** Decrypts the content key that the sender encrypted to our EC key with ECDH. RFC 5753 section 3.1.2
+   * @param kari as decoded from a `KeyAgreeRecipientInfo` of the message */
+  async decryptKeyAgreement(kari: any, encryptedKey: Uint8Array): Promise<Uint8Array> {
+    let { originator, ukm, keyEncryptionAlgorithm } = kari;
+    let keyWrapAlgorithm = AlgorithmIdentifier.decode(keyEncryptionAlgorithm.parameters);
+    let hash = sanitize.translate(keyEncryptionAlgorithm.algorithm, KeyAgreementAlgorithm, null);
+    if (!hash || !sanitize.translate(keyWrapAlgorithm.algorithm, KeyWrapAlgorithm, null)) {
+      throw new NotImplemented(gt`The key of this message is encrypted with ECDH using ${keyEncryptionAlgorithm.algorithm} and ${keyWrapAlgorithm.algorithm}, which is not supported`);
+    }
+    assert(originator.type == "originatorKey" && originator.value.algorithm.algorithm == "ecPublicKey", "Unsupported ECDH: The key of the sender is missing");
+    // Outlook sends its key without the curve, so it is on the curve of our key
+    let curve = this.curveBits(this.decodedCertificate.tbsCertificate.publicKey);
+    let algorithm = { name: "ECDH", namedCurve: "P-" + curve };
+    let senderKey = await crypto.subtle.importKey("raw", originator.value.publicKey.data as BufferSource, algorithm, false, []);
+    let ourKey = await crypto.subtle.importKey("pkcs8", await this.decryptKeyPKCS8() as BufferSource, algorithm, false, ["deriveBits"]);
+    let secret = await crypto.subtle.deriveBits({ name: "ECDH", public: senderKey }, ourKey, (curve + 7 >> 3) * 8);
+    let keyEncryptionKey = await this.keyEncryptionKey(secret, hash, keyEncryptionAlgorithm.parameters, ukm);
+    try {
+      let key = await crypto.subtle.unwrapKey("raw", encryptedKey as BufferSource, keyEncryptionKey, "AES-KW", "AES-CBC", true, ["decrypt"]);
+      return new Uint8Array(await crypto.subtle.exportKey("raw", key));
+    } catch (ex) {
+      throw new UserError(gt`Could not decrypt this message`);
     }
   }
 

@@ -1,6 +1,6 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, type WebCryptoAlgorithm } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, AlgorithmIdentifier, ECCCMSSharedInfo, KeyWrapAlgorithm, type WebCryptoAlgorithm } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayFromHex } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
@@ -191,6 +191,26 @@ export class SMIMEPublicKey extends PublicKey {
     }
     let rs = Uint8ArrayFromHex(r.toString(16).padStart(size * 2, "0") + s.toString(16).padStart(size * 2, "0"));
     return await crypto.subtle.verify({ name: "ECDSA", hash }, key, rs as BufferSource, content as BufferSource);
+  }
+
+  /** Derives the key that encrypts the content key from the ECDH secret, with the ANSI X9.63 KDF. RFC 5753 section 7.2
+   * @param keyWrapAlgorithm the encoded `AlgorithmIdentifier` */
+  protected async keyEncryptionKey(secret: ArrayBuffer, hash: WebCryptoAlgorithm, keyWrapAlgorithm: Uint8Array, ukm?: Uint8Array): Promise<CryptoKey> {
+    let bits = KeyWrapAlgorithm[AlgorithmIdentifier.decode(keyWrapAlgorithm).algorithm as string];
+    let suppPubInfo = new Uint8Array(4);
+    new DataView(suppPubInfo.buffer).setUint32(0, bits);
+    let sharedInfo = ECCCMSSharedInfo.encode({ keyInfo: keyWrapAlgorithm, entityUInfo: ukm, suppPubInfo });
+    let input = new Uint8Array(secret.byteLength + 4 + sharedInfo.length);
+    input.set(new Uint8Array(secret));
+    input.set(sharedInfo, secret.byteLength + 4);
+    let key = new Uint8Array(bits / 8);
+    for (let counter = 1, offset = 0; offset < key.length; counter++) {
+      new DataView(input.buffer).setUint32(secret.byteLength, counter);
+      let digest = new Uint8Array(await crypto.subtle.digest(hash, input));
+      key.set(digest.subarray(0, key.length - offset), offset);
+      offset += digest.length;
+    }
+    return await crypto.subtle.importKey("raw", key, "AES-KW", false, ["wrapKey", "unwrapKey"]);
   }
 
   isValidAt(date: Date): boolean {
