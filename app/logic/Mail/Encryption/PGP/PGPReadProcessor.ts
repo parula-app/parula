@@ -62,7 +62,7 @@ export class PGPReadProcessor extends EMailProcessor {
       });
       email.wasEncrypted = true;
       if (decryptedResult.signatures?.length) {
-        email.rememberSigner(await this.checkSignatures(decryptedResult.signatures, senderPublicKeys, email.sent, openPGP));
+        await this.verifySigner(email, decryptedResult.signatures, decryptedResult.data, senderPublicKeys, openPGP);
       }
       // TODO If inner MIME doesn't contain headers, keep the outer ones
       await this.updateMIME(email, decryptedResult.data);
@@ -85,7 +85,7 @@ export class PGPReadProcessor extends EMailProcessor {
         format: "binary",
         // date: email.sent, // TODO plus a few minutes. Getting "Signature creation time is in the future"
       });
-      email.rememberSigner(await this.checkSignatures(verificationResult.signatures, senderPublicKeys, email.sent, openPGP));
+      await this.verifySigner(email, verificationResult.signatures, signedBinary, senderPublicKeys, openPGP);
       email.attachments.remove(detachedSignaturePart);
     }
   }
@@ -120,12 +120,16 @@ export class PGPReadProcessor extends EMailProcessor {
     return null;
   }
 
+  /** The outer headers aren't signed, so the signature counts only if the
+   * key is for `From:`. Otherwise, the message is not signed. */
+  protected async verifySigner(email: EMail, signatures: OpenPGPVerificationResult[], signedContent: Uint8Array, senderPublicKeys: Collection<PGPPublicKey>, openPGP: OpenPGPModule) {
+    let signer = await this.checkSignatures(signatures, senderPublicKeys, email.sent, openPGP);
+    let isFrom = signer?.isForEMailAddress(email.from.emailAddress) && await email.signedFromMatches(signedContent);
+    email.rememberSigner(isFrom ? signer : null);
+  }
+
   /** Replace the email with this new decrypted email */
   async updateMIME(email: EMail, content: Uint8Array) {
-    if (!await email.signedFromMatches(content)) {
-      // Treat as phishing
-      email.rememberSigner(null);
-    }
     email.downloadComplete = false;
     email.mime = content;
     email.resetProperties();
