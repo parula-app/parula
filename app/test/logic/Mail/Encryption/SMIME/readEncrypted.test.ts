@@ -3,6 +3,9 @@ import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
+import { EnvelopedData, OctetString } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import type { EMail } from "../../../../../logic/Mail/EMail";
+import { base64ToBytes } from "../../../../../../lib/asn1/decoders/pem";
 import { expect, test } from "vitest";
 
 // The browser has this, but Node does not.
@@ -35,19 +38,44 @@ test("An encrypted message that is not for us tells the user why it stays empty"
   expect(errors.map(ex => ex.message)).toEqual(["This message is encrypted, and the key is not available"]);
 });
 
-test("A message encrypted with 3DES, which we can't decrypt, tells the user which cipher it uses", async () => {
-  let errors = await readAsBob("enveloped-data", kDES3);
-  expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/\bdes/i)]);
+test("A message encrypted with Camellia, which we can't decrypt, tells the user which cipher it uses", async () => {
+  let { errors } = await readAsBob("enveloped-data", kCamellia);
+  expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/camellia|1\.2\.392\.200011\.61\.1\.1\.1\.2/i)]);
 });
 
 test("A message encrypted with AES-CCM, which we can't decrypt, tells the user which cipher it uses", async () => {
-  let errors = await readAsBob("authEnveloped-data", kAESCCM);
+  let { errors } = await readAsBob("authEnveloped-data", kAESCCM);
   expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/\bccm|2\.16\.840\.1\.101\.3\.4\.1\.47/i)]);
 });
 
+test("A message encrypted with 3DES, as older Outlook versions send it, is decrypted", async () => {
+  let { email, errors } = await readAsBob("enveloped-data", kDES3);
+  expect(errors).toEqual([]);
+  expect(email.wasEncrypted).toBe(true);
+  expect(email.text.trim()).toBe("Hello Bob");
+});
+
+test("A message encrypted with RC2 is decrypted, with each key length that mail programs use", async () => {
+  for (let cms of [kRC2With128Bits, kRC2With64Bits, kRC2With40Bits]) {
+    let { email, errors } = await readAsBob("enveloped-data", cms);
+    expect(errors).toEqual([]);
+    expect(email.wasEncrypted).toBe(true);
+    expect(email.text.trim()).toBe("Hello Bob");
+  }
+});
+
+test("A 3DES message with an empty IV gives an error, instead of hanging the app", async () => {
+  let envelopedData = EnvelopedData.decode(base64ToBytes(kDES3), { berToDER: true });
+  envelopedData.content.encryptedContentInfo.contentEncryptionAlgorithm.parameters = OctetString.encode(new Uint8Array());
+  let cms = Buffer.from(EnvelopedData.encode(envelopedData)).toString("base64");
+  let { email, errors } = await readAsBob("enveloped-data", cms);
+  expect(errors).toHaveLength(1);
+  expect(email.wasEncrypted).toBe(false);
+});
+
 /** Reads the CMS blob as a message to Bob, whose private key we have.
- * @returns the errors that the user sees */
-async function readAsBob(smimeType: string, cms: string): Promise<Error[]> {
+ * @returns the message, and the errors that the user sees */
+async function readAsBob(smimeType: string, cms: string): Promise<{ email: EMail, errors: Error[] }> {
   let { folder } = await setupTestFolder();
   let identity = new MailIdentity(folder.account);
   identity.emailAddress = "bob@example.com";
@@ -72,7 +100,7 @@ Content-Transfer-Encoding: base64
 ${cms}
 `.replace(/\n/g, "\r\n"));
   await email.parseMIME();
-  return errors;
+  return { email, errors };
 }
 
 /** `openssl smime -sign | openssl smime -encrypt`, to a certificate that is not ours */
@@ -224,6 +252,64 @@ YBQm4rit0mQLBhKaIeiX/3ysEwofuDFGQmcWyZfW0mqGd0TBDIXkqd+jjIXMu0c4
 tI82LDn79LHcdlbd2nep651ctXkcmw84rNusVUiep3O8nL8Qd5yU5STebwT2SJH+
 X88iNpTNYUD7cKWL7J8YRDBLBgkqhkiG9w0BBwEwFAYIKoZIhvcNAwcECC02l+XV
 sKnwgCgGl9Qho4xYTx9tfopWdzuW10PcXFCQIEcCxpxYrhj3j+m201GO3y8M
+`;
+
+/** `printf 'Content-Type: text/plain\r\n\r\nHello Bob\r\n' > body.txt`,
+ * `openssl cms -encrypt -binary -rc2-128 -provider legacy -provider default -in body.txt -outform DER cert.pem`.
+ * RC2 is in the legacy provider of OpenSSL 3. */
+const kRC2With128Bits = `
+MIIBrgYJKoZIhvcNAQcDoIIBnzCCAZsCAQAxggFCMIIBPgIBADAmMA4xDDAKBgNV
+BAMMA0JvYgIUR1y+gd/vMo3Jefdqh9xJSZ9XsIwwDQYJKoZIhvcNAQEBBQAEggEA
+AHQrpYoiDrGkt8s7yOb4lXhGDyDN1WfzujYXSH+59DUuEVR7xCF4kN977foOeLXZ
+u/0RVYoTkRvCgx0fx8gwhhbTN3khpJ0b7A5Edomc8SzKmgg9NecvwJ/XmpFlG1ZD
+lxeZaessgSwH0dH+3c32nnErDeKVaXn1Qr8TqtqlF89pUi9OkY8o/EJofjtxYsbB
+/239q3Ljqk4mxqv5h9umpY2EceLfi+cBh9Xly1OYydITrSQjiH0MD5qcVK1RkuXF
+vQr7jgqu4jEVPxggycTsoHHys+aGa+EhboYIRCLrVNndJTpAXQ1EN/AU7R8FF6tk
++s5WvxPDaKc3O1Psi2ntCzBQBgkqhkiG9w0BBwEwGQYIKoZIhvcNAwIwDQIBOgQI
+gQK3Tg72czaAKAykou4u5kcibPxYmuBFeZNcVnA9RIOS9+MiBa50UhZdtG7JFhT/
+ylk=
+`;
+
+/** As `kRC2With128Bits`, with `-rc2-64` */
+const kRC2With64Bits = `
+MIIBrgYJKoZIhvcNAQcDoIIBnzCCAZsCAQAxggFCMIIBPgIBADAmMA4xDDAKBgNV
+BAMMA0JvYgIUR1y+gd/vMo3Jefdqh9xJSZ9XsIwwDQYJKoZIhvcNAQEBBQAEggEA
+fwn6jPgvqS4Gix+2KskbNOFQSHtwURDLjuof+j826P1AAGwbDAitLn0LfwpD5WMC
+zocfkP6XFv4oD3VmnG0TQVx8xktsqHN0YWf0RYNgJsTl7qRX5gxnKHzqjkJOLBeE
+hANZ1ygu4PBR8SshR5dCaAMhizJ37iNahtaUgxlIV7xXcN+zvDriEPC0+/OuPjs9
+N0EKuOT1NTH8s1Z1uuSvqnSC3k1y5IvwPNuyBIi1k5/LZKzjZ6qgkr7cMLOcarPf
+mYEX4IZQUZm4Xy7LsJohu+ZYbWHOB3w/ofBlOyLTd+p5znfv779JyD0gKLgXcLkp
+LEo7XGrHZJGsHBhHcEX97jBQBgkqhkiG9w0BBwEwGQYIKoZIhvcNAwIwDQIBeAQI
+37uiANamQh2AKDNwmxpBY7O4IeglYM7bb4lAvvw5Rzu5s+hNwQmyAxIcA8LZkqLZ
+51Q=
+`;
+
+/** As `kRC2With128Bits`, with `-rc2-40`, the export key length */
+const kRC2With40Bits = `
+MIIBrwYJKoZIhvcNAQcDoIIBoDCCAZwCAQAxggFCMIIBPgIBADAmMA4xDDAKBgNV
+BAMMA0JvYgIUR1y+gd/vMo3Jefdqh9xJSZ9XsIwwDQYJKoZIhvcNAQEBBQAEggEA
+RJi25WA5NBMe6bFB4hvWHxMsksK+o6fyLiGortw8+V0/eD5Ky7DEKPXJPTQvI2u5
+9o0zcT9glEAfUUSE0lh/8nU/XZCWcJglaaFH/TugwWzujCg9sTM4M8Jxg0VQl/t5
+w5m+iKk2Tsn0wDUzdeeHp+D5wVTi6j+nrHHS4Lm0IzbzhHitn5+eOOVBrwG/u9Zk
+UbwObmySmXLR6AsZyzk5PILzRwDmjEUnhm7J0EV+7MNVMB5Ex30tflqDjxBu+0kz
+rwBzB5H8c944U1RpU7xqM4tDyF07bFTwuI8IP4iHztKRq1/daVtngnKL6vxULhYR
+V8oE1uOnG+Z1fgJQZk7A2zBRBgkqhkiG9w0BBwEwGgYIKoZIhvcNAwIwDgICAKAE
+CFOvKAJkHENcgCjbJEMkZxmRpehuaR28vLqmcVpTYSQ27/trm4fkKiMr1jWUVP/O
+vMP/
+`;
+
+/** As `kRC2With128Bits`, with `-camellia-128-cbc`, which no common mail program sends */
+const kCamellia = `
+MIIBvAYJKoZIhvcNAQcDoIIBrTCCAakCAQAxggFCMIIBPgIBADAmMA4xDDAKBgNV
+BAMMA0JvYgIUR1y+gd/vMo3Jefdqh9xJSZ9XsIwwDQYJKoZIhvcNAQEBBQAEggEA
+MJknVOlwXplPMDeRu6svXZi6RF8Ycd7/0X2/Zn11MrfKdFriogUD+uc7A5H0eDiw
+IdDvK8RV5aGLndEj0zDnyDRP9uuxJv7kqRuj9YfOBJR2b9tcz1yKmHPeXRmZHBxx
+keYpHH3RqeDKPWyid19zSDF2q4fCc+9VD9JV0ixjrcNViP0HN8bpDSxGcSxjOK/d
+EPOjLqrHuW9z/y8Ba96G9QWSDP/tXiq3MQR2Sd6IRng4QUtrWNAOHdQJQSTk4wTt
+p3WDCpzO972n3ROKHhg2ryN8wROdjtnmUUx2CZkN6EA7E5HcDTeOK7V9x1F0nyMD
+u9DjZwwKxbe6n7RbCZzZjTBeBgkqhkiG9w0BBwEwHwYLKoMIjJpLPQEBAQIEEBwq
+eNLB8rayQBNMFBPXWhmAMKabTYXMxpoJWPG1CoBql2r1/Mg1dGL4YJUb1rclz+A4
+tY44zsJQtco9cOgvggr4Vg==
 `;
 
 /** `openssl cms -encrypt -aes-256-gcm -recip cert.pem -outform DER`, with the cipher OID
