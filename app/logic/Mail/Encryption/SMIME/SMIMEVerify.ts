@@ -1,5 +1,4 @@
-import { DigestAlgorithm, SignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, Null, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
-import { BlockType, unpadPKCS, encrypt, padFF } from "./SMIMERSAES";
+import { DigestAlgorithm, SignatureAlgorithm, Attributes, SubjectPublicKeyInfo, OctetString, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 
@@ -46,7 +45,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
   }
   let messageDigest = new Uint8Array(await crypto.subtle.digest(digestAlgorithm, content as BufferSource));
   // Without signed attributes, the signature covers the content digest directly.
-  let signedDigest = messageDigest;
+  let signedContent = content;
   if (signerInfo.signedAttrs) {
     let digestAttribute = signerInfo.signedAttrs.find(attr => attr.attrType == "messageDigest");
     if (!digestAttribute) {
@@ -57,8 +56,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
       console.log("signed digest did not match message");
       return null;
     }
-    let signedAttrs = Attributes.encode(signerInfo.signedAttrs);
-    signedDigest = new Uint8Array(await crypto.subtle.digest(digestAlgorithm, signedAttrs));
+    signedContent = Attributes.encode(signerInfo.signedAttrs);
   }
   /* `await crypto.subtle.verify()` returns `false` on
    * correctly signed messages...
@@ -68,27 +66,14 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     return rsa.n.toString(16);
   }
   */
-  let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-  let block = encrypt(signerInfo.signature, rsa);
-  let digestInfo = DigestInfo.decode(unpadPKCS(block, BlockType.Signed));
-  if (digestInfo.digestAlgorithm.algorithm != signerInfo.digestAlgorithm.algorithm) {
-    console.log("signature algorithm mismatch");
-    return null;
-  }
-  if (indexedDB.cmp(digestInfo.digest, signedDigest)) {
-    console.log("signature did not match the signed digest");
-    return null;
-  }
-  digestInfo.digestAlgorithm.parameters = Null.encode();
-  if (indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa))) {
-    console.log("non-canonical signature padding");
-    return null;
-  }
   let signer = new SMIMEPublicKey();
   while (cert && await signer.addCertificate(cert)) {
     cert = certificates.find(chain =>
       sameName(chain.tbsCertificate.subject, cert.tbsCertificate.issuer));
   };
+  if (!await signer.verifyRSA(signerInfo.signature, digestAlgorithm, signedContent)) {
+    return null;
+  }
   if (!signer.allowsAnyKeyUsage(KeyUsageBit.digitalSignature, KeyUsageBit.nonRepudiation)) {
     return null;
   }

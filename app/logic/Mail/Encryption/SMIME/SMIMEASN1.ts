@@ -103,7 +103,7 @@ const oids = {
   "2.16.840.1.101.3.4.2.3": "sha512",
 };
 
-type WebCryptoAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
+export type WebCryptoAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 
 /** Converts a digest (hashing) algorithm name to WebCrypto. */
 export const DigestAlgorithm: Record<string, WebCryptoAlgorithm> = {
@@ -194,7 +194,7 @@ export const RDNSequence = define<AttributeValue[]>("RDNSequence", function() {
 });
 
 export interface SubjectPublicKeyInfo {
-  algorithmIdenfitier: AlgorithmIdentifier;
+  algorithmIdentifier: AlgorithmIdentifier;
   subjectPublicKey: BitString;
 }
 export const SubjectPublicKeyInfo = define<SubjectPublicKeyInfo>("SubjectPublicKeyInfo", function() {

@@ -1,6 +1,6 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, type WebCryptoAlgorithm } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
@@ -210,6 +210,29 @@ export class SMIMEPublicKey extends PublicKey {
     return KeyStatus.ChainIncomplete;
   }
 
+  /** RSASSA-PKCS1-v1_5, RFC 8017 section 8.2.2 */
+  async verifyRSA(signature: Uint8Array, hash: WebCryptoAlgorithm, content: Uint8Array): Promise<boolean> {
+    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
+    if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
+      return false;
+    }
+    let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
+    let block = encrypt(signature, rsa);
+    let digestInfo = DigestInfo.decode(unpadPKCS(block, BlockType.Signed));
+    if (sanitize.translate(digestInfo.digestAlgorithm.algorithm, DigestAlgorithm, null) != hash) {
+      return false;
+    }
+    let digest = new Uint8Array(await crypto.subtle.digest(hash, content as BufferSource));
+    if (indexedDB.cmp(digestInfo.digest, digest)) {
+      return false;
+    }
+    // Rebuild the whole PKCS#1 v1.5 block and compare byte-for-byte, so that
+    // trailing bytes after the DigestInfo or non-canonical padding are rejected
+    // rather than silently ignored (RFC8017 EMSA-PKCS1-v1_5 verification).
+    digestInfo.digestAlgorithm.parameters = Null.encode();
+    return !indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa));
+  }
+
   /** @param subCAs How many CA certificates are between this one and the leaf */
   protected mayIssueCertificates(subCAs: number): boolean {
     let basicConstraints = this.extension("basicConstraints");
@@ -320,27 +343,9 @@ export async function verifySignature(cert: Certificate, signer: Certificate): P
     }
     let algorithm = sanitize.translate(cert.signatureAlgorithm.algorithm, SignatureAlgorithm);
     let signedCert = TBSCertificate.encode(cert.tbsCertificate);
-    let signedDigest = new Uint8Array(await crypto.subtle.digest(algorithm, signedCert));
-    let rsa = RSAPublicKey.decode(signer.tbsCertificate.publicKey.subjectPublicKey.data);
-    let block = encrypt(cert.signatureValue.data, rsa);
-    let digestInfo = DigestInfo.decode(unpadPKCS(block, BlockType.Signed));
-    if (sanitize.translate(digestInfo.digestAlgorithm.algorithm, DigestAlgorithm) != algorithm) {
-      console.log("mismatched digest signature algorithm");
-      return false;
-    }
-    if (indexedDB.cmp(digestInfo.digest, signedDigest)) {
-      console.log("signature mismatch");
-      return false;
-    }
-    // Rebuild the whole PKCS#1 v1.5 block and compare byte-for-byte, so that
-    // trailing bytes after the DigestInfo or non-canonical padding are rejected
-    // rather than silently ignored (RFC8017 EMSA-PKCS1-v1_5 verification).
-    digestInfo.digestAlgorithm.parameters = Null.encode();
-    if (indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa))) {
-      console.log("non-canonical signature padding");
-      return false;
-    }
-    return true;
+    let signerKey = new SMIMEPublicKey();
+    await signerKey.setCertificate(signer);
+    return await signerKey.verifyRSA(cert.signatureValue.data, algorithm, signedCert);
   } catch (ex) {
     // Typically a decryption error, but the validation should fail anyway.
     console.error(ex);
