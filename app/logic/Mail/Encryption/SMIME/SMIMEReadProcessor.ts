@@ -8,7 +8,7 @@ import { decryptAuthEnveloped } from "./SMIMEDecrypt";
 import { BlockType, unpadPKCS, decrypt } from "./SMIMERSAES";
 import { verifySignedData, sameName } from "./SMIMEVerify";
 import { parseMIMEDirectSubpartsBytes, parseHeaderParameters } from "../MIME";
-import { UserError, assert } from "../../../util/util";
+import { UserError, NotImplemented, assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
