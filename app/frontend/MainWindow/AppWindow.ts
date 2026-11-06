@@ -26,7 +26,7 @@ export class AppWindow {
   /** What this window shows. Only for the windows that we opened. */
   component: Component<any>;
   props: Record<string, any>;
-  /** `SecondaryBrowserWindow` in the backend. Only for the windows that we opened, and not in the webmail. */
+  /** `SecondaryBrowserWindow` in the backend, for the first window the same functions of `remoteApp`. Not for the other windows in the webmail. */
   protected browserWindow: any;
   protected readonly uiStates = new Map<object, object>();
 
@@ -320,32 +320,25 @@ export class AppWindow {
   }
 
   async minimize() {
-    if (this == AppWindow.main) {
-      await appGlobal.remoteApp.minimizeMainWindow();
-    } else {
-      await this.browserWindow.minimize();
-    }
+    await this.browserWindow.minimize();
   }
 
   async maximize() {
-    if (this == AppWindow.main) {
-      await appGlobal.remoteApp.maximizeMainWindow();
-    } else {
-      await this.browserWindow.maximize();
-    }
+    await this.browserWindow.maximize();
   }
 
   /** From minimized or maximized */
   async restore() {
-    if (this == AppWindow.main) {
-      await appGlobal.remoteApp.unminimizeMainWindow();
-    } else {
-      await this.browserWindow.restore();
-    }
+    await this.browserWindow.restore();
   }
 
   /** Must be called once at app start, before the UI shows */
   static init() {
+    AppWindow.main.browserWindow = {
+      minimize: () => appGlobal.remoteApp.minimizeMainWindow(),
+      maximize: () => appGlobal.remoteApp.maximizeMainWindow(),
+      restore: () => appGlobal.remoteApp.unminimizeMainWindow(),
+    };
     AppWindow.main.listenToLinks();
     AppWindow.main.listenToUse();
     AppWindow.allowResizeObserverInAllWindows();
