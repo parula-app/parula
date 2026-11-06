@@ -1,6 +1,6 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, type WebCryptoAlgorithm } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, type WebCryptoAlgorithm } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayFromHex } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
@@ -8,6 +8,7 @@ import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
 import { assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
+import { sha256 } from "@noble/hashes/sha2.js";
 import { gt } from "../../../../l10n/l10n";
 
 export class SMIMEPublicKey extends PublicKey {
@@ -60,7 +61,7 @@ export class SMIMEPublicKey extends PublicKey {
     } else if (!this.id) {
       let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
       let id = sanitize.bigint(rsa.n).toString(16);
-      this.id = id.slice(-16);
+      this.id = this.keyID(rsa);
       this.keyLengthInBits = id.length * 4;
     }
     this.publicKeyArmored = Certificate.encodePEM(cert, { label: "CERTIFICATE" });
@@ -75,6 +76,11 @@ export class SMIMEPublicKey extends PublicKey {
     this.expires = sanitize.date(notAfter.value);
     let now = Date.now();
     this.obsolete = now < this.created.getTime();
+  }
+
+  /** A hash, because anybody can make a key whose modulus ends in the same digits */
+  protected keyID(rsa: RSAPublicKey): string {
+    return uint8ArrayToHex(sha256(RSAPublicKey.encode(rsa)));
   }
 
   /** Sets this key's certificate if it has none yet or the certificate is for the same key, otherwise adds it to the chain */
@@ -93,6 +99,11 @@ export class SMIMEPublicKey extends PublicKey {
         await key.setCertificate(cert);
         return false;
       }
+    }
+    // Thunderbird checks at most 8 certificates, from the leaf up to the root
+    const kMaxChainLength = 7;
+    if (this.chain.length >= kMaxChainLength) {
+      throw new Error("Too many certificates in the chain");
     }
     let key = new SMIMEPublicKey();
     await key.setCertificate(cert);
@@ -186,12 +197,8 @@ export class SMIMEPublicKey extends PublicKey {
     if (!this.isValidAt(date)) {
       return KeyStatus.Expired;
     }
-    // This checks only that each certificate is validly signed by the next one
-    // up to a trusted root. It does not verify basicConstraints (CA:TRUE) or
-    // keyUsage/extKeyUsage (emailProtection). Identity is bound elsewhere, by
-    // matching the signer's stored key ID against `email.from`, so a rogue leaf
-    // cannot sign as another identity today. Do not start trusting the chain
-    // itself for identity binding without adding those X.509 path checks first.
+    // `EMail.rememberSigner()` trusts the email addresses in the certificate,
+    // so it needs the basicConstraints and keyUsage/extKeyUsage checks here.
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
     if (!this.allowsEMailProtection()) {
       return KeyStatus.ChainInvalid;
@@ -291,6 +298,10 @@ export class SMIMEPublicKey extends PublicKey {
 
   fromJSON(json: any) {
     super.fromJSON(json);
+    if (this.publicKeyArmored) {
+      let cert = Certificate.decodePEM(this.publicKeyArmored, { label: "CERTIFICATE" });
+      this.id = this.keyID(RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data));
+    }
     for (let certificate of sanitize.array(json.chain, [])) {
       let key = new SMIMEPublicKey();
       key.fromJSON(certificate);
@@ -325,8 +336,12 @@ function certificateEMailAddresses(cert: Certificate): string[] {
 
 /** The name of the person or organisation that the certificate was issued to */
 function certificateCommonName(cert: Certificate): string | null {
+  const kMaxLength = 64; // RFC 5280 ub-common-name
+  // <copied from="../../../Files/FileType/ExecutableFile.ts">
+  const kFilenameTrickCharacters = /[\u0000-\u001F\u007F\u00AD\u200B-\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+  // </copied>
   let cn = cert.tbsCertificate.subject.find(attr => attr.type == "CN");
-  return sanitize.label(cn?.value?.value, null);
+  return sanitize.label(cn?.value?.value?.replace(kFilenameTrickCharacters, "").slice(0, kMaxLength), null);
 }
 
 export async function verifySignature(cert: Certificate, signer: Certificate): Promise<boolean> {
@@ -358,6 +373,7 @@ export async function verifySignature(cert: Certificate, signer: Certificate): P
     // Rebuild the whole PKCS#1 v1.5 block and compare byte-for-byte, so that
     // trailing bytes after the DigestInfo or non-canonical padding are rejected
     // rather than silently ignored (RFC8017 EMSA-PKCS1-v1_5 verification).
+    digestInfo.digestAlgorithm.parameters = Null.encode();
     if (indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa))) {
       console.log("non-canonical signature padding");
       return false;

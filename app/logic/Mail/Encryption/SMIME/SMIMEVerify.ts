@@ -1,5 +1,5 @@
-import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
-import { BlockType, unpadPKCS, encrypt } from "./SMIMERSAES";
+import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, Null, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
+import { BlockType, unpadPKCS, encrypt, padFF } from "./SMIMERSAES";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 
@@ -81,13 +81,19 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     }
   } else {
     let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-    let digestInfo = DigestInfo.decode(unpadPKCS(encrypt(signerInfo.signature, rsa), BlockType.Signed));
+    let block = encrypt(signerInfo.signature, rsa);
+    let digestInfo = DigestInfo.decode(unpadPKCS(block, BlockType.Signed));
     if (digestInfo.digestAlgorithm.algorithm != signerInfo.digestAlgorithm.algorithm) {
       console.log("signature algorithm mismatch");
       return null;
     }
     if (indexedDB.cmp(digestInfo.digest, signedDigest)) {
       console.log("signature did not match the signed digest");
+      return null;
+    }
+    digestInfo.digestAlgorithm.parameters = Null.encode();
+    if (indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa))) {
+      console.log("non-canonical signature padding");
       return null;
     }
   }

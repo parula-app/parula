@@ -160,7 +160,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     let key = new SMIMEPrivateKey();
     key.privateKeyArmored = await encryptPrivateKey(privateKeyPKCS8, passphrase);
     key.passphrase = passphrase;
-    key.id = rsaKey.n.toString(16).slice(-16);
+    key.id = key.keyID(rsaKey);
     key.name = key.defaultName;
     key.userIDs.add(emailAddress);
     key.keyLengthInBits = 4096;
@@ -186,7 +186,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     assert(rawKey.dQ == rawKey.d % (rawKey.q - 1n), "prime 2 exponent does not match private exponent");
     assert(rawKey.qInv * rawKey.q % rawKey.p == 1n, "inverse does not match primes");
     let id = sanitize.bigint(rawKey.n).toString(16);
-    key.id = id.slice(-16);
+    key.id = key.keyID(rawKey);
     key.name = key.defaultName;
     key.keyLengthInBits = id.length * 4;
     key.justCreated = true;
