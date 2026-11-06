@@ -60,7 +60,7 @@ export class SMIMEPublicKey extends PublicKey {
     this.created = sanitize.date(notBefore.value);
     this.expires = sanitize.date(notAfter.value);
     let now = Date.now();
-    this.obsolete = now < this.created.getTime() || now > this.expires.getTime();
+    this.obsolete = now < this.created.getTime();
   }
 
   async addCertificate(cert: Certificate): Promise<boolean> {
@@ -115,7 +115,8 @@ export class SMIMEPublicKey extends PublicKey {
     // itself for identity binding without adding those X.509 path checks first.
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
     for (let key of this.chain) {
-      if (key.obsolete || !key.isValidAt(date)) {
+      // Not `obsolete`: it also means "expired now", which would reject older mail
+      if (key._obsolete || !key.isValidAt(date)) {
         console.log("obsolete certificate in chain");
         return KeyStatus.ChainInvalid;
       }
