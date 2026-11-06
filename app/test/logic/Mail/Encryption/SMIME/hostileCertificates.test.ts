@@ -265,7 +265,7 @@ describe("Nested S/MIME layers", () => {
       Buffer.from(blob).toString("base64").replace(/.{76}/g, "$&\r\n") + "\r\n";
   }
 
-  async function read(layers: number): Promise<{ text: string, errors: Error[] }> {
+  async function read(layers: number, times = 1): Promise<{ text: string, errors: Error[] }> {
     let { folder } = await setupTestFolder({ getCACertificates: async () => [] });
     let errors: Error[] = [];
     folder.account.errorCallback = (ex) => errors.push(ex);
@@ -274,8 +274,11 @@ describe("Nested S/MIME layers", () => {
       mime = opaqueSigned(mime);
     }
     let email = folder.newEMail();
-    email.mime = new TextEncoder().encode(kHeaders + mime);
-    await email.parseMIME();
+    for (let i = 0; i < times; i++) {
+      // Unwrapping replaced the source, so give it the original again, as a new download would
+      email.mime = new TextEncoder().encode(kHeaders + mime);
+      await email.parseMIME();
+    }
     return { text: email.text?.trim(), errors };
   }
 
@@ -286,5 +289,9 @@ describe("Nested S/MIME layers", () => {
   test("Endless layers are not unwrapped, and that is reported", async () => {
     let { errors } = await read(25);
     expect(errors.length).toBeGreaterThan(0);
+  });
+
+  test("The same message read again and again unwraps all layers each time", async () => {
+    expect(await read(3, 5)).toEqual({ text: "Hello", errors: [] });
   });
 });
