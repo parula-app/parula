@@ -37,7 +37,7 @@ export class MailMustangApp extends MustangApp {
   }
 
   async writeMailInNewWindow(mail: EMail) {
-    await AppWindow.current().open(ComposerWindow, { mail }, 1000, 800);
+    await AppWindow.current().open(ComposerWindow, { mail }, 1000);
   }
 
   login(tab: OAuth2Tab): LoginDialogMustangApp {

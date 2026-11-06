@@ -131,19 +131,19 @@ export class AppWindow {
   }
 
   /**
-   * Opens a new window that shows only `component`.
+   * Opens a new window that shows only `component`, with the height of the main window.
    * The apps keep showing in our main window.
    * If such a window is already open with the same `props`, brings it to the front instead.
    * The new window closes when the first main window closes.
    */
-  async open<Props extends Record<string, any>>(component: Component<Props>, props: Props, width: number, height: number): Promise<AppWindow> {
+  async open<Props extends Record<string, any>>(component: Component<Props>, props: Props, width: number): Promise<AppWindow> {
     let existing = AppWindow.opened.find(appWindow => appWindow.component == component &&
       Object.keys(props).every(key => appWindow.props[key] == props[key]));
     if (existing) {
       existing.focus();
       return existing;
     }
-    return await AppWindow.openWindow(component, props, width, height, this.mainWindow);
+    return await AppWindow.openWindow(component, props, width, this.mainWindow.window.outerHeight, this.mainWindow);
   }
 
   /**

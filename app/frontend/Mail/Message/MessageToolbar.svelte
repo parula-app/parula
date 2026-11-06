@@ -151,7 +151,7 @@
     await message.markStarred(!message.isStarred);
   }
   async function onPopOut() {
-    await appWindow.open(MessageWindow, { message }, 1000, 800);
+    await appWindow.open(MessageWindow, { message }, 1000);
   }
   function reply() {
     let reply = message.compose.replyToAuthor();
