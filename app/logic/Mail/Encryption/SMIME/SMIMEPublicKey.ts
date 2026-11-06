@@ -1,6 +1,6 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, AlgorithmIdentifier, Certificate, RSAPublicKey, RSASSAPSSParams, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
@@ -156,6 +156,26 @@ export class SMIMEPublicKey extends PublicKey {
 
   isValidAt(date: Date): boolean {
     return date.getTime() >= this.created.getTime() && date.getTime() <= this.expires.getTime();
+  }
+
+  /** @param parameters `RSASSA-PSS-params` of the signature algorithm, RFC 4055 section 3.1 */
+  async verifyRSAPSS(signature: Uint8Array, parameters: Uint8Array, content: Uint8Array): Promise<boolean> {
+    try {
+      let { hashAlgorithm, maskGenAlgorithm, saltLength, trailerField } = RSASSAPSSParams.decode(parameters);
+      let maskHashAlgorithm = maskGenAlgorithm.parameters ? AlgorithmIdentifier.decode(maskGenAlgorithm.parameters) : { algorithm: "sha1" };
+      let hash = sanitize.translate(hashAlgorithm.algorithm, DigestAlgorithm, null);
+      // WebCrypto uses the same hash for the mask
+      if (!hash || maskGenAlgorithm.algorithm != "mgf1" || maskHashAlgorithm.algorithm != hashAlgorithm.algorithm || trailerField != 1n) {
+        return false;
+      }
+      // WebCrypto does not import a key that is only for PSS (id-RSASSA-PSS)
+      let { subjectPublicKey } = this.decodedCertificate.tbsCertificate.publicKey;
+      let rsaKey = SubjectPublicKeyInfo.encode({ algorithmIdentifier: { algorithm: "rsaEncryption", parameters: Null.encode() }, subjectPublicKey });
+      let key = await crypto.subtle.importKey("spki", rsaKey as BufferSource, { name: "RSA-PSS", hash }, false, ["verify"]);
+      return await crypto.subtle.verify({ name: "RSA-PSS", saltLength: Number(saltLength) }, key, signature as BufferSource, content as BufferSource);
+    } catch (ex) {
+      return false; // Broken parameters, or a salt length too long for the key
+    }
   }
 
   async keyStatus(date = new Date()): Promise<KeyStatus> {
@@ -317,6 +337,11 @@ export async function verifySignature(cert: Certificate, signer: Certificate): P
     if (indexedDB.cmp(RDNSequence.encode(cert.tbsCertificate.issuer), RDNSequence.encode(signer.tbsCertificate.subject))) {
       console.log("subject did not match issuer");
       return false;
+    }
+    if (cert.signatureAlgorithm.algorithm == "rsassaPss") {
+      let signerKey = new SMIMEPublicKey();
+      await signerKey.setCertificate(signer);
+      return await signerKey.verifyRSAPSS(cert.signatureValue.data, cert.signatureAlgorithm.parameters, TBSCertificate.encode(cert.tbsCertificate));
     }
     let algorithm = sanitize.translate(cert.signatureAlgorithm.algorithm, SignatureAlgorithm);
     let signedCert = TBSCertificate.encode(cert.tbsCertificate);
