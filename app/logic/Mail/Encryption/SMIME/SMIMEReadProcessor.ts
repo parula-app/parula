@@ -84,7 +84,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
   protected checkCipher(algorithm: string | number[], supported: string[]) {
     if (!sanitize.enum(algorithm, supported, null)) {
       let name = typeof algorithm == "string" ? algorithm : algorithm.join(".");
-      throw new UserError(gt`This message is encrypted with ${name}, which is not supported`);
+      throw new NotImplemented(gt`This message is encrypted with ${name}, which is not supported`);
     }
   }
 
