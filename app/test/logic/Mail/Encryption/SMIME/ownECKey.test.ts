@@ -5,7 +5,8 @@ import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIM
 import { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { Any, ECPrivateKey, PrivateKeyInfo } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { importPrivateKey } from "../../../../../logic/Mail/Encryption/KeyUtils";
-import { kOwnP256, kOwnP384, kOwnP521, kSecp256k1Key } from "./ownECKeys";
+import { kOwnP256, kOwnP384, kOwnP521, kSecp256k1Key, kEd25519Key } from "./ownECKeys";
+import { NotImplemented } from "../../../../../logic/util/util";
 import { expect, test, describe } from "vitest";
 
 // The browser has these, but Node does not.
@@ -45,6 +46,13 @@ describe("Our own EC key", () => {
 
   test("on a curve that WebCrypto does not have is rejected", async () => {
     await expect(SMIMEPrivateKey.importPrivateKey(kSecp256k1Key)).rejects.toThrow(/unsupported/i);
+  });
+
+  test("of an algorithm that we do not support is rejected, naming the algorithm", async () => {
+    let importing = SMIMEPrivateKey.importPrivateKey(kEd25519Key);
+    await expect(importing).rejects.toThrow(NotImplemented);
+    // Ed25519, by its name or its OID
+    await expect(importing).rejects.toThrow(/Ed25519|1\.3\.101\.112/i);
   });
 
   // The public key is optional in the file, but Safari cannot use a key without it

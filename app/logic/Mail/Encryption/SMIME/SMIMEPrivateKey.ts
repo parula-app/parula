@@ -38,15 +38,20 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
 
   async matches(publicKey: SubjectPublicKeyInfo): Promise<boolean> {
     let privateKeyInfo = PrivateKeyInfo.decode(await this.decryptKeyPKCS8());
-    if (privateKeyInfo.privateKeyAlgorithm.algorithm == "ecPublicKey") {
+    switch (privateKeyInfo.privateKeyAlgorithm.algorithm) {
+    case "ecPublicKey":
       return !indexedDB.cmp(SubjectPublicKeyInfo.encode(publicKey), SubjectPublicKeyInfo.encode(this.ecPublicKey(privateKeyInfo)));
+    case "rsaEncryption": {
+      if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
+        return false;
+      }
+      let key = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
+      let rawKey = RSAPrivateKey.decode(privateKeyInfo.privateKey);
+      return key.n == rawKey.n && key.e == rawKey.e;
     }
-    if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
+    default:
       return false;
     }
-    let key = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-    let rawKey = RSAPrivateKey.decode(privateKeyInfo.privateKey);
-    return key.n == rawKey.n && key.e == rawKey.e;
   }
 
   /** Our public key, as our certificate has it, from our EC private key */
@@ -133,9 +138,9 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
 
   /** The digest algorithm of our signatures. For EC keys, the one that fits the curve, as Thunderbird does. */
   get digestAlgorithm(): string {
-    const kCurveDigests: Record<number, string> = { 256: "sha256", 384: "sha384", 521: "sha512" };
     let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
     if (publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+      const kCurveDigests: Record<number, string> = { 256: "sha256", 384: "sha384", 521: "sha512" };
       return kCurveDigests[this.curveBits(publicKey)];
     }
     return "sha256";
@@ -270,14 +275,18 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     key.privateKeyArmored = splitPEM(privateKey).shift();
     key.passphrase = passphrase;
     let privateKeyInfo = PrivateKeyInfo.decode(await key.decryptKeyPKCS8());
-    if (privateKeyInfo.privateKeyAlgorithm.algorithm == "ecPublicKey") {
+    let algorithm = privateKeyInfo.privateKeyAlgorithm.algorithm;
+    switch (algorithm) {
+    case "ecPublicKey": {
       let publicKey = key.ecPublicKey(privateKeyInfo);
       key.cipher = "EC";
       key.keyLengthInBits = key.curveBits(publicKey);
       assert(key.keyLengthInBits, "Unsupported elliptic curve");
       key.id = key.publicKeyID(publicKey);
-    } else {
-      let rawKey = await key.decryptKey();
+      break;
+    }
+    case "rsaEncryption": {
+      let rawKey = RSAPrivateKey.decode(privateKeyInfo.privateKey);
       assert(rawKey.n == rawKey.p * rawKey.q, "modulus should be product of primes");
       assert(rawKey.d * rawKey.e % (rawKey.p - 1n) == 1n, "prime exponents product should equal 1 modulo 1 less than prime 1");
       assert(rawKey.d * rawKey.e % (rawKey.q - 1n) == 1n, "prime exponents product should equal 1 modulo 1 less than prime 2");
@@ -287,6 +296,12 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
       let id = sanitize.bigint(rawKey.n).toString(16);
       key.id = key.keyID(rawKey);
       key.keyLengthInBits = id.length * 4;
+      break;
+    }
+    default: {
+      let name = typeof algorithm == "string" ? algorithm : algorithm.join(".");
+      throw new NotImplemented(gt`This secret key uses ${name}, which is not supported`);
+    }
     }
     key.name = key.defaultName;
     key.justCreated = true;

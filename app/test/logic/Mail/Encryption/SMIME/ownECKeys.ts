@@ -87,3 +87,11 @@ M2W2Jz2Lyjcoc9XI0hLPQ8ahRANCAARXYpvnizZUCW2kOrF31dbXHYLgR7e62orH
 O0U3s6MSavB8jbP4XtSVH1tC51jjbCAKXPgRFnPaE5d7RQrUX6Gk
 -----END PRIVATE KEY-----
 `;
+
+/** Ed25519, which S/MIME here does not support.
+ * openssl genpkey -algorithm ed25519 */
+export const kEd25519Key = `
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIIXYd/0pXjPMwo3WZfoCzfOPmNm/MkX2wKtwa0DBCiZ0
+-----END PRIVATE KEY-----
+`;
