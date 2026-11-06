@@ -57,6 +57,7 @@ async function sendAndReceive(sign: boolean, encrypt: boolean): Promise<EMail> {
   let sent = await SMIMESend.encryptAndSign(mail);
 
   let received = newTestEMail(folder, "plain-text@example.com");
+  received.from = mail.from; // as the server reports it
   received.mime = new TextEncoder().encode(sent.sendRawMIME);
   await received.parseMIME();
   return received;

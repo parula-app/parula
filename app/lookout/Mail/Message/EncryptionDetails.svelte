@@ -75,8 +75,7 @@
     .catch(showError);
   /* </copied> */
   /* <copied from="EncryptionButtons.svelte"> */
-  $: signedBySomeoneElse = $message.isSignedBySomeoneElse(signingKey);
-  $: isSigned = $message && !!message.signedByKeyID && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted && !signedBySomeoneElse;
+  $: isSigned = $message && !!message.signedByKeyID && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
   /* </copied> */
   $: isEncrypted = !!$message.wasEncrypted;
   // <copied from="../../../frontend/Mail/Message/EncryptionDetails.svelte">
@@ -86,9 +85,7 @@
       ? $t`End-to-end encrypted and signed`
       : isSigned
         ? $t`Signed`
-        : signedBySomeoneElse
-          ? $t`Signed by someone else`
-          : $t`End-to-end-encrypted, but not signed`;
+        : $t`End-to-end-encrypted, but not signed`;
   $: fromName = $message.from?.findPerson()?.name ?? $message.from?.nameOrEMail;
   $: msg = mySigningKey
       ? $t`You sent this email`
@@ -96,14 +93,12 @@
         ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${fromName}. Only the recipients can read it, but the email provider cannot.`
         : isSigned
           ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${fromName}. It was not encrypted, meaning that it was not protected from surveillance.`
-          : signedBySomeoneElse
-            ? $t`The certificate below was issued for ${$signingKey.userIDs.contents.join(", ") || $signingKey.name}, not for ${$message.from?.emailAddress}. You cannot be sure who wrote this email.`
-            : $t`Only the recipients can read this email, but there is no assurance about who wrote it`;
+          : $t`Only the recipients can read this email, but there is no assurance about who wrote it`;
   // </copied>
   $: layers = [
     { label: $t`Subject: ${message.subject ?? ""}`, icon: SubjectIcon },
     ...(isEncrypted ? [{ label: $t`Encryption Layer`, icon: EncryptedIcon }] : []),
-    ...(isSigned || signedBySomeoneElse ? [{ label: $t`Digital Signature Layer`, icon: SignedIcon }] : []),
+    ...(isSigned ? [{ label: $t`Digital Signature Layer`, icon: SignedIcon }] : []),
   ];
   let selectedLayer = null;
 

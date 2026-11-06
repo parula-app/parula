@@ -102,7 +102,7 @@ export class SMIMEPublicKey extends PublicKey {
     }
     // This checks only that each certificate is validly signed by the next one
     // up to a trusted root. It does not verify basicConstraints (CA:TRUE) or
-    // keyUsage/extKeyUsage (emailProtection). `EMail.isSignedBySomeoneElse()`
+    // keyUsage/extKeyUsage (emailProtection). `SMIMEReadProcessor.verify()`
     // trusts the email addresses in the certificate, so it needs those checks.
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });
     for (let key of this.chain) {

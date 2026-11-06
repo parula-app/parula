@@ -37,7 +37,6 @@ export class PGPReadProcessor extends EMailProcessor {
     email.system = EncryptionSystem.PGP;
     let openPGP = await import("openpgp");
     if (isLogging) console.log("MIME", mime, "encrypted", encrypted);
-    let outerFrom = email.from.emailAddress;
     let senderPublicKeys = await this.getPublicKeysForEmailAddress(email.from, email.sent, email);
     let senderOpenPGPKeys: OpenPGP.PublicKey[] = [];
     for (let publicKey of senderPublicKeys) {
@@ -66,7 +65,7 @@ export class PGPReadProcessor extends EMailProcessor {
         email.rememberSigner(await this.checkSignatures(decryptedResult.signatures, senderPublicKeys, email.sent, openPGP));
       }
       // TODO If inner MIME doesn't contain headers, keep the outer ones
-      await this.updateMIME(email, decryptedResult.data, outerFrom);
+      await this.updateMIME(email, decryptedResult.data);
     } else if (detachedSignature) { // why `else`: don't overwrite the signature within the encrypted part
       await email.parseHeaders();
       let signedPart = getSignedCleartext(email);
@@ -122,10 +121,9 @@ export class PGPReadProcessor extends EMailProcessor {
   }
 
   /** Replace the email with this new decrypted email */
-  async updateMIME(email: EMail, content: Uint8Array, outerFrom: string) {
-    if (email.from.emailAddress.toLowerCase() != outerFrom.toLowerCase()) {
+  async updateMIME(email: EMail, content: Uint8Array) {
+    if (!await email.signedFromMatches(content)) {
       // Treat as phishing
-      console.warn("PGP signature ignored, because inner signed From: is", email.from.emailAddress, "but outer header From: is", outerFrom);
       email.rememberSigner(null);
     }
     email.downloadComplete = false;

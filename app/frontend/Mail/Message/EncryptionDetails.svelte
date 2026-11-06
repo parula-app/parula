@@ -1,12 +1,12 @@
 {#if isExpanded}
   <vbox class="font-small">
-    {#if signed || encrypted || signedBySomeoneElse}
+    {#if signed || encrypted}
       <vbox class="signed key-{trustLevel} plain">
         <Clickable onClick={() => isExpanded = false}>
           <hbox>
             <RoundButton
               label={title}
-              icon={signedBySomeoneElse ? WarningIcon : encrypted && signed ? EncryptedIcon : signed ? SignedIcon : EncryptedUnsignedIcon}
+              icon={encrypted && signed ? EncryptedIcon : signed ? SignedIcon : EncryptedUnsignedIcon}
               iconSize="16px"
               padding="3px"
               border={false}
@@ -39,7 +39,6 @@
   import SignedIcon from "lucide-svelte/icons/signature";
   import EncryptedIcon from "lucide-svelte/icons/lock";
   import EncryptedUnsignedIcon from "lucide-svelte/icons/shield-question-mark";
-  import WarningIcon from "lucide-svelte/icons/triangle-alert";
   import { showError } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
 
@@ -51,19 +50,16 @@
   $: getPublicKeyByKeyID($message.signedByKeyID, message)
     .then(key => signingKey = key)
     .catch(showError);
-  $: signedBySomeoneElse = $message.isSignedBySomeoneElse(signingKey);
-  $: signed = $message.signedByKeyID && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted && !signedBySomeoneElse;
+  $: signed = $message.signedByKeyID && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
   $: encrypted = $message.wasEncrypted;
-  $: trustLevel = signedBySomeoneElse ? "someone-else" : $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : $signingKey?.trustLevel ?? "none";
+  $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : $signingKey?.trustLevel ?? "none";
   $: identity = $message.outgoing ? findIdentityForEMailAddress($message.from?.emailAddress) : null;
   $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.id == message.signedByKeyID);
   $: title = signed && encrypted
       ? $t`End-to-end encrypted and signed`
       : signed
         ? $t`Signed`
-        : signedBySomeoneElse
-          ? $t`Signed by someone else`
-          : $t`End-to-end-encrypted, but not signed`;
+        : $t`End-to-end-encrypted, but not signed`;
   $: fromName = $message.from?.findPerson()?.name ?? $message.from?.nameOrEMail;
   $: msg = mySigningKey
       ? $t`You sent this email`
@@ -71,9 +67,7 @@
         ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${fromName}. Only the recipients can read it, but the email provider cannot.`
         : signed
           ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${fromName}. It was not encrypted, meaning that it was not protected from surveillance.`
-          : signedBySomeoneElse
-            ? $t`The certificate below was issued for ${$signingKey.userIDs.contents.join(", ") || $signingKey.name}, not for ${$message.from?.emailAddress}. You cannot be sure who wrote this email.`
-            : $t`Only the recipients can read this email, but there is no assurance about who wrote it.`;
+          : $t`Only the recipients can read this email, but there is no assurance about who wrote it.`;
 </script>
 
 <style>
@@ -96,10 +90,6 @@
     display: none;
     /*background-color: red;
     color: white;*/
-  }
-  .signed.key-someone-else :global(.button) {
-    background-color: red;
-    color: white;
   }
   .signed.key-sender :global(.button) {
     background-color: yellow;
