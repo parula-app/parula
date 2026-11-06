@@ -76,6 +76,13 @@ describe("Validity dates of the certificate and its chain", () => {
     expect(key.trustLevel).toBe(TrustLevel.OS);
   });
 
+  test("A root certificate that expired since then is valid at a time before it expired", async () => {
+    setToday("2050-06-01T12:00:00Z"); // all certificates expired, the root on 2050-01-01
+    let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kIntermediateCA);
+    expect(await key.keyStatus(new Date("2026-10-22T12:00:00Z"))).toBe(KeyStatus.Valid);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
+  });
+
   test("An intermediate certificate that is obsolete for another reason than its dates makes the certificate invalid", async () => {
     setToday("2026-10-22T12:00:00Z");
     let key = await SMIMEPublicKey.importPublicKey(kAliceCertificate + kIntermediateCA);

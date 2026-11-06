@@ -180,7 +180,7 @@ export class SMIMEPublicKey extends PublicKey {
         if (await verifySignature(cert, ca)) {
           let root = new SMIMEPublicKey();
           await root.setCertificate(ca);
-          if (root.obsolete || !root.allowsEMailProtection() || (!kAcceptX509v1Roots && !ca.tbsCertificate.version)) {
+          if (root._obsolete || !root.isValidAt(date) || !root.allowsEMailProtection() || (!kAcceptX509v1Roots && !ca.tbsCertificate.version)) {
             continue;
           }
           let caTrust = type == "bundled" ? TrustLevel.ThirdParty : type == "system" ? TrustLevel.OS : TrustLevel.Personal;
