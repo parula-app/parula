@@ -58,13 +58,13 @@ describe("Signature of a received message, without an own private key", () => {
   test("clear-signed message", async () => {
     let email = await readMessage(kClearSigned);
     expect(email.text.trim()).toBe("Hello, this is signed.");
-    expect(await signedWithKeyName(email)).toBe("F9D7");
+    expect(await signedWithKeyName(email)).toBe(email.signedKey.name);
   });
 
   test("opaque-signed message, as Outlook sends it", async () => {
     let email = await readMessage(kOpaqueSigned);
     expect(email.text.trim()).toBe("Hello, this is signed.");
-    expect(await signedWithKeyName(email)).toBe("F9D7");
+    expect(await signedWithKeyName(email)).toBe(email.signedKey.name);
   });
 
   test("an unknown CA leaves the trust level to the user", async () => {

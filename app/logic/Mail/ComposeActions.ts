@@ -213,7 +213,7 @@ export class ComposeActions {
 
   async editDraft(): Promise<void> {
     await this.email.loadMIME();
-    this.email.shouldEncrypt ||= this.email.wasEncrypted;
+    this.email.mustEncrypt = this.email.wasEncrypted;
   }
 
   async convertInlineAttachmentsURLs() {

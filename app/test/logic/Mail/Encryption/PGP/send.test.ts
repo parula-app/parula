@@ -82,7 +82,7 @@ describe("PGP message with non-ASCII sender name and a long subject", () => {
   });
 });
 
-describe("An encrypted draft", () => {
+describe("A draft", () => {
   let drafts: Folder;
   let savedMIME: Uint8Array;
 
@@ -97,25 +97,25 @@ describe("An encrypted draft", () => {
   });
 
   /** To a recipient whose key we don't have yet */
-  async function saveDraft(): Promise<Uint8Array> {
+  async function saveDraft(encrypt: boolean): Promise<Uint8Array> {
     let mail = folder.newEMail();
     mail.identity = identity;
     mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
     mail.to.add(findOrCreatePersonUID("no-key@example.com", "No Key"));
     mail.subject = kSubject;
-    mail.shouldEncrypt = true;
+    mail.shouldEncrypt = encrypt;
     await mail.compose.saveAsDraft();
     return savedMIME;
   }
 
-  test("is saved without the text in clear", async () => {
-    let mime = new TextDecoder().decode(await saveDraft());
+  test("that is encrypted is saved without the text in clear", async () => {
+    let mime = new TextDecoder().decode(await saveDraft(true));
     expect(mime).not.toContain("K=C3=B6ln");
   });
 
-  test("reopens with its subject and text, and with encryption on", async () => {
+  test("that is encrypted reopens with its subject and text, and must stay encrypted", async () => {
     let draft = drafts.newEMail();
-    draft.mime = await saveDraft();
+    draft.mime = await saveDraft(true);
     await draft.parseMIME(); // as the download does
     await draft.compose.editDraft();
     expect(draft.system).toBe(EncryptionSystem.PGP);
@@ -123,6 +123,16 @@ describe("An encrypted draft", () => {
     expect(draft.subject).toBe(kSubject);
     expect(draft.text.trim()).toBe("Grüße aus Köln!");
     expect(draft.shouldEncrypt).toBe(true);
+    expect(draft.mustEncrypt).toBe(true);
+  });
+
+  test("that is not encrypted reopens with encryption optional", async () => {
+    let draft = drafts.newEMail();
+    draft.mime = await saveDraft(false);
+    await draft.parseMIME();
+    await draft.compose.editDraft();
+    expect(draft.wasEncrypted).toBe(false);
+    expect(draft.mustEncrypt).toBe(false);
   });
 });
 
