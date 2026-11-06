@@ -8,6 +8,17 @@ import { production, webMail, includeProprietary } from '../app/logic/build';
 import { defaultClientConditions } from 'vite';
 import { resolve } from 'node:path';
 
+const conditionalCompilePlugin: any = conditionalCompile({ // its types say that it returns an array, but it returns one plugin
+  // <https://github.com/LZS911/vite-plugin-conditional-compile/blob/master/README.md>
+  env: {
+    // For conditional `// #if [FOO]` statements in the code
+    WEBMAIL: webMail && includeProprietary ? webMail : undefined,
+    PROPRIETARY: includeProprietary ? true : undefined,
+    PRODUCTION: production ? true : undefined,
+    DEV: !production ? true : undefined,
+  },
+});
+
 export default defineConfig({
   main: {
     plugins: [
@@ -33,16 +44,10 @@ export default defineConfig({
       },
     },
     plugins: [
-      conditionalCompile({
-        // <https://github.com/LZS911/vite-plugin-conditional-compile/blob/master/README.md>
-        env: {
-          // For conditional `// #if [FOO]` statements in the code
-          WEBMAIL: webMail && includeProprietary ? webMail : undefined,
-          PROPRIETARY: includeProprietary ? true : undefined,
-          PRODUCTION: production ? true : undefined,
-          DEV: !production ? true : undefined,
-        },
-      }),
+      {
+        ...conditionalCompilePlugin,
+        transform: { filter: { code: "#if" }, handler: conditionalCompilePlugin.transform }, // the plugin parses every file with Babel, which is slow, so give it only the files that use `#if`
+      },
       nodePolyfills({include: ['buffer'], globals: {global: true, process: false}}),
       svelte(),
       sentryVitePlugin({

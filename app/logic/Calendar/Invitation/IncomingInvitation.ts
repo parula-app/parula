@@ -105,6 +105,7 @@ export class IncomingInvitation {
     assert(this.invitationMessage == InvitationMessage.Invitation, "Not an invitation");
     let event = this.calEvent();
     if (!event?.isIncomingMeeting ||
+        !this.event.startTime ||
         !this.event.isNewerVersionThan(event) ||
         !this.event.organizer?.matches(event.organizer)) {
       return;

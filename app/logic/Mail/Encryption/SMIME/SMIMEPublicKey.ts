@@ -96,9 +96,16 @@ export class SMIMEPublicKey extends PublicKey {
     }
   }
 
-  async keyStatus(): Promise<KeyStatus> {
+  isValidAt(date: Date): boolean {
+    return date.getTime() >= this.created.getTime() && date.getTime() <= this.expires.getTime();
+  }
+
+  async keyStatus(date = new Date()): Promise<KeyStatus> {
     if (!this.certificate) {
       return KeyStatus.NoCertificate;
+    }
+    if (!this.isValidAt(date)) {
+      return KeyStatus.Expired;
     }
     // This checks only that each certificate is validly signed by the next one
     // up to a trusted root. It does not verify basicConstraints (CA:TRUE) or
@@ -111,7 +118,7 @@ export class SMIMEPublicKey extends PublicKey {
       return KeyStatus.ChainInvalid;
     }
     for (let key of this.chain) {
-      if (key.obsolete) {
+      if (key.obsolete || !key.isValidAt(date)) {
         console.log("obsolete certificate in chain");
         return KeyStatus.ChainInvalid;
       }
@@ -300,6 +307,7 @@ export enum KeyStatus {
   ChainIncomplete,
   SelfSignedRoot,
   Valid,
+  Expired,
 }
 
 export function splitPEM(key: string): string[] {

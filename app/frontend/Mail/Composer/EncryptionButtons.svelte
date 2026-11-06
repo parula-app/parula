@@ -168,6 +168,7 @@
     }
     return allTrust(keys, TrustLevel.Personal)
       || allTrust(keys, TrustLevel.ThirdParty)
+      || allTrust(keys, TrustLevel.OS)
       || allTrust(keys, TrustLevel.Sender)
       || TrustLevel.Distrusted;
   }

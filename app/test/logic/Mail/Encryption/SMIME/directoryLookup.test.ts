@@ -9,17 +9,22 @@ import { PersonUID } from "../../../../../logic/Abstract/PersonUID";
 import { getPublicKeyForPersonUID } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
-import { kSMIMECertificate } from "../../../Contacts/testCertificate";
+import { Certificate, SignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { kSMIMECertificate, kUntrustedSMIMECertificate, trustTestCAs } from "../../../Contacts/testCertificate";
 import { addSMIMEIdentities } from "../../../Contacts/smimeIdentities";
 import { ArrayColl } from "svelte-collections";
 import { beforeEach, expect, test } from "vitest";
 
-/** The company directory has a certificate for each of these email addresses */
-const kDirectory = [
-  "colleague@example.com",
-  "colleague@sales.example.com",
-  "partner@other.org",
-];
+/** The certificates that the company directory has, by email address */
+const kDirectory: Record<string, string> = {
+  "colleague@example.com": kSMIMECertificate,
+  "colleague@sales.example.com": kSMIMECertificate,
+  "partner@other.org": kSMIMECertificate,
+  // E.g. a certificate that the server made itself, to read the mail
+  "untrusted@example.com": kUntrustedSMIMECertificate,
+};
+
+trustTestCAs();
 
 /** An Exchange account, which resolves names with an `smtp:` prefix,
  * and its GAL. Its identities have S/MIME certificates. */
@@ -30,7 +35,7 @@ function fakeAccount(...identityAddresses: string[]): any {
     async callEWS(query: any) {
       let entry = query.m$ResolveNames.m$UnresolvedEntry.toLowerCase();
       this.queries.push(entry);
-      let matches = kDirectory.filter(emailAddress => "smtp:" + emailAddress == entry);
+      let matches = Object.keys(kDirectory).filter(emailAddress => "smtp:" + emailAddress == entry);
       if (!matches.length) {
         throw { type: "ErrorNameResolutionNoResults" };
       }
@@ -38,7 +43,7 @@ function fakeAccount(...identityAddresses: string[]): any {
         ResolutionSet: {
           Resolution: matches.map(emailAddress => ({
             Mailbox: { EmailAddress: emailAddress, RoutingType: "SMTP" },
-            Contact: { UserSMIMECertificate: { Base64Binary: [kSMIMECertificate] } },
+            Contact: { UserSMIMECertificate: { Base64Binary: [kDirectory[emailAddress]] } },
           })),
         },
       };
@@ -223,4 +228,30 @@ test("The composer notices the new certificates", async () => {
   await withoutContact.fetchEncryptionKeys();
   expect(contactKeyChanges).toBeGreaterThan(1); // the first call is from `subscribe()` itself
   expect(withoutKeys.length).toBe(0);
+});
+
+test("Certificate from the directory without a trusted CA counts as missing", async () => {
+  let recipient = new PersonUID("untrusted@example.com", "Untrusted");
+  await recipient.fetchEncryptionKeys();
+  expect(account.queries).toEqual(["smtp:untrusted@example.com"]);
+  expect(canEncryptTo(recipient)).toBe(false);
+});
+
+test("Certificate from the directory without a trusted CA counts as missing, also for a contact", async () => {
+  personInAddressbook("untrusted@example.com");
+  let recipient = new PersonUID("untrusted@example.com", "Untrusted");
+  await recipient.fetchEncryptionKeys();
+  expect(account.queries).toEqual(["smtp:untrusted@example.com"]);
+  expect(canEncryptTo(recipient)).toBe(false);
+});
+
+test("Certificate that the user added to the contact needs no trusted CA", async () => {
+  let person = personInAddressbook("untrusted@example.com");
+  let added = await SMIMEPublicKey.importPublicKey(Certificate.encodePEM(
+    SignedData.decodeFromBase64(kUntrustedSMIMECertificate, { berToDER: true }).content.certificates[0],
+    { label: "CERTIFICATE" }));
+  person.addEncryptionPublicKey(added);
+  let recipient = new PersonUID("untrusted@example.com", "Untrusted");
+  await recipient.fetchEncryptionKeys();
+  expect(getPublicKeyForPersonUID(recipient, SMIMEPublicKey)).toBe(added);
 });

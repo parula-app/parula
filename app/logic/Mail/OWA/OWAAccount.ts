@@ -18,7 +18,7 @@ import type { OWACalendar } from "../../Calendar/OWA/OWACalendar";
 import { OWARequest } from "./Request/OWARequest";
 import { OWACreateItemRequest } from "./Request/OWACreateItemRequest";
 import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
-import { OWASubscribeToNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
+import { OWASubscribeToHierarchyNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
 import { owaCreateNewTopLevelFolderRequest, owaFindFoldersRequest, owaSharedFolderRequest } from "./Request/OWAFolderRequests";
 import { OWACalendarShortcut } from "../../Calendar/OWA/OWACalendarShortcut";
 import { OWALoginBackground } from "./Login/OWALoginBackground";
@@ -105,14 +105,7 @@ export class OWAAccount extends ExchangeMailAccount {
     let url = this.url + 'service.svc';
     let options = {
       body: JSON.stringify(owaFindFoldersRequest(false)),
-      headers: {
-        Action: "FindFolder",
-        Authorization: this.authorizationHeader,
-        "Content-Type": "application/json",
-        "x-anchormailbox": this.emailAddress,
-        "x-customowascenariodata": "MailboxAccess:SharedMailbox,ExplicitLogon",
-        "x-owa-explicitlogonuser": this.emailAddress,
-      },
+      headers: this.getRequestHeaders("FindFolder"),
       method: "POST",
     };
     if (this.authorizationHeader) {
@@ -193,6 +186,10 @@ export class OWAAccount extends ExchangeMailAccount {
         // `listFolders()` will subscribe to new user-added calendars
         await super.syncOnStartup();
 
+        if (this.isDependentAccount) {
+          return;
+        }
+
         // Create primary addressbook automatically
         let haveAddressbook = appGlobal.addressbooks.some(addressbook => addressbook.dependsOn(this));
         if (!haveAddressbook) {
@@ -203,18 +200,12 @@ export class OWAAccount extends ExchangeMailAccount {
           await addressbook.save();
         }
 
-        if (!this.isDependentAccount &&
-            !appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
+        if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new OWAGAL(this));
         }
 
-        await this.callOWA(new OWASubscribeToNotificationRequest());
-
-        this.notifications = this.provider() == Provider.Office365
-          ? new OWAOffice365Notifications(this)
-          : new OWAExchangeNotifications(this);
-        this.notifications.start()
-          .catch(this.errorCallback);
+        await this.callOWA(new OWASubscribeToHierarchyNotificationRequest());
+        this.listenForNotifications();
       } finally { // Even when the mail folders failed, so that calendar and addressbook still work
         await this.startupDependentAccounts();
       }
@@ -244,15 +235,64 @@ export class OWAAccount extends ExchangeMailAccount {
     }
   }
 
+  /** Starts a new listener for notifications from the server, and ends the old one,
+   * e.g. when its connection died */
+  listenForNotifications(isReconnect = false): void {
+    this.notifications?.stop();
+    this.notifications = this.provider() == Provider.Office365
+      ? new OWAOffice365Notifications(this, isReconnect)
+      : new OWAExchangeNotifications(this, isReconnect);
+    this.notifications.start()
+      .catch(this.errorCallback);
+  }
+
+  /** The server doesn't tell us what changed while we weren't listening, e.g. while the VPN was down */
+  fetchChangesMissedByNotifications(): void {
+    for (let folder of this.folderMap.values()) {
+      if (folder.listening) {
+        folder.getNewMessages() // no-op, if count didn't change
+          .catch(this.errorCallback);
+      }
+    }
+    for (let addressbook of appGlobal.addressbooks.filterOnce(addressbook => addressbook.mainAccount == this)) {
+      addressbook.listContacts()
+        .catch(this.errorCallback);
+    }
+    for (let calendar of appGlobal.calendars.filterOnce(calendar => calendar.mainAccount == this)) {
+      calendar.listEvents()
+        .catch(this.errorCallback);
+    }
+  }
+
   async disconnect() {
+    this.notifications?.stop();
     let galAB = appGlobal.searchOnlyAddressbooks.find(ab => ab.mainAccount == this);
     if (galAB) {
       appGlobal.searchOnlyAddressbooks.remove(galAB);
+    }
+    for (let folder of this.folderMap.values()) {
+      folder.listening = false;
     }
   }
 
   needsLicense(): boolean {
     return true;
+  }
+
+  protected getRequestHeaders(action: string, mailbox?: string): Record<string, string> {
+    return this.authorizationHeader
+    ? {
+      Action: action,
+      Authorization: this.authorizationHeader,
+      "Content-type": "application/json",
+      "x-anchormailbox": mailbox ?? this.emailAddress,
+      "x-customowascenariodata": "MailboxAccess:SharedMailbox,ExplicitLogon",
+      "x-owa-explicitlogonuser": mailbox ?? this.emailAddress,
+    }
+    : {
+      Action: action,
+      "Content-type": "application/json",
+    };
   }
 
   /**
@@ -381,14 +421,7 @@ export class OWAAccount extends ExchangeMailAccount {
     }
     return await this.callOWAShared(this.url + "service.svc", {
       body: JSON.stringify(aRequest),
-      headers: {
-        Action: aRequest.action,
-        Authorization: this.authorizationHeader,
-        "Content-Type": "application/json",
-        "x-anchormailbox": mailbox ?? this.emailAddress,
-        "x-customowascenariodata": "MailboxAccess:SharedMailbox,ExplicitLogon",
-        "x-owa-explicitlogonuser": mailbox ?? this.emailAddress,
-      },
+      headers: this.getRequestHeaders(aRequest.action, mailbox),
       method: "POST",
     });
   }
@@ -549,15 +582,15 @@ export class OWAAccount extends ExchangeMailAccount {
   }
 
   async onNotificationMessages(messages: any[][]) {
-    let newMessageIDs: string[] = [];
+    let newMessageIDsByFolder: Record<string, string[]> = {};
     for (let message of messages) {
       for (let notification of message) {
-        switch (notification.id) {
+        switch (notification.id.split(" ")[0]) {
         case "HierarchyNotification":
           this.handleHierarchyNotification(notification);
           break;
-        case "NewMailNotification":
-          newMessageIDs.push(notification.ItemId);
+        case "RowNotification":
+          this.handleEMailNotification(notification, newMessageIDsByFolder);
           break;
         default:
           //console.log(notification);
@@ -565,18 +598,18 @@ export class OWAAccount extends ExchangeMailAccount {
         }
       }
     }
-    if (newMessageIDs.length) {
-      let inbox = this.inbox as OWAFolder;
+    for (let folderID in newMessageIDsByFolder) {
+      let folder = this.folderMap.get(folderID);
+      let newMessageIDs = newMessageIDsByFolder[folderID];
       // A concurrent folder listing may have already picked up the message
-      newMessageIDs = newMessageIDs.filter((id, i, ids) => !inbox.getEmailByItemID(id) && ids.indexOf(id) == i);
-      let newMessages = await inbox.getNewMessageHeaders(newMessageIDs);
+      newMessageIDs = newMessageIDs.filter((id, i, ids) => !folder.getEmailByItemID(id) && ids.indexOf(id) == i);
+      let newMessages = await folder.getNewMessageHeaders(newMessageIDs);
       for (let msg of newMessages) {
         msg.isNewArrived = true;
       }
-      inbox.messages.addAll(newMessages);
-      inbox.downloadMessages(newMessages)
+      folder.messages.addAll(newMessages);
+      folder.downloadMessages(newMessages)
         .catch(this.errorCallback);
-      inbox.dirty = false; // probably
     }
   }
 
@@ -611,10 +644,42 @@ export class OWAAccount extends ExchangeMailAccount {
         UnreadCount: notification.unreadCount,
       });
       // We get hierachy notifications for e.g. flag changes,
-      // so we should always refresh a folder after a notification.
-      folder.dirty = true;
+      // so we should always refresh a folder after a notification,
+      // unless we're already getting row notifications for it.
+      folder.dirty ||= !folder.listening;
     } catch (ex) {
       this.errorCallback(ex);
+    }
+  }
+
+  protected async handleEMailNotification(notification: any, newMessageIDsByFolder: Record<string, string[]>) {
+    let folder = this.folderMap.get(notification.FolderId);
+    if (!folder) {
+      return null;
+    }
+    switch (notification.EventType) {
+    case "RowAdded":
+      folder.instanceMap.set(notification.Item.InstanceKey, notification.Item.ItemId.Id);
+      // Unfortunately the notification data is missing
+      // InternetMessageId, References, maybe InReplyTo
+      let newMessageIDs = newMessageIDsByFolder[notification.FolderId] ??= [];
+      newMessageIDs.push(notification.Item.ItemId.Id);
+      break;
+    case "RowModified":
+      folder.instanceMap.set(notification.Item.InstanceKey, notification.Item.ItemId.Id);
+      let email = folder.getEmailByItemID(notification.Item.ItemId.Id);
+      email?.setFlags(notification.Item);
+      folder.dirty ||= !email;
+      break;
+    case "RowDeleted":
+      let id = folder.instanceMap.get(notification.Item.InstanceKey);
+      if (id) {
+        let email = folder.getEmailByItemID(id);
+        email?.deleteMessageLocally().catch(this.errorCallback);
+      } else {
+        folder.dirty = true;
+      }
+      break;
     }
   }
 
