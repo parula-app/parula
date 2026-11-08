@@ -30,7 +30,8 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
       sameName(sid.issuer, cert.tbsCertificate.issuer)) ?? cert;
   }
   let publicKey = cert.tbsCertificate.publicKey;
-  if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
+  let isEC = publicKey.algorithmIdentifier.algorithm == "ecPublicKey";
+  if (!isEC && publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
     console.log("certificate does not contain an RSA public key");
     return null;
   }
@@ -38,7 +39,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
   // RFC 5652 section 10.1.2: signers write rsaEncryption, but verifiers
   // should also accept e.g. sha256WithRSAEncryption, which some clients
   // write instead. Its hash must match the digest algorithm.
-  if (signerInfo.signatureAlgorithm.algorithm != "rsaEncryption" &&
+  if (!isEC && signerInfo.signatureAlgorithm.algorithm != "rsaEncryption" &&
       sanitize.translate(signerInfo.signatureAlgorithm.algorithm, SignatureAlgorithm, null) != digestAlgorithm) {
     console.log("signature was not signed with RSA");
     return null;
@@ -71,7 +72,11 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     cert = certificates.find(chain =>
       sameName(chain.tbsCertificate.subject, cert.tbsCertificate.issuer));
   };
-  if (!await signer.verifyRSA(signerInfo.signature, digestAlgorithm, signedContent)) {
+  if (isEC) {
+    if (!await signer.verifyECDSA(signerInfo.signature, signedContent, signerInfo.signatureAlgorithm, signerInfo.digestAlgorithm)) {
+      return null;
+    }
+  } else if (!await signer.verifyRSA(signerInfo.signature, digestAlgorithm, signedContent)) {
     return null;
   }
   if (!signer.allowsAnyKeyUsage(KeyUsageBit.digitalSignature, KeyUsageBit.nonRepudiation)) {
