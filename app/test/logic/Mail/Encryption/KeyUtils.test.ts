@@ -21,12 +21,9 @@ import { expect, test, describe } from "vitest";
 
 /** The sender signed his email, but he is not in our addressbook,
  * so his certificate is only on the `PersonUID`. */
-function signerUID(): PersonUID {
-  let uid = new PersonUID("signer@example.com", "Test Signer");
-  let key = new SMIMEPublicKey();
-  key.id = "1234567890abcdef";
-  key.obsolete = false;
-  uid.encryptionPublicKey = key;
+async function signerUID(): Promise<PersonUID> {
+  let uid = new PersonUID("alice@example.com", "Alice");
+  uid.encryptionPublicKey = await SMIMEPublicKey.importPublicKey(kAlice);
   return uid;
 }
 
@@ -36,15 +33,15 @@ describe("Key of a person who is not in the addressbook", () => {
     expect(getPublicKeyForPersonUID(uid)).toBe(null);
   });
 
-  test("certificate from the signature of his email", () => {
-    let uid = signerUID();
+  test("certificate from the signature of his email", async () => {
+    let uid = await signerUID();
     expect(getPublicKeyForPersonUID(uid)).toBe(uid.encryptionPublicKey);
     expect(getPublicKeyForPersonUID(uid, SMIMEPublicKey)).toBe(uid.encryptionPublicKey);
     expect(getPublicKeyForPersonUID(uid, PGPPublicKey)).toBe(null);
   });
 
-  test("expired certificate", () => {
-    let uid = signerUID();
+  test("expired certificate", async () => {
+    let uid = await signerUID();
     uid.encryptionPublicKey.obsolete = true;
     expect(getPublicKeyForPersonUID(uid)).toBe(null);
   });
@@ -61,9 +58,9 @@ function accountWithMyKey(myKey: PGPPrivateKey | SMIMEPrivateKey): TestMailAccou
 }
 
 /** The signer sent us this with S/MIME */
-function signedMail(account: TestMailAccount): EMail {
+async function signedMail(account: TestMailAccount): Promise<EMail> {
   let mail = account.getSpecialFolder(SpecialFolder.Inbox).newEMail();
-  mail.from = signerUID();
+  mail.from = await signerUID();
   mail.sent = mail.received = new Date();
   mail.html = "<p>Please encrypt</p>";
   mail.system = EncryptionSystem.SMIME;
@@ -83,7 +80,7 @@ describe("Encryption system of the outgoing email", () => {
   });
 
   test("reply and forward answer S/MIME with S/MIME, even if we prefer PGP", async () => {
-    let original = signedMail(accountWithMyKey(new PGPPrivateKey()));
+    let original = await signedMail(accountWithMyKey(new PGPPrivateKey()));
     expect(getEncryptionSystem(original.compose.replyToAuthor())).toBe(EncryptionSystem.SMIME);
     expect(getEncryptionSystem(await original.compose.forwardInline())).toBe(EncryptionSystem.SMIME);
   });
@@ -103,6 +100,13 @@ describe("Certificate to which we encrypt", () => {
 
   test("of a TLS server is not used", async () => {
     expect(getPublicKeyForPersonUID(await recipientWith(kTLSServer))).toBe(null);
+  });
+
+  test("that is missing: the key is not used", () => {
+    let uid = new PersonUID("victor@example.com", "Victor");
+    uid.encryptionPublicKey = new SMIMEPublicKey();
+    uid.encryptionPublicKey.obsolete = false;
+    expect(getPublicKeyForPersonUID(uid)).toBe(null);
   });
 
   test("that allows encryption, or has no key usage extensions, is used", async () => {

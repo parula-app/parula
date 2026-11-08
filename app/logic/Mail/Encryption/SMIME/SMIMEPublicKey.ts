@@ -241,7 +241,7 @@ export class SMIMEPublicKey extends PublicKey {
 
   usableForEncryption(): boolean {
     if (!this.certificate) {
-      return true;
+      return false;
     }
     let isEC = this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm == "ecPublicKey";
     return this.allowsAnyKeyUsage(isEC ? KeyUsageBit.keyAgreement : KeyUsageBit.keyEncipherment) && this.allowsEMailProtection();
