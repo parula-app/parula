@@ -367,27 +367,32 @@ function restartApp() {
   app.quit();
 }
 
-let saveDraftsOnQuit: (() => Promise<boolean>) | null = null;
+/** Functions of the frontend that run before the app quits,
+ * e.g. to save the mails that the user is writing as drafts.
+ * Each returns whether the app may quit. */
+const runOnQuit: (() => Promise<boolean>)[] = [];
 
-/** The frontend saves the mails that the user is writing, before the app quits.
- * @param saveDrafts @returns whether the app may quit */
-function onQuit(saveDrafts: () => Promise<boolean>) {
-  saveDraftsOnQuit = saveDrafts;
+/** Warning: Use this sparingly, only when there's no other solution, because it delays quitting.
+ * `func` must finish in less than 1 second.
+ * @param func runs before the app quits, and returns whether the app may quit */
+function onQuit(func: () => Promise<boolean>) {
+  runOnQuit.push(func);
 }
 
-/** @returns whether the app may quit */
-export async function saveBeforeQuit(): Promise<boolean> {
-  if (!saveDraftsOnQuit) {
-    return true;
-  }
+/** Runs the `runOnQuit` functions.
+ * @returns whether the app may quit */
+export async function runBeforeQuit(): Promise<boolean> {
   const kFrontendHangsSeconds = 10;
   let frontendHangs = promiseTimeout(kFrontendHangsSeconds * 1000, true, { ref: false });
-  try {
-    return await Promise.race([saveDraftsOnQuit(), frontendHangs]);
-  } catch (ex) { // e.g. the frontend reloaded or crashed
-    console.error(ex);
-    return true;
-  }
+  let mayQuit = await Promise.all(runOnQuit.map(async func => {
+    try {
+      return await Promise.race([func(), frontendHangs]);
+    } catch (ex) { // e.g. the frontend reloaded or crashed
+      console.error(ex);
+      return true;
+    }
+  }));
+  return mayQuit.every(may => may);
 }
 
 class UpdateState {

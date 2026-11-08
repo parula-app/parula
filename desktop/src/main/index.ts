@@ -1,4 +1,4 @@
-import { setMainWindow, startupBackend, shutdownBackend, saveBeforeQuit, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
+import { setMainWindow, startupBackend, shutdownBackend, runBeforeQuit, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
 import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents } from 'electron'
 import { ipcMain } from 'electron/main';
 import { join } from 'path'
@@ -46,22 +46,22 @@ function createWindow(): void {
     }
 
     let mayClose = false;
-    let isSaving = false;
+    let isRunningOnQuit = false;
     mainWindow.on('close', event => {
       if (mayClose) {
         return;
       }
       event.preventDefault();
-      if (!isSaving) {
-        closeAfterSaving()
+      if (!isRunningOnQuit) {
+        closeAfterRunOnQuit()
           .catch(console.error);
       }
     });
-    /** Lets the frontend save the mails that the user is writing, then closes the window or quits */
-    async function closeAfterSaving() {
-      isSaving = true;
-      mayClose = await saveBeforeQuit();
-      isSaving = false;
+    /** Lets the frontend finish its work, e.g. save drafts, then closes the window or quits */
+    async function closeAfterRunOnQuit() {
+      isRunningOnQuit = true;
+      mayClose = await runBeforeQuit();
+      isRunningOnQuit = false;
       if (!mayClose) {
         isQuitting = false;
         return;
