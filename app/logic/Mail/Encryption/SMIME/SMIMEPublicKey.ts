@@ -158,10 +158,10 @@ export class SMIMEPublicKey extends PublicKey {
     return date.getTime() >= this.created.getTime() && date.getTime() <= this.expires.getTime();
   }
 
-  /** @param parameters `RSASSA-PSS-params` of the signature algorithm, RFC 4055 section 3.1 */
-  async verifyRSAPSS(signature: Uint8Array, parameters: Uint8Array, content: Uint8Array): Promise<boolean> {
+  /** @param signatureAlgorithm with `RSASSA-PSS-params` as parameters, RFC 4055 section 3.1 */
+  async verifyRSAPSS(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier): Promise<boolean> {
     try {
-      let { hashAlgorithm, maskGenAlgorithm, saltLength, trailerField } = RSASSAPSSParams.decode(parameters);
+      let { hashAlgorithm, maskGenAlgorithm, saltLength, trailerField } = RSASSAPSSParams.decode(signatureAlgorithm.parameters);
       let maskHashAlgorithm = maskGenAlgorithm.parameters ? AlgorithmIdentifier.decode(maskGenAlgorithm.parameters) : { algorithm: "sha1" };
       let hash = sanitize.translate(hashAlgorithm.algorithm, DigestAlgorithm, null);
       // WebCrypto uses the same hash for the mask
@@ -341,7 +341,7 @@ export async function verifySignature(cert: Certificate, signer: Certificate): P
     if (cert.signatureAlgorithm.algorithm == "rsassaPss") {
       let signerKey = new SMIMEPublicKey();
       await signerKey.setCertificate(signer);
-      return await signerKey.verifyRSAPSS(cert.signatureValue.data, cert.signatureAlgorithm.parameters, TBSCertificate.encode(cert.tbsCertificate));
+      return await signerKey.verifyRSAPSS(cert.signatureValue.data, TBSCertificate.encode(cert.tbsCertificate), cert.signatureAlgorithm);
     }
     let algorithm = sanitize.translate(cert.signatureAlgorithm.algorithm, SignatureAlgorithm);
     let signedCert = TBSCertificate.encode(cert.tbsCertificate);
