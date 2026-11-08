@@ -196,7 +196,7 @@ export class SMIMEPublicKey extends PublicKey {
             continue;
           }
           let caTrust = type == "bundled" ? TrustLevel.ThirdParty : type == "system" ? TrustLevel.OS : TrustLevel.Personal;
-          if (trustOrder(this.trustLevel) < trustOrder(caTrust) && this.trustLevel != TrustLevel.Distrusted) {
+          if (this.trustLevel != TrustLevel.Distrusted && trustOrder(this.trustLevel) < trustOrder(caTrust)) {
             this.trustLevel = caTrust;
             this.caName = certificateCommonName(ca);
           }
