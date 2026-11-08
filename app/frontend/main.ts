@@ -1,12 +1,11 @@
 import './app.css';
 import { mount } from 'svelte';
-import MainWindow from './MainWindow/MainWindow.svelte';
 import { appName, appVersion, production } from '../logic/build';
 import { getLocalStorage } from './Util/LocalStorage';
 import { sanitize } from '../../lib/util/sanitizeDatatypes';
 import { assert } from '../logic/util/util';
 import { catchErrors } from './Util/error';
-import { gt } from '../l10n/l10n';
+import { gt, getUILocale, setUILocale } from '../l10n/l10n';
 import * as Sentry from "@sentry/svelte";
 
 if (production) {
@@ -19,11 +18,17 @@ if (production) {
   });
 }
 
-const app = mount(MainWindow, {
-  target: document.getElementById('app'),
-});
+catchErrors(startUI, console.error);
 
-export default app;
+/** Loads the UI language, then the UI */
+async function startUI() {
+  await catchErrors(() => setUILocale(getUILocale()), console.error); // if it fails, the UI is in English
+  // The UI modules call `gt` when they load, so they're imported only after the language is loaded
+  const { default: MainWindow } = await import('./MainWindow/MainWindow.svelte');
+  mount(MainWindow, {
+    target: document.getElementById('app'),
+  });
+}
 
 function loadWindowSettings() {
   let windowSize = getLocalStorage("window.size", []).value;

@@ -3,23 +3,32 @@ import { derived, writable } from "svelte/store";
 import { generateMessageID } from "./generateMessageID";
 import { sanitize } from '../../lib/util/sanitizeDatatypes';
 
-import { languageMessages, sourceLocale, localeMapping } from './list';
+import { locales, sourceLocale, sourceMessages, localeMapping } from './list';
 
-/** @lang Either 2-letter ISO lang code, or 5-letter ISO locale code
+let requestedLocale: string;
+/** Loads the messages of the language and uses them from then on.
+ * @lang Either 2-letter ISO lang code, or 5-letter ISO locale code
  * Must match list.ts */
-export function setUILocale(lang: string) {
-  // This function *must* be sync, for gt() to work in TS modules
+export async function setUILocale(lang: string) {
+  // TS modules which call gt() when they load must be imported only after this finished, see main.ts
 
   lang = localeMapping[lang.toLowerCase()] ?? lang;
   // e.g. 'en' for 'en-US'
   let lang2 = lang.substring(0, 2);
 
   let availableLang =
-    languageMessages[lang] ? lang :
-    languageMessages[lang2] ? lang2 :
+    locales.includes(lang) ? lang :
+    locales.includes(lang2) ? lang2 :
     sourceLocale;
-  let messages = languageMessages[availableLang];
+  requestedLocale = availableLang;
+  const languageFiles = import.meta.glob<Record<string, string>>(['./locales/*/messages.json', '!./locales/en/*'], { import: 'default' }); // only the used language is loaded. English is built in, see `sourceMessages`
+  let messages = availableLang == sourceLocale ? sourceMessages :
+    await languageFiles[`./locales/${availableLang}/messages.json`]();
+  if (requestedLocale != availableLang) { // a later call switched to another language while this one was loading
+    return;
+  }
   locale.set(availableLang, messages);
+  loadedLocale = true;
 }
 
 const handlers = { plural: pluralTypeHandler };
@@ -54,24 +63,6 @@ function createLocale(defaultLocale = 'en-US', defaultMessages = {}) {
   };
 }
 export const locale = createLocale();
-
-/** Alternative implementation with dynamic loading of locale files. Not used. */
-/*
-export async function setUILocaleAsync(lang: string) {
-  // e.g. 'en' for 'en-US'
-  let lang2 = lang.substring(0, 2);
-
-  try {
-    lang = lang2;
-    const { messages } = await import(`./locales/${lang}/messages.ts`);
-    locale.set(lang, messages);
-  } catch (ex) {
-    lang = 'en';
-    const { messages } = await import(`./locales/${lang}/messages.ts`);
-    locale.set(lang, messages);
-  }
-}
-*/
 
 let cachedUILocale: string;
 /** @returns ISO code for the locale that we are using */
@@ -115,7 +106,7 @@ export function saveDateTimeLocale(language: string) {
 
 let loadedLocale = false;
 function initLocale() {
-  setUILocale(getUILocale());
+  locale.set(sourceLocale, sourceMessages);
 }
 
 /** In strings, this is the separator between the actual string and the comment for translators or machine translation.
@@ -198,7 +189,7 @@ export function gPlural(num: number, variations: Record<string, string>) {
  */
 export function translateString(descriptor: MessageDescriptor, values: FormatValues): string {
   if (!loadedLocale) {
-    initLocale(); // `setUILocale()` must be sync for this to work
+    initLocale(); // until `setUILocale()` loaded the UI language
     loadedLocale = true;
   }
   let message: string = messages[descriptor.id] ?? descriptor.defaultMessage;
