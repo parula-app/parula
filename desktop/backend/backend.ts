@@ -26,6 +26,7 @@ import os from "node:os";
 import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import crypto from "node:crypto";
+import { setTimeout as promiseTimeout } from "node:timers/promises";
 import { RunOnce } from '../../app/logic/util/flow/RunOnce';
 const { autoUpdater } = electronUpdater;
 
@@ -380,15 +381,12 @@ export async function saveBeforeQuit(): Promise<boolean> {
     return true;
   }
   const kFrontendHangsSeconds = 10;
-  let timer: NodeJS.Timeout | undefined;
-  let frontendHangs = new Promise<boolean>(resolve => timer = setTimeout(() => resolve(true), kFrontendHangsSeconds * 1000));
+  let frontendHangs = promiseTimeout(kFrontendHangsSeconds * 1000, true, { ref: false });
   try {
     return await Promise.race([saveDraftsOnQuit(), frontendHangs]);
   } catch (ex) { // e.g. the frontend reloaded or crashed
     console.error(ex);
     return true;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
