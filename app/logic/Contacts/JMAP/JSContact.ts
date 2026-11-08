@@ -11,9 +11,18 @@ export class JSContact {
     (person as JMAPPerson).uid = sanitize.nonemptystring(jscontact.uid, person.id);
     person.name = sanitize.nonemptystring(jscontact.name?.full, "");
     if (!jscontact.name?.full && jscontact.name?.components) {
-      let nameConcat = ensureArray(jscontact.name?.components)
-        .map(c => sanitize.string(c.value))
-        .join(sanitize.string(jscontact.name?.defaultSeparator));
+      let defaultSeparator = sanitize.label(jscontact.name.defaultSeparator, " ");
+      let nameConcat = "";
+      let needsSeparator = false;
+      for (let component of ensureArray(jscontact.name.components)) {
+        if (component.kind == "separator") {
+          nameConcat += sanitize.label(component.value, "");
+          needsSeparator = false;
+          continue;
+        }
+        nameConcat += (needsSeparator ? defaultSeparator : "") + sanitize.label(component.value, "");
+        needsSeparator = true;
+      }
       person.name = sanitize.nonemptystring(nameConcat, "");
     }
     person.firstName = sanitize.nonemptystring(jscontact.name?.components?.find(c => c.kind == "given")?.value, "");
