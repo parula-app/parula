@@ -1,4 +1,4 @@
-import { parseHeaderParameters, parseMIMEDirectSubparts, splitMIMEHeaders } from "../../../../logic/Mail/Encryption/MIME";
+import { parseHeaderParameters, parseMIMEDirectSubparts, splitMIMEHeaders, toCRLFBytes } from "../../../../logic/Mail/Encryption/MIME";
 import { expect, test, describe } from "vitest";
 
 describe("MIME header parameters", () => {
@@ -94,5 +94,12 @@ describe("Splitting the headers off a MIME message", () => {
     let { headers, body } = await splitMIMEHeaders("Subject: Only headers\r\n");
     expect(headers.map(header => header.line)).toEqual(["Subject: Only headers"]);
     expect(body).toBe("");
+  });
+});
+
+describe("Line breaks of a message as bytes", () => {
+  test("bare LF and bare CR become CRLF, CRLF stays", () => {
+    let mime = new TextEncoder().encode("\nLF\nCR\rCRLF\r\nLF CR\n\rend\r");
+    expect(new TextDecoder().decode(toCRLFBytes(mime))).toBe("\r\nLF\r\nCR\r\nCRLF\r\nLF CR\r\n\r\nend\r\n");
   });
 });
