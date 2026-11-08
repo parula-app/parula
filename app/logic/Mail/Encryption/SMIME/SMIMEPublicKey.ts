@@ -1,6 +1,6 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, type WebCryptoAlgorithm } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, type AlgorithmIdentifier, type WebCryptoAlgorithm } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayFromHex } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
@@ -174,11 +174,29 @@ export class SMIMEPublicKey extends PublicKey {
     }
   }
 
+  /**
+   * @param digestAlgorithm Only for mail, where the signature algorithm may also name only the key, RFC 5652 section 10.1.2
+   * @param hashes The signature algorithms for this type of key, with their hash
+   * @returns null, if not supported, or if the two algorithms disagree
+   */
+  protected signatureHash(signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm: AlgorithmIdentifier | undefined, hashes: Record<string, WebCryptoAlgorithm>): WebCryptoAlgorithm | null {
+    let hash = sanitize.translate(signatureAlgorithm.algorithm, hashes, null);
+    if (!digestAlgorithm) {
+      return hash;
+    }
+    let digestHash = sanitize.translate(digestAlgorithm.algorithm, DigestAlgorithm, null);
+    if (signatureAlgorithm.algorithm == this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm) {
+      return digestHash;
+    }
+    return hash == digestHash ? hash : null;
+  }
+
   /** @param signature as X.509 and CMS have it, an `ECDSASigValue` */
-  async verifyECDSA(signature: Uint8Array, hash: WebCryptoAlgorithm, content: Uint8Array): Promise<boolean> {
+  async verifyECDSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
     let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
     let curve = this.curveBits(publicKey);
-    if (!curve) {
+    let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, ECDSASignatureAlgorithm);
+    if (!curve || !hash) {
       return false;
     }
     let key = await crypto.subtle.importKey("spki", SubjectPublicKeyInfo.encode(publicKey) as BufferSource, { name: "ECDSA", namedCurve: "P-" + curve }, false, ["verify"]);
@@ -357,14 +375,13 @@ export async function verifySignature(cert: Certificate, signer: Certificate): P
       console.log("subject did not match issuer");
       return false;
     }
-    let isEC = signer.tbsCertificate.publicKey.algorithmIdentifier.algorithm == "ecPublicKey";
-    let algorithm = sanitize.translate(cert.signatureAlgorithm.algorithm, isEC ? ECDSASignatureAlgorithm : SignatureAlgorithm);
-    let signedCert = TBSCertificate.encode(cert.tbsCertificate);
-    if (isEC) {
+    if (signer.tbsCertificate.publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
       let signerKey = new SMIMEPublicKey();
       await signerKey.setCertificate(signer);
-      return await signerKey.verifyECDSA(cert.signatureValue.data, algorithm, signedCert);
+      return await signerKey.verifyECDSA(cert.signatureValue.data, TBSCertificate.encode(cert.tbsCertificate), cert.signatureAlgorithm);
     }
+    let algorithm = sanitize.translate(cert.signatureAlgorithm.algorithm, SignatureAlgorithm);
+    let signedCert = TBSCertificate.encode(cert.tbsCertificate);
     let signedDigest = new Uint8Array(await crypto.subtle.digest(algorithm, signedCert));
     let rsa = RSAPublicKey.decode(signer.tbsCertificate.publicKey.subjectPublicKey.data);
     let block = encrypt(cert.signatureValue.data, rsa);

@@ -1,4 +1,4 @@
-import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, Null, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, Null, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, encrypt, padFF } from "./SMIMERSAES";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
@@ -40,8 +40,8 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
   // RFC 5652 section 10.1.2: signers write rsaEncryption, but verifiers
   // should also accept e.g. sha256WithRSAEncryption, which some clients
   // write instead. Its hash must match the digest algorithm.
-  if (signerInfo.signatureAlgorithm.algorithm != (isEC ? "ecPublicKey" : "rsaEncryption") &&
-      sanitize.translate(signerInfo.signatureAlgorithm.algorithm, isEC ? ECDSASignatureAlgorithm : SignatureAlgorithm, null) != digestAlgorithm) {
+  if (!isEC && signerInfo.signatureAlgorithm.algorithm != "rsaEncryption" &&
+      sanitize.translate(signerInfo.signatureAlgorithm.algorithm, SignatureAlgorithm, null) != digestAlgorithm) {
     console.log("signature was not signed with RSA");
     return null;
   }
@@ -76,7 +76,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
       sameName(chain.tbsCertificate.subject, cert.tbsCertificate.issuer));
   };
   if (isEC) {
-    if (!await signer.verifyECDSA(signerInfo.signature, digestAlgorithm, signedContent)) {
+    if (!await signer.verifyECDSA(signerInfo.signature, signedContent, signerInfo.signatureAlgorithm, signerInfo.digestAlgorithm)) {
       return null;
     }
   } else {
