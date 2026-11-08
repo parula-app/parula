@@ -1,4 +1,4 @@
-import { DigestAlgorithm, SignatureAlgorithm, Attributes, SubjectPublicKeyInfo, OctetString, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
+import { DigestAlgorithm, Attributes, SubjectPublicKeyInfo, OctetString, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 
@@ -36,14 +36,6 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     return null;
   }
   let digestAlgorithm = sanitize.translate(signerInfo.digestAlgorithm.algorithm, DigestAlgorithm);
-  // RFC 5652 section 10.1.2: signers write rsaEncryption, but verifiers
-  // should also accept e.g. sha256WithRSAEncryption, which some clients
-  // write instead. Its hash must match the digest algorithm.
-  if (!isEC && signerInfo.signatureAlgorithm.algorithm != "rsaEncryption" &&
-      sanitize.translate(signerInfo.signatureAlgorithm.algorithm, SignatureAlgorithm, null) != digestAlgorithm) {
-    console.log("signature was not signed with RSA");
-    return null;
-  }
   let messageDigest = new Uint8Array(await crypto.subtle.digest(digestAlgorithm, content as BufferSource));
   // Without signed attributes, the signature covers the content digest directly.
   let signedContent = content;
@@ -72,11 +64,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     cert = certificates.find(chain =>
       sameName(chain.tbsCertificate.subject, cert.tbsCertificate.issuer));
   };
-  if (isEC) {
-    if (!await signer.verifyECDSA(signerInfo.signature, signedContent, signerInfo.signatureAlgorithm, signerInfo.digestAlgorithm)) {
-      return null;
-    }
-  } else if (!await signer.verifyRSA(signerInfo.signature, digestAlgorithm, signedContent)) {
+  if (!await signer.verify(signerInfo.signature, signedContent, signerInfo.signatureAlgorithm, signerInfo.digestAlgorithm)) {
     return null;
   }
   if (!signer.allowsAnyKeyUsage(KeyUsageBit.digitalSignature, KeyUsageBit.nonRepudiation)) {

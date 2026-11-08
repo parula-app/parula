@@ -180,6 +180,16 @@ describe("Signature", () => {
     expect(await verifySignedData(parameters, content)).toBeNull();
   });
 
+  // RFC 5652 section 10.1.2: some clients write e.g. sha256WithRSAEncryption instead of rsaEncryption
+  test("of a mail verifies with the hash in the signature algorithm, only if it is the digest algorithm", async () => {
+    let key = await generateRSAKey();
+    let mail = await signedData(await sign(content, key), craftCertificate("Alice", "Alice", key));
+    mail.content.signerInfos[0].signatureAlgorithm = { algorithm: "sha256WithRSAEncryption", parameters: Null.encode() };
+    expect(await verifySignedData(mail, content)).not.toBeNull();
+    mail.content.signerInfos[0].signatureAlgorithm = { algorithm: "sha384WithRSAEncryption", parameters: Null.encode() };
+    expect(await verifySignedData(mail, content)).toBeNull();
+  });
+
   test("of a CA verifies only with the exact PKCS #1 block", async () => {
     let caKey = await generateRSAKey();
     let caCertificate = craftCertificate("CA", "CA", caKey);

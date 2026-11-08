@@ -267,10 +267,23 @@ export class SMIMEPublicKey extends PublicKey {
     return KeyStatus.ChainIncomplete;
   }
 
+  /** @param digestAlgorithm Only for mail, from its SignerInfo */
+  async verify(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
+    switch (this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm) {
+    case "rsaEncryption":
+      return await this.verifyRSA(signature, content, signatureAlgorithm, digestAlgorithm);
+    case "ecPublicKey":
+      return await this.verifyECDSA(signature, content, signatureAlgorithm, digestAlgorithm);
+    default:
+      return false;
+    }
+  }
+
   /** RSASSA-PKCS1-v1_5, RFC 8017 section 8.2.2 */
-  async verifyRSA(signature: Uint8Array, hash: WebCryptoAlgorithm, content: Uint8Array): Promise<boolean> {
+  async verifyRSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
     let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
-    if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
+    let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, SignatureAlgorithm);
+    if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption" || !hash) {
       return false;
     }
     let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
@@ -398,16 +411,9 @@ export async function verifySignature(cert: Certificate, signer: Certificate): P
       console.log("subject did not match issuer");
       return false;
     }
-    if (signer.tbsCertificate.publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
-      let signerKey = new SMIMEPublicKey();
-      await signerKey.setCertificate(signer);
-      return await signerKey.verifyECDSA(cert.signatureValue.data, TBSCertificate.encode(cert.tbsCertificate), cert.signatureAlgorithm);
-    }
-    let algorithm = sanitize.translate(cert.signatureAlgorithm.algorithm, SignatureAlgorithm);
-    let signedCert = TBSCertificate.encode(cert.tbsCertificate);
     let signerKey = new SMIMEPublicKey();
     await signerKey.setCertificate(signer);
-    return await signerKey.verifyRSA(cert.signatureValue.data, algorithm, signedCert);
+    return await signerKey.verify(cert.signatureValue.data, TBSCertificate.encode(cert.tbsCertificate), cert.signatureAlgorithm);
   } catch (ex) {
     // Typically a decryption error, but the validation should fail anyway.
     console.error(ex);
