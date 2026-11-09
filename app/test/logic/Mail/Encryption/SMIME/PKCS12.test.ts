@@ -142,10 +142,21 @@ describe("PKCS#12 import", () => {
     expect(keys[1].certificate).toBe(keys[0].certificate);
   });
 
-  test("A key that is not RSA is rejected as unsupported", async () => {
+  test("An EC key is added", async () => {
     let p12 = await readFixture(kECFixture);
-    await expect(async () => SMIMEPrivateKey.importPrivateKey(await p12.toPEM(), kPassphrase))
-      .rejects.toThrow(/unsupported/i);
+    let key = await SMIMEPrivateKey.importPrivateKey(await p12.toPEM(), kPassphrase);
+    expect(key.userIDs.contents).toEqual([kEmailAddress]);
+    expect(key.keyLengthInBits).toBe(256);
+  });
+
+  test.each([
+    ["An EC key", () => kECRootFirstFixture, "EC User"],
+    ["An RSA key whose CA has an EC key", () => kRSAKeyECRootFirstFixture, "RSA User"],
+  ])("%s gets its own certificate, not the one of the CA that comes first in the file", async (name, fixture, commonName) => {
+    let p12 = await readFixture(fixture());
+    let key = await SMIMEPrivateKey.importPrivateKey(await p12.toPEM(), kPassphrase);
+    expect(key.commonName).toBe(commonName);
+    expect(key.chain.contents.map(ca => ca.commonName)).toEqual(["Test EC Root CA"]);
   });
 
   test("The file that the user picked is read as .p12 or as PEM", async () => {
@@ -417,7 +428,7 @@ const kRootFirstFixture = `
   E+AszFuqtXNvWwfUwKL+J6UE8R5ZZynZNbAd+gQITgpSQ38G2+wCAggA
 `;
 
-/** AES again, but with an EC key, which we do not support */
+/** AES again, but with an EC key on P-256 */
 const kECFixture = `
   MIIEbAIBAzCCBCIGCSqGSIb3DQEHAaCCBBMEggQPMIIECzCCAsIGCSqGSIb3DQEHBqCCArMwggKv
   AgEAMIICqAYJKoZIhvcNAQcBMFcGCSqGSIb3DQEFDTBKMCkGCSqGSIb3DQEFDDAcBAiEhB3mk5TR
@@ -439,6 +450,79 @@ const kECFixture = `
   walKUBMz8udl12B6yX37s4dqeV5nHv9TX1P0JxRLVK0L8apx/lDmrhDEgGFgGNjG0BiMzFjwSFHs
   ZSUnDjElMCMGCSqGSIb3DQEJFTEWBBTEFPesDESg9jOF324tupadREBEWzBBMDEwDQYJYIZIAWUD
   BAIBBQAEIMdtEf88grvt6RYgRqc0u3D2atlf9MrzwCCMiDuCme3pBAjfq2YOT6S+3AICCAA=
+`;
+
+/** AES again, with an EC key on P-256 for `user@example.com`, and the CA that issued
+ * its certificate, an EC key on P-384. The CA comes first, as in `kRootFirstFixture`. */
+const kECRootFirstFixture = `
+  MIIF9AIBAzCCBaoGCSqGSIb3DQEHAaCCBZsEggWXMIIFkzCCBHIGCSqGSIb3DQEHBqCCBGMwggRf
+  AgEAMIIEWAYJKoZIhvcNAQcBMFcGCSqGSIb3DQEFDTBKMCkGCSqGSIb3DQEFDDAcBAj4lfITOgT2
+  YQICCAAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEPGq+3FcYuEGMCJi5QQP3X6AggPwAsn8
+  3WU/ppPJSTuXyePgel28OtwxIxScT7t438jYoTD2PkPzzQlDFjNEtpW+44rg0I/BDJuTYCHdAXf8
+  hcvM//dsy286rTIJPSOYTwY5RNiduvDxRC8WpXpaYLZ5xgd728aBm94EqeQzBN56zFj4aHcRqXOe
+  6XndOi0+ybkqjO8vru1RKU9bVMmMA6BdiSB6jf7bItbFCjrvl1qjjbQDaqaC+YbZBaz/adXITxnS
+  +FsWslx2gqL5p2sMC7qt2SKXKOqWvIq90eAgULvymUxfHWMGqTXZFE3rP9eejho4wLkHhHXQJ9Es
+  +miGrDpC4axDmhD6+Sh+AN3375l/NQgD3IEh8Udvhfv2CFi1liKom3szg9JCtETZdxaqDNCTdgsD
+  k4XUVYzgxiYoJUCmLnZ2siWrK8EyexKRkbtDzB7+2stV2zoBNyNVuvOR/H4TeNrBV77nhTLqKQfg
+  vw9EYLzaFRZd415clSttoPdVx7HZESvGQrbYAZ2ctqj1yMWOIUrrv1JT57Vevy0WVQy/jPRnCBdL
+  mpXrQhy4vFtABdn9mS9VxU5Va8w5ISxJYOaWyIjkud/zSzbntBLQSI8uw/jmmTKnsBF19nLbWlm+
+  EB01hBGyDWbL5KQ34CBWTbBJgBnfp/h6OWh8M6eZmjywvKTxqE0m3qfGVTWBf9gfsuKEr5qtg5hm
+  Cky8kBLKYqwY6LRWrLpOeYRxXHp7awrXyP5KyHEHiTaqAJI40lZwoTgzgdyT38bb41xUESnL2d1p
+  JfFQ3HWl2Ti/Pc/yi6zODHLoxsuX+bSUzB3vch7mb30V/vN9U1j/J/IQgZVxE6EfKngbrpgPzZ1H
+  5jPW6JQ+nSs7VWBzJB1Z9WpN4gJZWuqdCVAJzZ8ygBSyfUogcWeJDd+N2zlz0CABM4JmbHqn/iPL
+  kiYzQFt6gBeARDBZXu398l2TcDPaGMDvv1m2IkQt/MgAnDIhqUm45tgDiOE+yQ+FtbzQ1p1Vxly8
+  JhPFQCTGGmEaFw9qe81cDSbObMyGGjDoCkbMq7Cm0cykBkpTESNyLYcL3jOIXpKbvKX2XhlW2uE4
+  G8Be/B9adFeGYzMh2kn0WxC07aci44+jA6LSwGQwMO5ks71+CazFb+XpfZuAT3hEn8WktspkSXLw
+  alL8GAw7jBIILI8Hdu9EVhqONTjSPuwtHmFtdRp/Pq4l1K9JX8ALu2waszVwiE1ds4RFa22P3mIQ
+  8l5rcL3W77JnCIC77FcaGLXDfaAOrKnrRwkSqgOZWJRIL4uwiyPRPTIKCY9JJs+1ma3/qgkU1YEp
+  Wxp6+tThh5/111igRhoJAP1JZ1UZnLPCKUb1SCkwTYEM5+3ZMIIBGQYJKoZIhvcNAQcBoIIBCgSC
+  AQYwggECMIH/BgsqhkiG9w0BDAoBAqCB7zCB7DBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQww
+  HAQIMmeVmauF120CAggAMAwGCCqGSIb3DQIJBQAwHQYJYIZIAWUDBAEqBBD3JGBZdB8U/reMTHQH
+  Jk69BIGQd2QpVXll4CiijZKQuw0sgronWIn44cuTmkNM4kF3juVnjnvBasuRVaZbbR8ToV94uunt
+  mDMrfi1Opq8rLhveBXrMxHGkqTGHxU/N//EIcdfNAb9Er7EN/h7lpGP61AozwM/nFTt+pubkgzT4
+  s5N0dvwu29K11JKFpJnrb52kwNGEalk+Unh13O7umWOEG5RVMEEwMTANBglghkgBZQMEAgEFAAQg
+  NOc/W0zieyR17J9vwTdiR3rXqlh6TRWckP/dj5DqGqsECEP+rH7YgjmQAgIIAA==
+`;
+
+/** The same CA, but the key that it issued the certificate for is a 1024 bit RSA key */
+const kRSAKeyECRootFirstFixture = `
+  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
 `;
 
 /** pbeWithSHAAnd128BitRC2CBC for the certificate,
