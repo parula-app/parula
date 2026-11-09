@@ -2,7 +2,7 @@ import { Message } from "../Abstract/Message";
 import { SpecialFolder, type Folder } from "./Folder";
 import { ComposeActions } from "./ComposeActions";
 import { Attachment, ContentDisposition } from "../Abstract/Attachment";
-import type { Tag } from "../Abstract/Tag";
+import { availableTags, getTagByName, type Tag } from "../Abstract/Tag";
 import { DeleteStrategy, type MailAccountStorage } from "./MailAccount";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../Abstract/PersonUID";
 import type { MailIdentity } from "./MailIdentity";
@@ -311,6 +311,13 @@ export class EMail extends Message {
     this.tags.remove(tag);
     await this.storage.saveMessageTags(this);
     await this.removeTagOnServer(tag);
+  }
+
+  /** Keywords are case-insensitive. JMAP servers return them in lowercase (RFC 8621 section 4.1.1),
+   * and many IMAP servers return the spelling that they saw first, but our tag may be "Work". */
+  protected static tagForKeyword(keyword: string): Tag {
+    return availableTags.find(tag => tag.name.toLowerCase() == keyword.toLowerCase()) ??
+      getTagByName(keyword);
   }
 
   async addTagOnServer(tag: Tag) {

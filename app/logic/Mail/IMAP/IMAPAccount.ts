@@ -15,7 +15,7 @@ import { RunOnce } from "../../util/flow/RunOnce";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { appName, appVersion, siteRoot } from "../../build";
 import { ArrayColl, MapColl, type Collection } from "svelte-collections";
-import type { ImapFlow } from "../../../../desktop/backend/node_modules/imapflow";
+import type { ImapFlow, MailboxObject } from "../../../../desktop/backend/node_modules/imapflow";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { gt } from "../../../l10n/l10n";
 
@@ -31,6 +31,7 @@ export class IMAPAccount extends MailAccount {
   /** if polling is enabled, how often to poll.
    * In minutes. 0 or null = polling disabled */
   pollIntervalMinutes = 10;
+  canStoreKeywords = false;
   protected connections = new MapColl<ConnectionPurpose, ImapFlow>();
   protected connectRunOnce = new MapColl<ConnectionPurpose, RunOnce<ImapFlow>>();
   connectionLock = new MapColl<ImapFlow, Lock>();
@@ -283,16 +284,34 @@ export class IMAPAccount extends MailAccount {
       return;
     }
     let lock = await this.connectionLock.get(connection)?.lock();
+    let inboxInfo: MailboxObject;
     try {
       if (connection != this.connections.get(ConnectionPurpose.Main)) {
         return; // reconnected meanwhile; reconnect() re-selects the inbox
       }
-      await connection.mailboxOpen(inbox.path);
+      inboxInfo = await connection.mailboxOpen(inbox.path);
     } catch (ex) {
       throw IMAPCommandError.fromServerResponse(ex);
     } finally {
       lock?.release();
     }
+    await this.updateCanStoreKeywords(inboxInfo);
+  }
+
+  /** Whether the server stores the tags that the user sets.
+   * We assume that all folders are like the Inbox.
+   * Saved, because the first sync after the app start runs before `startIDLE()`. */
+  protected async updateCanStoreKeywords(inboxInfo: MailboxObject) {
+    if (!inboxInfo) {
+      return;
+    }
+    // Without PERMANENTFLAGS, "the client should assume that all flags can be changed permanently" (RFC 9051 section 6.3.2)
+    let canStoreKeywords = !inboxInfo.permanentFlags || inboxInfo.permanentFlags.has("\\*");
+    if (canStoreKeywords == this.canStoreKeywords) {
+      return;
+    }
+    this.canStoreKeywords = canStoreKeywords;
+    await this.save();
   }
 
   dropConnection(connection: ImapFlow): void {
@@ -538,10 +557,12 @@ export class IMAPAccount extends MailAccount {
   fromConfigJSON(config: any) {
     super.fromConfigJSON(config);
     this.pollIntervalMinutes = sanitize.integer(config.pollIntervalMinutes, this.pollIntervalMinutes);
+    this.canStoreKeywords = sanitize.boolean(config.canStoreKeywords, false);
   }
   toConfigJSON(): any {
     let json = super.toConfigJSON();
     json.pollIntervalMinutes = this.pollIntervalMinutes;
+    json.canStoreKeywords = this.canStoreKeywords;
     return json;
   }
 
