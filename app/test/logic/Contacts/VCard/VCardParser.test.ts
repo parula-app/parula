@@ -64,7 +64,7 @@ test.each(testFiles)("Parse %s", async name => {
   // Check that the serialisation still includes old data
   for (let line of vcf.match(/^\w.+/gm)) {
     // Ignore lines that we know we will have rewritten
-    if (!/\b(version|prodid|fn|photo|n|email|tel|impp|url|adr|note|org|title|role|x-custom\d+)[:;]/i.test(line)) {
+    if (!/\b(version|prodid|fn|photo|n|email|tel|impp|url|adr|note|org|title|role|rev|x-custom\d+)[:;]/i.test(line)) {
       expect(serialised).toContain(line);
     }
   }
@@ -79,5 +79,7 @@ test("Write new VCard", async () => {
   const person = new Person();
   vCard.convertVCardToPerson(replacement, person);
   const serialised = vCard.personToVCard(person);
-  expect(serialised).toBe(replacement);
+  // REV is the time of saving, RFC 6350 6.7.4
+  expect(serialised).toMatch(/^REV:\d{8}T\d{6}Z\r$/m);
+  expect(serialised.replace(/^REV:.*\r\n/m, "")).toBe(replacement);
 });

@@ -79,7 +79,14 @@ export class JSContact {
   /** Updates `jscontact` with the properties from `person`,
    * leaving any unsupported properties in jscontact as-is. */
   static fromPerson(person: Person, jscontact: TJSContact) {
-    jscontact.uid = (person as JMAPPerson).uid ?? person.id;
+    let now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+    if (!jscontact.uid) {
+      jscontact["@type"] = "Card";
+      jscontact.version = "1.0";
+      jscontact.created = now;
+    }
+    jscontact.uid = (person as JMAPPerson).uid ??= "urn:uuid:" + crypto.randomUUID();
+    jscontact.updated = now;
     jscontact.name ??= {};
     jscontact.name.full = person.name;
     if (person.firstName || person.lastName) {
