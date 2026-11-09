@@ -34,6 +34,12 @@ import { define } from "../../../../../lib/asn1/api";
 
 /** Object identifiers */
 const oids = {
+  "1.2.840.10045.2.1": "ecPublicKey",
+  "1.2.840.10045.3.1.7": "secp256r1",
+  "1.2.840.10045.4.1": "ecdsaWithSHA1",
+  "1.2.840.10045.4.3.2": "ecdsaWithSHA256",
+  "1.2.840.10045.4.3.3": "ecdsaWithSHA384",
+  "1.2.840.10045.4.3.4": "ecdsaWithSHA512",
   "1.2.840.113549.1.1.1": "rsaEncryption",
   "1.2.840.113549.1.1.5": "sha1WithRSAEncryption",
   "1.2.840.113549.1.1.7": "rsaESOAEP",
@@ -78,6 +84,8 @@ const oids = {
   "1.3.6.1.5.5.7.48.2": "caIssuers",
   //"1.3.6.1.5.5.8.1.2": "hmacWithSHA1",
   "1.3.14.3.2.26": "sha1",
+  "1.3.132.0.34": "secp384r1",
+  "1.3.132.0.35": "secp521r1",
   "2.1.0.1.1": "printstr",
   "2.5.4.3": "CN", // commonName
   "2.5.4.6": "C", // country
@@ -103,7 +111,7 @@ const oids = {
   "2.16.840.1.101.3.4.2.3": "sha512",
 };
 
-type WebCryptoAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
+export type WebCryptoAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 
 /** Converts a digest (hashing) algorithm name to WebCrypto. */
 export const DigestAlgorithm: Record<string, WebCryptoAlgorithm> = {
@@ -119,6 +127,21 @@ export const SignatureAlgorithm: Record<string, WebCryptoAlgorithm> = {
   sha256WithRSAEncryption: "SHA-256",
   sha384WithRSAEncryption: "SHA-384",
   sha512WithRSAEncryption: "SHA-512",
+}
+
+/** As `SignatureAlgorithm`, for EC keys */
+export const ECDSASignatureAlgorithm: Record<string, WebCryptoAlgorithm> = {
+  ecdsaWithSHA1: "SHA-1",
+  ecdsaWithSHA256: "SHA-256",
+  ecdsaWithSHA384: "SHA-384",
+  ecdsaWithSHA512: "SHA-512",
+}
+
+/** The elliptic curves that WebCrypto has, by their size in bits. WebCrypto calls them "P-" and the size. */
+export const NamedCurve: Record<string, number> = {
+  secp256r1: 256,
+  secp384r1: 384,
+  secp521r1: 521,
 }
 
 /** Extracts the WebCrypto hash algorithm used by a key derivation algorithm. */
@@ -194,7 +217,7 @@ export const RDNSequence = define<AttributeValue[]>("RDNSequence", function() {
 });
 
 export interface SubjectPublicKeyInfo {
-  algorithmIdenfitier: AlgorithmIdentifier;
+  algorithmIdentifier: AlgorithmIdentifier;
   subjectPublicKey: BitString;
 }
 export const SubjectPublicKeyInfo = define<SubjectPublicKeyInfo>("SubjectPublicKeyInfo", function() {
@@ -217,6 +240,18 @@ export const RSAPublicKey = define<RSAPublicKey>("RSAPublicKey", function() {
   this.seq().obj(
     this.key("n").int(),
     this.key("e").int(),
+  );
+});
+
+/** An ECDSA signature, as X.509 and CMS have it. RFC 3279 section 2.2.3 */
+export interface ECDSASigValue {
+  r: bigint;
+  s: bigint;
+}
+export const ECDSASigValue = define<ECDSASigValue>("ECDSASigValue", function() {
+  this.seq().obj(
+    this.key("r").int(),
+    this.key("s").int(),
   );
 });
 

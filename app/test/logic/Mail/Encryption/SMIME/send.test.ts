@@ -10,6 +10,7 @@ import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
 import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
+import { kP256Certificate } from "./ellipticCurves";
 import { expect, test, describe, beforeAll } from "vitest";
 
 // The browser has these, but Node does not.
@@ -85,6 +86,17 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
     expect(email.signedByKeyID).toBe(key.id);
   });
+});
+
+test("Encrypting to a recipient with an EC certificate says that we can't", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  let recipient = findOrCreatePersonUID("ec256@example.com", "EC 256");
+  recipient.encryptionPublicKey = await SMIMEPublicKey.importPublicKey(kP256Certificate);
+  mail.to.add(recipient);
+  mail.shouldEncrypt = true;
+  await expect(SMIMESend.encryptAndSign(mail)).rejects.toThrow("ec256@example.com");
 });
 
 describe("A draft", () => {
