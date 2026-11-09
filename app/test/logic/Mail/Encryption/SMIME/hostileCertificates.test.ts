@@ -180,6 +180,16 @@ describe("Signature", () => {
     expect(await verifySignedData(parameters, content)).toBeNull();
   });
 
+  // RFC 5652 section 10.1.2: some clients write e.g. sha256WithRSAEncryption instead of rsaEncryption
+  test("of a mail verifies with the hash in the signature algorithm, only if it is the digest algorithm", async () => {
+    let key = await generateRSAKey();
+    let mail = await signedData(await sign(content, key), craftCertificate("Alice", "Alice", key));
+    mail.content.signerInfos[0].signatureAlgorithm = { algorithm: "sha256WithRSAEncryption", parameters: Null.encode() };
+    expect(await verifySignedData(mail, content)).not.toBeNull();
+    mail.content.signerInfos[0].signatureAlgorithm = { algorithm: "sha384WithRSAEncryption", parameters: Null.encode() };
+    expect(await verifySignedData(mail, content)).toBeNull();
+  });
+
   test("of a CA verifies only with the exact PKCS #1 block", async () => {
     let caKey = await generateRSAKey();
     let caCertificate = craftCertificate("CA", "CA", caKey);
@@ -195,6 +205,70 @@ describe("Signature", () => {
     expect(await keyStatus(valid)).toBe(KeyStatus.SelfSignedRoot);
     let forged = await signCertificate(craftCertificate("Alice", "CA", fakePublicKey()), caKey, OctetString.encode(Uint8Array.of(1, 2, 3)));
     expect(await keyStatus(forged)).toBe(KeyStatus.ChainInvalid);
+  });
+
+  // Mails and certificates share the RSA check, so each flaw is tried on both.
+
+  /** @param sign makes the signature over the given bytes */
+  async function mailVerifies(cert: Certificate, sign: (data: Uint8Array) => Promise<Uint8Array>): Promise<boolean> {
+    try {
+      return await verifySignedData(await signedData(await sign(content), cert), content) != null;
+    } catch (ex) {
+      return false;
+    }
+  }
+
+  /** @param sign makes the signature of a certificate that the CA issued */
+  async function caConfirms(ca: Certificate, sign: (data: Uint8Array) => Promise<Uint8Array>): Promise<boolean> {
+    let leaf = craftCertificate("Bob", "CA", fakePublicKey());
+    leaf.signatureValue = { unused: 0, data: await sign(TBSCertificate.encode(leaf.tbsCertificate)) };
+    let key = new SMIMEPublicKey();
+    await key.addCertificate(Certificate.decode(Certificate.encode(leaf)));
+    await key.addCertificate(ca);
+    return await key.keyStatus() == KeyStatus.SelfSignedRoot;
+  }
+
+  async function selfSignedCA(key: RSAPrivateKey, keyAlgorithm: string | number[] = "rsaEncryption"): Promise<Certificate> {
+    let ca = craftCertificate("CA", "CA", key);
+    ca.tbsCertificate.extensions = [{ extnID: "basicConstraints", critical: true, extnValue: BasicConstraints.encode({ cA: true }) }];
+    ca.tbsCertificate.publicKey.algorithmIdentifier.algorithm = keyAlgorithm;
+    return await signCertificate(ca, key);
+  }
+
+  let flaws: Record<string, (data: Uint8Array, key: RSAPrivateKey) => Promise<Uint8Array>> = {
+    "names another hash than the mail or certificate": async (data, key) => {
+      let digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data as BufferSource));
+      return decrypt(padFF(DigestInfo.encode({ digestAlgorithm: { algorithm: "sha1", parameters: Null.encode() }, digest }), key), key);
+    },
+    "is over other content": async (data, key) => await sign(concat(data, Uint8Array.of(0)), key),
+    "has padding bytes other than 0xFF": async (data, key) => {
+      let block = encrypt(await sign(data, key), key);
+      block[2] = 0xFE;
+      return decrypt(block, key);
+    },
+    "is shorter than the key": async (data, key) => (await sign(data, key)).slice(1),
+  };
+  for (let [flaw, forge] of Object.entries(flaws)) {
+    test(`of a mail or a CA does not verify, if it ${flaw}`, async () => {
+      let key = await generateRSAKey();
+      let cert = craftCertificate("Alice", "Alice", key);
+      let ca = await selfSignedCA(key);
+      expect(await mailVerifies(cert, data => sign(data, key))).toBe(true);
+      expect(await caConfirms(ca, data => sign(data, key))).toBe(true);
+      expect(await mailVerifies(cert, data => forge(data, key))).toBe(false);
+      expect(await caConfirms(ca, data => forge(data, key))).toBe(false);
+    });
+  }
+
+  test("of a mail or a CA does not verify with a key that is only for RSA-PSS or only for encryption", async () => {
+    let key = await generateRSAKey();
+    // id-RSASSA-PSS and id-RSAES-OAEP, RFC 4055 section 1.2
+    for (let keyAlgorithm of [[1, 2, 840, 113549, 1, 1, 10], "rsaESOAEP"]) {
+      let cert = craftCertificate("Alice", "Alice", key);
+      cert.tbsCertificate.publicKey.algorithmIdentifier.algorithm = keyAlgorithm;
+      expect(await mailVerifies(cert, data => sign(data, key))).toBe(false);
+      expect(await caConfirms(await selfSignedCA(key, keyAlgorithm), data => sign(data, key))).toBe(false);
+    }
   });
 });
 

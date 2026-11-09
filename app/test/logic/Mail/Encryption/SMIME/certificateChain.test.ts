@@ -1,9 +1,10 @@
 import { appGlobal } from "../../../../../logic/app";
 import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { SignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
+import { SignedData, Certificate } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { verifySignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEVerify";
 import { TrustLevel, trustOrder } from "../../../../../logic/Mail/Encryption/enums";
-import { kRootCA, kPathLen0CA, kAlice, kSubCA, kCarol, kNoCertSignCA, kBob, kMailCA, kTLSServer, kCEO, kOldCertificate, kDan, kGrace, kTLSCA, kHeidi, kTLSRootCA, kJudy, kExpiredRootCA, kIvan, kX509v1RootCA, kFrank, kSignedContent, kSignedByAlice, kSignedByErin } from "./certificateChains";
+import { kRootCA, kPathLen0CA, kAlice, kSubCA, kCarol, kNoCertSignCA, kBob, kMailCA, kTLSServer, kCEO, kOldCertificate, kDan, kGrace, kTLSCA, kHeidi, kTLSRootCA, kJudy, kExpiredRootCA, kIvan, kX509v1RootCA, kFrank, kSignedContent, kSignedByAlice, kSignedByErin, kECRootCA, kECCA, kOlivia, kOliviaKey, kRSACA, kPeggy, kSignedByPeggy } from "./certificateChains";
 import { expect, test, describe } from "vitest";
 
 // The browser has this, but Node does not.
@@ -23,7 +24,7 @@ globalThis.indexedDB ??= {
 // so this has to be the same for all tests in this file.
 appGlobal.remoteApp = {
   async getCACertificates(type: string): Promise<string[]> {
-    return type == "system" ? [kRootCA, kTLSRootCA, kExpiredRootCA, kX509v1RootCA] : [];
+    return type == "system" ? [kRootCA, kTLSRootCA, kExpiredRootCA, kX509v1RootCA, kECRootCA] : [];
   },
 };
 
@@ -88,9 +89,43 @@ describe("Certificate chain", () => {
   });
 });
 
+describe("Certificate chain with EC keys", () => {
+  test("of an RSA certificate, through an EC CA, to an EC root is trusted", async () => {
+    let key = await SMIMEPublicKey.importPublicKey(kOlivia + kECCA);
+    expect(await key.keyStatus()).toBe(KeyStatus.Valid);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
+  });
+
+  test("of an EC certificate, through an RSA CA, is trusted", async () => {
+    let key = await SMIMEPublicKey.importPublicKey(kPeggy + kRSACA);
+    expect(await key.keyStatus()).toBe(KeyStatus.Valid);
+    expect(key.trustLevel).toBe(TrustLevel.OS);
+  });
+
+  test("with a changed certificate, which an EC CA signed, is invalid", async () => {
+    let cert = Certificate.decodePEM(kOlivia, { label: "CERTIFICATE" });
+    cert.tbsCertificate.serialNumber += 1n;
+    let key = await SMIMEPublicKey.importPublicKey(Certificate.encodePEM(cert, { label: "CERTIFICATE" }) + kECCA);
+    expect(await key.keyStatus()).toBe(KeyStatus.ChainInvalid);
+  });
+
+  test("of our own RSA key, through an EC CA, is trusted", async () => {
+    let key = await SMIMEPrivateKey.importPrivateKey(kOliviaKey + kOlivia + kECCA);
+    expect(key.userIDs.contents).toEqual(["olivia@example.com"]);
+    expect(key.chain.contents.map(ca => ca.commonName)).toEqual(["Test EC CA"]);
+    expect(await key.keyStatus()).toBe(KeyStatus.Valid);
+  });
+});
+
 describe("Signature", () => {
   test("by a certificate from a trusted CA is trusted", async () => {
     let signer = await verifySignedData(SignedData.decodeFromBase64(kSignedByAlice), new TextEncoder().encode(kSignedContent));
+    expect(signer?.trustLevel).toBe(TrustLevel.OS);
+  });
+
+  test("by an EC certificate from a trusted CA is trusted", async () => {
+    let signer = await verifySignedData(SignedData.decodeFromBase64(kSignedByPeggy), new TextEncoder().encode(kSignedContent));
+    expect(signer?.userIDs.contents).toEqual(["peggy@example.com"]);
     expect(signer?.trustLevel).toBe(TrustLevel.OS);
   });
 
