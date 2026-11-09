@@ -1,11 +1,11 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage } from "./SMIMEASN1";
-import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
+import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, AlgorithmIdentifier, ECCCMSSharedInfo, KeyWrapAlgorithm, type WebCryptoAlgorithm } from "./SMIMEASN1";
+import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayFromHex } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
 import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
-import { assert } from "../../../util/util";
+import { assert, UserError } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -41,21 +41,25 @@ export class SMIMEPublicKey extends PublicKey {
     return certificateCommonName(cert) ?? "";
   }
 
-  async matches(key: RSAPublicKey): Promise<boolean> {
+  async matches(publicKey: SubjectPublicKeyInfo): Promise<boolean> {
     if (!this.publicKeyArmored) {
       return false;
     }
     let cert = Certificate.decodePEM(this.publicKeyArmored, { label: "Certificate" });
-    let rawKey = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
-    return key.n == rawKey.n && key.e == rawKey.e;
+    return !indexedDB.cmp(SubjectPublicKeyInfo.encode(publicKey), SubjectPublicKeyInfo.encode(cert.tbsCertificate.publicKey));
   }
 
   /**
    * Parses the given certificate and sets it as the public key.
    */
   async setCertificate(cert: Certificate) {
-    let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
-    if (!this.id) {
+    let publicKey = cert.tbsCertificate.publicKey;
+    if (!this.id && publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+      this.cipher = "EC";
+      this.keyLengthInBits = this.curveBits(publicKey);
+      this.id = this.publicKeyID(publicKey);
+    } else if (!this.id) {
+      let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
       let id = sanitize.bigint(rsa.n).toString(16);
       this.id = this.keyID(rsa);
       this.keyLengthInBits = id.length * 4;
@@ -79,19 +83,26 @@ export class SMIMEPublicKey extends PublicKey {
     return uint8ArrayToHex(sha256(RSAPublicKey.encode(rsa)));
   }
 
+  protected publicKeyID(publicKey: SubjectPublicKeyInfo): string {
+    if (publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+      return uint8ArrayToHex(sha256(publicKey.subjectPublicKey.data));
+    }
+    return this.keyID(RSAPublicKey.decode(publicKey.subjectPublicKey.data));
+  }
+
   /** Sets this key's certificate if it has none yet or the certificate is for the same key, otherwise adds it to the chain */
   async addCertificate(cert: Certificate): Promise<boolean> {
-    let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
+    let publicKey = cert.tbsCertificate.publicKey;
     if (!this.publicKeyArmored) {
       await this.setCertificate(cert);
       return true;
     }
-    if (await this.matches(rsa)) {
+    if (await this.matches(publicKey)) {
       await this.setCertificate(cert);
       return false;
     }
     for (let key of this.chain) {
-      if (await key.matches(rsa)) {
+      if (await key.matches(publicKey)) {
         await key.setCertificate(cert);
         return false;
       }
@@ -152,6 +163,117 @@ export class SMIMEPublicKey extends PublicKey {
       await this.addCertificate(cert);
       cert = certificates.find(issuer => isIssuer(issuer, cert));
     }
+  }
+
+  /** @returns e.g. 256 for P-256, or null for a curve that we do not support */
+  protected curveBits(publicKey: SubjectPublicKeyInfo): number | null {
+    try {
+      return sanitize.translate(Oid.decode(publicKey.algorithmIdentifier.parameters), NamedCurve, null);
+    } catch (ex) {
+      return null; // Explicit or missing curve parameters, which RFC 5480 forbids
+    }
+  }
+
+  /**
+   * @param digestAlgorithm Only for mail, where the signature algorithm may also name only the key, RFC 5652 section 10.1.2
+   * @param hashes The signature algorithms for this type of key, with their hash
+   * @returns null, if not supported, or if the two algorithms disagree
+   */
+  protected signatureHash(signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm: AlgorithmIdentifier | undefined, hashes: Record<string, WebCryptoAlgorithm>): WebCryptoAlgorithm | null {
+    let hash = sanitize.translate(signatureAlgorithm.algorithm, hashes, null);
+    if (!digestAlgorithm) {
+      return hash;
+    }
+    let digestHash = sanitize.translate(digestAlgorithm.algorithm, DigestAlgorithm, null);
+    if (signatureAlgorithm.algorithm == this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm) {
+      return digestHash;
+    }
+    return hash == digestHash ? hash : null;
+  }
+
+  /** @param signature as X.509 and CMS have it, an `ECDSASigValue` */
+  async verifyECDSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
+    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
+    let curve = this.curveBits(publicKey);
+    let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, ECDSASignatureAlgorithm);
+    if (!curve || !hash) {
+      return false;
+    }
+    let key = await crypto.subtle.importKey("spki", SubjectPublicKeyInfo.encode(publicKey) as BufferSource, { name: "ECDSA", namedCurve: "P-" + curve }, false, ["verify"]);
+    // WebCrypto wants r and s one after the other, each in the size of the curve
+    let size = curve + 7 >> 3;
+    let max = 1n << BigInt(size * 8);
+    let { r, s } = ECDSASigValue.decode(signature);
+    if (r <= 0n || s <= 0n || r >= max || s >= max) {
+      return false;
+    }
+    let rs = Uint8ArrayFromHex(r.toString(16).padStart(size * 2, "0") + s.toString(16).padStart(size * 2, "0"));
+    return await crypto.subtle.verify({ name: "ECDSA", hash }, key, rs as BufferSource, content as BufferSource);
+  }
+
+  /** Encrypts the content key to the EC key of this certificate with ECDH, as Outlook does. RFC 5753 section 3.1.1 */
+  async keyAgreeRecipientInfo(symmetricKey: Uint8Array): Promise<any> {
+    let cert = this.decodedCertificate;
+    let publicKey = cert.tbsCertificate.publicKey;
+    let curve = this.curveBits(publicKey);
+    if (!curve) {
+      throw new UserError(gt`Cannot encrypt to ${this.userIDs.first}, because we do not support the elliptic curve of its certificate`);
+    }
+    let algorithm = { name: "ECDH", namedCurve: "P-" + curve };
+    let recipientKey = await crypto.subtle.importKey("spki", SubjectPublicKeyInfo.encode(publicKey) as BufferSource, algorithm, false, []);
+    let ephemeralKey = await crypto.subtle.generateKey(algorithm, true, ["deriveBits"]);
+    let secret = await crypto.subtle.deriveBits({ name: "ECDH", public: recipientKey }, ephemeralKey.privateKey, (curve + 7 >> 3) * 8);
+    // Outlook cannot decrypt it when the parameters are absent
+    let keyWrapAlgorithm = AlgorithmIdentifier.encode({ algorithm: "aes256wrap", parameters: Null.encode() });
+    let keyEncryptionKey = await this.keyEncryptionKey(secret, "SHA-1", keyWrapAlgorithm);
+    let contentKey = await crypto.subtle.importKey("raw", symmetricKey as BufferSource, "AES-CBC", true, ["encrypt"]);
+    return {
+      type: "kari",
+      value: {
+        version: 3n,
+        originator: {
+          type: "originatorKey",
+          value: {
+            algorithm: { algorithm: "ecPublicKey", parameters: Null.encode() },
+            publicKey: { unused: 0, data: new Uint8Array(await crypto.subtle.exportKey("raw", ephemeralKey.publicKey)) },
+          },
+        },
+        keyEncryptionAlgorithm: {
+          algorithm: "dhSinglePassStdDHSHA1KDF",
+          parameters: keyWrapAlgorithm,
+        },
+        recipientEncryptedKeys: [{
+          rid: {
+            type: "issuerAndSerialNumber",
+            value: {
+              issuer: cert.tbsCertificate.issuer,
+              serialNumber: cert.tbsCertificate.serialNumber,
+            },
+          },
+          encryptedKey: new Uint8Array(await crypto.subtle.wrapKey("raw", contentKey, keyEncryptionKey, "AES-KW")),
+        }],
+      },
+    };
+  }
+
+  /** Derives the key that encrypts the content key from the ECDH secret, with the ANSI X9.63 KDF. RFC 5753 section 7.2
+   * @param keyWrapAlgorithm the encoded `AlgorithmIdentifier` */
+  protected async keyEncryptionKey(secret: ArrayBuffer, hash: WebCryptoAlgorithm, keyWrapAlgorithm: Uint8Array, ukm?: Uint8Array): Promise<CryptoKey> {
+    let bits = KeyWrapAlgorithm[AlgorithmIdentifier.decode(keyWrapAlgorithm).algorithm as string];
+    let suppPubInfo = new Uint8Array(4);
+    new DataView(suppPubInfo.buffer).setUint32(0, bits);
+    let sharedInfo = ECCCMSSharedInfo.encode({ keyInfo: keyWrapAlgorithm, entityUInfo: ukm, suppPubInfo });
+    let input = new Uint8Array(secret.byteLength + 4 + sharedInfo.length);
+    input.set(new Uint8Array(secret));
+    input.set(sharedInfo, secret.byteLength + 4);
+    let key = new Uint8Array(bits / 8);
+    for (let counter = 1, offset = 0; offset < key.length; counter++) {
+      new DataView(input.buffer).setUint32(secret.byteLength, counter);
+      let digest = new Uint8Array(await crypto.subtle.digest(hash, input));
+      key.set(digest.subarray(0, key.length - offset), offset);
+      offset += digest.length;
+    }
+    return await crypto.subtle.importKey("raw", key, "AES-KW", false, ["wrapKey", "unwrapKey"]);
   }
 
   isValidAt(date: Date): boolean {
@@ -268,7 +390,7 @@ export class SMIMEPublicKey extends PublicKey {
     super.fromJSON(json);
     if (this.publicKeyArmored) {
       let cert = Certificate.decodePEM(this.publicKeyArmored, { label: "CERTIFICATE" });
-      this.id = this.keyID(RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data));
+      this.id = this.publicKeyID(cert.tbsCertificate.publicKey);
     }
     for (let certificate of sanitize.array(json.chain, [])) {
       let key = new SMIMEPublicKey();
@@ -317,6 +439,11 @@ export async function verifySignature(cert: Certificate, signer: Certificate): P
     if (indexedDB.cmp(RDNSequence.encode(cert.tbsCertificate.issuer), RDNSequence.encode(signer.tbsCertificate.subject))) {
       console.log("subject did not match issuer");
       return false;
+    }
+    if (signer.tbsCertificate.publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+      let signerKey = new SMIMEPublicKey();
+      await signerKey.setCertificate(signer);
+      return await signerKey.verifyECDSA(cert.signatureValue.data, TBSCertificate.encode(cert.tbsCertificate), cert.signatureAlgorithm);
     }
     let algorithm = sanitize.translate(cert.signatureAlgorithm.algorithm, SignatureAlgorithm);
     let signedCert = TBSCertificate.encode(cert.tbsCertificate);
