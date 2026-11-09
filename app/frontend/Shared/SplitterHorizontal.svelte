@@ -29,7 +29,7 @@
   <vbox class="splitter" />
 {/if}
 
-<svelte:window
+<AppWindowEvents
   on:pointermove={onMouseMove}
   on:pointerup={onMouseUp}
   />
@@ -38,6 +38,7 @@
   import { sanitize } from "../../../lib/util/sanitizeDatatypes";
   import { appGlobal } from "../../logic/app";
   import ErrorBoundary from "./ErrorBoundary.svelte";
+  import AppWindowEvents from "../MainWindow/AppWindowEvents.svelte";
 
   /** Copy of <Splitter> */
 

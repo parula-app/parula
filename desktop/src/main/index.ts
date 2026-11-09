@@ -1,11 +1,20 @@
 import { setMainWindow, startupBackend, shutdownBackend, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
-import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents } from 'electron'
+import { SecondaryBrowserWindow } from '../../backend/SecondaryBrowserWindow';
+import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents, type BrowserWindowConstructorOptions, type HandlerDetails, type WindowOpenHandlerResponse } from 'electron'
 import { ipcMain } from 'electron/main';
 import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
 import { appName, dataAppName } from '../../../app/logic/build'
+
+const windowFrame: BrowserWindowConstructorOptions = {
+  autoHideMenuBar: true,
+  titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
+  titleBarOverlay: true,
+  frame: false,
+  ...(process.platform === 'linux' ? { icon } : {}),
+};
 
 function createWindow(): void {
   try {
@@ -18,11 +27,7 @@ function createWindow(): void {
       width: 1700,
       height: 950,
       show: false,
-      autoHideMenuBar: true,
-      titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
-      titleBarOverlay: true,
-      frame: false,
-      ...(process.platform === 'linux' ? { icon } : {}),
+      ...windowFrame,
       webPreferences: {
         preload: join(import.meta.dirname, '../preload/index.mjs'),
         sandbox: false,
@@ -53,6 +58,12 @@ function createWindow(): void {
      * Thus, sanitizeHTML() adds a `target="_blank"` to such links,
      * which is considered a new web window and forces them to end up here. */
     mainWindow.webContents.setWindowOpenHandler((details): any => {
+      // Secondary windows of our app. Only our frontend has a valid token.
+      let token = details.features?.split(",").find(feature => feature.startsWith("mustang-window="))?.substring("mustang-window=".length);
+      let created = details.url == "about:blank" && token ? SecondaryBrowserWindow.use(token) : null;
+      if (created) {
+        return allowSecondaryWindow(created);
+      }
       // Chrome special-cases "about:blank". Make *sure* that we don't get this here.
       if (!details.url?.startsWith("https://")) {
         return { action: 'deny' };
@@ -65,14 +76,13 @@ function createWindow(): void {
           overrideBrowserWindowOptions: "center,noopener,noreferrer,sandbox=true",
         };
       }
-      // Open the URL in the system web browser
-      shell.openExternal(details.url)
-        .catch(console.error); // must return the action synchronously
-      // ... and do not open a new Electron window
-      return { action: 'deny' }
+      return openInBrowser(details);
     })
 
     mainWindow.webContents.on('did-create-window', (child, _details) => {
+      if (secondaryWindows.has(child)) {
+        return;
+      }
       child.on('closed', () => {
         mainWindow.webContents.send('oauth2-close');
       });
@@ -101,6 +111,53 @@ function createWindow(): void {
   } catch (ex) {
     console.error(ex);
   }
+}
+
+/** Opens https URLs in the system web browser, and never a new Electron window */
+function openInBrowser(details: HandlerDetails): WindowOpenHandlerResponse {
+  if (details.url?.startsWith("https://")) {
+    shell.openExternal(details.url)
+      .catch(console.error); // must return the action synchronously
+  }
+  return { action: 'deny' };
+}
+
+/** @see `allowSecondaryWindow()` */
+const secondaryWindows = new WeakSet<BrowserWindow>();
+
+/**
+ * Opens a secondary window of our app, which the frontend opened from the main window.
+ * The frontend writes the content into the `about:blank` page, and this content runs
+ * in the JS context of the main window. @see `AppWindow` in the frontend
+ * The window must never load anything else, and it may not open other windows.
+ * @param created from `SecondaryBrowserWindow.use()`
+ */
+function allowSecondaryWindow(created: (browserWindow: BrowserWindow) => void): WindowOpenHandlerResponse {
+  return {
+    action: 'allow',
+    overrideBrowserWindowOptions: {
+      ...windowFrame,
+      // Set all of them here, because they are not inherited from the main window,
+      // and `window.open()` could set some of them
+      webPreferences: {
+        nodeIntegration: false,
+        nodeIntegrationInSubFrames: false,
+        contextIsolation: true,
+        sandbox: true,
+        webviewTag: true, // for emails, see `WebView.svelte`. Restricted by `restrictWebViews()`.
+        backgroundThrottling: false,
+      },
+    },
+    createWindow: (options: BrowserWindowConstructorOptions) => {
+      let browserWindow = new BrowserWindow(options);
+      let webContents = browserWindow.webContents;
+      webContents.setWindowOpenHandler(openInBrowser);
+      webContents.on('will-navigate', event => event.preventDefault());
+      secondaryWindows.add(browserWindow);
+      created(browserWindow);
+      return webContents;
+    },
+  };
 }
 
 function createMenu() {
