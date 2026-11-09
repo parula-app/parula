@@ -52,6 +52,8 @@ export class EMail extends Message {
   /** This is a Junk message */
   @notifyChangedProperty
   isSpam = false;
+  /** The user marked this message as not Junk, e.g. IMAP keyword `$NotJunk` */
+  isNotSpam = false;
   /** The user has answered this message, by clicking "Reply" */
   @notifyChangedProperty
   isReplied = false;
@@ -245,6 +247,7 @@ export class EMail extends Message {
   /** You probably want to call @see treatSpam() */
   async markSpam(isSpam = true) {
     this.isSpam = isSpam;
+    this.isNotSpam = !isSpam;
   }
 
   async markReplied() {
@@ -745,6 +748,7 @@ export class EMail extends Message {
     }
     other.threadID = this.threadID;
     other.isSpam = this.isSpam;
+    other.isNotSpam = this.isNotSpam;
     other.isReplied = this.isReplied;
     other.isForwarded = this.isForwarded;
     other.isImportant = this.isImportant;
