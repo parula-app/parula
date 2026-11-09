@@ -97,7 +97,10 @@ export function rc4Decrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
  * @param iv the block that the first block was XORed with
  * @returns the plaintext, without the padding */
 function decryptCBC(data: Uint8Array, iv: Uint8Array, decryptBlock: (block: Uint8Array) => Uint8Array): Uint8Array {
-  let blockLength = iv.length;
+  let blockLength = 8;
+  if (iv.length != blockLength) {
+    throw new Error("The IV must be one block");
+  }
   if (!data.length || data.length % blockLength) {
     throw new Error("Ciphertext must be whole blocks");
   }
