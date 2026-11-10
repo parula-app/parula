@@ -358,13 +358,17 @@ export class JSCalendarEvent {
   static toEndTime(jmap: TJMAPCalendarEvent, duration = jmap.duration): Date {
     duration = sanitize.nonemptystring(duration, "PT0S");
     let seconds = toSeconds(duration);
-    // The weeks and days are before the "T": "P2DT3H" → "P2D" = 2 days, "PT25H" → "P" = 0 days, "P1W" = 7 days, "-P1D" = -1 day
-    let calendarDays = toSeconds(duration.split("T")[0]) / k1DayS;
+    let calendarDays = this.calendarDays(duration);
     let [startDate, startTime] = jmap.start.split("T"); // "2026-10-24" and "10:00:00", or "08:00:00Z" for a start in UTC
     let [year, month, day] = startDate.split("-").map(Number);
     let endDate = new Date(Date.UTC(year, month - 1, day + calendarDays)).toISOString().substring(0, 10);
     let endOfDays = this.toDate(endDate + "T" + startTime, jmap);
     return new Date(endOfDays.getTime() + (seconds - calendarDays * k1DayS) * 1000);
+  }
+
+  /** @returns The weeks and days of `duration`, which are before the "T": "P2DT3H" → "P2D" = 2 days, "PT25H" → "P" = 0 days, "P1W" = 7 days, "-P1D" = -1 day */
+  static calendarDays(duration: string): number {
+    return toSeconds(duration.split("T")[0]) / k1DayS;
   }
 
   /**

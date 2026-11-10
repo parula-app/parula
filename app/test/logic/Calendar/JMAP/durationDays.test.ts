@@ -5,6 +5,7 @@ import { JMAPCalendar } from "../../../../logic/Calendar/JMAP/JMAPCalendar";
 import type { TJMAPCalendarEvent } from "../../../../logic/Calendar/JMAP/TJSCalendar";
 import { JSCalendarEvent } from "../../../../logic/Calendar/JMAP/JSCalendarEvent";
 import { DummyCalendarStorage } from "../../../../logic/Calendar/SQL/DummyCalendarStorage";
+import { Frequency } from "../../../../logic/Calendar/RecurrenceRule";
 import { applyPatch } from "./applyPatch";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 
@@ -145,4 +146,58 @@ test("A changed end over the night when the clocks go back is saved with the rig
   await event.save();
   let stored = applyPatch(serverEvent("P2D"), sent[0].update.eventID);
   expect(endPerSpec(new Date("2026-10-24T08:00:00Z"), stored.duration).toISOString()).toBe("2026-10-26T08:00:00.000Z");
+});
+
+/** Every week from `start`, in Europe/Berlin */
+function weeklyServerEvent(start: string, duration: string, count: number): TJMAPCalendarEvent {
+  return {
+    ...serverEvent(duration), start,
+    recurrenceRule: { "@type": "RecurrenceRule", frequency: "weekly", count },
+  } as any as TJMAPCalendarEvent;
+}
+
+test("Each occurrence of a series in days ends at the same time of day, also over the night when the clocks go back", async () => {
+  // Saturday 10:00, the third occurrence is over the night to Sunday 2026-10-25
+  let { event } = await listEvent(weeklyServerEvent("2026-10-10T10:00:00", "P1D", 5));
+  expect(event.instances.length).toBe(5);
+  for (let instance of event.instances) {
+    expect(instance.endTime.toISOString()).toBe(endPerSpec(instance.startTime, "P1D").toISOString());
+  }
+});
+
+test("The occurrences after a first occurrence over the night when the clocks go back end at the same time of day", async () => {
+  // The first occurrence has 25 hours, the others 24 hours
+  let { event } = await listEvent(weeklyServerEvent("2026-10-24T10:00:00", "P1D", 3));
+  expect(event.instances.length).toBe(3);
+  for (let instance of event.instances) {
+    expect(instance.endTime.toISOString()).toBe(endPerSpec(instance.startTime, "P1D").toISOString());
+  }
+});
+
+test("Hours are exact in each occurrence of a series, also over the night when the clocks go back", async () => {
+  // Sunday 0:00 for 4 hours. On 2026-10-25, that is 0:00 to 3:00 on the clock.
+  let { event } = await listEvent(weeklyServerEvent("2026-10-18T00:00:00", "PT4H", 3));
+  expect(event.instances.length).toBe(3);
+  for (let instance of event.instances) {
+    expect(instance.endTime.getTime() - instance.startTime.getTime()).toBe(4 * 3600 * 1000);
+  }
+});
+
+test("The occurrences of a new series in whole days end where the saved duration says", async () => {
+  let { calendar, sent } = setup([]);
+  let event = calendar.newEvent();
+  event.title = "Weekend";
+  event.timezone = "Europe/Berlin";
+  event.startTime = new Date("2026-10-17T08:00:00Z"); // Saturday 10:00
+  event.endTime = new Date("2026-10-18T08:00:00Z"); // Sunday 10:00
+  calendar.events.add(event);
+  event.newRecurrenceRule(Frequency.Weekly);
+  await event.save();
+  let duration = sent[0].create[event.id].duration;
+  // The second occurrence is over the night when the clocks go back
+  let overClockChange = event.instances.find(instance => instance.startTime.toISOString() == "2026-10-24T08:00:00.000Z");
+  expect(overClockChange).toBeTruthy();
+  for (let instance of event.instances) {
+    expect(instance.endTime.toISOString()).toBe(endPerSpec(instance.startTime, duration).toISOString());
+  }
 });

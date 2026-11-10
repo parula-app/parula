@@ -907,13 +907,20 @@ export class Event extends Observable {
       instance.recurrenceCase = RecurrenceCase.Instance;
       instance.recurrenceStartTime = occurrence;
       instance.startTime = new Date(occurrence); // Clone in case of exception
-      instance.duration = this.duration;
       if (this.alarm) {
         instance.alarm = new Date(this.alarm.getTime() + instance.startTime.getTime() - this.startTime.getTime());
       }
       instances.push(instance);
     }
+    this.setInstanceEndTimes(instances);
     this.instances.addAll(instances);
+  }
+
+  /** Each instance lasts as long as this master, in absolute time, like DTEND in RFC 5545 §3.8.5.3 */
+  protected setInstanceEndTimes(instances: Event[]) {
+    for (let instance of instances) {
+      instance.duration = this.duration;
+    }
   }
 
   /**
