@@ -577,11 +577,32 @@ export class JMAPFolder extends Folder {
 
   /** Warning: Also deletes all messages in the folder, also on the server */
   protected async deleteItOnServer(): Promise<void> {
-    await this.account.makeSingleCall("Mailbox/set", {
+    let response = await this.account.makeSingleCall("Mailbox/set", {
       accountId: this.account.accountID,
-      destroy: [this.id],
-    });
+      destroy: await this.inclusiveDescendantIDsOnServer(),
+      onDestroyRemoveEmails: true,
+    }) as TJMAPChangeResponse<TJMAPFolder>;
+    checkChangeError(response);
     console.log("JMAP folder deleted", this.name, this.id);
+  }
+
+  /** `deleteItLocally()` already removed our subfolders, and the server may have more.
+   * @returns children before their parent, because the server refuses to delete a folder that has subfolders */
+  protected async inclusiveDescendantIDsOnServer(): Promise<string[]> {
+    let response = await this.account.makeSingleCall("Mailbox/get", {
+      accountId: this.account.accountID,
+      ids: null,
+      properties: ["parentId"],
+    }) as TJMAPGetResponse<TJMAPFolder>;
+    let folderIDs: string[] = [];
+    let addWithDescendants = (folderID: string) => {
+      for (let child of response.list.filter(folder => folder.parentId == folderID)) {
+        addWithDescendants(child.id);
+      }
+      folderIDs.push(folderID);
+    };
+    addWithDescendants(this.id);
+    return folderIDs;
   }
 
   async markAllRead(): Promise<void> {
