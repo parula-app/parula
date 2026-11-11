@@ -94,6 +94,36 @@ test("Weekly with days and count", () => {
   }, [[2000, 0, 1], [2000, 0, 2], [2000, 0, 22]]);
 });
 
+// Servers may send a weekly rule without BYDAY, which means the weekday of the series start.
+// The recurrence editor rebuilds it with that weekday explicitly set (`additionalChecks`).
+// That must not count as a time change, which would ask "Save changes?" and drop all exceptions.
+test("Weekly without weekdays recurs on the weekday of the series start", () => {
+  function weekly(weekdays: Weekday[] | null, additionalChecks?: boolean): RecurrenceRule {
+    return new RecurrenceRule({
+      masterDuration: 36e5,
+      timezone: kTimezone,
+      seriesStartTime: new Date(Date.UTC(2000, 0, 3, 9)), // Monday
+      frequency: Frequency.Weekly,
+      weekdays,
+    }, additionalChecks);
+  }
+  let fromServer = weekly(null);
+  let fromEditor = weekly(null, true);
+  expect(fromEditor.weekdays).toEqual([Weekday.Monday]);
+  expect(fromServer.timesMatch(fromEditor)).toBe(true);
+  expect(fromEditor.timesMatch(fromServer)).toBe(true);
+  expect(fromServer.timesMatch(weekly([Weekday.Monday]))).toBe(true);
+  let february = new Date(Date.UTC(2000, 1, 1));
+  expect(fromServer.getOccurrencesByDate(february)).toEqual(fromEditor.getOccurrencesByDate(february));
+
+  expect(fromServer.timesMatch(weekly([Weekday.Tuesday]))).toBe(false);
+  expect(weekly([Weekday.Tuesday]).timesMatch(fromServer)).toBe(false);
+  expect(fromServer.timesMatch(weekly([Weekday.Monday, Weekday.Tuesday]))).toBe(false);
+  // No weekdays used to count as every day
+  let everyDay = weekly([Weekday.Sunday, Weekday.Monday, Weekday.Tuesday, Weekday.Wednesday, Weekday.Thursday, Weekday.Friday, Weekday.Saturday]);
+  expect(fromServer.timesMatch(everyDay)).toBe(false);
+});
+
 test("Monthly with date and end date", () => {
   check("RRULE:FREQ=MONTHLY;UNTIL=20001230T000000Z;INTERVAL=3", {
     seriesStartTime: new Date(Date.UTC(2000, 0, 31)),
