@@ -971,47 +971,57 @@ export class JMAPAccount extends MailAccount {
       await this.save();
       return;
     }
-    let response = await this.makeCombinedCall([
-      [
-        "ShareNotification/changes", {
-          accountId: this.principalsAccountID,
-          sinceState: sinceState,
-        },
-        "changes",
-      ], [
-        "ShareNotification/get", {
-          accountId: this.principalsAccountID,
-          "#ids": {
-            resultOf: "changes",
-            name: "ShareNotification/changes",
-            path: "/created",
+    const kMaxRounds = 1000;
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.errorCallback(new Error(`${this.name}: Share notifications: The server keeps saying that it has more. Stopped.`)));
+    while (loop.nextRound()) {
+      if (loop.isSameAsLastRound(sinceState)) {
+        break;
+      }
+      let response = await this.makeCombinedCall([
+        [
+          "ShareNotification/changes", {
+            accountId: this.principalsAccountID,
+            sinceState: sinceState,
           },
-        },
-        "new",
-      ],
-    ]);
-    let changes = response["changes"] as TJMAPChangeResponse<TJMAPShareNotification>;
-    let notifications = (response["new"] as TJMAPGetResponse<TJMAPShareNotification>).list;
-    this.syncState.set("ShareNotification", changes.newState);
-    await this.save();
-    if (!notifications.length) {
-      return;
-    }
-
-    await this.getSession(); // The new account appears in the session only now
-    for (let notification of notifications) {
-      let granted = Object.values(notification.newRights ?? {}).some(right => right);
-      let known = this.accountForID(notification.objectAccountId);
-      if (known && known != this) {
-        await known.updateSharedAccount();
-        continue;
+          "changes",
+        ], [
+          "ShareNotification/get", {
+            accountId: this.principalsAccountID,
+            "#ids": {
+              resultOf: "changes",
+              name: "ShareNotification/changes",
+              path: "/created",
+            },
+          },
+          "new",
+        ],
+      ]);
+      let changes = response["changes"] as TJMAPChangeResponse<TJMAPShareNotification>;
+      let notifications = (response["new"] as TJMAPGetResponse<TJMAPShareNotification>).list;
+      this.syncState.set("ShareNotification", changes.newState);
+      await this.save();
+      if (notifications.length) {
+        await this.getSession(); // The new account appears in the session only now
       }
-      let shared = this.session.accounts[notification.objectAccountId];
-      let ownerEMail = shared && this.sharedAccountOwner(shared);
-      if (!granted || !ownerEMail || shared.isPersonal || this.accountForID(notification.objectAccountId)) {
-        continue; // Access revoked, our own account, one that we cannot address, or already set up
+      for (let notification of notifications) {
+        let granted = Object.values(notification.newRights ?? {}).some(right => right);
+        let known = this.accountForID(notification.objectAccountId);
+        if (known && known != this) {
+          await known.updateSharedAccount();
+          continue;
+        }
+        let shared = this.session.accounts[notification.objectAccountId];
+        let ownerEMail = shared && this.sharedAccountOwner(shared);
+        if (!granted || !ownerEMail || shared.isPersonal || this.accountForID(notification.objectAccountId)) {
+          continue; // Access revoked, our own account, one that we cannot address, or already set up
+        }
+        await this.addSharedFolders(new PersonUID(ownerEMail, sanitize.nonemptystring(shared.name)), "msgfolderroot");
       }
-      await this.addSharedFolders(new PersonUID(ownerEMail, sanitize.nonemptystring(shared.name)), "msgfolderroot");
+      if (!changes.hasMoreChanges) {
+        return;
+      }
+      sinceState = changes.newState;
     }
   }
 
