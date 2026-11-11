@@ -196,11 +196,14 @@
   /** The Electron `MouseInputEvent` of the click on the link.
    * Its `x` and `y` are relative to the webview. */
   let clickEvent: { x: number, y: number };
-  /** The popup appears below or above the place where the user clicked on the link */
+  /** We don't know how high the link is, so we assume 1 line in the normal font of a mail:
+   * 16px with `line-height: 1.5` in `content-body.css` */
+  const kLinkHeight = 24;
+  /** The link that the user clicked on. The popup appears below or above it. */
   const linkAnchor: VirtualElement = {
     getBoundingClientRect() {
       let webview = webviewE.getBoundingClientRect();
-      return new DOMRect(webview.x + clickEvent.x, webview.y + clickEvent.y, 0, 0);
+      return new DOMRect(webview.x + clickEvent.x, webview.y + clickEvent.y - kLinkHeight / 2, 0, kLinkHeight);
     },
   };
 
