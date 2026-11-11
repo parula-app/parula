@@ -5,6 +5,7 @@ import { ExchangeCalendar } from "../../Calendar/EWS/ExchangeCalendar";
 import { PersonUID } from "../../Abstract/PersonUID";
 import { appGlobal } from "../../app";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
+import { gt } from "../../../l10n/l10n";
 import { ArrayColl, Collection } from "svelte-collections";
 
 export class ExchangeMailAccount extends MailAccount {
@@ -62,6 +63,14 @@ export class ExchangeMailAccount extends MailAccount {
       return null;
     }
     return new PersonUID(address, sanitize.nonemptylabel(name, null) ?? undefined);
+  }
+
+  /** When another client changes the server rules, Exchange deletes the copy of the rules that Outlook keeps.
+   * Outlook makes a new copy, but without its rules for sent mail and the rules that are turned off in Outlook, which exist only in that copy. */
+  protected setOutlookRulesExist(exist: boolean) {
+    this.serverFilterRulesReadOnlyReason = exist
+      ? gt`Classic Outlook keeps its own copy of the rules for this account. Exchange would delete it when the rules change here, and the rules in Outlook for sent mail and the rules that are turned off in Outlook would be lost. You can change the rules in Outlook.`
+      : null;
   }
 
   async deleteIt(): Promise<void> {
