@@ -58,6 +58,10 @@ export class File extends FileOrDirectory {
     this.ext = val.substring(pos + 1);
   }
 
+  protected setName(name: string) {
+    this.setFileName(name);
+  }
+
   /** Refresh metadata for this file from the source. */
   async stat() {
   }

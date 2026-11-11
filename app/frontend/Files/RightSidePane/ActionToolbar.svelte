@@ -59,6 +59,9 @@
   function onOpenMoveMenu() {
   }
   async function onDelete() {
+    if (file instanceof Directory && !confirm($t`Do you want to permanently delete the folder ${file.name} and all its files?`)) {
+      return;
+    }
     await file.deleteIt();
 
     if ($selectedFile == file) {
