@@ -1,5 +1,5 @@
 <hbox class="container">
-  <select name="" id="" bind:value={dateIntervalSelected}>
+  <select name="" id="" value={String(dateInterval)} on:change={onChange}>
     {#each dateIntervalOptions as opt}
       <option value={opt.value}>{opt.label}</option>
     {/each}
@@ -38,8 +38,9 @@
     }
   }
 
-  let dateIntervalSelected = dateInterval.toString();
-  $: dateInterval = parseInt(dateIntervalSelected) as DateInterval;
+  function onChange(event: Event) {
+    dateInterval = parseInt((event.target as HTMLSelectElement).value) as DateInterval;
+  }
   const dateIntervalOptions = [
     { value: "1", label: dateIntervalLabel(1) },
     { value: "5", label: dateIntervalLabel(5) },

@@ -37,6 +37,7 @@
 <script lang="ts">
   import type { Person } from "../../logic/Abstract/Person";
   import { newPerson, selectedPerson } from "./Person/Selected";
+  import { createNewPerson } from "./person";
   import type { Addressbook } from "../../logic/Contacts/Addressbook";
   import { appGlobal } from "../../logic/app";
   import PersonLine from "./Person/PersonLine.svelte";
@@ -58,15 +59,7 @@
   let pictureSize = appGlobal.isMobile ? 32 : 20;
 
   function addPerson() {
-    let addressbook = selectedAddressbook ?? appGlobal.addressbooks.first;
-    assert(addressbook, $t`Please add an addressbook first`);
-    //assert(persons instanceof ArrayColl, "Please exit the search before adding a person");
-    if (!$newPerson) {
-      $newPerson = addressbook.newPerson();
-      $newPerson.name = "";
-      $newPerson.addressbook = addressbook;
-    }
-    $selectedPerson = $newPerson;
+    createNewPerson(selectedAddressbook);
   }
 
   async function sync() {
