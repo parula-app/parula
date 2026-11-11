@@ -3,6 +3,7 @@ import { JMAPFolder } from "./JMAPFolder";
 import { JMAPIdentity } from "./JMAPIdentity";
 import { JMAPSearchEMail } from "./JMAPSearchEMail";
 import type { EMail } from "../EMail";
+import type { JMAPEMail } from "./JMAPEMail";
 import { newAccountForProtocol } from "../AccountsList/MailAccounts";
 import { PersonUID } from "../../Abstract/PersonUID";
 import { JMAPAddressbook } from "../../Contacts/JMAP/JMAPAddressbook";
@@ -49,6 +50,7 @@ export class JMAPAccount extends MailAccount {
   readonly stateLock = new Lock(); /** Protects syncState */
   protected loginRunOnce = new RunOnce();
   protected startupRunOnce = new RunOnce();
+  protected listAgainRunOnce = new RunOnce<Map<JMAPFolder, ArrayColl<JMAPEMail>>>();
   protected readonly requestSemaphore = new Semaphore(4);
   protected pushAbort: AbortController | null = null;
   protected isDisconnected = false;
@@ -575,6 +577,23 @@ export class JMAPAccount extends MailAccount {
       }
     }
     this.syncState.set("Mailbox", serverFoldersResponse.state);
+  }
+
+  /** For when the server can't tell us the changes since our sync state:
+   * Lists the folders and their emails again, like for a new account.
+   * @returns the new emails, per folder */
+  async listAllFoldersAgain(): Promise<Map<JMAPFolder, ArrayColl<JMAPEMail>>> {
+    return await this.listAgainRunOnce.runOnce(async () => {
+      let current = await this.makeSingleCall("Email/get", { accountId: this.accountID, ids: [] });
+      await this.listFolders();
+      let newMessages = new Map<JMAPFolder, ArrayColl<JMAPEMail>>();
+      for (let folder of this.getAllFolders() as ArrayColl<JMAPFolder>) {
+        newMessages.set(folder, await folder.listAllMessagesAgain());
+      }
+      this.syncState.set("Email", current.state);
+      await this.save();
+      return newMessages;
+    });
   }
 
   async createToplevelFolder(name: string): Promise<JMAPFolder> {

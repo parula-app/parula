@@ -98,6 +98,7 @@ export class EWSFolder extends ExchangeFolder {
         }
       };
       let newMsgs = new ArrayColl<EWSEMail>();
+      let listedIDs = new Set<string>();
       let result: any = { IncludesLastItemInRange: "false" };
       while (result.IncludesLastItemInRange === "false") {
         try {
@@ -111,6 +112,11 @@ export class EWSFolder extends ExchangeFolder {
             result = await this.account.callEWS(sync, ConnectionPurpose.Fetch);
           } else {
             throw ex;
+          }
+        }
+        if (!isNewMail) {
+          for (let change of ensureArray(result.Changes.Create)) {
+            listedIDs.add(sanitize.nonemptystring(getEWSItem(change).ItemId.Id));
           }
         }
         let newMessageIDs = (await Promise.all([
@@ -127,6 +133,14 @@ export class EWSFolder extends ExchangeFolder {
         await this.forEachSyncChange(result.Changes.Delete, this.processSyncDelete, true);
         this.syncState = sync.m$SyncFolderItems.m$SyncState = sanitize.nonemptystring(result.SyncState);
         await this.storage.saveFolder(this);
+      }
+      if (!isNewMail) {
+        // Without a sync state, the server lists all emails, but no deletions
+        for (let email of this.messages.contents) { // copy: deleteMessageLocally() removes from this.messages
+          if (email.itemID && !listedIDs.has(email.itemID)) {
+            await email.deleteMessageLocally();
+          }
+        }
       }
       return newMsgs;
     } finally {
