@@ -22,13 +22,14 @@
       <InvitationResponseInMail {message} />
     {/if}
   </vbox>
-  {#if $message.event && width > 600}
-    <EventInDayView event={$message.event} />
+  {#if calEvent && width > 600}
+    <EventInDayView event={calEvent} />
   {/if}
 </hbox>
 
 <script lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
+  import type { Event } from "../../../logic/Calendar/Event";
   import { InvitationMessage } from "../../../logic/Calendar/Invitation/InvitationStatus";
   import InvitationDisplay from "./InvitationDisplay.svelte";
   import IncomingInvitationInMail from "./IncomingInvitationInMail.svelte";
@@ -39,6 +40,28 @@
 
   export let message: EMail;
   let width: number;
+  let calEvent: Event;
+
+  $: tryCalEvent($message.event);
+  function tryCalEvent(event) {
+    calEvent = event;
+    if (!calEvent) {
+      return;
+    }
+    for (let calendar of message.folder.account.calendarsAvailable) {
+      if (calendar.hasMatchingEvent(calEvent)) {
+        selectCalendar(calendar);
+        return;
+      }
+    }
+  }
+  function selectCalendar(calendar) {
+    let recurrenceStartTime = calEvent.recurrenceStartTime;
+    calEvent = calendar.events.find(event => event.calUID == calEvent.calUID && !event.recurrenceStartTime);
+    if (recurrenceStartTime) {
+      calEvent = calEvent.getOccurrenceByDate(recurrencestartTime);
+    }
+  }
 </script>
 
 <style>
