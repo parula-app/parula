@@ -2,7 +2,7 @@ import type { Directory } from "./Directory";
 import type { Tag, TaggableObject } from "../Abstract/Tag";
 import { Observable, notifyChangedProperty } from "../util/Observable";
 import { AbstractFunction, NotImplemented, assert } from "../util/util";
-import { SetColl } from "svelte-collections";
+import { ArrayColl, SetColl } from "svelte-collections";
 
 export class FileOrDirectory extends Observable implements TaggableObject {
   /** Primary key in the local SQL cache. null = not yet saved. */
@@ -29,6 +29,15 @@ export class FileOrDirectory extends Observable implements TaggableObject {
   }
   set id(id: string) {
     this.path = id;
+  }
+
+  /** From the account root down to the directory that contains this */
+  get parentDirs(): ArrayColl<Directory> {
+    let dirs: Directory[] = [];
+    for (let dir = this.parent; dir && !dirs.includes(dir); dir = dir.parent) {
+      dirs.unshift(dir);
+    }
+    return new ArrayColl(dirs);
   }
 
   async save() {

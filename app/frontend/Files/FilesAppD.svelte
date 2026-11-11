@@ -17,11 +17,11 @@
           <FileViewer file={$viewFile} />
         {/if}
       {:else if listFiles}
-        {#if $selectedFolder}
+        {#if $selectedFolder && !isSearch}
           <FilesHeader dir={$selectedFolder} />
         {/if}
         {#if view == "table"}
-          <FilesList files={listFiles} dirs={listDirs} />
+          <FilesList files={listFiles} dirs={listDirs} showFolder={isSearch} />
         {:else if view == "gallery"}
           <Gallery bind:files={listFiles} bind:dirs={listDirs} />
         {/if}
@@ -46,6 +46,7 @@
   import { Directory } from "../../logic/Files/Directory";
   import { getLocalStorage } from "../Util/LocalStorage";
   import { selectedFile, selectedFolder, selectedLeftTab, viewFile, fileViewer, isRightSidebarExpanded } from "./selected";
+  import { FilesView } from "./LeftPane/PaneViewSwitcher.svelte";
   import { onDropFile, onDragOverFile } from "./drag";
   import LeftPane from "./LeftPane/LeftPane.svelte";
   import FilesList from "./FilesList/FilesList.svelte";
@@ -69,7 +70,8 @@
   let viewSetting = getLocalStorage("files.view", "table");
   $: view = $viewSetting.value;
 
-  $: listDirs && catchErrors(ls)
+  $: isSearch = $selectedLeftTab == FilesView.Search;
+  $: listDirs && !isSearch && catchErrors(ls)
   async function ls() {
     await Promise.allSettled(listDirs.contents.map(dir =>
       dir.listContents()));

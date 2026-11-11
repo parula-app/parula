@@ -1,12 +1,15 @@
 {#each $dirs?.each as dir (dir)}
-  <DirectoryLine {dir} {indent} />
+  <DirectoryLine {dir} {indent} {showFolder} />
 {/each}
 <hbox class="separator" />
 <hbox class="separator" />
 <hbox class="separator" />
 <hbox class="separator" />
+{#if showFolder}
+  <hbox class="separator" />
+{/if}
 {#each $files?.each as file (file)}
-  <FileLine {file} {indent} />
+  <FileLine {file} {indent} {showFolder} />
 {/each}
 
 <script lang="ts">
@@ -19,6 +22,7 @@
   export let files: Collection<File>;
   export let dirs: Collection<Directory>;
   export let indent = 0;
+  export let showFolder = false;
 </script>
 
 <style>

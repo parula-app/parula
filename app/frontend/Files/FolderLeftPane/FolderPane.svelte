@@ -16,7 +16,7 @@
   import { FileOrDirectory } from "../../../logic/Files/FileOrDirectory";
   import { FileSharingAccount } from "../../../logic/Files/FileSharingAccount";
   import { myHarddrive } from "../../../logic/Files/Harddrive/HarddriveAccount";
-  import { selectedFile } from "../selected";
+  import { selectedFile, selectedAccount as selectedAccountStore } from "../selected";
   import { appGlobal } from "../../../logic/app";
   import AccountList from "./AccountList.svelte";
   import FolderList from "./FolderList.svelte";
@@ -41,6 +41,7 @@
   let searchFiles: ArrayColl<FileOrDirectory> | null;
 
   $: rootDirs = selectedAccount?.rootDirs ?? new ArrayColl<Directory>();
+  $: $selectedAccountStore = selectedAccount;
 
   $: selectedFolder, catchErrors(changeDir)
   async function changeDir() {

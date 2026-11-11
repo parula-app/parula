@@ -21,10 +21,10 @@
   </Scroll>
 
   <hbox class="results-count">
-    {#if listAll?.length > kLimit}
+    {#if $listAll?.length > kLimit}
       {$t`More than ${kLimit} files`}
     {:else if listAll}
-      {$t`${listAll?.length} files`}
+      {$t`${$listAll.length} files`}
     {/if}
   </hbox>
 </vbox>

@@ -37,12 +37,14 @@
   export let listDirs: Collection<Directory>;
   export let activeTab: FilesView;
 
+  let tabBeforeSearch = FilesView.CloudStorage;
+  $: if (activeTab != FilesView.Search) tabBeforeSearch = activeTab;
   $: if (!!$globalSearchTerm) openSearchPane();
   function openSearchPane() {
     activeTab = FilesView.Search;
   }
   function endSearchMode() {
-    activeTab = FilesView.Harddrive;
+    activeTab = tabBeforeSearch;
   }
 </script>
 
