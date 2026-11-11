@@ -4,7 +4,6 @@ import { InvitationMessage, InvitationResponse, type InvitationResponseInMessage
 import type { Participant } from "../Participant";
 import type { MailAccount } from "../../Mail/MailAccount";
 import type { MailIdentity } from "../../Mail/MailIdentity";
-import { appGlobal } from "../../app";
 import { UserError, assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
@@ -47,15 +46,14 @@ export class ICalIncomingInvitation extends IncomingInvitation {
     }
   }
 
+  /** @param mailAccount (Optional) The account whose identity answers. Default: the identities of the event's calendar */
   static participantMe(event: Event, mailAccount?: MailAccount): { identity: MailIdentity, myParticipant: Participant } {
     let results = [];
-    let accounts = mailAccount ? [mailAccount] : appGlobal.emailAccounts.contents.filter(account => account.canSendOutgoingInvitations);
-    for (let account of accounts) {
-      for (let identity of account.identities) {
-        for (let myParticipant of event.participants) {
-          if (identity.isEMailAddress(myParticipant.emailAddress)) {
-            results.push({ identity, myParticipant });
-          }
+    let identities = mailAccount?.identities ?? event.calendar.identitiesAvailable;
+    for (let identity of identities) {
+      for (let myParticipant of event.participants) {
+        if (identity.isEMailAddress(myParticipant.emailAddress)) {
+          results.push({ identity, myParticipant });
         }
       }
     }
