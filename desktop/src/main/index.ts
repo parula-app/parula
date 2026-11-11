@@ -7,7 +7,7 @@ import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
 import { appName, dataAppName } from '../../../app/logic/build'
 
-function createWindow(): void {
+async function createWindow(): Promise<void> {
   try {
     let jpcSecret = createJPCSecret();
     startupBackend(jpcSecret)
@@ -91,8 +91,8 @@ function createWindow(): void {
     if (is.dev && true) {
       /* Vite sends its pre-bundled dependencies as `immutable`, and the HTTP cache survives restarts.
        * After a re-bundle with the same version hash, the window would get the old files, which import deleted chunks. */
-      mainWindow.webContents.session.clearCache()
-        .then(() => mainWindow.loadURL('http://localhost:5454/#jpcSecret=' + jpcSecret))
+      await mainWindow.webContents.session.clearCache();
+      mainWindow.loadURL('http://localhost:5454/#jpcSecret=' + jpcSecret)
         .catch(console.error);
     } else if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
       mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#jpcSecret=' + jpcSecret)
