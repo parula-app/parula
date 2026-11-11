@@ -3,7 +3,7 @@
     <hbox class="domain">{domain}</hbox>
     <hbox class="buttons">
       <Button label={$t`Open in browser`} classes="filled" onClick={onOpen} />
-      <Button label={$t`Copy link`} classes="secondary" onClick={onCopy} />
+      <Button label={$t`Copy link`} icon={CopyIcon} iconOnly classes="secondary" onClick={onCopy} />
     </hbox>
     <hbox class="url">{url}</hbox>
     <Checkbox checked={false} allowIndetermined={false}
@@ -54,6 +54,7 @@
   import Popup from "./Popup.svelte";
   import Button from "./Button.svelte";
   import Checkbox from "./Checkbox.svelte";
+  import CopyIcon from "lucide-svelte/icons/copy";
   import { openExternalURL } from "../../logic/util/os-integration";
   import { catchErrors } from "../Util/error";
   import { tick } from "svelte";

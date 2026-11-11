@@ -107,7 +107,7 @@ test("Return opens the link in the browser", async () => {
 
 test("Return on [Copy link] leaves the action to that button", async () => {
   let popupE = await showPopup("https://foo.com/");
-  let copyButton = [...popupE.querySelectorAll("button")].find(button => button.textContent.includes("Copy link"));
+  let copyButton = popupE.querySelector(`button[title="Copy link"]`);
   pressKey(copyButton, "Enter");
   await Promise.resolve();
   expect(opened).toEqual([]);
