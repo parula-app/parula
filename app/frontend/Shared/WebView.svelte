@@ -1,5 +1,8 @@
 // #if [!WEBMAIL && !MOBILE]
 <webview bind:this={webviewE} src={url ?? blobURL} {title} class:hidden {partition} />
+{#if askBeforeOpeningLinks}
+  <OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
+{/if}
 // #else
 <iframe bind:this={webviewE} src={url ?? blobURL} {title} {sandbox} class:hidden />
 // #endif
@@ -24,6 +27,8 @@
   import { buildContextMenu, MenuItem, type ContextInfo } from "./ContextMenu";
   import { newElectronKeyboardEvent, onKeyOnMessage } from "../Mail/Message/MessageKeyboard";
   import { appGlobal } from "../../logic/app";
+  import OpenLinkPopup, { askBeforeOpening } from "./OpenLinkPopup.svelte";
+  import type { VirtualElement } from "@popperjs/core";
   // import { Menu } from "@svelteuidev/core";
   // #endif
   import { stringToBlobURL } from "../Util/util";
@@ -66,6 +71,12 @@
    * This does *not* limit user clicks on links like `<a href="https://...">`.
    */
   export let allowServerCalls: boolean | string = true;
+
+  /** When the user clicks on a link, show where it goes, and let them
+   * open it in the browser or copy it.
+   * For untrusted content like mails.
+   * false (default) = Open links in the browser at once */
+  export let askBeforeOpeningLinks = false;
 
   $: partition = sessionID ? "persist:" + sessionID : undefined;
 
@@ -171,10 +182,30 @@
         return;
       }
       if (event.type == "mouseDown" && event.button == "left") {
-        await openExternalURL(url);
+        if (askBeforeOpeningLinks && askBeforeOpening(url)) {
+          clickEvent = event;
+          await openLinkPopup.show(url);
+        } else {
+          await openExternalURL(url);
+        }
       }
     });
   }
+
+  let openLinkPopup: OpenLinkPopup;
+  /** The Electron `MouseInputEvent` of the click on the link.
+   * Its `x` and `y` are relative to the webview. */
+  let clickEvent: { x: number, y: number };
+  /** We don't know how high the link is, so we assume 1 line in the normal font of a mail:
+   * 16px with `line-height: 1.5` in `content-body.css` */
+  const kLinkHeight = 24;
+  /** The link that the user clicked on. The popup appears below or above it. */
+  const linkAnchor: VirtualElement = {
+    getBoundingClientRect() {
+      let webview = webviewE.getBoundingClientRect();
+      return new DOMRect(webview.x + clickEvent.x, webview.y + clickEvent.y - kLinkHeight / 2, 0, kLinkHeight);
+    },
+  };
 
   let contextMenuItems: ArrayColl<MenuItem>;
   async function onContextMenu(contextInfo: ContextInfo) {

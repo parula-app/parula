@@ -73,7 +73,11 @@
 
   let id: string = randomID();
 
-  function onToggle() {
+  function onToggle(event: MouseEvent) {
+    // A click on the label also clicks the <input>, so we get 2 clicks. Toggle only once.
+    if (!toggle && (event.target as Element).closest("label")) {
+      return;
+    }
     if (disabled) {
       return;
     }
