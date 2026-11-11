@@ -34,6 +34,19 @@ export class JMAPEvent extends Event {
     this.original = jmap;
   }
 
+  /** The days of the duration are calendar days in each instance, too (RFC 8984 §1.4.6 and §4.3.5) */
+  protected setInstanceEndTimes(instances: Event[]) {
+    let master = { start: JSCalendarEvent.fromDate(this.startTime, this), timeZone: this.timezone, duration: this.original?.duration } as TJMAPCalendarEvent;
+    let duration = JSCalendarEvent.fromEndTime(this, master);
+    if (this.allDay || !JSCalendarEvent.calendarDays(duration)) {
+      super.setInstanceEndTimes(instances);
+      return;
+    }
+    for (let instance of instances) {
+      instance.endTime = JSCalendarEvent.toEndTime({ ...master, start: JSCalendarEvent.fromDate(instance.startTime, this) }, duration);
+    }
+  }
+
   updateRecurrenceOverrides(exceptions: ArrayColl<Event>) {
     let ro = this.original.recurrenceOverrides;
     for (let override in ro) {
