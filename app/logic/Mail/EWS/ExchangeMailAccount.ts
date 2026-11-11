@@ -4,7 +4,11 @@ import { Calendar } from "../../Calendar/Calendar";
 import { ExchangeCalendar } from "../../Calendar/EWS/ExchangeCalendar";
 import { PersonUID } from "../../Abstract/PersonUID";
 import { appGlobal } from "../../app";
+import { OutlookRulesCopy } from "./OutlookRulesCopy";
+import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
+import { AbstractFunction, UserError } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
+import { gt } from "../../../l10n/l10n";
 import { ArrayColl, Collection } from "svelte-collections";
 
 export class ExchangeMailAccount extends MailAccount {
@@ -12,6 +16,8 @@ export class ExchangeMailAccount extends MailAccount {
   readonly tls = TLSSocketType.TLS;
   readonly canSendOutgoingInvitations: boolean = false;
   deleteStrategy: DeleteStrategy = DeleteStrategy.MoveToTrash;
+  /** Outlook can make its copy of the rules again from the server rules. @see `checkOutlookRulesCopy()` */
+  protected mayDeleteOutlookRulesCopy = false;
 
   get calendarsAvailable(): Collection<Calendar> {
     let mailboxCalendars = this.calendarsOfMailbox(this.username);
@@ -62,6 +68,68 @@ export class ExchangeMailAccount extends MailAccount {
       return null;
     }
     return new PersonUID(address, sanitize.nonemptylabel(name, null) ?? undefined);
+  }
+
+  /** When another client changes the server rules, Exchange deletes the copy of the rules that Outlook keeps.
+   * Outlook makes a new copy, but without its rules for sent mail and the rules that are turned off in Outlook, which exist only in that copy.
+   * @param exist We know that the copy exists, but not which rules only the copy has */
+  protected setOutlookRulesExist(exist: boolean) {
+    this.mayDeleteOutlookRulesCopy = false;
+    this.serverFilterRulesNotice = null;
+    this.serverFilterRulesReadOnlyReason = exist
+      ? gt`Classic Outlook keeps its own copy of the rules for this account. Exchange would delete it when the rules change here, and the rules in Outlook for sent mail and the rules that are turned off in Outlook would be lost. You can change the rules in Outlook.`
+      : null;
+  }
+
+  /** Reads the copy of the rules that Outlook keeps, and allows changes to the server rules,
+   * if the copy has no rules that the server does not have. Then, Outlook can make the same copy again.
+   * @param serverRules All rules on the server
+   * @param exists Whether the server said that the copy exists. null, if it did not say. */
+  protected async checkOutlookRulesCopy(serverRules: FilterRuleAction[], exists: boolean | null) {
+    if (exists === false) {
+      this.setOutlookRulesExist(false);
+      return;
+    }
+    let lostRules: string[];
+    try {
+      let streams = await this.fetchOutlookRulesStreams();
+      if (!streams.length) {
+        this.setOutlookRulesExist(!!exists);
+        return;
+      }
+      lostRules = [...new Set(streams.flatMap(stream =>
+        new OutlookRulesCopy(stream).lostRules(serverRules).contents.map(rule => rule.name)))];
+    } catch (ex) {
+      this.dataError(ex);
+      this.setOutlookRulesExist(exists ?? false);
+      return;
+    }
+    this.setOutlookRulesExist(true);
+    if (lostRules.length) {
+      this.serverFilterRulesReadOnlyReason = gt`Classic Outlook keeps its own copy of the rules for this account. Exchange would delete it when the rules change here, and these rules would be lost, because only Outlook has them: ${lostRules.join(", ")}. You can change the rules in Outlook.`;
+      return;
+    }
+    this.serverFilterRulesReadOnlyReason = null;
+    this.serverFilterRulesNotice = gt`Classic Outlook keeps its own copy of the rules for this account. When the rules change here, Exchange deletes it, and Outlook makes a new one.`;
+    this.mayDeleteOutlookRulesCopy = true;
+  }
+
+  /** Before we let Exchange delete the copy of the rules that Outlook keeps:
+   * Outlook may have changed its copy since we read it. */
+  protected async checkOutlookRulesCopyAgain() {
+    if (!this.mayDeleteOutlookRulesCopy) {
+      return;
+    }
+    await this.fetchServerFilterRules();
+    if (this.serverFilterRulesReadOnlyReason) {
+      throw new UserError(this.serverFilterRulesReadOnlyReason);
+    }
+  }
+
+  /** @returns The property `PR_RW_RULES_STREAM` of each hidden message in the Inbox with the copy of the rules that Outlook keeps.
+   * Empty, if there is no copy. */
+  protected async fetchOutlookRulesStreams(): Promise<Uint8Array[]> {
+    throw new AbstractFunction();
   }
 
   async deleteIt(): Promise<void> {

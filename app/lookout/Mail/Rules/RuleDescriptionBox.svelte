@@ -1,9 +1,9 @@
-<vbox class="rule-description" class:empty={!lines.length} class:fill>
+<vbox class="rule-description" class:empty={!lines.length} class:fill class:read-only={readOnly}>
   {#each lines as line, i}
     <div class="line" class:continued={isContinued(i)}>
       {#if isContinued(i)}{$t`and *=> as in: from Ben and with Hello in the subject`}{/if}
       {#each line.parts as part}
-        {#if part.isValue && line.item}
+        {#if part.isValue && line.item && !readOnly}
           <button type="button" class="value" class:placeholder={part.isPlaceholder}
             on:click={() => dispatch("edit", line.item)}>{part.text}</button>
         {:else if part.isValue}
@@ -28,6 +28,7 @@
   export let lines: RuleDescriptionLine[];
   export let example: string | null = null;
   export let fill = false;
+  export let readOnly = false;
 
   const dispatch = createEventDispatcher<{ edit: RuleItem }>();
 
@@ -73,6 +74,10 @@
   }
   span.value {
     cursor: default;
+  }
+  .rule-description.read-only .value {
+    color: inherit;
+    text-decoration: none;
   }
   .value:hover {
     color: var(--lo-accent-hover);

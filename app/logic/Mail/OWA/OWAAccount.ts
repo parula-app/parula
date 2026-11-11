@@ -5,6 +5,9 @@ import type { EMail } from "../EMail";
 import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShareIndividualPermissions } from "../Folder";
 import { OWAFolder } from "./OWAFolder";
 import { OWASearchEMail } from "./OWASearchEMail";
+import { OWAFilterRule } from "./OWAFilterRule";
+import { OutlookRulesCopy } from "../EWS/OutlookRulesCopy";
+import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
 import { OWAError } from "./OWAError";
 import type { OWANotifications } from "./Notification/OWANotifications";
 import { OWAExchangeNotifications } from "./Notification/OWAExchangeNotifications";
@@ -16,6 +19,7 @@ import type { OWAAddressbook } from "../../Contacts/OWA/OWAAddressbook";
 import { newCalendarForProtocol} from "../../Calendar/AccountsList/Calendars";
 import type { OWACalendar } from "../../Calendar/OWA/OWACalendar";
 import { OWARequest } from "./Request/OWARequest";
+import { OWAOptionsRequest } from "./Request/OWAOptionsRequest";
 import { OWACreateItemRequest } from "./Request/OWACreateItemRequest";
 import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
 import { OWASubscribeToHierarchyNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
@@ -34,8 +38,9 @@ import { Throttle } from "../../util/flow/Throttle";
 import { Semaphore } from "../../util/flow/Semaphore";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { notifyChangedProperty } from "../../util/Observable";
+import { base64ToUint8Array } from "../../util/blob";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { assert, ensureArray, NotSupported, NotReached } from "../../util/util";
+import { assert, ensureArray, NotSupported, NotReached, UserError } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
 
@@ -891,6 +896,127 @@ export class OWAAccount extends ExchangeMailAccount {
     for (let folder of foldersToShare) {
       await setExchangePermissions(folder as OWAFolder, otherPerson, access, ...permissions);
     }
+  }
+
+  get canServerFilterRules(): boolean {
+    return !this.isDependentAccount;
+  }
+
+  newServerFilterRule(json: any): OWAFilterRule {
+    return new OWAFilterRule(this, json);
+  }
+
+  protected async fetchServerFilterRules(): Promise<FilterRuleAction[]> {
+    let response = await this.callOWAOptions(new OWAOptionsRequest("GetInboxRule"));
+    let rules = ensureArray(response.InboxRuleCollection?.InboxRules)
+      .map(json => this.newServerFilterRule(json))
+      .sort((a, b) => a.priority - b.priority)
+      .map(serverRule => serverRule.toFilterRule());
+    await this.checkOutlookRulesCopy(rules, null);
+    return rules;
+  }
+
+  protected async fetchOutlookRulesStreams(): Promise<Uint8Array[]> {
+    let result = await this.callOWA(new OWARequest("FindItem", {
+      __type: "FindItemRequest:#Exchange",
+      ItemShape: {
+        __type: "ItemResponseShape:#Exchange",
+        BaseShape: "IdOnly",
+      },
+      ParentFolderIds: [{
+        __type: "DistinguishedFolderId:#Exchange",
+        Id: "inbox",
+      }],
+      Traversal: "Associated",
+      Restriction: {
+        Item: {
+          __type: "IsEqualTo:#Exchange",
+          Item: {
+            __type: "PropertyUri:#Exchange",
+            FieldURI: "item:ItemClass",
+          },
+          FieldURIOrConstant: {
+            __type: "FieldURIOrConstantType:#Exchange",
+            Item: {
+              __type: "Constant:#Exchange",
+              Value: OutlookRulesCopy.kItemClass,
+            },
+          },
+        },
+      },
+      Paging: {
+        __type: "IndexedPageView:#Exchange",
+        BasePoint: "Beginning",
+        Offset: 0,
+        MaxEntriesReturned: 10,
+      },
+    }));
+    let streams: Uint8Array[] = [];
+    for (let item of ensureArray(result?.RootFolder?.Items)) {
+      let response = await this.callOWA(new OWARequest("GetItem", {
+        __type: "GetItemRequest:#Exchange",
+        ItemShape: {
+          __type: "ItemResponseShape:#Exchange",
+          BaseShape: "IdOnly",
+          AdditionalProperties: [{
+            __type: "ExtendedPropertyUri:#Exchange",
+            PropertyTag: OutlookRulesCopy.kPropertyTag,
+            PropertyType: "Binary",
+          }],
+        },
+        ItemIds: [{
+          __type: "ItemId:#Exchange",
+          Id: sanitize.nonemptystring(item?.ItemId?.Id),
+        }],
+      }));
+      let value = ensureArray(response?.Items?.[0]?.ExtendedProperty)[0]?.Value;
+      streams.push(base64ToUint8Array(sanitize.nonemptystring(value)));
+    }
+    return streams;
+  }
+
+  protected async uploadServerFilterRules(rules: FilterRuleAction[], deletedIDs: string[]): Promise<void> {
+    let requests = deletedIDs.map(id => new OWAOptionsRequest("RemoveInboxRule", { Identity: { RawIdentity: id } }));
+    let created = new Map<OWAOptionsRequest, FilterRuleAction>();
+    for (let [i, rule] of rules.entries()) {
+      let serverRule = this.newServerFilterRule(rule.serverJSON);
+      let changed = serverRule.withChangesFrom(rule, i + 1) as OWAFilterRule;
+      if (!rule.serverID) {
+        let request = new OWAOptionsRequest("NewInboxRule", { InboxRule: changed.newParameters });
+        created.set(request, rule);
+        requests.push(request);
+      } else if (changed.isChangedFrom(serverRule)) {
+        requests.push(new OWAOptionsRequest("SetInboxRule", { InboxRule: changed.setParameters(serverRule) }));
+      }
+    }
+    if (!requests.length) {
+      return;
+    }
+    await this.checkOutlookRulesCopyAgain();
+    for (let request of requests) {
+      // `AlwaysDeleteOutlookRulesBlob` would hide the warning also for later changes in Outlook on the web
+      Object.assign(request, { AlwaysDeleteOutlookRulesBlob: false, Force: this.mayDeleteOutlookRulesCopy });
+      let response = await this.callOWAOptions(request);
+      let rule = created.get(request);
+      if (rule) {
+        rule.serverID = this.newServerFilterRule(response.InboxRule).id;
+      }
+    }
+  }
+
+  /** The commands of the OWA options report errors in their own way */
+  protected async callOWAOptions(request: OWAOptionsRequest): Promise<any> {
+    let response = await this.callOWA(request);
+    if (response.WasSuccessful === false) {
+      const kPromptUser = 4;
+      if (response.ErrorCode == kPromptUser || response.ErrorCode == "PromptUser") {
+        // The only question of the rule commands: Delete the copy of the rules that Outlook keeps?
+        this.setOutlookRulesExist(true);
+        throw new UserError(this.serverFilterRulesReadOnlyReason);
+      }
+      throw new Error(sanitize.label(response.ErrorMessage, null) || sanitize.label(response.UserPrompt, null) || gt`The mail server could not process the rules`);
+    }
+    return response;
   }
 
   fromConfigJSON(json: any) {

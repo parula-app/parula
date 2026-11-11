@@ -1,6 +1,6 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
 import { appGlobal } from "../../../../logic/app";
-import { Person } from "../../../../logic/Abstract/Person";
+import { ContactEntry, Person } from "../../../../logic/Abstract/Person";
 import { DeleteStrategy, MailAccount } from "../../../../logic/Mail/MailAccount";
 import { Folder, SpecialFolder } from "../../../../logic/Mail/Folder";
 import { EMail } from "../../../../logic/Mail/EMail";
@@ -47,6 +47,26 @@ test("The target folder of a rule survives saving and reading the config", async
 
   let readRule = readAccount.filterRuleActions.first;
   expect(readRule.toFolder?.name).toBe("Newsletters");
+});
+
+// The config is read before the address books, and the sender may be in none of them
+test("A rule for the mails of one sender stays limited to that sender after reading the config", async () => {
+  let account = await setupAccount();
+  let rule = new FilterRuleAction(account);
+  let sender = new Person();
+  sender.emailAddresses.add(new ContactEntry("bob@example.com", "primary"));
+  rule.criteria.includesPerson = sender;
+  rule.markAsRead = true;
+  account.filterRuleActions.add(rule);
+
+  let readAccount = await setupAccount();
+  readAccount.fromConfigJSON(JSON.parse(JSON.stringify(account.toConfigJSON())));
+  let email = newTestMail(readAccount.inbox); // from Alice
+  await email.saveCompleteMessage();
+
+  expect(readAccount.filterRuleActions.first.criteria.includesPerson?.emailAddresses.first?.value).toBe("bob@example.com");
+  expect(readAccount.serverActions.contents).toEqual([]);
+  expect(email.isRead).toBe(false);
 });
 
 test("A rule marks the mail as read and tags it, in the database", async () => {
@@ -115,6 +135,20 @@ test("Rules do not run on the mail in other folders", async () => {
 
   expect(account.serverActions.contents).toEqual([]);
   expect((await storedMails(account)).map(row => row.isRead)).toEqual([0]);
+});
+
+test("A rule that the server runs does not run here", async () => {
+  let account = await setupAccount();
+  let rule = new FilterRuleAction(account);
+  rule.server = true;
+  rule.markAsRead = true;
+  account.filterRuleActions.add(rule);
+
+  let email = newTestMail(account.inbox);
+  await email.saveCompleteMessage();
+
+  expect(account.serverActions.contents).toEqual([]);
+  expect(email.isRead).toBe(false);
 });
 
 test("A rule for mails that I send does not run on incoming mail", async () => {

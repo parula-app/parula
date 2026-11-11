@@ -1,4 +1,4 @@
-<Dialog title={$t`Rules and Alerts`} on:close={onClose} width="720px" height="640px">
+<Dialog title={$t`Rules and Alerts`} on:close={onClose} width="720px" height="720px">
   <DialogTabs tabs={[{ id: "email-rules", label: $t`Email Rules` }]} selected="email-rules" />
   <hbox class="folder-row">
     <span>{$t`Apply changes to this folder`}</span>
@@ -7,7 +7,7 @@
   <hbox class="toolbar">
     <DialogButton label={$t`New Rule…`} icon={NewIcon} classes="plain" onClick={onNew} />
     <DialogButton label={$t`Change Rule`} icon={EditIcon} classes="plain" hasMenu
-      disabled={!selected && noSelection}
+      disabled={!selected ? noSelection : readOnlyReason ?? false}
       onClick={() => { isChangeMenuOpen = !isChangeMenuOpen; }}
       bind:buttonEl={changeButton} />
     <Menu bind:isMenuOpen={isChangeMenuOpen} anchor={changeButton} placement="bottom-start">
@@ -19,17 +19,17 @@
       <MenuItem label={$t`Delete Message *=> Change the rule so that it deletes the emails`} icon={DeleteMessageIcon} onClick={onDeleteMessage} />
     </Menu>
     <DialogButton label={$t`Copy… *=> Copy the selected rule to another account`} icon={CopyIcon} classes="plain"
-      disabled={!selected && noSelection} onClick={() => { isCopying = true; }} />
+      disabled={!selected ? noSelection : readOnlyReason ?? false} onClick={() => { isCopying = true; }} />
     <DialogButton label={$t`Delete`} icon={DeleteIcon} classes="plain"
-      disabled={!selected && noSelection} onClick={onDelete} />
+      disabled={!selected ? noSelection : readOnlyReason ?? false} onClick={onDelete} />
     <hbox class="separator" />
     <DialogButton label="" icon={MoveUpIcon} classes="plain"
       tooltip={$t`Move Up *=> Move the selected rule up in the list`}
-      disabled={!canMoveUp && $t`This rule runs first`}
+      disabled={readOnlyReason ?? (!canMoveUp && $t`This rule runs first`)}
       onClick={() => onMove(-1)} />
     <DialogButton label="" icon={MoveDownIcon} classes="plain"
       tooltip={$t`Move Down *=> Move the selected rule down in the list`}
-      disabled={!canMoveDown && $t`This rule runs last`}
+      disabled={readOnlyReason ?? (!canMoveDown && $t`This rule runs last`)}
       onClick={() => onMove(1)} />
   </hbox>
   <vbox flex class="list">
@@ -47,10 +47,40 @@
     {/if}
   </vbox>
   <span class="description-label">{$t`Rule description (click an underlined value to edit)`}</span>
-  <RuleDescriptionBox lines={descriptionLines} on:edit={event => onValueClick(event.detail)} />
+  <RuleDescriptionBox lines={descriptionLines} readOnly={!!readOnlyReason} on:edit={event => onValueClick(event.detail)} />
+  {#if account.canServerFilterRules && selected}
+    <hbox class="run-by">
+      <span>{$t`Run by *=> Who runs the rule: this app, or the mail server`}</span>
+      <Radio label={appName} name="run-by" value={false} group={selected.server} on:change={() => onRunBy(false)}
+        disabled={cannotRunHere ?? false} />
+      <Radio label={$t`The mail server`} name="run-by" value={true} group={selected.server} on:change={() => onRunBy(true)}
+        disabled={cannotRunOnServer ?? false} />
+    </hbox>
+  {/if}
+  {#if readOnlyReason || notice || unknownParts.length}
+    <vbox class="server-notes lo-secondary">
+      {#if readOnlyReason}
+        <span>{readOnlyReason}</span>
+      {:else if notice}
+        <span>{notice}</span>
+      {/if}
+      {#if unknownParts.length}
+        <span>{$t`Parts of this rule that ${appName} cannot show or change`}</span>
+        <ul>
+          {#each unknownParts as part}
+            <li>{part}</li>
+          {/each}
+        </ul>
+      {/if}
+    </vbox>
+  {/if}
   <hbox class="hint lo-secondary">
     <InfoIcon size={14} />
-    {$t`Rules run in ${appName} when it downloads new messages`}
+    {#if selected?.server}
+      {$t`The mail server runs this rule, also while ${appName} is not running`}
+    {:else}
+      {$t`Rules run in ${appName} when it downloads new messages`}
+    {/if}
   </hbox>
   <svelte:fragment slot="footer">
     <DialogButton label={$t`OK`} primary onClick={onOK} />
@@ -96,6 +126,7 @@
   import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
   import DialogTabs from "../../Shared/Dialog/DialogTabs.svelte";
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
+  import Radio from "../../Shared/Form/Radio.svelte";
   import type { ComboOption } from "../../Shared/Form/ComboOption";
   import RulesListItem from "./RulesListItem.svelte";
   import RuleDescriptionBox from "./RuleDescriptionBox.svelte";
@@ -120,6 +151,7 @@
   import MoveUpIcon from "lucide-svelte/icons/arrow-up";
   import MoveDownIcon from "lucide-svelte/icons/arrow-down";
   import InfoIcon from "lucide-svelte/icons/info";
+  import { catchErrors } from "../../../frontend/Util/error";
   import { createEventDispatcher } from "svelte";
   import { t } from "../../../l10n/l10n";
 
@@ -155,10 +187,16 @@
     shownAccount = account;
     selected = rules.first ?? null;
   }
+  $: account, catchErrors(() => refreshServerRules(account));
   $: noSelection = $t`Select a rule first`;
   $: canMoveUp = !!selected && $rules && rules.indexOf(selected) > 0;
   $: canMoveDown = !!selected && $rules && rules.indexOf(selected) >= 0 && rules.indexOf(selected) < rules.length - 1;
   $: descriptionLines = selected && version >= 0 ? ruleDescriptionLines(selected) : [];
+  $: readOnlyReason = selected && version >= 0 && $account ? selected.readOnlyReason : null;
+  $: unknownParts = selected?.server && version >= 0 ? selected.serverRule?.unknownParts ?? [] : [];
+  $: notice = selected?.server && version >= 0 ? $account.serverFilterRulesNotice : null;
+  $: cannotRunHere = readOnlyReason ?? (unknownParts.length ? $t`${appName} cannot run all parts of this rule` : null);
+  $: cannotRunOnServer = readOnlyReason ?? (selected?.server ? null : $account.serverFilterRulesReadOnlyReason);
 
   function workingList(mailAccount: MailAccount): RulesWorkingList {
     let existing = workingLists.get(mailAccount);
@@ -175,13 +213,31 @@
     isChanged = [...workingLists.values()].some(working => working.isChanged);
   }
 
+  async function refreshServerRules(mailAccount: MailAccount) {
+    await mailAccount.refreshServerFilterRules();
+    let working = workingList(mailAccount);
+    if (working.isChanged) {
+      return;
+    }
+    working.reload();
+    if (working == list && !rules.contains(selected)) {
+      selected = rules.first ?? null;
+    }
+    changed();
+  }
+
+  function onRunBy(server: boolean) {
+    selected.server = server;
+    changed();
+  }
+
   function onNew() {
     editedRule = null;
     isWizardOpen = true;
   }
 
   function onEdit() {
-    if (!selected) {
+    if (!selected || readOnlyReason) {
       return;
     }
     editedRule = selected;
@@ -311,6 +367,23 @@
   .description-label {
     flex-shrink: 0;
     margin-block: 10px 4px;
+  }
+  .run-by {
+    flex-shrink: 0;
+    align-items: center;
+    gap: 16px;
+    margin-block-start: 10px;
+  }
+  .server-notes {
+    min-height: 0;
+    overflow-y: auto;
+    gap: 2px;
+    margin-block-start: 8px;
+    font-size: var(--lo-font-size-small);
+  }
+  .server-notes ul {
+    margin: 0;
+    padding-inline-start: 20px;
   }
   .hint {
     flex-shrink: 0;

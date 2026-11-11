@@ -1,10 +1,10 @@
 import type { EMail } from "../EMail";
-import type { Person } from "../../Abstract/Person";
+import { ContactEntry, Person } from "../../Abstract/Person";
 import type { MailAccount } from "../MailAccount";
 import type { Folder } from "../Folder";
 import type { Workspace } from "../../Abstract/Workspace";
 import { getTagByName, type Tag } from "../../Abstract/Tag";
-import { findPerson } from "../../Abstract/PersonUID";
+import { findPerson, nameFromEmailAddress } from "../../Abstract/PersonUID";
 import { appGlobal } from "../../app";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty, Observable } from "../../util/Observable";
@@ -36,8 +36,18 @@ export class SearchEMail extends Observable {
 
   @notifyChangedProperty
   isOutgoing: boolean | null = null;
+  _includesPerson: Person | null = null;
   @notifyChangedProperty
-  includesPerson: Person | null = null;
+  includesPersonEMail: string | null = null;
+  /** Filter rules are read before the address books, so we find the person only later.
+   * The person may also be in none of the address books. */
+  get includesPerson(): Person | null {
+    return this._includesPerson ?? (this.includesPersonEMail && (this._includesPerson ??= findPerson(this.includesPersonEMail) ?? this.newPerson(this.includesPersonEMail))) ?? null;
+  }
+  set includesPerson(person: Person | null) {
+    this._includesPerson = person;
+    this.includesPersonEMail = person?.emailAddresses.first?.value ?? null;
+  }
 
   @notifyChangedProperty
   messageID: string | null = null;
@@ -79,6 +89,13 @@ export class SearchEMail extends Observable {
     throw new AbstractFunction();
   }
 
+  protected newPerson(emailAddress: string): Person {
+    let person = new Person();
+    person.name = nameFromEmailAddress(emailAddress);
+    person.emailAddresses.add(new ContactEntry(emailAddress, "primary"));
+    return person;
+  }
+
   fromJSON(json: any) {
     function boolean(value: boolean | null): boolean | null {
       return typeof (value) == "boolean" ? value : null;
@@ -98,7 +115,8 @@ export class SearchEMail extends Observable {
     this.sentDateMin = sanitize.date(json.sentDateMin, null) ?? null;
     this.sentDateMax = sanitize.date(json.sentDateMax, null) ?? null;
 
-    this.includesPerson = findPerson(json.includesPersonEMail);
+    this.includesPersonEMail = sanitize.emailAddress(json.includesPersonEMail, null);
+    this._includesPerson = null;
     this.account = appGlobal.emailAccounts.find(acc => acc.id == json.accountID);
     this.folderID = sanitize.nonemptystring(json.folderID, null);
     this._folder = null;
@@ -120,7 +138,7 @@ export class SearchEMail extends Observable {
       threadID: this.threadID,
       sentDateMin: this.sentDateMin?.toISOString(),
       sentDateMax: this.sentDateMax?.toISOString(),
-      includesPersonEMail: this.includesPerson?.emailAddresses.first?.value ?? null,
+      includesPersonEMail: this.includesPersonEMail,
       accountID: this.account?.id ?? this.folder?.account?.id,
       folderID: this.folderID,
       tags: this.tags?.contents.map(tag => tag.name),
@@ -133,7 +151,8 @@ export class SearchEMail extends Observable {
     this._folder = other._folder;
     this.folderID = other.folderID;
     this.isOutgoing = other.isOutgoing;
-    this.includesPerson = other.includesPerson;
+    this._includesPerson = other._includesPerson;
+    this.includesPersonEMail = other.includesPersonEMail;
     this.messageID = other.messageID;
     this.threadID = other.threadID;
     this.sentDateMin = other.sentDateMin;

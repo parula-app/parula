@@ -67,6 +67,40 @@ test("Added and removed rules are applied, Apply without changes doesn't save", 
   expect(account.filterRuleActions.first.name).toBe("changed again");
 });
 
+/** @returns The names of the server rules, for each save. "(new)", if the server should create it. */
+function letServerRunRules(account: MailAccount): string[][] {
+  let uploads: string[][] = [];
+  Object.defineProperty(account, "canServerFilterRules", { get: () => true });
+  let server = account as any;
+  server.fetchServerFilterRules = async () => account.filterRuleActions.contents
+    .filter(rule => rule.serverID)
+    .map(rule => rule.clone());
+  server.uploadServerFilterRules = async (rules: FilterRuleAction[]) => {
+    uploads.push(rules.map(rule => rule.name + (rule.serverID ? "" : " (new)")));
+    for (let rule of rules) {
+      rule.serverID ??= "id-" + rule.name;
+    }
+  };
+  return uploads;
+}
+
+test("A rule that the server created is not created again at the next Apply", async () => {
+  let uploads = letServerRunRules(account);
+  let list = new RulesWorkingList(account);
+  let added = new FilterRuleAction(account);
+  added.name = "Newsletters";
+  added.server = true;
+  list.rules.add(added);
+  await list.apply();
+
+  added.markAsRead = true;
+  await list.apply();
+
+  expect(uploads).toEqual([["Newsletters (new)"], ["Newsletters"]]);
+  expect(account.filterRuleActions.length).toBe(1);
+  expect(list.isChanged).toBe(false);
+});
+
 test("Copy to another account only without folders", () => {
   let secondAccount = RulesTestAccount.create("b", ["Inbox"]);
   let rule = newRule("first");
