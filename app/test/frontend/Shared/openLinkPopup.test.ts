@@ -3,7 +3,8 @@
 import "../Util/happyDOMForDOMPurify";
 // app first, to resolve the import cycle around Abstract/Account.ts
 import { appGlobal } from "../../../logic/app";
-import OpenLinkPopup, { askBeforeOpening, removeTrackingURL } from "../../../frontend/Shared/OpenLinkPopup.svelte";
+import OpenLinkPopup, { askBeforeOpening } from "../../../frontend/Shared/OpenLinkPopup.svelte";
+import { removeTrackingURL } from "../../../logic/util/netUtil";
 import { sanitizeHTML } from "../../../logic/util/convertHTML";
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -156,28 +157,6 @@ describe("Tracking links", () => {
   function checkbox(popupE: Element, selector: string): HTMLInputElement {
     return popupE.querySelector(selector + " input");
   }
-
-  test("Find where a tracking link goes", () => {
-    expect(removeTrackingURL(kTrackingLink)).toBe(kDestination);
-    expect(removeTrackingURL("https://click.tracker.com/c?u=https://www.shop.com/")).toBe("https://www.shop.com/");
-    expect(removeTrackingURL("http://click.tracker.com/c?u=https://www.shop.com/")).toBe("https://www.shop.com/");
-    expect(removeTrackingURL("https://www.shop.com/shoes?size=42")).toBe("https://www.shop.com/shoes?size=42");
-    expect(removeTrackingURL("https://www.shop.com/")).toBe("https://www.shop.com/");
-  });
-
-  test("Only to https: web pages", () => {
-    for (let url of [
-      "https://click.tracker.com/c?u=http://www.shop.com/",
-      "https://click.tracker.com/c?u=javascript:alert(1)",
-      "https://click.tracker.com/c?u=mailto:fred@foo.com",
-      "https://click.tracker.com/c?u=https://",
-      // A link to another app stays as it is
-      "mailto:fred@foo.com?body=https://www.shop.com/",
-      "not a URL",
-    ]) {
-      expect(removeTrackingURL(url)).toBe(url);
-    }
-  });
 
   test("The popup shows and opens where the tracking link goes", async () => {
     let popupE = await showPopup(kTrackingLink);

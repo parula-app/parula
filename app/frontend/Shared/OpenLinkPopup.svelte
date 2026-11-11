@@ -19,7 +19,7 @@
           <Button label={$t`Copy link`} icon={CopyIcon} iconSize="14px" iconOnly plain onClick={onCopy} />
         </hbox>
       </hbox>
-      {#if removeTrackingURL(originalURL) != originalURL}
+      {#if untrackedURL != originalURL}
         <hbox class="remove-tracking">
           <Checkbox bind:checked={removeTracking} allowIndetermined={false}
             label={$t`Remove tracking URL`} />
@@ -40,7 +40,7 @@
 </Popup>
 
 <script lang="ts" context="module">
-  import { getBaseDomainFromHost } from "../../logic/util/netUtil";
+  import { getBaseDomainFromHost, removeTrackingURL } from "../../logic/util/netUtil";
   import { getUserPreference, setUserPreference } from "../../logic/util/util";
   import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 
@@ -63,41 +63,17 @@
   /** @returns e.g. "foo.com" for "https://a.b.foo.com/bar",
    *   or null for links that are not to web pages */
   function linkDomain(url: string): string | null {
-    let parsed = parseURL(url);
-    if (!parsed || !["https:", "http:"].includes(parsed.protocol) || !parsed.hostname) {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch (ex) {
+      return null;
+    }
+    if (!["https:", "http:"].includes(parsed.protocol) || !parsed.hostname) {
       return null;
     }
     // `URL` gives the punycode, so look-alike Unicode domains show what they really are
     return getBaseDomainFromHost(parsed.hostname) ?? parsed.hostname;
-  }
-
-  /** Links in mails often go to a tracker, which records the click,
-   * and then forwards to the real page, which is in a URL parameter.
-   * E.g. "https://click.tracker.com/c?id=5&u=https%3A%2F%2Fshop.com%2Fshoes"
-   * @returns where the tracking link forwards to, e.g. "https://shop.com/shoes",
-   *   i.e. the first URL parameter that is an https: URL,
-   *   or `url`, if there is none */
-  export function removeTrackingURL(url: string): string {
-    let parsed = parseURL(url);
-    if (!parsed || !["https:", "http:"].includes(parsed.protocol)) {
-      return url; // e.g. `mailto:fred@foo.com?body=https://...`
-    }
-    for (let value of parsed.searchParams.values()) {
-      let target = parseURL(value);
-      // Only web pages, e.g. not `javascript:` or another app
-      if (target?.protocol == "https:" && target.hostname) {
-        return target.href;
-      }
-    }
-    return url;
-  }
-
-  function parseURL(url: string): URL | null {
-    try {
-      return new URL(url);
-    } catch (ex) {
-      return null;
-    }
   }
 </script>
 
@@ -120,10 +96,11 @@
   let popupOpen = false;
   /** The link as it was in the email */
   let originalURL: string;
+  $: untrackedURL = removeTrackingURL(originalURL);
   let removeTracking = true;
   /** What we show, open and copy: `originalURL`, or where the tracking link goes */
   let targetURL: string;
-  $: targetURL = removeTracking ? removeTrackingURL(originalURL) : originalURL;
+  $: targetURL = removeTracking ? untrackedURL : originalURL;
   /** null, if the link has no web domain */
   let domain: string | null;
   $: domain = linkDomain(targetURL);

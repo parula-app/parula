@@ -26,7 +26,7 @@
   import { buildContextMenu, MenuItem, type ContextInfo } from "./ContextMenu";
   import { newElectronKeyboardEvent, onKeyOnMessage } from "../Mail/Message/MessageKeyboard";
   import { appGlobal } from "../../logic/app";
-  import OpenLinkPopup, { askBeforeOpening, removeTrackingURL } from "./OpenLinkPopup.svelte";
+  import OpenLinkPopup, { askBeforeOpening } from "./OpenLinkPopup.svelte";
   import type { VirtualElement } from "@popperjs/core";
   // import { Menu } from "@svelteuidev/core";
   // #endif
@@ -36,6 +36,7 @@
   import type { ArrayColl } from "svelte-collections";
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { openExternalURL } from "../../logic/util/os-integration";
+  import { removeTrackingURL } from "../../logic/util/netUtil";
   const dispatch = createEventDispatcher();
 
   /**
