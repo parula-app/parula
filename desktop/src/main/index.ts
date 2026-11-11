@@ -89,9 +89,7 @@ async function createWindow(): Promise<void> {
     // Load the remote URL for development or the local html file for production.
     // The `try` above cannot catch these, because they fail asynchronously
     if (is.dev && true) {
-      /* Vite sends its pre-bundled dependencies as `immutable`, and the HTTP cache survives restarts.
-       * After a re-bundle with the same version hash, the window would get the old files, which import deleted chunks. */
-      await mainWindow.webContents.session.clearCache();
+      await mainWindow.webContents.session.clearCache(); // Vite pre-bundled dependencies
       mainWindow.loadURL('http://localhost:5454/#jpcSecret=' + jpcSecret)
         .catch(console.error);
     } else if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
