@@ -650,7 +650,11 @@ function maximizeMainWindow() {
   mainWindow.maximize();
 }
 
-function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => void) {
+/**
+ * @param eventHandler Called for each event. It's in the frontend.
+ * @param errorHandler Gets the errors of `eventHandler`, e.g. `showError()` in the frontend
+ */
+function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => Promise<void> | void, errorHandler: (ex: Error) => Promise<void> | void) {
   const win = webContents.fromId(webContentsID);
   if (!win) {
     // race?
@@ -661,9 +665,14 @@ function addEventListenerWebContents(webContentsID: number, webviewEvent: string
     try {
       await eventHandler(event);
     } catch (ex) {
-      // The handler is in the frontend, so its error comes here over JPC.
-      // `stack` is the call from here. Its own stack is in `backendStack`.
-      console.error(`Error in the handler of the webview event ${webviewEvent}: ${ex?.message}\n${ex?.backendStack ?? ex?.stack}`);
+      // JPC sets `stack` to the call from here. The stack of the handler is in `backendStack`.
+      ex.stack = ex.backendStack ?? ex.stack;
+      try {
+        await errorHandler(ex);
+      } catch (ex2) {
+        // `errorHandler` is in the frontend as well, so there's nobody else to tell
+        console.error(ex2);
+      }
     }
   });
 }
