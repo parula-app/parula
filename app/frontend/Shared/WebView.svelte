@@ -1,8 +1,8 @@
 // #if [!WEBMAIL && !MOBILE]
 <webview bind:this={webviewE} src={url ?? blobURL} {title} class:hidden {partition} />
-{#if askBeforeOpeningLinks}
-  <OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
-{/if}
+<!-- No Svelte if-block between the conditional compile lines: The plugin takes it as its own condition, and drops the lines after it.
+  The popup shows nothing until `show()`. -->
+<OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
 // #else
 <iframe bind:this={webviewE} src={url ?? blobURL} {title} {sandbox} class:hidden />
 // #endif
