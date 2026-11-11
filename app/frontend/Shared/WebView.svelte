@@ -33,7 +33,7 @@
   // #endif
   import { stringToBlobURL } from "../Util/util";
   import type { URLString } from "../../logic/util/util";
-  import { minorError, catchErrors, showError } from "../Util/error";
+  import { minorError, catchErrors } from "../Util/error";
   import type { ArrayColl } from "svelte-collections";
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { openExternalURL } from "../../logic/util/os-integration";
@@ -158,14 +158,14 @@
       return;
     }
     let id = (webviewE as any).getWebContentsId();
-    await appGlobal.remoteApp.addEventListenerWebContents(id, "input-event", (event) => {
+    // The main process calls this. Show errors here, don't throw them back to it.
+    await appGlobal.remoteApp.addEventListenerWebContents(id, "input-event", event => catchErrors(async () => {
       if (event.type == "mouseDown") {
         webviewE.click();
       } else if (event.type == "rawKeyDown") {
-        onKeyOnMessage(newElectronKeyboardEvent(event))
-          .catch(showError);
+        await onKeyOnMessage(newElectronKeyboardEvent(event));
       }
-    });
+    }));
   }
 
   async function addLinkListener() {
@@ -177,7 +177,8 @@
     await appGlobal.remoteApp.addEventListenerWebContents(id, "update-target-url", (eventURL) => {
       url = eventURL; // Can also reset `eventURL` to null
     });
-    await appGlobal.remoteApp.addEventListenerWebContents(id, "input-event", async (event) => {
+    // The main process calls this. Show errors here, don't throw them back to it.
+    await appGlobal.remoteApp.addEventListenerWebContents(id, "input-event", event => catchErrors(async () => {
       if (!url) {
         return;
       }
@@ -189,7 +190,7 @@
           await openExternalURL(url);
         }
       }
-    });
+    }));
   }
 
   let openLinkPopup: OpenLinkPopup;

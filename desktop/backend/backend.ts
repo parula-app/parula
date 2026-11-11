@@ -657,8 +657,14 @@ function addEventListenerWebContents(webContentsID: number, webviewEvent: string
     console.error(`WebContents ID ${webContentsID} not found`);
     return;
   }
-  win.on(webviewEvent as any, (_: any, event: Event) => {
-    eventHandler(event);
+  win.on(webviewEvent as any, async (_: any, event: Event) => {
+    try {
+      await eventHandler(event);
+    } catch (ex) {
+      // The handler is in the frontend, so its error comes here over JPC.
+      // `stack` is the call from here. Its own stack is in `backendStack`.
+      console.error(`Error in the handler of the webview event ${webviewEvent}: ${ex?.message}\n${ex?.backendStack ?? ex?.stack}`);
+    }
   });
 }
 
