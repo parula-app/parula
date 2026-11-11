@@ -666,8 +666,8 @@ function addEventListenerWebContents(webContentsID: number, webviewEvent: string
       await eventHandler(event);
     } catch (ex) {
       // JPC sets `stack` to the call from here. The stack of the handler is in `backendStack`.
-      ex.stack = ex.backendStack ?? ex.stack;
       try {
+        ex.stack = ex.backendStack ?? ex.stack;
         await errorCallback(ex);
       } catch (ex2) {
         // `errorHandler` is in the frontend as well, so there's nobody else to tell
