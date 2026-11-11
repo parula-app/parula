@@ -53,7 +53,7 @@ Caveat: the custom colors from Parula's Appearance settings (Background, Center,
 ### 1.4 Global rules in `lookout/app.css`
 
 - `*::selection` (text selection), `:focus-visible` (focus ring, replaces the one in `frontend/app.css`), `::-webkit-scrollbar*` (scrollbars), and `accent-color` of native checkboxes and radio buttons. All of these are colors.
-- `.lookout-window .popup > .menu`: border, 8px radius and popup shadow for frontend popup menus (`frontend/Shared/Popup.svelte`, `frontend/Shared/Menu/Menu.svelte`). `.popup` keeps its own 5px radius and shadow (`Popup.svelte`).
+- `.lookout-window .popup > .menu`: border, 8px radius and popup shadow for frontend popup menus (`frontend/Shared/Popup.svelte`, `frontend/Shared/Menu/Menu.svelte`). `.popup` keeps its own 5px radius and shadow (`Popup.svelte`). The same rule styles the popup that shows a link before opening it (`.open-link-popup`, `frontend/Shared/OpenLinkPopup.svelte`), plus the font size of its domain and the color of its URL.
 - `.lookout-window .checkbox ...`: colors for the frontend `Shared/Checkbox.svelte`.
 - `.lo-card`, `.lo-secondary`, `.lo-text-field`: helper classes. Only Lookout's own components use them.
 - `.lookout-window .nav-list ...`: the shared style of navigation lists, see 1.6.

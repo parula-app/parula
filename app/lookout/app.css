@@ -238,10 +238,20 @@ input[type="date"].lo-text-field::-webkit-calendar-picker-indicator {
   box-shadow: inset 0 -1px 0 var(--lo-accent);
 }
 
-.lookout-window .popup > .menu {
+.lookout-window .popup > :is(.menu, .open-link-popup) {
   border: 1px solid var(--lo-border);
   border-radius: var(--lo-radius);
   box-shadow: var(--lo-shadow-popup);
+}
+
+.lookout-window .open-link-popup .domain {
+  font-size: var(--lo-font-size-large);
+  font-weight: 600;
+}
+.lookout-window .open-link-popup .url {
+  font-size: var(--lo-font-size-small);
+  color: var(--lo-fg-secondary);
+  opacity: 1;
 }
 
 .lookout-window .checkbox {
