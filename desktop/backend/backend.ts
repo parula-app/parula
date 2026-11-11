@@ -650,15 +650,28 @@ function maximizeMainWindow() {
   mainWindow.maximize();
 }
 
-function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => void) {
+/**
+ * @param eventHandler Called for each event. It's in the frontend.
+ * @param errorCallback Gets the errors of `eventHandler`, e.g. `showError()` in the frontend
+ */
+function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => Promise<void> | void, errorCallback: (ex: Error) => Promise<void> | void) {
   const win = webContents.fromId(webContentsID);
   if (!win) {
     // race?
     console.error(`WebContents ID ${webContentsID} not found`);
     return;
   }
-  win.on(webviewEvent as any, (_: any, event: Event) => {
-    eventHandler(event);
+  win.on(webviewEvent as any, async (_: any, event: Event) => {
+    try {
+      await eventHandler(event);
+    } catch (ex) {
+      ex.stack = ex.backendStack ?? ex.stack;
+      try {
+        await errorCallback(ex);
+      } catch (ex2) {
+        console.error(ex);
+      }
+    }
   });
 }
 

@@ -404,7 +404,7 @@ function maximizeMainWindow() {
   throw new Error("Not supported");
 }
 
-function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => void) {
+function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => Promise<void> | void, errorCallback: (ex: Error) => Promise<void> | void) {
   throw new Error("Not supported");
 }
 
