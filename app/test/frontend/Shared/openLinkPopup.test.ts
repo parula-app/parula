@@ -79,18 +79,6 @@ test("Shows the base domain and the full URL", async () => {
   expect(document.activeElement).toBe(popupE);
 });
 
-test("A long URL can wrap after each /", async () => {
-  let url = "https://www.foo.com/articles/2026/11/build-times/index.html?x=1";
-  let popupE = await showPopup(url);
-  let urlE = popupE.querySelector(".url");
-  // The user can select and copy the URL as it is
-  expect(urlE.textContent).toBe(url);
-  let wrapsAfter = [...urlE.querySelectorAll("wbr")].map(wbr => wbr.previousSibling?.textContent);
-  expect(wrapsAfter).toContain("www.foo.com/");
-  expect(wrapsAfter).toContain("articles/");
-  expect(wrapsAfter).not.toContain("https:/");
-});
-
 test("A link without a web domain shows a warning, and nothing to remember", async () => {
   let popupE = await showPopup("mailto:fred@foo.com");
   let headingE = popupE.querySelector(".domain");

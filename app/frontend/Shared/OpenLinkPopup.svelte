@@ -14,7 +14,11 @@
         <Button label={$t`Cancel`} classes="secondary" onClick={onCancel} />
       </hbox>
       <hbox class="url-line">
-        <div class="url">{#each urlParts(url) as part}{part}<wbr>{/each}</div>
+        <div class="url">
+          {#each urlParts(url) as part}
+            {part}<wbr>
+          {/each}
+        </div>
         <hbox class="copy">
           <Button label={$t`Copy link`} icon={CopyIcon} iconSize="14px" iconOnly plain onClick={onCopy} />
         </hbox>
