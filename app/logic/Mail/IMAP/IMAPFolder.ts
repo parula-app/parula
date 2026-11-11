@@ -672,7 +672,8 @@ export class IMAPFolder extends Folder {
   async markAllRead(): Promise<void> {
     await super.markAllRead();
     await this.runCommand(async (conn) => {
-      await conn.messageFlagsAdd("1:*", ["\\Seen"], { uid: true });
+      let succeeded = await conn.messageFlagsAdd("1:*", ["\\Seen"], { uid: true });
+      assert(succeeded, gt`The server refused to mark the emails as read`);
     });
   }
 

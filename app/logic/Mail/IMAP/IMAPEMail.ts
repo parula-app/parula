@@ -205,10 +205,14 @@ export class IMAPEMail extends EMail {
       await this.folder.runCommand(async (conn) => {
         this.flagsChanging = true;
         this.folder.account.log(this.folder, conn, set ? "set" : "remove" + " email flag", this.uid, name, this.subject);
-        if (set) {
-          await conn.messageFlagsAdd(this.uid, [name], { uid: true });
-        } else {
-          await conn.messageFlagsRemove(this.uid, [name], { uid: true });
+        let succeeded = set
+          ? await conn.messageFlagsAdd(this.uid, [name], { uid: true })
+          : await conn.messageFlagsRemove(this.uid, [name], { uid: true });
+        // ImapFlow returns false when the server refuses. But also, without asking the server,
+        // for a keyword that the folder can't store (no `\*` in PERMANENTFLAGS, e.g. Exchange):
+        // We keep such tags and keywords locally, as before.
+        if (!succeeded && name.startsWith("\\")) {
+          throw new Error(gt`The server refused to change the email`);
         }
       });
     } finally {

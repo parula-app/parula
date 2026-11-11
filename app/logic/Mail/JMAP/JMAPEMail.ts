@@ -6,7 +6,8 @@ import { DeleteStrategy } from "../MailAccount";
 import { availableTags, getTagByName, type Tag } from "../../Abstract/Tag";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
 import type { TJMAPEmailAddress, TJMAPEmailBodyPart, TJMAPEMailHeaders, TJMAPPerson } from "./TJMAPMail";
-import type { TJMAPGetResponse } from "./TJMAPGeneric";
+import type { TJMAPChangeResponse, TJMAPGetResponse } from "./TJMAPGeneric";
+import { checkChangeError } from "./JMAPError";
 import { retryOnTransientError } from "../../util/netUtil";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert, NotReached, getUserPreference } from "../../util/util";
@@ -241,14 +242,15 @@ export class JMAPEMail extends EMail {
   async setFlagServer(name: string, set: boolean) {
     this.flagsChanging = true;
     try {
-      await this.folder.account.makeSingleCall("Email/set", {
+      let response = await this.folder.account.makeSingleCall("Email/set", {
         accountId: this.folder.account.accountID,
         update: {
           [this.jmapID]: {
             [`keywords/${name}`]: set ? true : null,
           },
         },
-      });
+      }) as TJMAPChangeResponse<TJMAPEMailHeaders>;
+      checkChangeError(response);
     } finally {
       this.flagsChanging = false;
     }
