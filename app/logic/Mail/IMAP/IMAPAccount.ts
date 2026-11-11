@@ -271,6 +271,9 @@ export class IMAPAccount extends MailAccount {
       let newConn = await this.connection(false, purpose);
       if (purpose == ConnectionPurpose.Main) {
         await this.startIDLE(newConn);
+        // IDLE reports only what happens from now on, not e.g. mail that arrived while the computer slept
+        this.inbox?.getNewMessages()
+          .catch(this.errorCallback);
       }
       return newConn;
     });

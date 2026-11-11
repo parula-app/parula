@@ -16,6 +16,7 @@ import type { TJMAPAddressbook } from "../../Contacts/JMAP/TJMAPAddressbook";
 import { checkChangeError, JMAPCommandError } from "./JMAPError";
 import { AuthMethod } from "../../Abstract/Account";
 import { ConnectError, LoginError } from "../../Abstract/Account";
+import { minorError } from "../../util/error";
 import { SpecialFolder, MailShareCombinedPermissions, MailShareIndividualPermissions, type Folder } from "../Folder";
 import { appGlobal } from "../../app";
 import { appName, appVersion } from "../../build";
@@ -783,6 +784,7 @@ export class JMAPAccount extends MailAccount {
     this.pushAbort?.abort(); // e.g. after a new login, while the old listener still waits on a connection that died
     let listener = this.pushAbort = new AbortController();
     let reconnectThrottle = new Throttle(1, 10);
+    let isReconnect = false;
     while (this.isLoggedIn) {
       await reconnectThrottle.throttle();
       let connection = new AbortController();
@@ -806,6 +808,10 @@ export class JMAPAccount extends MailAccount {
           throw new HTTPError(stream);
         }
         let eventStream = stream.body.pipeThrough(new TextDecoderStream()).pipeThrough(new TransformStream(new EventDecoder()));
+        if (isReconnect) {
+          await this.fetchChangesMissedByPush(types as TJMAPObjectType[]);
+        }
+        isReconnect = true;
         for await (let event of eventStream) {
           watchdog.fulfilled();
           if (event.name == "ping") {
@@ -855,6 +861,27 @@ export class JMAPAccount extends MailAccount {
         }
       } finally {
         watchdog.fulfilled();
+      }
+    }
+  }
+
+  /** The server doesn't tell us what changed while the push connection was down.
+   * <https://www.rfc-editor.org/rfc/rfc8620#section-7.3> */
+  protected async fetchChangesMissedByPush(types: TJMAPObjectType[]): Promise<void> {
+    let sharedAccounts = this.dependentAccounts().filterOnce(acc => acc instanceof JMAPAccount) as Collection<JMAPAccount>;
+    for (let account of [this, ...sharedAccounts]) {
+      for (let type of types) {
+        if (!this.isLoggedIn) {
+          return; // disconnect()
+        }
+        if (!account.syncState.has(type)) {
+          continue; // Not read yet, so nothing to update
+        }
+        try {
+          await account.sync(type);
+        } catch (ex) {
+          minorError(ex);
+        }
       }
     }
   }
