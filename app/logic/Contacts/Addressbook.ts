@@ -194,6 +194,6 @@ export enum AddressbookShareCombinedPermissions {
   Modify = "modify",
 }
 export const addressbookShareCombinedPermissionsLabels: Record<string, string> = {
-  [AddressbookShareCombinedPermissions.Read]: gt`See all contact details`,
-  [AddressbookShareCombinedPermissions.Modify]: gt`Modify, add and delete contacts`,
+  get [AddressbookShareCombinedPermissions.Read]() { return gt`See all contact details`; },
+  get [AddressbookShareCombinedPermissions.Modify]() { return gt`Modify, add and delete contacts`; },
 };

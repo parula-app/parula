@@ -51,32 +51,36 @@ export interface ViewSettings {
 
 export class ColumnInfo {
   readonly id: Column;
-  readonly label: string;
+  /** In the current UI language */
+  get label(): string {
+    return this.getLabel();
+  }
+  protected readonly getLabel: () => string;
   readonly width: number;
   readonly isIcon: boolean;
   readonly sortField: ArrangeBy | null;
 
-  constructor(id: Column, label: string, width: number, isIcon: boolean, sortField: ArrangeBy | null) {
+  constructor(id: Column, getLabel: () => string, width: number, isIcon: boolean, sortField: ArrangeBy | null) {
     this.id = id;
-    this.label = label;
+    this.getLabel = getLabel;
     this.width = width;
     this.isIcon = isIcon;
     this.sortField = sortField;
   }
 
   static readonly all: ColumnInfo[] = [
-    new ColumnInfo(Column.Importance, gt`Importance *=> Importance of the email`, 24, true, ArrangeBy.Importance),
-    new ColumnInfo(Column.Icon, gt`Icon *=> Column with an icon for the type and state of the email`, 24, true, null),
-    new ColumnInfo(Column.Attachment, gt`Attachment`, 24, true, null),
-    new ColumnInfo(Column.From, gt`From`, 160, false, ArrangeBy.From),
-    new ColumnInfo(Column.To, gt`To`, 160, false, null),
-    new ColumnInfo(Column.Subject, gt`Subject`, 0, false, ArrangeBy.Subject),
-    new ColumnInfo(Column.Received, gt`Received *=> Date when the email was received`, 132, false, ArrangeBy.Date),
-    new ColumnInfo(Column.Sent, gt`Sent`, 132, false, ArrangeBy.Date),
-    new ColumnInfo(Column.Size, gt`Size *=> Size of the file`, 72, false, ArrangeBy.Size),
-    new ColumnInfo(Column.Categories, gt`Categories *=> Categories of the email`, 104, false, null),
-    new ColumnInfo(Column.Flag, gt`Flag Status`, 28, true, ArrangeBy.Flag),
-    new ColumnInfo(Column.Folder, gt`In Folder *=> Column with the folder that contains the item`, 120, false, null),
+    new ColumnInfo(Column.Importance, () => gt`Importance *=> Importance of the email`, 24, true, ArrangeBy.Importance),
+    new ColumnInfo(Column.Icon, () => gt`Icon *=> Column with an icon for the type and state of the email`, 24, true, null),
+    new ColumnInfo(Column.Attachment, () => gt`Attachment`, 24, true, null),
+    new ColumnInfo(Column.From, () => gt`From`, 160, false, ArrangeBy.From),
+    new ColumnInfo(Column.To, () => gt`To`, 160, false, null),
+    new ColumnInfo(Column.Subject, () => gt`Subject`, 0, false, ArrangeBy.Subject),
+    new ColumnInfo(Column.Received, () => gt`Received *=> Date when the email was received`, 132, false, ArrangeBy.Date),
+    new ColumnInfo(Column.Sent, () => gt`Sent`, 132, false, ArrangeBy.Date),
+    new ColumnInfo(Column.Size, () => gt`Size *=> Size of the file`, 72, false, ArrangeBy.Size),
+    new ColumnInfo(Column.Categories, () => gt`Categories *=> Categories of the email`, 104, false, null),
+    new ColumnInfo(Column.Flag, () => gt`Flag Status`, 28, true, ArrangeBy.Flag),
+    new ColumnInfo(Column.Folder, () => gt`In Folder *=> Column with the folder that contains the item`, 120, false, null),
   ];
 
   static of(id: Column): ColumnInfo | null {

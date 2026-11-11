@@ -4,7 +4,9 @@ import { gt } from "../../l10n/l10n";
 
 export class FilesMustangApp extends MustangApp {
   id = "files";
-  name = gt`Files`;
+  get name() {
+    return gt`Files`;
+  }
   icon = fileShareIcon;
   appURL = "/files";
 }

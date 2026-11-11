@@ -54,17 +54,17 @@ import { ArrayColl } from "svelte-collections";
 export const settingsCategories = new ArrayColl<SettingsCategory>();
 export const accountSettings = new ArrayColl<AccSetting>();
 
-accountSettings.add(new AccSetting(Account, "acc-general", gt`General`, AccountGeneral, true));
-accountSettings.add(new AccSetting(Account, "acc-sub", gt`Sub-Accounts`, AccountSubAccounts, true));
+accountSettings.add(new AccSetting(Account, "acc-general", () => gt`General`, AccountGeneral, true));
+accountSettings.add(new AccSetting(Account, "acc-sub", () => gt`Sub-Accounts`, AccountSubAccounts, true));
 
-const globalSettings = new SettingsCategory("global", gt`General`, GlobalAppearance, true);
+const globalSettings = new SettingsCategory("global", () => gt`General`, GlobalAppearance, true);
 globalSettings.subCategories.addAll([
-  new SettingsCategory("language", gt`Language`, GlobalLanguage),
-  new SettingsCategory("global-workspaces", gt`Workspaces`, GlobalWorkspaces),
+  new SettingsCategory("language", () => gt`Language`, GlobalLanguage),
+  new SettingsCategory("global-workspaces", () => gt`Workspaces`, GlobalWorkspaces),
 ]);
 settingsCategories.add(globalSettings);
 
-const mailSettings = new SettingsCategory("mail", gt`Mail`, MailGeneral, true);
+const mailSettings = new SettingsCategory("mail", () => gt`Mail`, MailGeneral, true);
 mailSettings.accounts = appGlobal.emailAccounts;
 // #if [!WEBMAIL]
 mailSettings.newAccountURL = "/setup/mail";
@@ -73,17 +73,17 @@ mailSettings.forApp = mailMustangApp;
 settingsCategories.add(mailSettings);
 
 // <copied from="../../frontend/Settings/SettingsCategories.ts">
-accountSettings.add(new AccSetting(MailAccount, "mail-connected", gt`Connected accounts`, MailConnectedAccounts, true));
+accountSettings.add(new AccSetting(MailAccount, "mail-connected", () => gt`Connected accounts`, MailConnectedAccounts, true));
 // #if [!WEBMAIL]
-accountSettings.add(new AccSetting(MailAccount, "mail-server", gt`Server`, AccountMailServer));
+accountSettings.add(new AccSetting(MailAccount, "mail-server", () => gt`Server`, AccountMailServer));
 // #endif
-accountSettings.add(new AccSetting(MailAccount, "mail-folders", gt`Folders`, AccountFolders));
-accountSettings.add(new AccSetting(MailAccount, "mail-identity", gt`Identities *=> Settings page for the sender names and email addresses of the account`, AccountIdentity));
-accountSettings.add(new AccSetting(MailAccount, "mail-rules", gt`Rules *=> Criteria after which emails should be sorted`, MailRules));
-accountSettings.add(new AccSetting(MailAccount, "mail-sharing", gt`Sharing *=> Accessing mail account of team mates`, MailSharing));
+accountSettings.add(new AccSetting(MailAccount, "mail-folders", () => gt`Folders`, AccountFolders));
+accountSettings.add(new AccSetting(MailAccount, "mail-identity", () => gt`Identities *=> Settings page for the sender names and email addresses of the account`, AccountIdentity));
+accountSettings.add(new AccSetting(MailAccount, "mail-rules", () => gt`Rules *=> Criteria after which emails should be sorted`, MailRules));
+accountSettings.add(new AccSetting(MailAccount, "mail-sharing", () => gt`Sharing *=> Accessing mail account of team mates`, MailSharing));
 // </copied>
 
-const calendarSettings = new SettingsCategory("calendar", gt`Calendar`, CalendarGeneral, true);
+const calendarSettings = new SettingsCategory("calendar", () => gt`Calendar`, CalendarGeneral, true);
 calendarSettings.accounts = appGlobal.calendars;
 // #if [!WEBMAIL]
 calendarSettings.newAccountURL = "/setup/calendar";
@@ -92,12 +92,12 @@ calendarSettings.forApp = calendarMustangApp;
 settingsCategories.add(calendarSettings);
 
 // <copied from="../../frontend/Settings/SettingsCategories.ts">
-accountSettings.add(new AccSetting(Calendar, "calendar-connected", gt`Connected accounts`, CalendarConnectedAccounts, true));
-accountSettings.add(new AccSetting(Calendar, "calendar-import", gt`Import/Export`, CalendarImportExport, true));
-accountSettings.add(new AccSetting(CalDAVCalendar, "calendar-server", gt`Server`, AccountURLServer));
+accountSettings.add(new AccSetting(Calendar, "calendar-connected", () => gt`Connected accounts`, CalendarConnectedAccounts, true));
+accountSettings.add(new AccSetting(Calendar, "calendar-import", () => gt`Import/Export`, CalendarImportExport, true));
+accountSettings.add(new AccSetting(CalDAVCalendar, "calendar-server", () => gt`Server`, AccountURLServer));
 // </copied>
 
-const contactsSettings = new SettingsCategory("contacts", gt`People *=> or Persons - Short word, less than 10 characters`, ContactsGeneral, true);
+const contactsSettings = new SettingsCategory("contacts", () => gt`People *=> or Persons - Short word, less than 10 characters`, ContactsGeneral, true);
 contactsSettings.accounts = appGlobal.addressbooks;
 // #if [!WEBMAIL]
 contactsSettings.newAccountURL = "/setup/contacts";
@@ -106,31 +106,31 @@ contactsSettings.forApp = contactsMustangApp;
 settingsCategories.add(contactsSettings);
 
 // <copied from="../../frontend/Settings/SettingsCategories.ts">
-accountSettings.add(new AccSetting(Addressbook, "contacts-import", gt`Import/Export`, ContactsImportExport, true));
-accountSettings.add(new AccSetting(CardDAVAddressbook, "contacts-server", gt`Server`, AccountURLServer));
+accountSettings.add(new AccSetting(Addressbook, "contacts-import", () => gt`Import/Export`, ContactsImportExport, true));
+accountSettings.add(new AccSetting(CardDAVAddressbook, "contacts-server", () => gt`Server`, AccountURLServer));
 // </copied>
 
-const filesSettings = new SettingsCategory("files", gt`Files`, FilesGeneral, true);
+const filesSettings = new SettingsCategory("files", () => gt`Files`, FilesGeneral, true);
 filesSettings.accounts = appGlobal.fileSharingAccounts.filterObservable(acc => acc != myHarddrive);
 filesSettings.newAccountURL = "/setup/files";
 filesSettings.forApp = filesMustangApp;
-accountSettings.add(new AccSetting(WebDAVAccount, "webdav-server", gt`Server`, AccountURLServer));
+accountSettings.add(new AccSetting(WebDAVAccount, "webdav-server", () => gt`Server`, AccountURLServer));
 settingsCategories.add(filesSettings);
 
 // #if [DEV]
-const chatSettings = new SettingsCategory("chat", gt`Chat`, ChatGeneral, true);
+const chatSettings = new SettingsCategory("chat", () => gt`Chat`, ChatGeneral, true);
 chatSettings.accounts = appGlobal.chatAccounts;
 chatSettings.newAccountURL = "/setup/chat";
 chatSettings.forApp = chatMustangApp;
 settingsCategories.add(chatSettings);
 
-accountSettings.add(new AccSetting(XMPPAccount, "xmpp-server", gt`Server`, AccountXMPPServer));
-accountSettings.add(new AccSetting(MatrixAccount, "matrix-server", gt`Server`, AccountURLServer));
-accountSettings.add(new AccSetting(WhatsAppAccount, "whatsapp-import", gt`Import backup`, WhatsAppImportBackup, true));
+accountSettings.add(new AccSetting(XMPPAccount, "xmpp-server", () => gt`Server`, AccountXMPPServer));
+accountSettings.add(new AccSetting(MatrixAccount, "matrix-server", () => gt`Server`, AccountURLServer));
+accountSettings.add(new AccSetting(WhatsAppAccount, "whatsapp-import", () => gt`Import backup`, WhatsAppImportBackup, true));
 // #endif
 
 // #if [PROPRIETARY]
-const meetSettings = new SettingsCategory("meet", gt`Meet`, Devices, true);
+const meetSettings = new SettingsCategory("meet", () => gt`Meet`, Devices, true);
 meetSettings.accounts = appGlobal.meetAccounts;
 // #endif
 // #if [!WEBMAIL && PROPRIETARY]
@@ -140,8 +140,8 @@ meetSettings.newAccountURL = "/setup/meet";
 meetSettings.forApp = meetMustangApp;
 settingsCategories.add(meetSettings);
 
-accountSettings.add(new AccSetting(M3Account, "m3-server", gt`Server`, AccountURLServer, true));
-accountSettings.add(new AccSetting(SIPAccount, "sip", gt`Details`, SIP, true));
+accountSettings.add(new AccSetting(M3Account, "m3-server", () => gt`Server`, AccountURLServer, true));
+accountSettings.add(new AccSetting(SIPAccount, "sip", () => gt`Details`, SIP, true));
 // #endif
 
-settingsCategories.add(new SettingsCategory("trust-center", gt`Trust Center`, TrustCenterGeneral, true));
+settingsCategories.add(new SettingsCategory("trust-center", () => gt`Trust Center`, TrustCenterGeneral, true));

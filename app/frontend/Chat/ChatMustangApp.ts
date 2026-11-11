@@ -4,7 +4,9 @@ import { gt } from "../../l10n/l10n";
 
 export class ChatMustangApp extends MustangApp {
   id = "chat";
-  name = gt`Chat`;
+  get name() {
+    return gt`Chat`;
+  }
   icon = chatIcon;
   appURL = "/chat";
 }

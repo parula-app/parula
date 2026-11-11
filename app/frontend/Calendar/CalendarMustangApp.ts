@@ -4,11 +4,13 @@ import type { Event } from "../../logic/Calendar/Event";
 import CalendarIcon from "../Calendar/CalendarIcon.svelte";
 import EditIcon from "lucide-svelte/icons/pencil";
 import { derived } from "svelte/store";
-import { gt } from "../../l10n/l10n";
+import { gt, locale } from "../../l10n/l10n";
 
 export class CalendarMustangApp extends MustangApp {
   id = "calendar";
-  name = gt`Calendar`;
+  get name() {
+    return gt`Calendar`;
+  }
   icon = CalendarIcon;
   appURL = "/calendar";
 
@@ -16,7 +18,7 @@ export class CalendarMustangApp extends MustangApp {
     let edit = calendarMustangApp.subApps.find(app => app.windowParams?.event == event);
     if (!edit) {
       edit = new CalendarEventMustangApp();
-      edit.title = derived(event, event => event.title ?? edit.name);
+      edit.title = derived([event, locale], ([event]) => event.title ?? edit.name);
       edit.windowParams = { event: event };
       calendarMustangApp.subApps.add(edit);
     }
@@ -32,7 +34,9 @@ export class CalendarMustangApp extends MustangApp {
 
 export class CalendarEventMustangApp extends MustangApp {
   id = "calendar-event-show";
-  name = gt`Event`;
+  get name() {
+    return gt`Event`;
+  }
   icon = EditIcon;
   appURL = "/calendar/event";
 }

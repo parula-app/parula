@@ -4,7 +4,9 @@ import { gt } from "../../l10n/l10n";
 
 export class TopicMustangApp extends MustangApp {
   id = "topic";
-  name = gt`Topic`;
+  get name() {
+    return gt`Topic`;
+  }
   icon = topicIcon;
   appURL = "/topic";
 }

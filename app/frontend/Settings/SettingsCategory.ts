@@ -5,8 +5,11 @@ import type { MustangApp } from "../AppsBar/MustangApp";
 
 export class SettingsCategory extends Observable {
   id: string;
-  /** User-visible name of the category */
-  name: string;
+  /** User-visible name of the category, in the current UI language */
+  get name(): string {
+    return this.getName();
+  }
+  protected readonly getName: () => string;
   description: string | null;
   /** Alternative words for `name` that the user might think of. Used for searching settings. */
   synonyms = new ArrayColl<string>();
@@ -33,10 +36,10 @@ export class SettingsCategory extends Observable {
     return settingsCategories.find(cat => !!cat.subCategories.find(sub => sub == this));
   }
 
-  constructor(id: string, name: string, content?: ConstructorOfATypedSvelteComponent, isMain = false) {
+  constructor(id: string, getName: () => string, content?: ConstructorOfATypedSvelteComponent, isMain = false) {
     super();
     this.id = id;
-    this.name = name;
+    this.getName = getName;
     this.isMain = isMain;
     this.windowContent = content;
   }
@@ -54,8 +57,8 @@ export class SettingsCategory extends Observable {
 
 export class AccountSettingsCategory extends SettingsCategory {
   type: typeof Account;
-  constructor(type: typeof Account, id: string, name: string, content: ConstructorOfATypedSvelteComponent, isMain = false) {
-    super(id, name, content, isMain);
+  constructor(type: typeof Account, id: string, getName: () => string, content: ConstructorOfATypedSvelteComponent, isMain = false) {
+    super(id, getName, content, isMain);
     this.type = type;
   }
 }
