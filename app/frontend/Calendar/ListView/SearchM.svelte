@@ -12,6 +12,7 @@
 <SearchBarM />
 
 <script lang="ts">
+  import type { Event } from "../../../logic/Calendar/Event";
   import { appGlobal } from "../../../logic/app";
   import { globalSearchTerm } from "../../AppsBar/selectedApp";
   import ListView from "./ListView.svelte";
@@ -27,9 +28,17 @@
   }
 
   let events = appGlobal.calendarEvents.filterObservable(event => event.startTime.getTime() > Date.now());
-  $: filteredEvents = $globalSearchTerm
-    ? events.filterObservable(event => event.matchesSearch($globalSearchTerm))
-    : events;
+  let foundEvents = events.filterObservable(isFound);
+  $: filteredEvents = $globalSearchTerm ? findEvents() : events;
+
+  function findEvents() {
+    foundEvents.replaceAll(events.contents.filter(isFound));
+    return foundEvents;
+  }
+
+  function isFound(event: Event): boolean {
+    return !!$globalSearchTerm && event.matchesSearch($globalSearchTerm);
+  }
 </script>
 
 <style>
