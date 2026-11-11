@@ -1,1 +1,38 @@
-<?xml version="1.0" encoding="UTF-8"?><svg id="Layer_2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><defs><style>.cls-1{stroke-width:9.28px;}.cls-1,.cls-2,.cls-3{fill:none;stroke-linecap:round;}.cls-1,.cls-3{stroke:#000;}.cls-2{stroke:#27c1aa;stroke-width:10.18px;}.cls-3{stroke-width:9.89px;}.cls-4{fill:#fff;opacity:0;stroke-width:0px;}</style></defs><rect class="cls-4" x="0" y="-.91" width="128" height="128"/><polyline class="cls-1" points="53.39 123.65 53.39 120.13 53.39 102.84"/><polyline class="cls-1" points="74.62 123.65 74.62 120.13 74.62 103.75"/><path class="cls-3" d="m38.98,123.09h51.79"/><path class="cls-2" d="m119.82,15.32v74.19c0,5.74-4.61,10.4-10.29,10.4H18.47c-5.68,0-10.28-4.66-10.28-10.4V15.32c0-5.74,4.6-10.4,10.28-10.4h91.05c5.68,0,10.29,4.66,10.29,10.4Z"/></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <style>
+      .cls-1 {
+        stroke-width: 9.28px;
+      }
+      .cls-1,
+      .cls-2,
+      .cls-3 {
+        fill: none;
+        stroke-linecap: round;
+      }
+      .cls-1,
+      .cls-3 {
+        stroke: var(--selected-fg, #000);
+      }
+      .cls-2 {
+        stroke: var(--selected-bg, #27c1aa);
+        stroke-width: 10.18px;
+      }
+      .cls-3 {
+        stroke-width:9.89px;
+      }
+      .cls-4 {
+        fill: #fff;
+        opacity: 0;
+        stroke-width: 0px;
+      }
+    </style>
+  </defs>
+
+  <rect class="cls-4" x="0" y="-.91" width="128" height="128"/>
+  <polyline class="cls-1" points="53.39 123.65 53.39 120.13 53.39 102.84"/>
+  <polyline class="cls-1" points="74.62 123.65 74.62 120.13 74.62 103.75"/>
+  <path class="cls-3" d="m38.98,123.09h51.79"/>
+  <path class="cls-2" d="m119.82,15.32v74.19c0,5.74-4.61,10.4-10.29,10.4H18.47c-5.68,0-10.28-4.66-10.28-10.4V15.32c0-5.74,4.6-10.4,10.28-10.4h91.05c5.68,0,10.29,4.66,10.29,10.4Z"/>
+</svg>
