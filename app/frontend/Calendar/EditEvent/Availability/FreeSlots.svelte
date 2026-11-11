@@ -268,6 +268,10 @@
   .slot.meeting {
     border: 2px solid var(--fg);
   }
+  .slot.meeting.availability-free {
+    background-color: var(--selected-bg);
+    color: var(--selected-fg);
+  }
   .time {
     white-space: nowrap;
   }

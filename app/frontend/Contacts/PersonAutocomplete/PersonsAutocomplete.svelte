@@ -2,7 +2,7 @@
   {#each $persons.each as person}
     <PersonEntry {person}
       {onRemovePerson}
-      on:focusNext={onFocusNext}
+      on:focusNext={focus}
       {disabled}
       >
       <slot name="person-pill-before-avatar" slot="before-avatar" {person} />
@@ -62,7 +62,7 @@
     persons.remove(person);
   }
   let autocompleteEl: PersonAutocomplete;
-  function onFocusNext() {
+  export function focus() {
     autocompleteEl?.focus();
   }
 </script>
