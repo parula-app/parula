@@ -652,7 +652,7 @@ function maximizeMainWindow() {
 
 /**
  * @param eventHandler Called for each event. It's in the frontend.
- * @param errorHandler Gets the errors of `eventHandler`, e.g. `showError()` in the frontend
+ * @param errorCallback Gets the errors of `eventHandler`, e.g. `showError()` in the frontend
  */
 function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => Promise<void> | void, errorCallback: (ex: Error) => Promise<void> | void) {
   const win = webContents.fromId(webContentsID);
@@ -669,7 +669,6 @@ function addEventListenerWebContents(webContentsID: number, webviewEvent: string
         ex.stack = ex.backendStack ?? ex.stack;
         await errorCallback(ex);
       } catch (ex2) {
-        // `errorHandler` is in the frontend as well, so there's nobody else to tell
         console.error(ex2);
       }
     }
