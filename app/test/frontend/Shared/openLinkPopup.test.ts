@@ -10,12 +10,20 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest
 
 const kPref = "links.openWithoutAsking.domains";
 
+/** The URLs that the app opened in the browser or in another app */
+let opened: string[] = [];
+
 beforeAll(() => {
-  appGlobal.remoteApp = {} as any;
+  appGlobal.remoteApp = {
+    openExternalURL: async (url: string) => {
+      opened.push(url);
+    },
+  } as any;
 });
 
 beforeEach(() => {
   localStorage.clear();
+  opened = [];
 });
 
 let popup: Record<string, any> | null = null;
@@ -67,7 +75,8 @@ test("Shows the base domain and the full URL", async () => {
   expect(popupE.querySelector(".url").textContent).toBe(url);
   expect(popupE.querySelector(".checkbox label").textContent).toContain("foo.co.uk");
   expect((popupE.querySelector(".checkbox input") as HTMLInputElement).checked).toBe(false);
-  expect(document.activeElement?.textContent).toContain("Open in browser");
+  // for Return and Escape
+  expect(document.activeElement).toBe(popupE);
 });
 
 test("The checkbox remembers the domain, and forgets it again", async () => {
@@ -83,11 +92,42 @@ test("The checkbox remembers the domain, and forgets it again", async () => {
   expect(JSON.parse(localStorage.getItem(kPref))).toEqual(["bar.org"]);
 });
 
-test("Escape closes the popup", async () => {
-  let popupE = await showPopup("https://foo.com/");
-  popupE.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+function pressKey(element: Element, key: string) {
+  element.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
   flushSync();
+}
+
+test("Return opens the link in the browser", async () => {
+  await showPopup("https://a.b.d.foo.com/dtghdfhj");
+  pressKey(document.activeElement, "Enter");
+  await Promise.resolve();
+  expect(opened).toEqual(["https://a.b.d.foo.com/dtghdfhj"]);
   expect(document.querySelector(".open-link-popup")).toBeNull();
+});
+
+test("Return on [Copy link] leaves the action to that button", async () => {
+  let popupE = await showPopup("https://foo.com/");
+  let copyButton = [...popupE.querySelectorAll("button")].find(button => button.textContent.includes("Copy link"));
+  pressKey(copyButton, "Enter");
+  await Promise.resolve();
+  expect(opened).toEqual([]);
+});
+
+test("Escape closes the popup, and opens nothing", async () => {
+  await showPopup("https://foo.com/");
+  pressKey(document.activeElement, "Escape");
+  await Promise.resolve();
+  expect(document.querySelector(".open-link-popup")).toBeNull();
+  expect(opened).toEqual([]);
+});
+
+test("Return after checking the checkbox opens the link", async () => {
+  let popupE = await showPopup("https://foo.com/");
+  (popupE.querySelector(".checkbox input") as HTMLElement).click();
+  flushSync();
+  pressKey(document.activeElement, "Enter");
+  await Promise.resolve();
+  expect(opened).toEqual(["https://foo.com/"]);
 });
 
 /** A link in a mail, and what a click on it does */

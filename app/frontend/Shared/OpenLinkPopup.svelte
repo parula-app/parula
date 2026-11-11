@@ -2,7 +2,7 @@
   <vbox class="open-link-popup" bind:this={popupE} on:keydown={onKeyDown} role="dialog" aria-label={domain} tabindex="-1">
     <hbox class="domain">{domain}</hbox>
     <hbox class="buttons">
-      <Button label={$t`Open in browser`} classes="filled" onClick={onOpen} bind:buttonEl={openButtonE} />
+      <Button label={$t`Open in browser`} classes="filled" onClick={onOpen} />
       <Button label={$t`Copy link`} classes="secondary" onClick={onCopy} />
     </hbox>
     <hbox class="url">{url}</hbox>
@@ -55,6 +55,7 @@
   import Button from "./Button.svelte";
   import Checkbox from "./Checkbox.svelte";
   import { openExternalURL } from "../../logic/util/os-integration";
+  import { catchErrors } from "../Util/error";
   import { tick } from "svelte";
   import { t } from "../../l10n/l10n";
 
@@ -65,7 +66,6 @@
   let popupOpen = false;
   let url: string;
   let domain: string;
-  let openButtonE: HTMLButtonElement;
   let popupE: HTMLElement;
 
   /** Shows the popup for this link, which lets the user open or copy it */
@@ -76,7 +76,7 @@
     domain = linkDomain(linkURL) ?? "";
     popupOpen = true;
     await tick();
-    openButtonE?.focus();
+    popupE?.focus(); // for Return and Escape
   }
 
   async function onOpen() {
@@ -99,6 +99,11 @@
     if (event.key == "Escape") {
       event.stopPropagation();
       popupOpen = false;
+    } else if (event.key == "Enter" && !(event.target as Element).closest("button")) {
+      // [Open in browser] is the default button. A button with the focus does its own action.
+      event.preventDefault();
+      event.stopPropagation();
+      catchErrors(onOpen);
     }
   }
 </script>
@@ -132,5 +137,14 @@
     font-size: 12px;
     opacity: 70%;
     user-select: text;
+  }
+  .open-link-popup :global(.checkbox) {
+    font-size: 12px;
+  }
+  .open-link-popup :global(.checkbox input),
+  .open-link-popup :global(.checkbox .state-icon-wrapper) {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
   }
 </style>

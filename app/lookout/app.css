@@ -249,9 +249,11 @@ input[type="date"].lo-text-field::-webkit-calendar-picker-indicator {
   font-weight: 600;
 }
 .lookout-window .open-link-popup .url {
-  font-size: var(--lo-font-size-small);
   color: var(--lo-fg-secondary);
   opacity: 1;
+}
+.lookout-window .open-link-popup :is(.url, .checkbox) {
+  font-size: var(--lo-font-size-small);
 }
 
 .lookout-window .checkbox {
