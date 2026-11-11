@@ -31,7 +31,7 @@ test("The app start logs in, then starts up, once", async () => {
   expect(errors).toEqual([]);
   expect(remote.calls).toEqual(["login", "startup"]);
   expect(local.calls).toEqual(["login", "startup"]);
-  expect(dependent.calls).toEqual(["startup"]); // by its main account
+  expect(dependent.calls).toEqual(["login", "startup"]); // by its main account
 });
 
 test("When the network comes back, only the accounts that are logged out start again", async () => {
@@ -43,16 +43,26 @@ test("When the network comes back, only the accounts that are logged out start a
   expect(errors).toEqual([]);
   expect(remote.calls).toEqual(["login", "startup", "login", "startup"]);
   expect(local.calls).toEqual(["login", "startup"]);
-  expect(dependent.calls).toEqual(["startup", "startup"]);
+  expect(dependent.calls).toEqual(["login", "startup", "login", "startup"]);
 });
 
-test("The Login button of a shared mailbox logs in the main account, which starts up both", async () => {
+test("The Login button of a logged out shared mailbox logs in the main account, which starts up both", async () => {
+  remote.loggedIn = false;
+
   await dependent.loginAndStartup(true);
   await sleep(0.01); // `startupDependentAccounts()` does not wait for them
 
   expect(errors).toEqual([]);
   expect(remote.calls).toEqual(["login", "startup", "login", "startup", "login", "startup"]);
-  expect(dependent.calls).toEqual(["startup", "startup", "startup"]);
+  expect(dependent.calls).toEqual(["login", "startup", "login", "startup", "login", "startup"]);
+});
+
+test("The Login button of a shared mailbox starts up only that mailbox, when the main account is logged in", async () => {
+  await dependent.loginAndStartup(true);
+
+  expect(errors).toEqual([]);
+  expect(remote.calls).toEqual(["login", "startup", "login", "startup", "login", "startup"]);
+  expect(dependent.calls).toEqual(["login", "startup", "login", "startup", "login", "startup", "login", "startup"]);
 });
 
 /** `login()` only logs in. The caller runs `syncOnStartup()`. */

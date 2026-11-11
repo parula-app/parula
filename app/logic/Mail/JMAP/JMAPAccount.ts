@@ -1049,7 +1049,7 @@ export class JMAPAccount extends MailAccount {
     account.identities.add(identity);
     await account.save();
     appGlobal.emailAccounts.add(account);
-    await account.syncOnStartup();
+    await account.loginAndStartup(false);
     return account;
   }
 
