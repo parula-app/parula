@@ -32,11 +32,10 @@
     </vbox>
     {#if domain}
       <hbox class="footer">
-        <!-- The other checkbox can change the domain. Then start unchecked again. -->
-        {#key domain}
+        {#key domain} <!-- The other checkbox can change the domain. Then start unchecked again. -->
           <Checkbox checked={false} allowIndetermined={false}
             label={$t`Don't show again for ${domain}`}
-            on:change={onDontShowAgain} />
+            on:change={ev => catchErrors(() => onDontShowAgain(ev.detail))} />
         {/key}
       </hbox>
     {/if}
@@ -102,7 +101,7 @@
   let originalURL: string;
   $: untrackedURL = removeTrackingURL(originalURL);
   let removeTracking = true;
-  /** What we show, open and copy: `originalURL`, or where the tracking link goes */
+  /** What we show, open and copy */
   let targetURL: string;
   $: targetURL = removeTracking ? untrackedURL : originalURL;
   /** null, if the link has no web domain */
@@ -135,8 +134,8 @@
     await navigator.clipboard.writeText(targetURL);
   }
 
-  function onDontShowAgain(event: CustomEvent<boolean>) {
-    setAskBeforeOpening(domain, !event.detail);
+  function onDontShowAgain(checked: boolean) {
+    setAskBeforeOpening(domain, !checked);
     // The checkbox replaces its <input>, so the focus would go to the page, and Escape would not reach us
     popupE.focus();
   }
