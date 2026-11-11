@@ -11,12 +11,12 @@
   }],
   "phoneNumbers": [{
     "value": "0123456789",
-    "purpose": "other",
+    "purpose": "mobile",
     "protocol": "tel",
     "preference": 1
   }, {
     "value": "0123456789",
-    "purpose": "other",
+    "purpose": "mobile",
     "protocol": "tel",
     "preference": 100
   }],
