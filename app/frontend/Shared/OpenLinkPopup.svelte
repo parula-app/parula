@@ -1,14 +1,18 @@
 <Popup bind:popupOpen {popupAnchor} placement="bottom-start" boundaryElSel="body">
   <vbox class="open-link-popup" bind:this={popupE} on:keydown={onKeyDown} role="dialog" aria-label={domain} tabindex="-1">
-    <hbox class="domain">{domain}</hbox>
-    <hbox class="buttons">
-      <Button label={$t`Open in browser`} classes="filled" onClick={onOpen} />
-      <Button label={$t`Copy link`} icon={CopyIcon} iconOnly classes="secondary" onClick={onCopy} />
+    <vbox class="content">
+      <hbox class="domain">{domain}</hbox>
+      <hbox class="buttons">
+        <Button label={$t`Open in browser`} classes="filled" onClick={onOpenLinkInBrowser} />
+        <Button label={$t`Copy link`} icon={CopyIcon} iconOnly classes="secondary" onClick={onCopy} />
+      </hbox>
+      <hbox class="url">{url}</hbox>
+    </vbox>
+    <hbox class="footer">
+      <Checkbox checked={false} allowIndetermined={false}
+        label={$t`Don't show again for ${domain}`}
+        on:change={onDontShowAgain} />
     </hbox>
-    <hbox class="url">{url}</hbox>
-    <Checkbox checked={false} allowIndetermined={false}
-      label={$t`Don't show again for ${domain}`}
-      on:change={onDontShowAgain} />
   </vbox>
 </Popup>
 
@@ -80,7 +84,7 @@
     popupE?.focus(); // for Return and Escape
   }
 
-  async function onOpen() {
+  async function onOpenLinkInBrowser() {
     popupOpen = false;
     await openExternalURL(url);
   }
@@ -104,7 +108,7 @@
       // [Open in browser] is the default button. A button with the focus does its own action.
       event.preventDefault();
       event.stopPropagation();
-      catchErrors(onOpen);
+      catchErrors(onOpenLinkInBrowser);
     }
   }
 </script>
@@ -113,13 +117,16 @@
   .open-link-popup {
     min-width: 280px;
     max-width: min(480px, calc(100vw - 32px));
-    padding: 16px;
     background-color: var(--bg);
     color: var(--fg);
     /* In dark mode, the mail has the same background */
     border: 1px solid var(--border);
     border-radius: 5px;
+    overflow: hidden;
     outline: none;
+  }
+  .content {
+    padding: 16px;
   }
   .domain {
     font-size: 24px;
@@ -131,7 +138,7 @@
     margin-block-start: 12px;
   }
   .url {
-    margin-block: 24px 12px;
+    margin-block-start: 24px;
     max-height: 8em;
     overflow-y: auto;
     overflow-wrap: anywhere;
@@ -139,7 +146,10 @@
     opacity: 70%;
     user-select: text;
   }
-  .open-link-popup :global(.checkbox) {
+  .footer {
+    padding: 10px 16px;
+    border-block-start: 1px solid var(--border);
+    background-color: var(--leftbar-bg);
     font-size: 12px;
   }
   .open-link-popup :global(.checkbox input),
@@ -147,5 +157,25 @@
     width: 16px;
     height: 16px;
     min-width: 16px;
+  }
+
+  :global(.lookout-window) .open-link-popup {
+    border-color: var(--lo-border);
+    border-radius: var(--lo-radius);
+    box-shadow: var(--lo-shadow-popup);
+  }
+  :global(.lookout-window) .domain {
+    font-size: var(--lo-font-size-large);
+    font-weight: 600;
+  }
+  :global(.lookout-window) .url {
+    font-size: var(--lo-font-size-small);
+    color: var(--lo-fg-secondary);
+    opacity: 1;
+  }
+  :global(.lookout-window) .footer {
+    border-color: var(--lo-divider);
+    background-color: var(--lo-pane-alt-bg);
+    font-size: var(--lo-font-size-small);
   }
 </style>
