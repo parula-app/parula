@@ -14,7 +14,11 @@
         <Button label={$t`Cancel`} classes="secondary" onClick={onCancel} />
       </hbox>
       <hbox class="url-line">
-        <hbox class="url">{url}</hbox>
+        <div class="url">
+          {#each urlParts(url) as part}
+            {part}<wbr>
+          {/each}
+        </div>
         <hbox class="copy">
           <Button label={$t`Copy link`} icon={CopyIcon} iconSize="14px" iconOnly plain onClick={onCopy} />
         </hbox>
@@ -130,6 +134,11 @@
       event.stopPropagation();
       catchErrors(onOpenLinkInBrowser);
     }
+  }
+
+  /** Splits the URL after each `/`, so that it can wrap there. Not within `//`. */
+  function urlParts(url: string): string[] {
+    return url.split(/(?<=\/)(?!\/)/);
   }
 </script>
 
