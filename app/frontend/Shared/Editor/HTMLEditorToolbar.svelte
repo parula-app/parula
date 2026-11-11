@@ -5,7 +5,7 @@
     <Button
       label={$t`Bold`}
       shortCutInfo={$t`*bold* or **bold**`}
-      onClick={() => editor.chain().focus().toggleBold().run()}
+      onClick={() => editor.chain().focus().toggleMarkOnWord('bold').run()}
       disabled={!editor.can().chain().focus().toggleBold().run()}
       selected={editor.isActive('bold')}
       iconOnly
@@ -15,7 +15,7 @@
     <Button
       label={$t`Italic`}
       shortCutInfo={$t`/italic/ or _italic_`}
-      onClick={() => editor.chain().focus().toggleItalic().run()}
+      onClick={() => editor.chain().focus().toggleMarkOnWord('italic').run()}
       disabled={!editor.can().chain().focus().toggleItalic().run()}
       selected={editor.isActive('italic')}
       icon={ItalicIcon}
@@ -24,7 +24,7 @@
       />
     <Button
       label={$t`Strike-through`}
-      onClick={() => editor.chain().focus().toggleStrike().run()}
+      onClick={() => editor.chain().focus().toggleMarkOnWord('strike').run()}
       disabled={!editor.can().chain().focus().toggleStrike().run()}
       selected={editor.isActive('strike')}
       iconOnly
@@ -34,7 +34,7 @@
     <Button
       label={$t`Code word, within a phrase`}
       shortCutInfo={$t`\`code\``}
-      onClick={() => editor.chain().focus().toggleCode().run()}
+      onClick={() => editor.chain().focus().toggleMarkOnWord('code').run()}
       disabled={!editor.can().chain().focus().toggleCode().run()}
       selected={editor.isActive('code')}
       icon={CodeWordIcon}
@@ -183,7 +183,8 @@ block
       <!-- <label for="linktext">Link text</label>
       <input type="text" bind:value={linkText} id="linktext" /> -->
       <label for="linktargeturl">Link target URL</label>
-      <input type="url" bind:value={linkTargetURL} id="linktargeturl" />
+      <input type="url" bind:value={linkTargetURL} bind:this={linkTargetInput}
+        on:keydown={onLinkKey} id="linktargeturl" />
       <Button
         onClick={onLinkOK}
         label={$t`OK`}
@@ -233,6 +234,9 @@ block
   import UndoIcon from "lucide-svelte/icons/undo";
   import RedoIcon from "lucide-svelte/icons/redo";
   import type { Editor } from '@tiptap/core';
+  import { onKeyEnter } from '../../Util/util';
+  import { catchErrors } from '../../Util/error';
+  import { tick } from 'svelte';
   import { t } from '../../../l10n/l10n';
 
   /* in only */
@@ -240,13 +244,29 @@ block
 
   let isEditingLink = false;
   let linkTargetURL: string = null;
-  function onLinkOpen() {
+  let linkTargetInput: HTMLInputElement;
+  async function onLinkOpen() {
     isEditingLink = true;
     linkTargetURL = editor.getAttributes('link').href
+    await tick();
+    linkTargetInput?.focus();
   }
   function onLinkOK() {
-    editor.chain().focus().setLink({ href: linkTargetURL }).run();
+    editor.chain().focus().applyLink(linkTargetURL?.trim()).run();
     isEditingLink = false;
+  }
+  function onLinkKey(event: KeyboardEvent) {
+    if (event.key == "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      isEditingLink = false;
+      editor.commands.focus();
+      return;
+    }
+    onKeyEnter(event, onLinkOK);
+  }
+  $: if (editor) {
+    editor.storage.linkEditing.openLinkEditor = () => catchErrors(onLinkOpen);
   }
 
   let isEditingImage = false;

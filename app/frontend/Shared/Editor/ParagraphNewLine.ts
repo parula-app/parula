@@ -18,6 +18,8 @@ export const ParagraphNewLine = Paragraph.extend({
   addKeyboardShortcuts() {
     return {
       Enter: () => this.editor.commands.onParagraphEnter(),
+      'Mod-Shift-n': () => this.editor.commands.setParagraph(),
+      'Mod-Shift-N': () => this.editor.commands.setParagraph(),
     }
   },
   addCommands() {
