@@ -39,16 +39,8 @@
       <vbox class="setting language">
         <hbox class="subheader">{$t`App *=> Software application`}</hbox>
         <hbox class="dropdown">
-          <LanguageDropDown bind:language on:change={() => catchErrors(onChangedLanguage)} />
+          <LanguageDropDown bind:language on:change={() => catchErrors(onSaveLanguage)} />
         </hbox>
-        {#if language != getUILocalePref()}
-          <Button
-            label="Save and restart"
-            icon={RestartIcon}
-            onClick={onSaveLanguage}
-            classes="restart"
-            />
-        {/if}
       </vbox>
       <vbox class="setting date-format">
         <hbox class="subheader">{$t`Date and time format`}</hbox>
@@ -81,7 +73,6 @@
   import LanguageDropDown from "./LanguageDropDown.svelte";
   import HeaderGroupBox from "../../Shared/HeaderGroupBox.svelte";
   import Button from "../../Shared/Button.svelte";
-  import RestartIcon from "lucide-svelte/icons/rotate-ccw";
   import SwitchIcon from "lucide-svelte/icons/arrow-left-right";
   import { catchErrors } from "../../Util/error";
 
@@ -98,18 +89,14 @@
   let dateTimeFormatDisplayed = getDateTimeLocale();
   const sampleDate = new Date(new Date().getFullYear() + 1, 0, 20, 13, 0, 0);
 
-  async function onSaveLanguage() {
+  function onSaveLanguage() {
+    dateTimeFormat = language;
+    onSaveDateTimeFormat();
     saveUILocale(language);
     setUILocale(getUILocale());
-    await onSaveDateTimeFormat();
-    await appGlobal.remoteApp.restartApp(); // unfortunately needed for the strings in ts modules
   }
 
-  async function onChangedLanguage() {
-    dateTimeFormat = language;
-  }
-
-  async function onSaveDateTimeFormat() {
+  function onSaveDateTimeFormat() {
     saveDateTimeLocale(dateTimeFormat);
     dateTimeFormatDisplayed = getDateTimeLocale();
   }

@@ -4,10 +4,7 @@
       <hbox class="field-row">
         <label for="options-display-language" class="field-label">{$t`Display language`}</label>
         <ComboBox options={[ { value: "", label: $t`Use system setting` }, ...languages.map(code => ({ value: code, label: localeNames[code] })) ]}
-          bind:value={language} on:change={event => { dateTimeFormat = event.detail; }} label={$t`Display language`} width="240px" />
-        {#if language != getUILocalePref()}
-          <DialogButton label={$t`Save and restart`} icon={RestartIcon} onClick={onSaveLanguage} />
-        {/if}
+          bind:value={language} on:change={onSaveLanguage} label={$t`Display language`} width="240px" />
       </hbox>
     </OptionsRow>
   </OptionsSection>
@@ -31,18 +28,16 @@
 </OptionsPage>
 
 <script lang="ts">
-  import { appGlobal } from "../../../logic/app";
   import { appName } from "../../../logic/build";
   import { localeNames } from "../../../l10n/list";
+  import { openOptions } from "../SettingsDialogs";
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
-  import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
   import OptionsPage from "../Shared/OptionsPage.svelte";
   import OptionsSection from "../Shared/OptionsSection.svelte";
   import OptionsRow from "../Shared/OptionsRow.svelte";
   import LanguageIcon from "lucide-svelte/icons/languages";
   import DisplayLanguageIcon from "lucide-svelte/icons/monitor";
   import DateFormatIcon from "lucide-svelte/icons/calendar-clock";
-  import RestartIcon from "lucide-svelte/icons/rotate-ccw";
   import { getUILocale, getUILocalePref, getDateTimeLocale, getDateTimeLocalePref, saveDateTimeLocale, saveUILocale, setUILocale, t } from "../../../l10n/l10n";
 
   const languages = Object.keys(localeNames);
@@ -54,11 +49,12 @@
 
   const sampleDate = new Date(new Date().getFullYear() + 1, 0, 20, 13, 0, 0);
 
-  async function onSaveLanguage() {
-    saveUILocale(language);
-    setUILocale(getUILocale());
+  function onSaveLanguage() {
+    dateTimeFormat = language;
     onSaveDateTimeFormat();
-    await appGlobal.remoteApp.restartApp(); // unfortunately needed for the strings in ts modules
+    saveUILocale(language);
+    openOptions("language"); // the UI re-renders in the new language, and should come back to this page
+    setUILocale(getUILocale());
   }
 
   function onSaveDateTimeFormat() {

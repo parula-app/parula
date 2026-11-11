@@ -9,48 +9,50 @@
   on:beforeunload={() => catchErrors(saveWindowSettings)}
   on:click|capture={(event) => catchErrors(() => onClickTopLevel(event))} />
 
-{#if frontend == "lookout"}
-  {#await lookoutWindow then lookout}
-    <svelte:component this={lookout.default} />
-  {/await}
-{:else}
-  <vbox flex class="main-window"
-    dir={rtl}
-    class:mobile={$appGlobal.isMobile}
-    class:desktop={!$appGlobal.isMobile}>
-    {#if !appGlobal.isMobile}
-      <WindowHeader selectedApp={$selectedApp} />
-    {/if}
-    <hbox flex>
+{#key $locale} <!-- Re-renders everything, so that strings from .ts modules show the new language -->
+  {#if frontend == "lookout"}
+    {#await lookoutWindow then lookout}
+      <svelte:component this={lookout.default} />
+    {/await}
+  {:else}
+    <vbox flex class="main-window"
+      dir={rtl}
+      class:mobile={$appGlobal.isMobile}
+      class:desktop={!$appGlobal.isMobile}>
       {#if !appGlobal.isMobile}
-        <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} />
+        <WindowHeader selectedApp={$selectedApp} />
       {/if}
-      <vbox flex>
-        <NotificationBar notifications={$notifications} />
-        {#if appGlobal.isMobile}
-          <Router primary={false} {history}>
-            <SplitterHorizontal name="sidebar" initialBottomRatio={0.7} hasTop={!!sidebar}>
-              <vbox flex class="sidebar" slot="top">
-                <svelte:component this={sidebar} />
-              </vbox>
-              <AppContentRoutes slot="bottom" />
-            </SplitterHorizontal>
-            <NavigationM />
-          </Router>
-        {:else if $selectedApp}
-          <Router primary={false} {history}>
-            <Splitter name="sidebar" initialRightRatio={0.25} hasRight={!!sidebar}>
-              <AppContentRoutes slot="left"/>
-              <vbox flex class="sidebar" slot="right">
-                <svelte:component this={sidebar} />
-              </vbox>
-            </Splitter>
-          </Router>
+      <hbox flex>
+        {#if !appGlobal.isMobile}
+          <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} />
         {/if}
-      </vbox>
-    </hbox>
-  </vbox>
-{/if}
+        <vbox flex>
+          <NotificationBar notifications={$notifications} />
+          {#if appGlobal.isMobile}
+            <Router primary={false} {history}>
+              <SplitterHorizontal name="sidebar" initialBottomRatio={0.7} hasTop={!!sidebar}>
+                <vbox flex class="sidebar" slot="top">
+                  <svelte:component this={sidebar} />
+                </vbox>
+                <AppContentRoutes slot="bottom" />
+              </SplitterHorizontal>
+              <NavigationM />
+            </Router>
+          {:else if $selectedApp}
+            <Router primary={false} {history}>
+              <Splitter name="sidebar" initialRightRatio={0.25} hasRight={!!sidebar}>
+                <AppContentRoutes slot="left"/>
+                <vbox flex class="sidebar" slot="right">
+                  <svelte:component this={sidebar} />
+                </vbox>
+              </Splitter>
+            </Router>
+          {/if}
+        </vbox>
+      </hbox>
+    </vbox>
+  {/if}
+{/key}
 <MeetBackground />
 <MailInBackground />
 <CalendarInBackground />
@@ -88,7 +90,7 @@
   import WebAppsInBackground from "../WebApps/Runner/WebAppsInBackground.svelte";
   import { catchErrors } from "../Util/error";
   import { assert } from "../../logic/util/util";
-  import { getUILocale, t } from "../../l10n/l10n";
+  import { locale, t } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
   import { appName, defaultFrontend } from "../../logic/build";
   import { onMount } from "svelte";
@@ -106,7 +108,7 @@
   // $: sidebarApp = $mustangApps.filter(app => app.showSidebar).first; // TODO watch `app` property changes
   $: $sidebarApp = $meetMustangApp.showSidebar ? meetMustangApp : null;
   $: sidebar = $sidebarApp?.sidebar;
-  $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
+  $: rtl = rtlLocales.includes($locale) ? 'rtl' : null;
   categoriesLoaded; /* make sure to import the file, so that that categories load */
 
   onMount(() => catchErrors(onLoad));
