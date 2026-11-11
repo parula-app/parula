@@ -16,7 +16,7 @@
       <hbox class="url-line">
         <hbox class="url">{url}</hbox>
         <hbox class="copy">
-          <Button label={$t`Copy link`} icon={CopyIcon} iconSize="16px" iconOnly plain onClick={onCopy} />
+          <Button label={$t`Copy link`} icon={CopyIcon} iconSize="14px" iconOnly plain onClick={onCopy} />
         </hbox>
       </hbox>
     </vbox>
@@ -135,7 +135,7 @@
 
 <style>
   .open-link-popup {
-    min-width: 280px;
+    min-width: 350px;
     max-width: min(480px, calc(100vw - 32px));
     background-color: var(--bg);
     color: var(--fg);
@@ -146,9 +146,9 @@
     outline: none;
   }
   /* The line height of the domain adds space above its letters, so less padding
-     at the top. The letters are 17px from the top and 29px from the side. */
+     at the top. The letters are 25px from the top and 29px from the side. */
   .content {
-    padding: 4px 28px 16px;
+    padding: 12px 28px 16px;
   }
   .domain {
     font-size: 24px;
@@ -181,12 +181,16 @@
   }
   /* One line of the URL high, so that the button is in the middle of its first line,
      also when the URL wraps.
-     On the right is the padding of the popup, so the same space on the left. */
+     On the right is the padding of the popup, minus 8px, so the same space on the left. */
   .copy {
     height: 1lh;
     align-items: center;
-    margin-inline-start: 28px;
+    margin-inline: 20px -8px;
     font-size: 12px;
+    opacity: 70%; /* like the URL */
+  }
+  .copy :global(button) {
+    color: inherit;
   }
   .footer {
     padding: 10px 28px;
@@ -206,9 +210,9 @@
     border-radius: var(--lo-radius);
     box-shadow: var(--lo-shadow-popup);
   }
-  /* The letters of the domain are 16px from the top and 24px from the side */
+  /* The letters of the domain are 24px from the top and 24px from the side */
   :global(.lookout-window) .content {
-    padding: 8px 24px 16px;
+    padding: 16px 24px 16px;
   }
   :global(.lookout-window) .domain {
     font-size: var(--lo-font-size-large);
@@ -224,7 +228,10 @@
   }
   :global(.lookout-window) .copy {
     font-size: var(--lo-font-size-small);
-    margin-inline-start: 24px;
+    margin-inline: 16px -8px;
+    /* like the URL */
+    color: var(--lo-fg-secondary);
+    opacity: 1;
   }
   :global(.lookout-window) .footer {
     padding: 10px 24px;
