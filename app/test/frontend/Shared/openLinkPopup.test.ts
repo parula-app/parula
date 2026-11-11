@@ -79,6 +79,15 @@ test("Shows the base domain and the full URL", async () => {
   expect(document.activeElement).toBe(popupE);
 });
 
+test("A link without a web domain shows a warning, and nothing to remember", async () => {
+  let popupE = await showPopup("mailto:fred@foo.com");
+  let headingE = popupE.querySelector(".domain");
+  expect(headingE.classList.contains("unknown")).toBe(true);
+  expect(headingE.textContent.trim()).not.toBe("");
+  expect(popupE.querySelector(".url").textContent).toContain("fred@foo.com");
+  expect(popupE.querySelector(".checkbox")).toBeNull();
+});
+
 test("The checkbox remembers the domain, and forgets it again", async () => {
   localStorage.setItem(kPref, JSON.stringify(["bar.org"]));
   let popupE = await showPopup("https://a.b.d.foo.com/dtghdfhj");

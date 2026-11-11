@@ -1,18 +1,27 @@
 <Popup bind:popupOpen {popupAnchor} placement="bottom-start" boundaryElSel="body">
-  <vbox class="open-link-popup" bind:this={popupE} on:keydown={onKeyDown} role="dialog" aria-label={domain} tabindex="-1">
+  <vbox class="open-link-popup" bind:this={popupE} on:keydown={onKeyDown} role="dialog" aria-label={domain || $t`Unknown destination`} tabindex="-1">
     <vbox class="content">
-      <hbox class="domain">{domain}</hbox>
+      {#if domain}
+        <hbox class="domain">{domain}</hbox>
+      {:else}
+        <hbox class="domain unknown" role="alert">
+          <WarningIcon size="1em" />
+          {$t`Unknown destination`}
+        </hbox>
+      {/if}
       <hbox class="buttons">
         <Button label={$t`Open in browser`} classes="filled" onClick={onOpenLinkInBrowser} />
         <Button label={$t`Copy link`} icon={CopyIcon} iconOnly classes="secondary" onClick={onCopy} />
       </hbox>
       <hbox class="url">{url}</hbox>
     </vbox>
-    <hbox class="footer">
-      <Checkbox checked={false} allowIndetermined={false}
-        label={$t`Don't show again for ${domain}`}
-        on:change={onDontShowAgain} />
-    </hbox>
+    {#if domain}
+      <hbox class="footer">
+        <Checkbox checked={false} allowIndetermined={false}
+          label={$t`Don't show again for ${domain}`}
+          on:change={onDontShowAgain} />
+      </hbox>
+    {/if}
   </vbox>
 </Popup>
 
@@ -59,6 +68,7 @@
   import Button from "./Button.svelte";
   import Checkbox from "./Checkbox.svelte";
   import CopyIcon from "lucide-svelte/icons/copy";
+  import WarningIcon from "lucide-svelte/icons/triangle-alert";
   import { openExternalURL } from "../../logic/util/os-integration";
   import { catchErrors } from "../Util/error";
   import { tick } from "svelte";
@@ -70,7 +80,8 @@
 
   let popupOpen = false;
   let url: string;
-  let domain: string;
+  /** null, if the link has no web domain */
+  let domain: string | null;
   let popupE: HTMLElement;
 
   /** Shows the popup for this link, which lets the user open or copy it */
@@ -78,7 +89,7 @@
     popupOpen = false; // Recreate the content, e.g. reset the checkbox
     await tick();
     url = linkURL;
-    domain = linkDomain(linkURL) ?? "";
+    domain = linkDomain(linkURL);
     popupOpen = true;
     await tick();
     popupE?.focus(); // for Return and Escape
@@ -133,6 +144,10 @@
     font-weight: bold;
     overflow-wrap: anywhere;
   }
+  .unknown {
+    align-items: center;
+    gap: 8px;
+  }
   .buttons {
     gap: 8px;
     margin-block-start: 12px;
@@ -167,6 +182,9 @@
   :global(.lookout-window) .domain {
     font-size: var(--lo-font-size-large);
     font-weight: 600;
+  }
+  :global(.lookout-window) .unknown :global(svg) {
+    color: var(--lo-warning);
   }
   :global(.lookout-window) .url {
     font-size: var(--lo-font-size-small);
