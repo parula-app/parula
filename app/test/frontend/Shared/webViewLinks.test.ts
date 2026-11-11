@@ -69,3 +69,11 @@ test("A click on a link to an allowed domain opens it at once", async () => {
   expect(document.querySelector(".open-link-popup")).toBeNull();
   expect(opened).toEqual(["https://a.b.d.foo.com/dtghdfhj"]);
 });
+
+test("A click on a tracking link to an allowed domain opens the page without the tracker", async () => {
+  localStorage.setItem("links.openWithoutAsking.domains", JSON.stringify(["shop.com"]));
+  await showMail(`<p><a href="https://click.tracker.com/c?u=https%3A%2F%2Fwww.shop.com%2Fshoes">Shoes</a></p>`);
+  await clickOnLink("https://click.tracker.com/c?u=https%3A%2F%2Fwww.shop.com%2Fshoes");
+  expect(document.querySelector(".open-link-popup")).toBeNull();
+  expect(opened).toEqual(["https://www.shop.com/shoes"]);
+});

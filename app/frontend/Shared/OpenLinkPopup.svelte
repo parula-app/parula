@@ -15,7 +15,7 @@
       </hbox>
       <hbox class="url-line">
         <div class="url">
-          {#each urlParts(url) as part}
+          {#each urlParts(targetURL) as part}
             {part}<wbr>
           {/each}
         </div>
@@ -23,19 +23,27 @@
           <Button label={$t`Copy link`} icon={CopyIcon} iconSize="14px" iconOnly plain onClick={onCopy} />
         </hbox>
       </hbox>
+      {#if untrackedURL != originalURL}
+        <hbox class="remove-tracking">
+          <Checkbox bind:checked={removeTracking} allowIndetermined={false}
+            label={$t`Remove tracking URL`} />
+        </hbox>
+      {/if}
     </vbox>
     {#if domain}
       <hbox class="footer">
-        <Checkbox checked={false} allowIndetermined={false}
-          label={$t`Don't show again for ${domain}`}
-          on:change={onDontShowAgain} />
+        {#key domain} <!-- The other checkbox can change the domain. Then start unchecked again. -->
+          <Checkbox checked={false} allowIndetermined={false}
+            label={$t`Don't show again for ${domain}`}
+            on:change={ev => catchErrors(() => onDontShowAgain(ev.detail))} />
+        {/key}
       </hbox>
     {/if}
   </vbox>
 </Popup>
 
 <script lang="ts" context="module">
-  import { getBaseDomainFromHost } from "../../logic/util/netUtil";
+  import { getBaseDomainFromHost, removeTrackingURL } from "../../logic/util/netUtil";
   import { getUserPreference, setUserPreference } from "../../logic/util/util";
   import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 
@@ -43,9 +51,10 @@
   const kOpenWithoutAskingPref = "links.openWithoutAsking.domains";
 
   /** Whether we should show this popup for the link, before opening it in the browser.
-   * Only for web pages. `mailto:` etc. open in the OS app without asking, as before. */
+   * Only for web pages. `mailto:` etc. open in the OS app without asking, as before.
+   * For a tracking link, this depends on where it goes, see `removeTrackingURL()`. */
   export function askBeforeOpening(url: string): boolean {
-    let domain = linkDomain(url);
+    let domain = linkDomain(removeTrackingURL(url));
     return !!domain && !sanitize.array(getUserPreference(kOpenWithoutAskingPref, []), []).includes(domain);
   }
 
@@ -88,17 +97,24 @@
   export let popupAnchor: HTMLElement | VirtualElement;
 
   let popupOpen = false;
-  let url: string;
+  /** The link as it was in the email */
+  let originalURL: string;
+  $: untrackedURL = removeTrackingURL(originalURL);
+  let removeTracking = true;
+  /** What we show, open and copy */
+  let targetURL: string;
+  $: targetURL = removeTracking ? untrackedURL : originalURL;
   /** null, if the link has no web domain */
   let domain: string | null;
+  $: domain = linkDomain(targetURL);
   let popupE: HTMLElement;
 
   /** Shows the popup for this link, which lets the user open or copy it */
   export async function show(linkURL: string) {
     popupOpen = false; // Recreate the content, e.g. reset the checkbox
     await tick();
-    url = linkURL;
-    domain = linkDomain(linkURL);
+    originalURL = linkURL;
+    removeTracking = true;
     popupOpen = true;
     await tick();
     popupE?.focus(); // for Return and Escape
@@ -106,7 +122,7 @@
 
   async function onOpenLinkInBrowser() {
     popupOpen = false;
-    await openExternalURL(url);
+    await openExternalURL(targetURL);
   }
 
   function onCancel() {
@@ -115,11 +131,11 @@
 
   async function onCopy() {
     popupOpen = false;
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(targetURL);
   }
 
-  function onDontShowAgain(event: CustomEvent<boolean>) {
-    setAskBeforeOpening(domain, !event.detail);
+  function onDontShowAgain(checked: boolean) {
+    setAskBeforeOpening(domain, !checked);
     // The checkbox replaces its <input>, so the focus would go to the page, and Escape would not reach us
     popupE.focus();
   }
@@ -201,6 +217,10 @@
   .copy :global(button) {
     color: inherit;
   }
+  .remove-tracking {
+    margin-block-start: 8px;
+    font-size: 12px;
+  }
   .footer {
     padding: 10px 28px;
     border-block-start: 1px solid var(--border);
@@ -241,6 +261,9 @@
     /* like the URL */
     color: var(--lo-fg-secondary);
     opacity: 1;
+  }
+  :global(.lookout-window) .remove-tracking {
+    font-size: var(--lo-font-size-small);
   }
   :global(.lookout-window) .footer {
     padding: 10px 24px;

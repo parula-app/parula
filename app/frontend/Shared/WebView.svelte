@@ -36,6 +36,7 @@
   import type { ArrayColl } from "svelte-collections";
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { openExternalURL } from "../../logic/util/os-integration";
+  import { removeTrackingURL } from "../../logic/util/netUtil";
   const dispatch = createEventDispatcher();
 
   /**
@@ -182,11 +183,14 @@
         return;
       }
       if (event.type == "mouseDown" && event.button == "left") {
-        if (askBeforeOpeningLinks && askBeforeOpening(url)) {
+        if (!askBeforeOpeningLinks) {
+          await openExternalURL(url);
+        } else if (askBeforeOpening(url)) {
           clickEvent = event;
           await openLinkPopup.show(url);
         } else {
-          await openExternalURL(url);
+          // Like the default in the popup
+          await openExternalURL(removeTrackingURL(url));
         }
       }
     }), showError);
