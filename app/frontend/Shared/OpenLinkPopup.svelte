@@ -145,8 +145,10 @@
     overflow: hidden;
     outline: none;
   }
+  /* The line height of the domain adds space above its letters, so less padding
+     at the top. The letters are 17px from the top and 29px from the side. */
   .content {
-    padding: 16px;
+    padding: 4px 28px 16px;
   }
   .domain {
     font-size: 24px;
@@ -183,11 +185,11 @@
   .copy {
     height: 1lh;
     align-items: center;
-    margin-inline-start: 16px;
+    margin-inline-start: 28px;
     font-size: 12px;
   }
   .footer {
-    padding: 10px 16px;
+    padding: 10px 28px;
     border-block-start: 1px solid var(--border);
     background-color: var(--leftbar-bg);
     font-size: 12px;
@@ -204,6 +206,10 @@
     border-radius: var(--lo-radius);
     box-shadow: var(--lo-shadow-popup);
   }
+  /* The letters of the domain are 16px from the top and 24px from the side */
+  :global(.lookout-window) .content {
+    padding: 8px 24px 16px;
+  }
   :global(.lookout-window) .domain {
     font-size: var(--lo-font-size-large);
     font-weight: 600;
@@ -218,8 +224,10 @@
   }
   :global(.lookout-window) .copy {
     font-size: var(--lo-font-size-small);
+    margin-inline-start: 24px;
   }
   :global(.lookout-window) .footer {
+    padding: 10px 24px;
     border-color: var(--lo-divider);
     background-color: var(--lo-pane-alt-bg);
     font-size: var(--lo-font-size-small);
