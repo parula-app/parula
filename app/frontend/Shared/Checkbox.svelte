@@ -122,7 +122,7 @@
   input {
     cursor: pointer;
     appearance: none;
-    background: #fff;
+    background: var(--input-bg);
     border: 1px solid var(--button-border);
     width: 20px;
     height: 20px;
