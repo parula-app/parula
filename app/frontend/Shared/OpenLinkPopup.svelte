@@ -19,10 +19,16 @@
           <Button label={$t`Copy link`} icon={CopyIcon} iconSize="14px" iconOnly plain onClick={onCopy} />
         </hbox>
       </hbox>
+      {#if untrackedURL}
+        <hbox class="remove-tracking">
+          <Checkbox bind:checked={removeTracking} allowIndetermined={false}
+            label={$t`Remove tracking URL`} />
+        </hbox>
+      {/if}
     </vbox>
     {#if domain}
       <hbox class="footer">
-        <Checkbox checked={false} allowIndetermined={false}
+        <Checkbox bind:checked={dontAsk} allowIndetermined={false}
           label={$t`Don't show again for ${domain}`}
           on:change={onDontShowAgain} />
       </hbox>
@@ -39,10 +45,15 @@
   const kOpenWithoutAskingPref = "links.openWithoutAsking.domains";
 
   /** Whether we should show this popup for the link, before opening it in the browser.
-   * Only for web pages. `mailto:` etc. open in the OS app without asking, as before. */
+   * Only for web pages. `mailto:` etc. open in the OS app without asking, as before.
+   * For a tracking link, this depends on where it goes, see `removeTrackingURL()`. */
   export function askBeforeOpening(url: string): boolean {
-    let domain = linkDomain(url);
-    return !!domain && !sanitize.array(getUserPreference(kOpenWithoutAskingPref, []), []).includes(domain);
+    let domain = linkDomain(removeTrackingURL(url) ?? url);
+    return !!domain && askForDomain(domain);
+  }
+
+  function askForDomain(domain: string): boolean {
+    return !sanitize.array(getUserPreference(kOpenWithoutAskingPref, []), []).includes(domain);
   }
 
   function setAskBeforeOpening(domain: string, ask: boolean) {
@@ -53,17 +64,41 @@
   /** @returns e.g. "foo.com" for "https://a.b.foo.com/bar",
    *   or null for links that are not to web pages */
   function linkDomain(url: string): string | null {
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch (ex) {
-      return null;
-    }
-    if (!["https:", "http:"].includes(parsed.protocol) || !parsed.hostname) {
+    let parsed = parseURL(url);
+    if (!parsed || !["https:", "http:"].includes(parsed.protocol) || !parsed.hostname) {
       return null;
     }
     // `URL` gives the punycode, so look-alike Unicode domains show what they really are
     return getBaseDomainFromHost(parsed.hostname) ?? parsed.hostname;
+  }
+
+  /** Links in mails often go to a tracker, which records the click,
+   * and then forwards to the real page, which is in a URL parameter.
+   * E.g. "https://click.tracker.com/c?id=5&u=https%3A%2F%2Fshop.com%2Fshoes"
+   * @returns where the tracking link forwards to, e.g. "https://shop.com/shoes",
+   *   i.e. the first URL parameter that is an https: URL,
+   *   or null, if there is none */
+  export function removeTrackingURL(url: string): string | null {
+    let parsed = parseURL(url);
+    if (!parsed || !["https:", "http:"].includes(parsed.protocol)) {
+      return null; // e.g. `mailto:fred@foo.com?body=https://...`
+    }
+    for (let value of parsed.searchParams.values()) {
+      let target = parseURL(value);
+      // Only web pages, e.g. not `javascript:` or another app
+      if (target?.protocol == "https:" && target.hostname) {
+        return target.href;
+      }
+    }
+    return null;
+  }
+
+  function parseURL(url: string): URL | null {
+    try {
+      return new URL(url);
+    } catch (ex) {
+      return null;
+    }
   }
 </script>
 
@@ -84,17 +119,29 @@
   export let popupAnchor: HTMLElement | VirtualElement;
 
   let popupOpen = false;
+  /** The link as it is in the mail */
+  let linkURL: string;
+  /** Where the tracking link goes. null, if it's not a tracking link. */
+  let untrackedURL: string | null;
+  let removeTracking = true;
+  /** What we show, open and copy */
   let url: string;
+  $: url = removeTracking && untrackedURL || linkURL;
   /** null, if the link has no web domain */
   let domain: string | null;
+  $: domain = linkDomain(url);
+  /** The user doesn't want this popup for links to `domain` */
+  let dontAsk = false;
+  $: dontAsk = !!domain && !askForDomain(domain);
   let popupE: HTMLElement;
 
   /** Shows the popup for this link, which lets the user open or copy it */
-  export async function show(linkURL: string) {
-    popupOpen = false; // Recreate the content, e.g. reset the checkbox
+  export async function show(link: string) {
+    popupOpen = false; // Recreate the content
     await tick();
-    url = linkURL;
-    domain = linkDomain(linkURL);
+    linkURL = link;
+    untrackedURL = removeTrackingURL(link);
+    removeTracking = true;
     popupOpen = true;
     await tick();
     popupE?.focus(); // for Return and Escape
@@ -192,6 +239,10 @@
   .copy :global(button) {
     color: inherit;
   }
+  .remove-tracking {
+    margin-block-start: 8px;
+    font-size: 12px;
+  }
   .footer {
     padding: 10px 28px;
     border-block-start: 1px solid var(--border);
@@ -232,6 +283,9 @@
     /* like the URL */
     color: var(--lo-fg-secondary);
     opacity: 1;
+  }
+  :global(.lookout-window) .remove-tracking {
+    font-size: var(--lo-font-size-small);
   }
   :global(.lookout-window) .footer {
     padding: 10px 24px;

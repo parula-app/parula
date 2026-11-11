@@ -3,7 +3,7 @@
 import "../Util/happyDOMForDOMPurify";
 // app first, to resolve the import cycle around Abstract/Account.ts
 import { appGlobal } from "../../../logic/app";
-import OpenLinkPopup, { askBeforeOpening } from "../../../frontend/Shared/OpenLinkPopup.svelte";
+import OpenLinkPopup, { askBeforeOpening, removeTrackingURL } from "../../../frontend/Shared/OpenLinkPopup.svelte";
 import { sanitizeHTML } from "../../../logic/util/convertHTML";
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -149,6 +149,88 @@ test("Return after checking the checkbox opens the link", async () => {
   expect(opened).toEqual(["https://foo.com/"]);
 });
 
+describe("Tracking links", () => {
+  const kDestination = "https://www.shop.com/shoes?size=42";
+  const kTrackingLink = "https://click.tracker.com/c?id=5&u=" + encodeURIComponent(kDestination) + "&e=fred";
+
+  function checkbox(popupE: Element, selector: string): HTMLInputElement {
+    return popupE.querySelector(selector + " input");
+  }
+
+  test("Find where a tracking link goes", () => {
+    expect(removeTrackingURL(kTrackingLink)).toBe(kDestination);
+    expect(removeTrackingURL("https://click.tracker.com/c?u=https://www.shop.com/")).toBe("https://www.shop.com/");
+    expect(removeTrackingURL("http://click.tracker.com/c?u=https://www.shop.com/")).toBe("https://www.shop.com/");
+    expect(removeTrackingURL("https://www.shop.com/shoes?size=42")).toBeNull();
+    expect(removeTrackingURL("https://www.shop.com/")).toBeNull();
+  });
+
+  test("Only to https: web pages", () => {
+    expect(removeTrackingURL("https://click.tracker.com/c?u=http://www.shop.com/")).toBeNull();
+    expect(removeTrackingURL("https://click.tracker.com/c?u=javascript:alert(1)")).toBeNull();
+    expect(removeTrackingURL("https://click.tracker.com/c?u=mailto:fred@foo.com")).toBeNull();
+    expect(removeTrackingURL("https://click.tracker.com/c?u=https://")).toBeNull();
+    // A link to another app stays as it is
+    expect(removeTrackingURL("mailto:fred@foo.com?body=https://www.shop.com/")).toBeNull();
+    expect(removeTrackingURL("not a URL")).toBeNull();
+  });
+
+  test("The popup shows and opens where the tracking link goes", async () => {
+    let popupE = await showPopup(kTrackingLink);
+    expect(popupE.querySelector(".domain").textContent).toBe("shop.com");
+    expect(popupE.querySelector(".url").textContent).toBe(kDestination);
+    expect(checkbox(popupE, ".remove-tracking").checked).toBe(true);
+    expect(popupE.querySelector(".footer label").textContent).toContain("shop.com");
+    pressKey(document.activeElement, "Enter");
+    await Promise.resolve();
+    expect(opened).toEqual([kDestination]);
+  });
+
+  test("[Copy link] copies where the tracking link goes", async () => {
+    let popupE = await showPopup(kTrackingLink);
+    (popupE.querySelector(`button[title="Copy link"]`) as HTMLElement).click();
+    await Promise.resolve();
+    expect(await navigator.clipboard.readText()).toBe(kDestination);
+  });
+
+  test("Without the checkbox, the popup shows and opens the tracking link", async () => {
+    let popupE = await showPopup(kTrackingLink);
+    checkbox(popupE, ".remove-tracking").click();
+    flushSync();
+    expect(popupE.querySelector(".domain").textContent).toBe("tracker.com");
+    expect(popupE.querySelector(".url").textContent).toBe(kTrackingLink);
+    expect(popupE.querySelector(".footer label").textContent).toContain("tracker.com");
+    pressKey(document.activeElement, "Enter");
+    await Promise.resolve();
+    expect(opened).toEqual([kTrackingLink]);
+  });
+
+  test("Other links have no such checkbox", async () => {
+    let popupE = await showPopup("https://www.shop.com/shoes?size=42");
+    expect(popupE.querySelector(".remove-tracking")).toBeNull();
+    expect(popupE.querySelectorAll(".checkbox")).toHaveLength(1);
+  });
+
+  test("[Don't show again] is for where the link goes", async () => {
+    let popupE = await showPopup(kTrackingLink);
+    (popupE.querySelector(".footer label") as HTMLElement).click();
+    flushSync();
+    expect(askBeforeOpening("https://www.shop.com/other")).toBe(false);
+    expect(askBeforeOpening(kTrackingLink)).toBe(false);
+    expect(askBeforeOpening("https://click.tracker.com/c?id=6")).toBe(true);
+  });
+
+  test("[Don't show again] shows what the user chose for the domain that the popup shows", async () => {
+    localStorage.setItem(kPref, JSON.stringify(["tracker.com"]));
+    let popupE = await showPopup(kTrackingLink);
+    expect(checkbox(popupE, ".footer").checked).toBe(false);
+    checkbox(popupE, ".remove-tracking").click();
+    flushSync();
+    expect(popupE.querySelector(".footer label").textContent).toContain("tracker.com");
+    expect(checkbox(popupE, ".footer").checked).toBe(true);
+  });
+});
+
 /** A link in a mail, and what a click on it does */
 interface LinkCase {
   name: string;
@@ -180,12 +262,17 @@ const kLinkCases: LinkCase[] = [
   { name: "IP address in hex", html: `<a href="http://0x7f.1/">foo.com</a>`, clicks: ["popup: 127.0.0.1"] },
   { name: "invisible link over the whole mail", html: `<a href="https://evil.com/" style="position: fixed; inset: 0; opacity: 0">x</a>`, clicks: ["popup: evil.com"] },
   { name: "link inside a link", html: `<a href="https://foo.com/"><a href="https://evil.com/">foo.com</a></a>`, clicks: ["popup: foo.com", "popup: evil.com"] },
+  { name: "tracking link", html: `<a href="https://click.tracker.com/c?id=5&amp;u=https%3A%2F%2Fwww.foo.com%2Fshoes">Shoes</a>`, clicks: ["popup: foo.com"] },
+  { name: "tracking link that hides where it goes", html: `<a href="https://click.tracker.com/c?u=https%3A%2F%2Ffoo.com%40evil.com%2F">foo.com</a>`, clicks: ["popup: evil.com"] },
+  { name: "tracking link to http:", html: `<a href="https://click.tracker.com/c?u=http%3A%2F%2Fevil.com%2F">foo.com</a>`, clicks: ["popup: tracker.com"] },
+  { name: "tracking link to javascript:", html: `<a href="https://click.tracker.com/c?u=javascript%3Aalert(1)">foo.com</a>`, clicks: ["popup: tracker.com"] },
   { name: "link that clobbers window.location", html: `<a href="https://evil.com/" id="location" name="location">foo.com</a>`, clicks: ["popup: evil.com"] },
   // Not a web page: Opens the mail or phone app of the OS, as before
   { name: "mailto:", html: `<a href="mailto:fred@foo.com">Fred</a>`, clicks: ["OS app"] },
   { name: "tel:", html: `<a href="tel:+491234567">Call</a>`, clicks: ["OS app"] },
   { name: "xmpp:", html: `<a href="xmpp:fred@foo.com">Chat</a>`, clicks: ["OS app"] },
   { name: "matrix:", html: `<a href="matrix:u/fred:foo.com">Chat</a>`, clicks: ["OS app"] },
+  { name: "mailto: with a web link in it", html: `<a href="mailto:fred@foo.com?body=https%3A%2F%2Fevil.com%2F">Fred</a>`, clicks: ["OS app"] },
   // The sanitizer keeps the link, but it opens nothing
   { name: "relative link", html: `<a href="/login">foo.com</a>`, clicks: ["nothing"] },
   { name: "link without scheme", html: `<a href="//evil.com/">foo.com</a>`, clicks: ["nothing"] },
@@ -240,7 +327,8 @@ async function clickOn(link: Element): Promise<string> {
     popup = null;
     return "popup: " + domain;
   }
-  // Else, `addLinkListener()` calls `openExternalURL()`
+  // Else, `addLinkListener()` calls `openExternalURL()`, without the tracker
+  url = removeTrackingURL(url) ?? url;
   // <copied from="../../../../desktop/backend/backend.ts" function="openExternalURL()">
   const kAllowedURLSchemes = [
     "https:",

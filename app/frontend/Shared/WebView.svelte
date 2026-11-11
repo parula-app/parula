@@ -26,7 +26,7 @@
   import { buildContextMenu, MenuItem, type ContextInfo } from "./ContextMenu";
   import { newElectronKeyboardEvent, onKeyOnMessage } from "../Mail/Message/MessageKeyboard";
   import { appGlobal } from "../../logic/app";
-  import OpenLinkPopup, { askBeforeOpening } from "./OpenLinkPopup.svelte";
+  import OpenLinkPopup, { askBeforeOpening, removeTrackingURL } from "./OpenLinkPopup.svelte";
   import type { VirtualElement } from "@popperjs/core";
   // import { Menu } from "@svelteuidev/core";
   // #endif
@@ -182,11 +182,14 @@
         return;
       }
       if (event.type == "mouseDown" && event.button == "left") {
-        if (askBeforeOpeningLinks && askBeforeOpening(url)) {
+        if (!askBeforeOpeningLinks) {
+          await openExternalURL(url);
+        } else if (askBeforeOpening(url)) {
           clickEvent = event;
           await openLinkPopup.show(url);
         } else {
-          await openExternalURL(url);
+          // Like the default in the popup
+          await openExternalURL(removeTrackingURL(url) ?? url);
         }
       }
     }), showError);
