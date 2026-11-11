@@ -160,12 +160,15 @@ async function whenReady() {
   installSignalServiceCATrust(); // renderer's HTTPS REST to *.signal.org (the wss socket runs in the backend with its own CA)
 
   createMenu();
-  createWindow();
+  await createWindow();
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+        .catch(console.error);
+    }
   })
 
   try {
@@ -217,7 +220,8 @@ app.on("open-url", (_event, url) => {
   startupArgs.notifyObservers();
 
   if (BrowserWindow.getAllWindows().length == 0 && app.isReady()) {
-    createWindow();
+    createWindow()
+      .catch(console.error);
   }
 });
 // macOS: Capture file open during launch
@@ -226,7 +230,8 @@ app.on("open-file", (_event, file) => {
   startupArgs.notifyObservers();
 
   if (BrowserWindow.getAllWindows().length == 0 && app.isReady()) {
-    createWindow();
+    createWindow()
+      .catch(console.error);
   }
 });
 
