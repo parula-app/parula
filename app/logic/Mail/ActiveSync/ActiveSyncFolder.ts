@@ -285,7 +285,7 @@ export class ActiveSyncFolder extends ExchangeFolder implements ActiveSyncPingab
   }
 
   async addMessage(message: ActiveSyncEMail) {
-    message.mime ??= await CreateMIME.getMIME(message);
+    message.mime ??= await CreateMIME.getMIME(message, true);
     if (!message.isDraft || this.specialFolder != SpecialFolder.Drafts) {
       throw new NotSupported(gt`ActiveSync does not permit messages to be copied`);
     }

@@ -451,7 +451,7 @@ export class EWSFolder extends ExchangeFolder {
   }
 
   async addMessage(message: EMail) {
-    message.mime ??= await CreateMIME.getMIME(message);
+    message.mime ??= await CreateMIME.getMIME(message, true);
     let request = new EWSCreateItemRequest({ m$SavedItemFolderId: { t$FolderId: { Id: this.id } }, MessageDisposition: "SaveOnly" });
     request.addField("Message", "MimeContent", await blobToBase64(new Blob([message.mime])));
     if (message.tags.hasItems) {
