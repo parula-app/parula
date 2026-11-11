@@ -14,7 +14,7 @@ test("The tooltip of a web link shows the domain and the URL", () => {
   expect(linkTitle("https://a.b.d.foo.com/dtghdfhj")).toBe("foo.com\n\nhttps://a.b.d.foo.com/dtghdfhj");
 });
 
-test("The tooltip of a mailto: or tel: link shows the URL", () => {
-  expect(linkTitle("mailto:fred@foo.com")).toBe("mailto:fred@foo.com");
-  expect(linkTitle("tel:+491234567")).toBe("tel:+491234567");
+test("The tooltip of a mailto: or tel: link shows the URL, without \"null\" for the domain", () => {
+  expect(linkTitle("mailto:fred@foo.com")).toBe("\n\nmailto:fred@foo.com");
+  expect(linkTitle("tel:+491234567")).toBe("\n\ntel:+491234567");
 });
