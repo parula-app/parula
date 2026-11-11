@@ -52,7 +52,7 @@ export class GraphSearchEMail extends SearchEMail {
     // Graph knows neither the read, flagged and answered state nor the categories
     if (booleanHasValue(this.isOutgoing) || booleanHasValue(this.isRead) ||
         booleanHasValue(this.isStarred) || booleanHasValue(this.isReplied) ||
-        this.threadID || this.messageID ||
+        this.threadID || this.messageID || this.inReplyTo ||
         this.tags.hasItems || this.hasAttachmentMIMETypes.hasItems) {
       this.unsupportedFilters = true;
     }

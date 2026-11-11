@@ -21,6 +21,7 @@
     <vbox class="top-right">
       <MessageToolbar {message} />
       <hbox>
+        <RepliedInfo {message} />
         {#if $tags.hasItems}
           <hbox class="tags">
             <TagSelector tags={$tags} object={message} canAdd={false}>
@@ -103,6 +104,7 @@
   import TagSelector from "../../Shared/Tag/TagSelector.svelte";
   import EncryptionButtons from "./EncryptionButtons.svelte";
   import EncryptionDetails from "./EncryptionDetails.svelte";
+  import RepliedInfo from "./RepliedInfo.svelte";
   import ErrorMessageInline from "../../Shared/ErrorMessageInline.svelte";
   import RoundButton from "../../Shared/RoundButton.svelte";
   import RemoveIcon from "lucide-svelte/icons/x";

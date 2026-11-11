@@ -47,6 +47,7 @@ export class SQLSearchEMail extends SearchEMail {
         $${typeof (this.isReplied) == "boolean" ? sql` AND isReplied = ${this.isReplied ? 1 : 0} ` : sql``}
         $${typeof (this.threadID) == "string" ? sql` AND threadID = ${this.threadID} ` : sql``}
         $${typeof (this.messageID) == "string" ? sql` AND messageID = ${this.messageID} ` : sql``}
+        $${typeof (this.inReplyTo) == "string" ? sql` AND parentMsgID = ${this.inReplyTo} ` : sql``}
         $${this.sizeMin ? sql` AND size >= ${this.sizeMin} ` : sql``}
         $${this.sizeMax ? sql` AND size <= ${this.sizeMax} ` : sql``}
         $${this.includesPerson ? (this.includesPerson?.emailAddresses.hasItems ? sql` AND lower(emailPerson.emailAddress) IN ${this.includesPerson.emailAddresses.contents.map(c => c.value?.toLowerCase())} ` : sql` AND FALSE`) : sql``}
