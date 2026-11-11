@@ -18,6 +18,10 @@ export class OWAError extends Error {
         message = body.MessageText;
         type = body.ResponseCode;
       }
+      if (body.WasSuccessful === false) {
+        message = body.ErrorMessage || message;
+        type = "ErrorCode " + body.ErrorCode;
+      }
     }
     super(message);
     this.type = type;

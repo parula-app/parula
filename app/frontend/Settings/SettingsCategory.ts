@@ -54,9 +54,12 @@ export class SettingsCategory extends Observable {
 
 export class AccountSettingsCategory extends SettingsCategory {
   type: typeof Account;
-  constructor(type: typeof Account, id: string, name: string, content: ConstructorOfATypedSvelteComponent, isMain = false) {
+  /** Whether this account of `type` can use it */
+  isAvailable: (account: Account) => boolean;
+  constructor(type: typeof Account, id: string, name: string, content: ConstructorOfATypedSvelteComponent, isMain = false, isAvailable: (account: Account) => boolean = () => true) {
     super(id, name, content, isMain);
     this.type = type;
+    this.isAvailable = isAvailable;
   }
 }
 
