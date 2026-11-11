@@ -26,7 +26,7 @@
       {#if untrackedURL != originalURL}
         <hbox class="remove-tracking">
           <Checkbox bind:checked={removeTracking} allowIndetermined={false}
-            label={$t`Remove tracking URL`} />
+            label={$t`Remove tracking`} />
         </hbox>
       {/if}
     </vbox>
@@ -210,7 +210,8 @@
   .copy {
     height: 1lh;
     align-items: center;
-    margin-inline: 20px -8px;
+    margin-inline-start: 8px;
+    margin-inline-end: -8px;
     font-size: 12px;
     opacity: 70%; /* like the URL */
   }
@@ -257,7 +258,7 @@
   }
   :global(.lookout-window) .copy {
     font-size: var(--lo-font-size-small);
-    margin-inline: 16px -8px;
+    margin-inline-start: 4px;
     /* like the URL */
     color: var(--lo-fg-secondary);
     opacity: 1;
