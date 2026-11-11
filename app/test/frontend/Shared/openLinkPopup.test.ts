@@ -161,18 +161,22 @@ describe("Tracking links", () => {
     expect(removeTrackingURL(kTrackingLink)).toBe(kDestination);
     expect(removeTrackingURL("https://click.tracker.com/c?u=https://www.shop.com/")).toBe("https://www.shop.com/");
     expect(removeTrackingURL("http://click.tracker.com/c?u=https://www.shop.com/")).toBe("https://www.shop.com/");
-    expect(removeTrackingURL("https://www.shop.com/shoes?size=42")).toBeNull();
-    expect(removeTrackingURL("https://www.shop.com/")).toBeNull();
+    expect(removeTrackingURL("https://www.shop.com/shoes?size=42")).toBe("https://www.shop.com/shoes?size=42");
+    expect(removeTrackingURL("https://www.shop.com/")).toBe("https://www.shop.com/");
   });
 
   test("Only to https: web pages", () => {
-    expect(removeTrackingURL("https://click.tracker.com/c?u=http://www.shop.com/")).toBeNull();
-    expect(removeTrackingURL("https://click.tracker.com/c?u=javascript:alert(1)")).toBeNull();
-    expect(removeTrackingURL("https://click.tracker.com/c?u=mailto:fred@foo.com")).toBeNull();
-    expect(removeTrackingURL("https://click.tracker.com/c?u=https://")).toBeNull();
-    // A link to another app stays as it is
-    expect(removeTrackingURL("mailto:fred@foo.com?body=https://www.shop.com/")).toBeNull();
-    expect(removeTrackingURL("not a URL")).toBeNull();
+    for (let url of [
+      "https://click.tracker.com/c?u=http://www.shop.com/",
+      "https://click.tracker.com/c?u=javascript:alert(1)",
+      "https://click.tracker.com/c?u=mailto:fred@foo.com",
+      "https://click.tracker.com/c?u=https://",
+      // A link to another app stays as it is
+      "mailto:fred@foo.com?body=https://www.shop.com/",
+      "not a URL",
+    ]) {
+      expect(removeTrackingURL(url)).toBe(url);
+    }
   });
 
   test("The popup shows and opens where the tracking link goes", async () => {
@@ -220,14 +224,16 @@ describe("Tracking links", () => {
     expect(askBeforeOpening("https://click.tracker.com/c?id=6")).toBe(true);
   });
 
-  test("[Don't show again] shows what the user chose for the domain that the popup shows", async () => {
-    localStorage.setItem(kPref, JSON.stringify(["tracker.com"]));
+  test("[Don't show again] follows the domain that the popup shows", async () => {
     let popupE = await showPopup(kTrackingLink);
-    expect(checkbox(popupE, ".footer").checked).toBe(false);
+    checkbox(popupE, ".footer").click();
+    flushSync();
     checkbox(popupE, ".remove-tracking").click();
     flushSync();
     expect(popupE.querySelector(".footer label").textContent).toContain("tracker.com");
-    expect(checkbox(popupE, ".footer").checked).toBe(true);
+    expect(checkbox(popupE, ".footer").checked).toBe(false);
+    expect(askBeforeOpening("https://www.shop.com/other")).toBe(false);
+    expect(askBeforeOpening("https://click.tracker.com/c?id=6")).toBe(true);
   });
 });
 
@@ -328,7 +334,7 @@ async function clickOn(link: Element): Promise<string> {
     return "popup: " + domain;
   }
   // Else, `addLinkListener()` calls `openExternalURL()`, without the tracker
-  url = removeTrackingURL(url) ?? url;
+  url = removeTrackingURL(url);
   // <copied from="../../../../desktop/backend/backend.ts" function="openExternalURL()">
   const kAllowedURLSchemes = [
     "https:",

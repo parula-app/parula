@@ -189,7 +189,7 @@
           await openLinkPopup.show(url);
         } else {
           // Like the default in the popup
-          await openExternalURL(removeTrackingURL(url) ?? url);
+          await openExternalURL(removeTrackingURL(url));
         }
       }
     }), showError);
