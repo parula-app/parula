@@ -164,11 +164,13 @@
   .url-line {
     margin-block-start: 24px;
     align-items: flex-start;
+    /* A long URL wraps, but doesn't make the popup wider */
+    contain: inline-size;
   }
   .url {
     flex: 1;
     min-width: 0;
-    max-height: 8em;
+    max-height: 6lh; /* whole lines */
     overflow-y: auto;
     overflow-wrap: anywhere;
     font-size: 12px;
