@@ -5,6 +5,7 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import replace from '@rollup/plugin-replace';
 import conditionalCompile from "vite-plugin-conditional-compile";
 import { production, webMail, includeProprietary } from '../app/logic/build';
+import { SandboxPage } from '../app/logic/Addons/Sandbox/SandboxPage';
 import { defaultClientConditions } from 'vite';
 import { resolve } from 'node:path';
 
@@ -53,6 +54,7 @@ export default defineConfig({
       },
       nodePolyfills({include: ['buffer'], globals: {global: true, process: false}}),
       svelte(),
+      new SandboxPage().vitePlugin(),
       sentryVitePlugin({
         url: "https://errorlog.parula.app/",
         org: "bugsink-has-no-orgs",

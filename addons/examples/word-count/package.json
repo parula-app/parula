@@ -1,0 +1,29 @@
+{
+  "name": "@mustang-examples/word-count",
+  "version": "1.0.0",
+  "description": "Counts the words of the messages that you read or select",
+  "author": "Mustang",
+  "mustang": {
+    "name": "Word count",
+    "icon": "icons/word-count.svg",
+    "permissions": [
+      "mail"
+    ],
+    "ui": {
+      "message-toolbar": [
+        {
+          "id": "count",
+          "label": "Count words",
+          "popup": "dist/count.js"
+        }
+      ],
+      "message-menu": [
+        {
+          "id": "count-selected",
+          "label": "Count words",
+          "popup": "dist/count.js"
+        }
+      ]
+    }
+  }
+}

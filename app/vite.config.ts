@@ -5,6 +5,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import wasm from 'vite-plugin-wasm';
 import conditionalCompile from "vite-plugin-conditional-compile";
 import { webMail, isMobile, includeProprietary, production } from './logic/build';
+import { SandboxPage } from './logic/Addons/Sandbox/SandboxPage';
 
 const conditionalCompilePlugin: any = conditionalCompile({ // its types say that it returns an array, but it returns one plugin
   // <https://github.com/LZS911/vite-plugin-conditional-compile/blob/master/README.md>
@@ -32,6 +33,7 @@ export default defineConfig({
     nodePolyfills({ include: ['buffer'], globals: { global: true, process: !!webMail } }),
     svelte(),
     wasm(),
+    new SandboxPage().vitePlugin(),
     sentryVitePlugin({
       url: "https://errorlog.parula.app/",
       org: "bugsink-has-no-orgs",

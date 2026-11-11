@@ -11,6 +11,7 @@ import { topicMustangApp } from "../Topic/TopicMustangApp";
 import { webAppsMustangApp } from "../WebApps/WebAppsMustangApp";
 // #endif
 import { settingsMustangApp } from "../Settings/Window/SettingsMustangApp";
+import { addonMustangApps } from "../Addons/AddonMustangApp";
 import { mustangApps, selectedApp, showDemoToggle } from "./selectedApp";
 import { MustangApp } from "./MustangApp";
 import { appGlobal } from "../../logic/app";
@@ -55,12 +56,15 @@ export function loadMustangApps() {
     webAppsMustangApp,
     topicMustangApp,
     // #endif
+    ...addonMustangApps.contents,
     settingsMustangApp,
   ]);
 }
 
 export function loadDemoMustangApps() {
-  mustangApps.replaceAll(allMustangApps);
+  let apps = new ArrayColl(allMustangApps);
+  addonMustangApps.insertInto(apps);
+  mustangApps.replaceAll(apps);
 }
 
 export async function disableAppsBasedOnFeaturesXML() {
@@ -84,6 +88,7 @@ export async function disableAppsBasedOnFeaturesXML() {
       newApps.add(app);
     }
   }
+  addonMustangApps.insertInto(newApps);
   mustangApps.replaceAll(newApps);
   showDemoToggle.set(false);
 }

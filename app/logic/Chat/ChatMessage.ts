@@ -1,6 +1,7 @@
 import { Message } from "../Abstract/Message";
 import { Attachment } from "../Abstract/Attachment";
 import { notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import type { ChatPersonUID } from "./ChatPersonUID";
 import type { ChatRoom } from "./ChatRoom";
 import type { ChatRoomEvent } from "./RoomEvent";
@@ -17,6 +18,7 @@ import { ArrayColl, type MapColl } from "svelte-collections";
  * Handled by `ChatRoomEvent` and out of scope here are:
  * somebody joining, an incoming call, a deleted message etc.
  */
+@addon("chat")
 export class ChatMessage extends Message {
   @notifyChangedProperty
   to: ChatRoom;

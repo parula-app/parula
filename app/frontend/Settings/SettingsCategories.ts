@@ -30,6 +30,7 @@ import CalendarNotifications from "./Calendar/Notifications.svelte";
 import About from "./About/About.svelte";
 import License from "./License/Page/License.svelte";
 import OpenSource from "./About/OpenSource.svelte";
+import AddonsList from "./Addons/AddonsList.svelte";
 // #if [MOBILE || !PRODUCTION]
 import Debug from "./About/Debug.svelte";
 // #endif
@@ -174,6 +175,8 @@ appSettings.subCategories.addAll([
 appSettings.forApp = webAppsMustangApp;
 // settingsCategories.add(appSettings);
 // #endif
+
+settingsCategories.add(new SettingsCategory("addons", gt`Addons`, AddonsList, true));
 
 const about = new SettingsCategory("about", gt`About`, About, true);
 about.subCategories.addAll([

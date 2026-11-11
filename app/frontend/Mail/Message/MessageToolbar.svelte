@@ -77,6 +77,7 @@
       />
   </hbox>
   {/key}
+  <AddonButtons place="message-toolbar" mail={message} />
   <hbox class="move button" bind:this={popupAnchorE}>
     <Button
       icon={FolderActionsIcon}
@@ -105,6 +106,7 @@
   import { SpecialFolder } from "../../../logic/Mail/Folder";
   import MessageMenu from "./MessageMenu.svelte";
   import MessageMovePopup from "../Message/MessageMovePopup.svelte";
+  import AddonButtons from "../../Addons/AddonButtons.svelte";
   import Print from "./MessagePrint.svelte";
   import ButtonMenu from "../../Shared/Menu/ButtonMenu.svelte";
   import Popup from "../../Shared/Popup.svelte";

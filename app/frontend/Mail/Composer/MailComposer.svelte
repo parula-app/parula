@@ -113,6 +113,7 @@
         slot="before-undo"
         />
       <hbox slot="end" bind:this={smlAddAnchor}>
+        <AddonButtons place="composer-toolbar" {mail} />
         <Button
           label={$t`Actions`}
           icon={SMLIcon}
@@ -201,6 +202,7 @@
   import FileDropTarget from "./Attachments/FileDropTarget.svelte";
   import HTMLEditor from "../../Shared/Editor/HTMLEditor.svelte";
   import HTMLEditorToolbar from "../../Shared/Editor/HTMLEditorToolbar.svelte";
+  import AddonButtons from "../../Addons/AddonButtons.svelte";
   import IdentitySelector from "./IdentitySelector.svelte";
   import EncryptionButtons from "./EncryptionButtons.svelte";
   import EncryptionDetails from "./EncryptionDetails.svelte";

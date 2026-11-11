@@ -10,8 +10,8 @@ export class MustangApp extends Observable {
   name: string;
   /** Reflects content of the app. Used for sub-apps. */
   title: Readable<string> = derived(this, () => this.name);
-  /** App icon, either as SVG string or as Svelte component */
-  icon: string | ConstructorOfATypedSvelteComponent;
+  /** App icon, either as SVG string, as image URL, or as Svelte component */
+  icon: string | URL | ConstructorOfATypedSvelteComponent;
   /** Main window content that shows when the user selected this app */
   appURL: URLString;
   /** Parameters that will be passed to the main window in routes

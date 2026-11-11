@@ -1,5 +1,7 @@
 <vbox flex class="reading-pane lo-card">
   {#if shownMessage}
+    <!-- Outside of the {#key}, so that the addon frames stay when the message changes -->
+    <AddonPanels message={shownMessage} />
     {#key shownMessage}
       <vbox flex class="message">
         <MessageHeader message={shownMessage} />
@@ -43,6 +45,7 @@
   import SMLDisplayKinds from "../SML/SMLDisplayKinds.svelte";
   import InvitationInMail from "../../Calendar/Invitation/InvitationInMail.svelte";
   import MessageBody from "../../../frontend/Mail/Message/MessageBody.svelte";
+  import AddonPanels from "../../../frontend/Addons/AddonPanels.svelte";
   import { catchErrors, minorError } from "../../../frontend/Util/error";
   import { onDestroy } from "svelte";
 

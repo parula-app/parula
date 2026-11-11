@@ -109,6 +109,7 @@
       disabled={!$accounts.hasItems && $t`Please set up a mail account first`}
       shortCutInfo="F9" />
   </RibbonGroup>
+  <AddonRibbonGroup place="message-toolbar" mail={single} disabled={noSingle} />
 </RibbonTab>
 
 <script lang="ts">
@@ -123,6 +124,7 @@
   import RibbonButton from "../../Shared/Ribbon/RibbonButton.svelte";
   import RibbonMenuButton from "../../Shared/Ribbon/RibbonMenuButton.svelte";
   import RibbonTextBox from "../../Shared/Ribbon/RibbonTextBox.svelte";
+  import AddonRibbonGroup from "../../Addons/AddonRibbonGroup.svelte";
   import type { RibbonLayout } from "../../Shared/Ribbon/RibbonGroup";
   import { ContactActions } from "../../Contacts/ContactActions";
   import { searchPersons } from "../Composer/SelectNames";

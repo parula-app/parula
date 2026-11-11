@@ -6,6 +6,9 @@ import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
 import { appName, dataAppName } from '../../../app/logic/build'
+import { AddonFrameGuard } from './addonSandbox'
+
+const addonFrameGuard = new AddonFrameGuard();
 
 function createWindow(): void {
   try {
@@ -154,6 +157,7 @@ async function whenReady() {
   handleCommandline(process.argv.splice(1));
 
   allowCrossDomainRequestsFromFrontend();
+  addonFrameGuard.install(session.defaultSession);
   installSignalServiceCATrust(); // renderer's HTTPS REST to *.signal.org (the wss socket runs in the backend with its own CA)
 
   createMenu();
@@ -187,6 +191,7 @@ async function whenReady() {
 app.on('web-contents-created', (event, webContents) => {
   setWindowOpenHandler(webContents);
   restrictWebViews(webContents);
+  addonFrameGuard.protect(webContents);
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -276,6 +281,7 @@ function allowCrossDomainRequestsFromFrontend() {
           break;
         }
       }
+      addonFrameGuard.removeRequestCookies(details.frame, requestHeaders);
       callback({ requestHeaders: requestHeaders });
     }
   );
@@ -295,6 +301,7 @@ function allowCrossDomainRequestsFromFrontend() {
       responseHeaders["Access-Control-Allow-Methods"] = ["*"];
       responseHeaders["Access-Control-Allow-Headers"] = ["*"];
       responseHeaders["Access-Control-Expose-Headers"] = ["*"];
+      addonFrameGuard.removeResponseCookies(details.frame, responseHeaders);
       // Pretend that all CORS preflight requests succeed
       let statusLine = details.method == "OPTIONS" ? "HTTP/1.1 200 OK" : details.statusLine;
       // console.log("Response", details.url, responseHeaders);

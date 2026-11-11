@@ -7,9 +7,11 @@ import type { AttachmentStorage } from "../Abstract/Attachment";
 import { SQLChatRoom } from "./SQL/SQLChatRoom";
 import { appGlobal } from "../app";
 import { notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import { RunOnce } from "../util/flow/RunOnce";
 import { ArrayColl, MapColl } from 'svelte-collections';
 
+@addon("chat.all")
 export class ChatAccount extends TCPAccount {
   readonly protocol: string = "chat";
   @notifyChangedProperty
@@ -20,6 +22,7 @@ export class ChatAccount extends TCPAccount {
    * as well as chat rooms with multiple people (key is Group).
    *
    * This list is persisted across restarts. */
+  @addon("chat.all")
   readonly rooms = new MapColl<ChatPersonUID | Group, ChatRoom>;
   /** A list of persons that the user has a 1:1 chat with.
    * This list is persisted across restarts. */
