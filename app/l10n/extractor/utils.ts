@@ -55,7 +55,7 @@ export const extractTags = (tags, node, filename, onMessageExtracted) => {
   } else if (
     node.type === 'CallExpression' &&
     tags.includes(node.callee.name) &&
-    node.arguments[0].type === 'ObjectExpression'
+    node.arguments[0]?.type === 'ObjectExpression'
   ) {
     extractFromCallExpression(node, filename, onMessageExtracted);
   }
@@ -65,7 +65,7 @@ export const extractPlurals = (tags, node, filename, onMessageExtracted) => {
   if (
     node.type === 'CallExpression' &&
     tags.includes(node.callee.name) &&
-    node.arguments[1].type === 'ObjectExpression'
+    node.arguments[1]?.type === 'ObjectExpression'
   ) {
     const { start } = node.loc;
     const { properties } = node.arguments[1];
@@ -89,7 +89,7 @@ export const extractPluralMessages = (tags, node, filename, onMessageExtracted) 
   if (
     node.type === 'CallExpression' &&
     tags.includes(node.callee.name) &&
-    node.arguments[0].type === 'ObjectExpression'
+    node.arguments[0]?.type === 'ObjectExpression'
   ) {
     const { start } = node.loc;
     const { properties } = node.arguments[0];
