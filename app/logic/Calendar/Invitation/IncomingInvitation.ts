@@ -1,6 +1,5 @@
 import type { Calendar } from "../Calendar";
-import { RecurrenceCase, type Event } from "../Event";
-import { Participant } from "../Participant";
+import type { Event } from "../Event";
 import { InvitationMessage, InvitationResponse, type InvitationResponseInMessage } from "../Invitation/InvitationStatus";
 import { identityForCalendar } from "./OutgoingInvitation";
 import { findIdentityForEMailAddress } from "../../Mail/MailIdentity";
@@ -146,10 +145,7 @@ export class IncomingInvitation {
     assert(this.invitationMessage == InvitationMessage.ParticipantReply, "Not a reply");
     let event = this.calEvent();
     assert(event, "Cannot process invitation update: The event was not found in your calendar");
-    if (event.recurrenceCase == RecurrenceCase.Instance) {
-      event.participants.replaceAll(event.participants.contents.map(p =>
-        new Participant(p.emailAddress, p.name, p.response)));
-    }
+    event.separateParticipantsFromSeries();
     let invitee = this.event.participants.find(participant => participant.response != InvitationResponse.Organizer);
     let participant = event.participants.find(participant => participant.emailAddress == invitee.emailAddress);
     let timestamp = this.event.lastUpdateTime;
