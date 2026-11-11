@@ -11,9 +11,14 @@
       {/if}
       <hbox class="buttons">
         <Button label={$t`Open in browser`} classes="filled" onClick={onOpenLinkInBrowser} />
-        <Button label={$t`Copy link`} icon={CopyIcon} iconOnly classes="secondary" onClick={onCopy} />
+        <Button label={$t`Cancel`} classes="secondary" onClick={onCancel} />
       </hbox>
-      <hbox class="url">{url}</hbox>
+      <hbox class="url-line">
+        <hbox class="url">{url}</hbox>
+        <hbox class="copy">
+          <Button label={$t`Copy link`} icon={CopyIcon} iconSize="16px" iconOnly plain onClick={onCopy} />
+        </hbox>
+      </hbox>
     </vbox>
     {#if domain}
       <hbox class="footer">
@@ -100,6 +105,10 @@
     await openExternalURL(url);
   }
 
+  function onCancel() {
+    popupOpen = false;
+  }
+
   async function onCopy() {
     popupOpen = false;
     await navigator.clipboard.writeText(url);
@@ -152,14 +161,28 @@
     gap: 8px;
     margin-block-start: 12px;
   }
-  .url {
+  .url-line {
     margin-block-start: 24px;
+    align-items: flex-start;
+  }
+  .url {
+    flex: 1;
+    min-width: 0;
     max-height: 8em;
     overflow-y: auto;
     overflow-wrap: anywhere;
     font-size: 12px;
     opacity: 70%;
     user-select: text;
+  }
+  /* One line of the URL high, so that the button is in the middle of its first line,
+     also when the URL wraps.
+     On the right is the padding of the popup, so the same space on the left. */
+  .copy {
+    height: 1lh;
+    align-items: center;
+    margin-inline-start: 16px;
+    font-size: 12px;
   }
   .footer {
     padding: 10px 16px;
@@ -190,6 +213,9 @@
     font-size: var(--lo-font-size-small);
     color: var(--lo-fg-secondary);
     opacity: 1;
+  }
+  :global(.lookout-window) .copy {
+    font-size: var(--lo-font-size-small);
   }
   :global(.lookout-window) .footer {
     border-color: var(--lo-divider);

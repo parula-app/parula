@@ -122,6 +122,16 @@ test("Return on [Copy link] leaves the action to that button", async () => {
   expect(opened).toEqual([]);
 });
 
+test("[Cancel] closes the popup, and opens nothing", async () => {
+  let popupE = await showPopup("https://foo.com/");
+  let cancelButton = [...popupE.querySelectorAll("button")].find(button => button.textContent.includes("Cancel"));
+  cancelButton.click();
+  await Promise.resolve();
+  flushSync();
+  expect(document.querySelector(".open-link-popup")).toBeNull();
+  expect(opened).toEqual([]);
+});
+
 test("Escape closes the popup, and opens nothing", async () => {
   await showPopup("https://foo.com/");
   pressKey(document.activeElement, "Escape");
