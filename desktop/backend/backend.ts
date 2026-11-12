@@ -442,7 +442,7 @@ async function openExternalURL(url: string) {
     "tel:",
     "xmpp:",
     "matrix:",
-  ];
+  ]; // Mobile has the same list, in `openExternalURL()` in `app/logic/util/os-integration.ts`
   if (!kAllowedURLSchemes.includes(scheme)) {
     throw new Error(`Refusing to open a ${scheme} URL in an OS app`);
   }
