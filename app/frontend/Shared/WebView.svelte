@@ -27,6 +27,7 @@
 -->
 
 <script lang="ts" context="module">
+  import { openExternalURL } from "../../logic/util/os-integration";
   // #if [MOBILE]
   import { linkTapPlugin, type LinkTap } from "../../logic/util/os-integration";
 
@@ -34,11 +35,11 @@
     .catch(console.error);
 
   /** The `WebView` where the user tapped may take the link, to show where it goes.
-   * Else, we open it, as Android and iOS would have. */
+   * Else, we open it, as Android and iOS would have, but only some URL schemes. */
   async function onLinkTap(tap: LinkTap) {
     let tapped = document.elementFromPoint(tap.x, tap.y) ?? document.body;
     if (tapped.dispatchEvent(new CustomEvent("linktap", { detail: tap, cancelable: true }))) {
-      await linkTapPlugin.open({ url: tap.url });
+      await openExternalURL(tap.url);
     }
   }
   // #endif
@@ -58,12 +59,13 @@
   import { minorError, catchErrors, showError } from "../Util/error";
   import type { ArrayColl } from "svelte-collections";
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
-  import { openExternalURL } from "../../logic/util/os-integration";
   import { removeTrackingURL } from "../../logic/util/netUtil";
   const dispatch = createEventDispatcher();
 
   /**
    * Displays untrusted HTML in a sandboxed iframe which does not allow any JavaScript.
+   * Desktop: Which permissions the page gets, e.g. for the camera or the location,
+   * decides `restrictPermissions()` in `desktop/src/main/index.ts`.
    */
 
   /** The HTML to display.
@@ -222,6 +224,8 @@
     }), showError);
   }
 
+  /** `openExternalURL()` opens only some URL schemes. Desktop: The page itself can't open others,
+   * see `isPermissionAllowed()` in `desktop/src/main/index.ts`. */
   async function onLinkClick(url: string) {
     if (!askBeforeOpeningLinks) {
       await openExternalURL(url);

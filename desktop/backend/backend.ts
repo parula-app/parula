@@ -429,12 +429,15 @@ function setTheme(theme: "system" | "light" | "dark") {
 }
 
 async function openExternalURL(url: string) {
+  // <copied to="../../app/logic/util/os-integration.ts">
   let scheme = new URL(url).protocol; // throws on a malformed URL
 
   /** Schemes that we let the OS open. A mail fully controls the URL of its links,
    * and `shell.openExternal()` starts whichever app the OS registered for the scheme.
    * E.g. `file:` runs a `.desktop` file or an `.exe`, and `ms-msdt:` and `search-ms:`
-   * are remote code execution on Windows. */
+   * are remote code execution on Windows.
+   * A page can't get around this by going to such a URL itself:
+   * `isPermissionAllowed()` in `desktop/src/main/index.ts` denies it `openExternal`. */
   const kAllowedURLSchemes = [
     "https:",
     "http:",
@@ -446,6 +449,7 @@ async function openExternalURL(url: string) {
   if (!kAllowedURLSchemes.includes(scheme)) {
     throw new Error(`Refusing to open a ${scheme} URL in an OS app`);
   }
+  // </copied>
 
   await shell.openExternal(url);
 }
