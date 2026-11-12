@@ -296,7 +296,7 @@ export class SQLEMail {
     try {
       await (await getDatabase()).run(sql`BEGIN TRANSACTION`);
       let queries: Query[] = [];
-      for (let email of emails) {
+      for (let email of new Set(emails)) {
         if (!email.subject) {
           continue;
         }
