@@ -41,4 +41,26 @@ export interface LinkTap {
   x: number;
   y: number;
 }
+
+/** Android and iOS: Shows a login page in a native WebView over our app, jailed,
+ * with its own cookies and storage, see `LoginWebViewPlugin` in `mobile/`
+ * and `OAuth2EmbeddedBrowser.svelte`. Only one at a time. */
+export const loginWebViewPlugin = registerPlugin<LoginWebViewPlugin>("LoginWebView");
+
+interface LoginWebViewPlugin {
+  /**
+   * @param profile The cookies and storage, e.g. of one account. Kept across app restarts.
+   * @param doneURL Pages under this URL are not loaded, but only reported with `navigate`
+   * @param script Runs in each page, after it loaded
+   * @throws code "UNAVAILABLE", if Android System WebView is too old
+   */
+  open(options: { url: string, profile: string, doneURL?: string, script?: string }): Promise<void>;
+  /** Without `close` event */
+  close(): Promise<void>;
+  /** For each page that the WebView goes to */
+  addListener(eventName: "navigate", listener: (page: { url: string }) => void): Promise<PluginListenerHandle>;
+  /** The user closed it */
+  addListener(eventName: "close", listener: () => void): Promise<PluginListenerHandle>;
+  removeAllListeners(): Promise<void>;
+}
 // #endif
