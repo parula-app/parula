@@ -3,28 +3,26 @@ import "../../../../logic/app";
 import { OWACalendarShortcut } from "../../../../logic/Calendar/OWA/OWACalendarShortcut";
 import { expect, test } from "vitest";
 
-/** An account stub which resolves names like Exchange does: Without routing type
+/** An account stub which searches the directory like Exchange does: Without routing type
  * prefix, it matches only the start of the names, like a directory which does not
  * search the `mail` attribute. With an `smtp:` prefix, it matches the start of
- * the email address. */
+ * the email address. Some OWA servers have no `ResolveNames`. */
 function fakeAccount(): any {
   return {
     async callOWA(request: any) {
       if (request.action == "GetFolder") {
         return { Folders: [{ FolderClass: "IPF.Appointment" }] };
       }
-      expect(request.action).toBe("ResolveNames");
-      let entry = request.Body.UnresolvedEntry.toLowerCase();
+      expect(request.action).toBe("FindPeople");
+      let entry = request.Body.QueryString.toLowerCase();
       let matches = entry.startsWith("smtp:")
         ? "sally@example.com".startsWith(entry.slice("smtp:".length))
         : "sally smith".startsWith(entry);
-      if (!matches) {
-        throw { type: "ErrorNameResolutionNoResults" };
-      }
       return {
-        ResolutionSet: [{
-          Mailbox: { Name: "Sally Smith", EmailAddress: "sally@example.com", RoutingType: "SMTP" },
-        }],
+        ResultSet: matches ? [{
+          DisplayName: "Sally Smith",
+          EmailAddresses: [{ EmailAddress: "Sally@Example.com", RoutingType: "SMTP" }],
+        }] : [],
       };
     },
     createCalendarAccount: (folder: any, options: any) => options,
@@ -44,8 +42,8 @@ test("Owner who is not in the GAL", async () => {
   let account = fakeAccount();
   let getFolder = account.callOWA;
   account.callOWA = async function(request: any) {
-    if (request.action == "ResolveNames") {
-      throw { type: "ErrorNameResolutionNoResults" };
+    if (request.action == "FindPeople") {
+      return { ResultSet: [] };
     }
     return await getFolder.call(this, request);
   };

@@ -40,8 +40,6 @@ class TestOWAAccount extends OWAAccount {
             }],
           }],
         };
-      case "ResolveNames":
-        return { ResolutionSet: [{ Mailbox: { Name: "Bob Builder", EmailAddress: "bob@example.com", RoutingType: "SMTP" } }] };
       case "GetFolder":
         return {
           Folders: [{
@@ -53,7 +51,7 @@ class TestOWAAccount extends OWAAccount {
         };
       case "FindItem": // the events of a calendar
         return { RootFolder: { IncludesLastItemInRange: true, Items: [] } };
-      case "FindPeople": // the contacts of an address book
+      case "FindPeople": // the contacts of an address book, and the owner of a calendar in the directory
         return { ResultSet: [] };
       case "SubscribeToNotification":
         return {};

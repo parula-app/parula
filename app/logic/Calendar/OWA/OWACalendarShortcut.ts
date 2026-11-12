@@ -2,7 +2,7 @@ import { EWSCalendarShortcut } from "../EWS/EWSCalendarShortcut";
 import type { OWACalendar } from "./OWACalendar";
 import type { OWAAccount } from "../../Mail/OWA/OWAAccount";
 import { owaGetFolderRequest, owaSharedFolderRequest } from "../../Mail/OWA/Request/OWAFolderRequests";
-import { owaResolveNamesRequest } from "../../Contacts/OWA/Request/OWAPersonRequests";
+import { owaFindGALPersonsRequest } from "../../Contacts/OWA/Request/OWAPersonRequests";
 import { PersonUID } from "../../Abstract/PersonUID";
 import { ensureArray } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
@@ -66,17 +66,11 @@ export class OWACalendarShortcut {
   }
 
   protected async resolveOwner(): Promise<PersonUID> {
-    try {
-      let response = await this.account.callOWA(owaResolveNamesRequest("smtp:" + this.ownerEmailAddress));
-      let resolution = ensureArray(response.ResolutionSet).find(candidate =>
-        candidate?.Mailbox?.EmailAddress?.toLowerCase() == this.ownerEmailAddress);
-      return new PersonUID(this.ownerEmailAddress, sanitize.nonemptylabel(resolution?.Mailbox?.Name, null) ?? undefined);
-    } catch (ex) {
-      if (ex.type != "ErrorNameResolutionNoResults") {
-        throw ex;
-      }
-      return new PersonUID(this.ownerEmailAddress);
-    }
+    // Not with `ResolveNames`: "OWA service API 'ResolveNames' does not exist in the service method map."
+    let response = await this.account.callOWA(owaFindGALPersonsRequest("smtp:" + this.ownerEmailAddress));
+    let persona = ensureArray(response.ResultSet).find(candidate => ensureArray(candidate?.EmailAddresses)
+      .some(address => address?.EmailAddress?.toLowerCase() == this.ownerEmailAddress));
+    return new PersonUID(this.ownerEmailAddress, sanitize.nonemptylabel(persona?.DisplayName, null) ?? undefined);
   }
 }
 
