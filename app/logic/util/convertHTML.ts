@@ -83,6 +83,29 @@ export function sanitizeHTMLWithoutStyleTag(html: string): string {
   });
 }
 
+/** For HTML that we load into the editor, e.g. a draft or an event description.
+ * Unlike the other sanitizers, this keeps what the author wrote:
+ * links without our `target` and `title`, remote images like a logo in the signature,
+ * the size of resized images, and the `blob:` images of a forwarded mail.
+ * @returns HTML snipplet, not whole document */
+export function sanitizeHTMLForEditor(html: string): string {
+  if (!html) {
+    return "";
+  }
+  return editorPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ["svg", "mathml", "style", "form"],
+    // `tiptap-extension-resize-image` keeps the image size in these
+    ADD_ATTR: ["containerstyle", "wrapperstyle"],
+    ADD_URI_SAFE_ATTR: ["containerstyle", "wrapperstyle"],
+    // DOMPurify's default, plus `blob:`
+    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+  });
+}
+
+/** Without our hooks below, which prepare HTML for display */
+const editorPurify = DOMPurify();
+
 /** Allow to load images from Internet */
 export function sanitizeHTMLExternal(html: string): string {
   if (!html) {

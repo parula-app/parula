@@ -13,6 +13,7 @@
   import { BoldStar, ItalicSlash, StrikeDoubleTidle } from './StdConventions';
   import { ParagraphNewLine } from './ParagraphNewLine';
   import { TabIndent } from './TabIndent';
+  import { sanitizeHTMLForEditor } from '../../../logic/util/convertHTML';
   // import CodeBlockLowlightFeature from '@tiptap/extension-code-block-lowlight';
   // import { common as lowlightCommon, createLowlight } from 'lowlight'
   import { onMount, onDestroy } from 'svelte';
@@ -81,6 +82,10 @@
       onUpdate: ({ editor }) => {
         html = lastHTML = editor.getHTML();
         dispatchEvent("change", html);
+      },
+      editorProps: {
+        // Runs before the `transformPastedHTML()` of the extensions
+        transformPastedHTML: html => sanitizeHTMLForEditor(html),
       },
     });
     lastHTML = html;

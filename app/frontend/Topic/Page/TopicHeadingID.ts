@@ -23,12 +23,12 @@ export const TopicHeadingID = Extension.create({
       props: {
         // Strip data-topic-id from pasted headings so copies get their own topic.
         transformPastedHTML(html) {
-          let div = document.createElement("div");
-          div.innerHTML = html;
-          for (let el of div.querySelectorAll("[data-topic-id]")) {
+          // Not `innerHTML` of an element in our document, which would load the images and run their `onerror`
+          let doc = new DOMParser().parseFromString(html, "text/html");
+          for (let el of doc.querySelectorAll("[data-topic-id]")) {
             el.removeAttribute("data-topic-id");
           }
-          return div.innerHTML;
+          return doc.body.innerHTML;
         },
       },
     })];
