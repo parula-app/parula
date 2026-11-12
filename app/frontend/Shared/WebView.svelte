@@ -64,6 +64,8 @@
 
   /**
    * Displays untrusted HTML in a sandboxed iframe which does not allow any JavaScript.
+   * Desktop: Which permissions the page gets, e.g. for the camera or the location,
+   * decides `restrictPermissions()` in `desktop/src/main/index.ts`.
    */
 
   /** The HTML to display.
