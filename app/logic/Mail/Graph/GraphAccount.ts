@@ -80,7 +80,7 @@ export class GraphAccount extends ExchangeMailAccount {
 
   async verifyLogin(): Promise<void> {
     await this.loginOAuth2(true);
-    await this.graphGet1("mailFolders");
+    await this.graphGet1("mailFolders", { $top: 1 });
     await this.logout();
   }
 
@@ -107,22 +107,22 @@ export class GraphAccount extends ExchangeMailAccount {
    */
   async graphGet1<T>(path: string, args?: Record<string, any>): Promise<T | null> {
     let responses = await this.graphGet<T>(path, args);
-    assert(responses.length > 1, this.name + ": " + `${path} returned multiple results, but only 1 was expected`);
+    assert(responses.length <= 1, this.name + ": " + `${path} returned multiple results, but only 1 was expected`);
     return responses[0];
   }
 
   /**
    * @param path The function and object to call. This is the part of the URL path *after* the user.
-   * @param args URL query parameters. Will be appended after "?". Optional.
+   * @param args URL query parameters, e.g. `{ $top: 100 }`. Will be appended after "?". Optional.
    * @param options @see graphCall()
    * @returns The list of objects that the server returned in `.value`, as array
    *   If not the entire list was returned, `.nextURL` contains the URL to retrieve the next batch.
    *   Otherwise, `.deltaURL` (optional) contains the URL to retrieve changes in the future.
    */
   async graphGet<T>(path: string, args?: Record<string, any>, options?: any): Promise<T[]> {
-    if (args?.top) {
+    for (let name in args) {
       // Avoid using options.searchParams, because it deletes all existing ones in the URL
-      path += (path.includes("?") ? "&" : "?") + "$top=" + args.top;
+      path += (path.includes("?") ? "&" : "?") + name + "=" + encodeURIComponent(args[name]);
     }
 
     let responses = await this.graphCall(path, options);
@@ -143,7 +143,7 @@ export class GraphAccount extends ExchangeMailAccount {
     let allResults = new ArrayColl<T>();
     let firstResults = await this.graphGet<T>(path, args, options);
     allResults.addAll(firstResults);
-    let deltaURL: URLString;
+    let deltaURL: URLString = (firstResults as any).deltaURL;
     let nextURL = (firstResults as any).nextURL;
     let loop = new LoopGuard(30000, () =>
       this.errorCallback(new Error(`${this.name}: The server keeps returning more results. Stopped.`)));
@@ -154,8 +154,8 @@ export class GraphAccount extends ExchangeMailAccount {
       // nextURL already includes the $select. And ky searchParams would overwrite the skip token.
       let nextResults = await this.graphGet<T>(nextURL);
       allResults.addAll(nextResults);
-      nextURL = (nextResults as any).nextLink;
-      deltaURL = (nextResults as any).deltaLink;
+      nextURL = (nextResults as any).nextURL;
+      deltaURL = (nextResults as any).deltaURL;
     }
     let array = allResults.contents;
     (array as any).deltaURL = deltaURL;
@@ -273,24 +273,20 @@ export class GraphAccount extends ExchangeMailAccount {
   /** @throws an appropriate exception (always throws) */
   protected async httpError(ex: Error) {
     if (ex.name == "HTTPError") {
+      // HTTPFetchError from backend.ts
       let ext = ex as any;
       let msg: string;
-      let code: string;
       try {
-        let json = await ext.response.json();
-        msg = json.message;
-        code = json.code;
-      } catch (ex2) {
+        // <https://learn.microsoft.com/en-us/graph/errors#json-representation>
+        let json = JSON.parse(ext.responseBody);
+        msg = sanitize.nonemptylabel(json.error.message, null);
+        ext.code = sanitize.nonemptystring(json.error.code, null);
+      } catch (ex2) { // not JSON, e.g. from a proxy
       }
-      if (ext.status == 401) {
+      if (ext.httpCode == 401) {
         throw new LoginError(ex, msg);
-      } else if (ext.status && ext.status >= 400 && ext.status < 500) {
-        ex.message = msg;
-        ext.code = code;
-        throw ex;
-      } else {
-        throw new ConnectError(ex, msg);
       }
+      throw new ConnectError(ex, msg);
     }
     throw ex;
   }
@@ -322,7 +318,7 @@ export class GraphAccount extends ExchangeMailAccount {
   protected async listSubFolders(parentFolder: GraphFolder | null, currentFolders: Map<string, GraphFolder>): Promise<void> {
     let foldersJSON = await this.graphGetAll<TGraphFolder>(
       parentFolder ? `mailFolders/${parentFolder.id}/childFolders` : `mailFolders`,
-      { top: kMaxFetchCount },
+      { $top: kMaxFetchCount },
       { beta: true }
     );
     let parentFolders = parentFolder ? parentFolder.subFolders : this.rootFolders;
@@ -384,7 +380,12 @@ export class GraphAccount extends ExchangeMailAccount {
     */
 
     let mime = await CreateMIME.getMIME(email);
-    let base64 = await blobToBase64(new Blob([mime]));
+    // Graph takes the recipients from the To, Cc and Bcc headers.
+    // The MIME has no Bcc header, because over SMTP, all recipients would see it.
+    let bcc = email.bcc.hasItems
+      ? "Bcc: " + email.bcc.contents.map(person => sanitize.emailAddress(person.emailAddress)).join(",\r\n ") + "\r\n"
+      : "";
+    let base64 = await blobToBase64(new Blob([bcc, mime]));
 
     let sendResponse = await this.graphCall("sendMail", {
       method: "post",

@@ -24,7 +24,9 @@ export class WebMailBackend {
             // let json = await resultKy.json();
             return await kyFetch[resultType]();
           } catch (ex) {
-            throw new HTTPFetchError(ex);
+            let error = new HTTPFetchError(ex);
+            error.responseBody = await ex.response?.text().catch(() => undefined);
+            throw error;
           }
         } else {
           return kyFetch;
@@ -64,8 +66,7 @@ export class WebMailBackend {
   }
   async setTheme() {
   }
-  /** The browser does not let us at its root store, so S/MIME certificates
-   * stay at the trust level that the user gives them. */
+  /** The browser does not let us at its root store */
   async getCACertificates(type: string): Promise<string[]> {
     return [];
   }
@@ -81,6 +82,8 @@ export class HTTPFetchError extends Error {
   hostname: string;
   /** `Retry-After`, in seconds, when the server rate-limited us */
   retryAfterSeconds: number;
+  /** The body of the server's error response, e.g. its error message as JSON */
+  responseBody: string;
 
   constructor(ex: Error) {
     super(ex?.message ?? ex + "");

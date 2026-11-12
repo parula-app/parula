@@ -148,14 +148,7 @@
         {#if chain}
           <vbox>
             {#await keyStatusAsync then keyStatus}
-              {#if keyStatus == KeyStatus.NoCertificate}
-                <hbox>
-                  <Button
-                    label={$t`Please add this private key's certificate.`}
-                    onClick={onAddCertificateSMIME}
-                    />
-                </hbox>
-              {:else if keyStatus == KeyStatus.ChainInvalid}
+              {#if keyStatus == KeyStatus.ChainInvalid}
                 <hbox>{$t`The certificate chain could not be verified.`}</hbox>
               {:else if keyStatus == KeyStatus.ChainIncomplete}
                 <hbox>
@@ -165,11 +158,13 @@
                     />
                 </hbox>
               {:else if keyStatus == KeyStatus.SelfSignedRoot}
-                <hbox>{$t`WARNING This private key uses a self-signed root certificate.`}</hbox>
+                <hbox>{$t`WARNING This certificate uses a self-signed root certificate`}</hbox>
               {:else if keyStatus == KeyStatus.Valid}
-                <hbox>{$t`This private key has a valid certificate.`}</hbox>
+                <hbox>{$t`This certificate is valid`}</hbox>
+              {:else if keyStatus == KeyStatus.Expired}
+                <hbox>{$t`The certificate has expired or is not yet valid`}</hbox>
               {:else}
-                <hbox>{$t`Unexpected private key status`}</hbox>
+                <hbox>{$t`Unexpected certificate status`}</hbox>
               {/if}
             {:catch error}
               <ErrorMessageInline ex={error} />
@@ -220,7 +215,7 @@
   import { SMIMEPublicKey, KeyStatus } from "../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
   import type { Person } from "../../../logic/Abstract/Person";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
-  import { getMyPrivateKey } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { getMyPrivateKey, readPublicKeyFile } from "../../../logic/Mail/Encryption/KeyUtils";
   import { findAllIdentities } from "../../../logic/Mail/MailIdentity";
   import FileSelector from "../../Mail/Composer/Attachments/FileSelector.svelte";
   import IdentitySelector from "../../Mail/Composer/IdentitySelector.svelte";
@@ -282,14 +277,14 @@
     await person.save();
   }
   let fileSelector: FileSelector;
-  const acceptFileTypes = [ "application/x-x509-email-cert", "application/x-x509-ca-cert", "application/pkix-cert", ".crt", "application/x-pem-file", ".pem" ];
+  const acceptFileTypes = [ "application/x-x509-email-cert", "application/x-x509-ca-cert", "application/pkix-cert", ".crt", "application/x-pem-file", ".pem", ".p7b", ".p7c" ];
   async function onAddCertificateSMIME() {
     let file = await fileSelector.selectFile();
     if (!file) {
       return;
     }
-    let fileContent = await file.text();
-    await (key as SMIMEPublicKey).addCertificates(fileContent);
+    let fileContent = await readPublicKeyFile(file);
+    await (key as SMIMEPublicKey).addCertificateFile(fileContent);
     keyStatusAsync = (key as SMIMEPublicKey).keyStatus();
     await person.save();
   }

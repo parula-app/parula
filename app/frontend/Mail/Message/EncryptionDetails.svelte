@@ -15,6 +15,9 @@
           </hbox>
         </Clickable>
         <div class="msg">{msg}</div>
+        {#if expired}
+          <div class="msg">{validityMsg}</div>
+        {/if}
       </vbox>
     {/if}
 
@@ -32,6 +35,7 @@
   import type { PublicKey } from "../../../logic/Mail/Encryption/PublicKey";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
   import { getPublicKeyByKeyID } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { SMIMEPublicKey } from "../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
   import { findIdentityForEMailAddress } from "../../../logic/Mail/MailIdentity";
   import EncryptionKey from "../../Contacts/PersonPage/EncryptionKey.svelte";
   import RoundButton from "../../Shared/RoundButton.svelte";
@@ -40,6 +44,7 @@
   import EncryptedIcon from "lucide-svelte/icons/lock";
   import EncryptedUnsignedIcon from "lucide-svelte/icons/shield-question-mark";
   import { showError } from "../../Util/error";
+  import { getDateString } from "../../../logic/util/date";
   import { t } from "../../../l10n/l10n";
 
   export let message: EMail;
@@ -51,8 +56,10 @@
     .then(key => signingKey = key)
     .catch(showError);
   $: signed = $message.signedByKeyID && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
+  $: received = $message.received ?? new Date();
+  $: expired = signed && signingKey instanceof SMIMEPublicKey && !signingKey.isValidAt(received);
   $: encrypted = $message.wasEncrypted;
-  $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : $signingKey?.trustLevel ?? "none";
+  $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : expired ? TrustLevel.Sender : $signingKey?.trustLevel ?? "none";
   $: identity = $message.outgoing ? findIdentityForEMailAddress($message.from?.emailAddress) : null;
   $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.id == message.signedByKeyID);
   $: title = signed && encrypted
@@ -68,6 +75,9 @@
         : signed
           ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${fromName}. It was not encrypted, meaning that it was not protected from surveillance.`
           : $t`Only the recipients can read this email, but there is no assurance about who wrote it.`;
+  $: validityMsg = received < signingKey?.created
+      ? $t`The certificate is not valid before ${getDateString(signingKey.created)}`
+      : $t`The certificate expired on ${getDateString(signingKey?.expires)}`;
 </script>
 
 <style>

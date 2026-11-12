@@ -169,6 +169,8 @@ export const localeMapping: Record<string, string> = {
   "zh-tw": "zh-Hant",
   "zh-hk": "zh-Hant",
   "zh-sg": "zh",
+  "pa-pk": "pa-Arab",
+  "pa-arab-pk": "pa-Arab",
 };
 
 /** List of available locales in this build.

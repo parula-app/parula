@@ -41,7 +41,7 @@
   import { certificateStatus } from "./ContactCertificates";
   import { askYesNo } from "../../Shared/Dialog/MessageBox";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
-  import { importPublicKey } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { importPublicKey, readPublicKeyFile } from "../../../logic/Mail/Encryption/KeyUtils";
   import { saveBlobAsFile } from "../../../frontend/Util/util";
   import { appName } from "../../../logic/build";
   import { getDateString } from "../../../logic/util/date";
@@ -54,7 +54,7 @@
   export let person: Person;
 
   // <copied from="../../../frontend/Contacts/PersonPage/EncryptionImport.svelte">
-  const acceptFileTypes = [ "application/pgp-keys", ".asc", "application/pkix-cert", "application/pkcs7-certificates", "application/x-x509-user-cert", "application/x-x509-ca-cert", "application/x-pem-file", ".pem", "text/plain" ];
+  const acceptFileTypes = [ "application/pgp-keys", ".asc", "application/pkix-cert", "application/pkcs7-certificates", ".p7b", ".p7c", "application/x-x509-user-cert", "application/x-x509-ca-cert", "application/x-pem-file", ".pem", "text/plain" ];
   // </copied>
 
   let fileSelector: FileSelector;
@@ -83,7 +83,7 @@
       return;
     }
     // <copied from="../../../frontend/Contacts/PersonPage/EncryptionImport.svelte" onImportFile()>, saved with the contact form
-    let fileContent = await file.text();
+    let fileContent = await readPublicKeyFile(file);
     let key = await importPublicKey(fileContent);
     person.addEncryptionPublicKey(key);
     // </copied>
@@ -126,7 +126,7 @@
   }
   .buttons {
     gap: 8px;
-    width: 130px;
+    min-width: 130px;
   }
   .buttons :global(button) {
     width: 100%;

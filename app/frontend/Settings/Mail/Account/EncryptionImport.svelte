@@ -87,7 +87,7 @@
   import { SMIMEPrivateKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
   import { TrustLevel } from "../../../../logic/Mail/Encryption/enums";
   import { MailIdentity } from "../../../../logic/Mail/MailIdentity";
-  import { importPrivateKey, readKeyFile } from "../../../../logic/Mail/Encryption/KeyUtils";
+  import { importPrivateKey, readPrivateKeyFile } from "../../../../logic/Mail/Encryption/KeyUtils";
   import FileSelector from "../../../Mail/Composer/Attachments/FileSelector.svelte";
   import Menu from "../../../Shared/Menu/Menu.svelte";
   import MenuItem from "../../../Shared/Menu/MenuItem.svelte";
@@ -119,7 +119,7 @@
     if (!file) {
       return;
     }
-    let fileContent = await readKeyFile(file, passphrase);
+    let fileContent = await readPrivateKeyFile(file, passphrase);
     let key = await importPrivateKey(fileContent, passphrase);
     let existing = identity.encryptionPrivateKeys.find(existing => existing.id == key.id);
     if (!existing) {

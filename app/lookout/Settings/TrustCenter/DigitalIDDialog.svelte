@@ -9,7 +9,7 @@
         <Radio label={$t`Import existing Digital ID from a file`} name="digital-id-mode" value="import" bind:group={mode} />
         <vbox class="mode-content">
           <span class="hint">{$t`Import the Digital ID from the file to your computer. You must use the password you entered while exporting the certificate to this file.`}</span>
-          <FormGrid columns="150px minmax(0, 1fr) 104px">
+          <FormGrid columns="150px minmax(0, 1fr) minmax(104px, max-content)">
             <span>{$t`Import File *=> File that contains the Digital ID to import`}</span>
             <TextField value={file?.name ?? ""} readonly label={$t`Import File *=> File that contains the Digital ID to import`} disabled={mode != "import"} />
             <DialogButton label={$t`Browse… *=> Choose a file on the computer`} onClick={onBrowse} disabled={mode != "import"} />
