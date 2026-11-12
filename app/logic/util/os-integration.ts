@@ -7,13 +7,22 @@ import { appGlobal } from "../app";
 
 export async function openExternalURL(url: string) {
   // #if [MOBILE]
-  /** Schemes that we let the OS open. The same as `kAllowedURLSchemes` in `desktop/backend/backend.ts`,
-   * see there why. A web app fully controls the URL of its links, too. */
-  const kAllowedURLSchemes = ["https:", "http:", "mailto:", "tel:", "xmpp:", "matrix:"];
+  // <copied from="../../../desktop/backend/backend.ts" modified="true">
   let scheme = new URL(url).protocol; // throws on a malformed URL
+
+  /** Schemes that we let the OS open, see there why. A web app fully controls the URL of its links, too. */
+  const kAllowedURLSchemes = [
+    "https:",
+    "http:",
+    "mailto:",
+    "tel:",
+    "xmpp:",
+    "matrix:",
+  ];
   if (!kAllowedURLSchemes.includes(scheme)) {
     throw new Error(`Refusing to open a ${scheme} URL in an OS app`);
   }
+  // </copied>
   // Not `Browser.open()` of `@capacitor/browser`: It shows the page in a tab of Chrome or Safari in our app
   return await linkTapPlugin.open({ url });
   // #else
