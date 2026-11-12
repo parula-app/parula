@@ -6,6 +6,7 @@ import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
 import { appName, dataAppName } from '../../../app/logic/build'
+import { sanitize } from '../../../lib/util/sanitizeDatatypes'
 
 async function createWindow(): Promise<void> {
   try {
@@ -58,13 +59,14 @@ async function createWindow(): Promise<void> {
       if (!details.url?.startsWith("https://")) {
         return { action: 'deny' };
       }
-      // Allow windows opened by us for OAuth2
+      // Windows opened by us for OAuth2
       // Must match OAuth2Window.ts login()
       if (details?.features?.includes("oauth2popup")) {
-        return {
-          action: 'allow',
-          overrideBrowserWindowOptions: "center,noopener,noreferrer,sandbox=true",
-        };
+        let features = details.features.split(",");
+        let feature = (name: string) => features.find(pair => pair.startsWith(name + "="))?.substring(name.length + 1);
+        openBrowserWindow(mainWindow, sanitize.url(details.url, null, ["https"]),
+          sanitize.alphanumdash(feature("oauth2session"), null), sanitize.alphanumdash(feature("oauth2window"), null));
+        return { action: 'deny' };
       }
       // Open the URL in the system web browser
       shell.openExternal(details.url)
@@ -95,19 +97,6 @@ async function createWindow(): Promise<void> {
       }
     });
 
-    mainWindow.webContents.on('did-create-window', (child, _details) => {
-      child.on('closed', () => {
-        mainWindow.webContents.send('oauth2-close');
-      });
-      child.webContents.on('did-navigate', (_event, url) => {
-        mainWindow.webContents.send('oauth2-navigate', url);
-      });
-      // Workaround for window.close() not closing in some cases
-      ipcMain.on('oauth2-close', () => {
-        child.close();
-      });
-    });
-
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
     // The `try` above cannot catch these, because they fail asynchronously
@@ -125,6 +114,43 @@ async function createWindow(): Promise<void> {
   } catch (ex) {
     console.error(ex);
   }
+}
+
+/** The OAuth2 login window of `OAuth2Window.ts`.
+ * Not the window of `window.open()`: Electron gives that the cookies of our app,
+ * and its login page an `opener`, through which it could navigate our app window.
+ * Instead, a window with the cookies of the account, like `<webview partition>` in `Browser.svelte`.
+ * @param sessionID `Account.webSessionID`
+ * @param windowID Which login window the messages to and from `OAuth2Window` are about.
+ *   There may be several at once. */
+function openBrowserWindow(mainWindow: BrowserWindow, url: string | null, sessionID: string | null, windowID: string | null) {
+  if (!url || !sessionID || !windowID) {
+    console.error("Refusing to open the login window", url, sessionID, windowID);
+    return;
+  }
+  let loginWindow = new BrowserWindow({
+    center: true,
+    webPreferences: {
+      partition: "persist:" + sessionID,
+      sandbox: true,
+    },
+  });
+  // Workaround for window.close() not closing in some cases
+  let onCloseRequest = (_event, id: string) => {
+    if (id == windowID) {
+      loginWindow.close();
+    }
+  };
+  ipcMain.on('oauth2-close', onCloseRequest);
+  loginWindow.on('closed', () => {
+    ipcMain.removeListener('oauth2-close', onCloseRequest);
+    mainWindow.webContents.send('oauth2-close', windowID);
+  });
+  loginWindow.webContents.on('did-navigate', (_event, url) => {
+    mainWindow.webContents.send('oauth2-navigate', windowID, url);
+  });
+  loginWindow.loadURL(url)
+    .catch(console.error);
 }
 
 function createMenu() {
