@@ -10,7 +10,7 @@ import { notifyChangedProperty } from "../util/Observable";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { RunOnce } from "../util/flow/RunOnce";
 import { assert, type URLString } from "../util/util";
-import { fetchJSON, HTTPError, isTransientError } from "../util/netUtil";
+import { fetchJSON, HTTPError, isTransientError, markTransient } from "../util/netUtil";
 import pkceChallenge from "pkce-challenge";
 
 /**
@@ -104,12 +104,19 @@ export class OAuth2 extends WebBasedAuth {
         try {
           return await this.getAccessTokenFromRefreshToken(this.refreshToken);
         } catch (ex) {
-          if (isTransientError(ex)) {
-            throw ex; // e.g. the network or the VPN is down. The refresh token is still good.
+          if (isTemporaryTokenError(ex)) {
+            // e.g. the network or the VPN is down, or the token server has a hiccup.
+            // The refresh token is still good. The caller may try again later.
+            throw markTransient(ex);
           }
           console.error(ex);
-          this.refreshToken = null;
-          await this.deleteRefreshTokenFromStorage();
+          // Forget the refresh token only when the server says that it's no longer valid,
+          // e.g. expired, revoked, or the password changed. For other errors, keep it:
+          // A new login replaces it anyway.
+          if (ex instanceof OAuth2ServerError && ex.code == "invalid_grant") {
+            this.refreshToken = null;
+            await this.deleteRefreshTokenFromStorage();
+          }
         }
       }
       if (this.account.password && this.tokenURLPasswordAuth) {
@@ -211,7 +218,13 @@ export class OAuth2 extends WebBasedAuth {
    */
   protected async getAccessTokenFromParams(params: any, additionalHeaders?: any, tokenURL: string = this.tokenURL): Promise<string> {
     await this.accessTokenRunOnce.runOnce(async () => {
-      params.scope = this.scope;
+      // Without `scope`, a refresh gets the scopes that the user granted (RFC 6749 section 6).
+      // Google lets the user untick scopes on its consent page (e.g. Drive), and
+      // refuses a refresh that asks for them again. Microsoft needs the `scope`
+      // to pick the resource, e.g. EWS or Graph.
+      if (params.grant_type != "refresh_token" || !this.isGoogle) {
+        params.scope = this.scope;
+      }
       params.client_id = this.clientID;
       if (this.clientSecret) {
         params.client_secret = this.clientSecret;
@@ -220,7 +233,7 @@ export class OAuth2 extends WebBasedAuth {
         assert(!!this.codeVerifierPKCE, "Missing code verifier");
         params.code_verifier = this.codeVerifierPKCE;
       }
-      console.log("OAuth2", this.account.name, "get new access token", tokenURL, params);
+      console.log("OAuth2", this.account.name, "get new access token", tokenURL, withoutSecrets(params));
 
       let data: any;
       try {
@@ -239,7 +252,9 @@ export class OAuth2 extends WebBasedAuth {
         if (ex instanceof HTTPError) {
           let errorData = await ex.json();
           if (errorData?.error) {
-            throw new OAuth2ServerError(this.account.name, errorData);
+            let serverError = new OAuth2ServerError(this.account.name, errorData);
+            serverError.httpCode = ex.httpCode; // e.g. 503, so that `isTransientError()` sees it
+            throw serverError;
           }
         }
         throw ex;
@@ -397,4 +412,31 @@ export class OAuth2 extends WebBasedAuth {
     let username = this.account.username.replace(/@/, "-").replaceAll(".", "-");
     return `oauth2refresh.${host}.${username}.${this.account.id}`;
   }
+
+  /** The token server is Google's, e.g. `accounts.google.com` or `oauth2.googleapis.com` */
+  protected get isGoogle(): boolean {
+    let hostname = new URL(this.tokenURL).hostname; // checked in the constructor
+    return /(^|\.)(google\.com|googleapis\.com)$/.test(hostname);
+  }
+}
+
+/**
+ * The token server could not answer right now, and trying again later may work:
+ * - the network, DNS or VPN is down, or the request timed out
+ * - HTTP 5xx, e.g. 500 Internal Server Error, or 503 with `temporarily_unavailable`
+ * - OAuth2 error `server_error` or `temporarily_unavailable` (RFC 6749 section 4.1.2.1)
+ * - not JSON, e.g. the login page of a hotel Wi-Fi instead of the token server
+ */
+function isTemporaryTokenError(ex: any): boolean {
+  return isTransientError(ex) ||
+    ex?.httpCode >= 500 ||
+    (ex instanceof OAuth2ServerError && ["server_error", "temporarily_unavailable"].includes(ex.code)) ||
+    ex instanceof SyntaxError;
+}
+
+/** For logging: Hides the tokens, the password and the client secret */
+function withoutSecrets(params: Record<string, string>): Record<string, string> {
+  const kSecretParams = ["refresh_token", "code", "code_verifier", "client_secret", "password"];
+  return Object.fromEntries(Object.entries(params).map(([name, value]) =>
+    [name, kSecretParams.includes(name) && value ? "(hidden)" : value]));
 }

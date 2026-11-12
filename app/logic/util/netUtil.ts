@@ -104,9 +104,20 @@ export function isNetworkError(ex: any): boolean {
 export function isTransientError(ex: any): boolean {
   const kTransientHTTPCodes = [408, 429, 502, 503, 504];
   let httpCode = ex?.httpCode ?? ex?.status;
-  return isNetworkError(ex) ||
+  return ex?.isTransient === true || // @see `markTransient()`
+    isNetworkError(ex) ||
     ex?.name == "TimeoutError" ||
     kTransientHTTPCodes.includes(httpCode);
+}
+
+/** For errors that only the caller knows to be temporary,
+ * e.g. an OAuth2 token server that reports `temporarily_unavailable`.
+ * Makes `isTransientError()` true for it. */
+export function markTransient<T>(ex: T): T {
+  if (ex && typeof ex == "object") {
+    (ex as any).isTransient = true;
+  }
+  return ex;
 }
 
 /** Like `fetch()`'s `RequestInit`, plus an optional `timeout`. */
