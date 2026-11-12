@@ -60,104 +60,78 @@ export class GraphFolder extends Folder {
     }
   }
 
-  /** Lists all messages in this folder.
+  /** Lists all messages in this folder, and gets the delta link for later changes.
    * But doesn't download their contents. @see downloadMessages() */
   protected async listAllMessages(): Promise<ArrayColl<GraphEMail>> {
-    const batchSize = kMaxFetchCount;
-    const kMaxRounds = 10000; // 1,000,000 emails, even if the server sends only 100 per page
-    let loop = new LoopGuard(kMaxRounds, () =>
-      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
-    let nextURL: URLString;
-    let allNewMessages = new ArrayColl<GraphEMail>();
-    while (loop.nextRound()) {
-      let newMessagesJSON: TGraphEMail[];
-      if (nextURL) {
-        // nextURL already includes the $select. And ky searchParams would overwrite the skip token.
-        newMessagesJSON = await this.account.graphGet<TGraphEMail>(nextURL);
-      } else {
-        newMessagesJSON = await this.account.graphGet<TGraphEMail>(`${this.path}/messages`, {
-          $top: batchSize,
-          "$select": TGraphEMailHeaderProperties.join(","),
-        });
-      }
-      if (loop.isSameAsLastRound(newMessagesJSON.map(json => json.id).join(" "))) {
-        break;
-      }
-      let extra = newMessagesJSON as any;
-      nextURL = extra.nextURL;
-
-      let { newMessages } = await this.parseMessageList(newMessagesJSON);
-      this.messages.addAll(newMessages);
-      await this.saveNewMsgs(newMessages);
-      allNewMessages.addAll(newMessages);
-
-      if (!nextURL) {
-        break;
-      }
-    }
-    await this.storage.saveFolderProperties(this);
-    return allNewMessages;
+    this.deltaURL = null;
+    return await this.listChangedMessages();
   }
 
-  /** Lists all messages in this folder that are new or updated since the last fetch.
+  /** Lists all messages in this folder that are new, updated or removed since the last fetch.
+   * Without delta link, lists all messages.
+   * But doesn't download their contents. @see downloadMessages()
    * @returns new messages */
   protected async listChangedMessages(): Promise<ArrayColl<GraphEMail>> {
-    if (!this.deltaURL) {
-      return await this.listAllMessages();
-    }
     let lock = await this.syncLock.lock();
     try {
-      // <https://learn.microsoft.com/en-us/graph/delta-query-overview>
-      // deltaURL already includes the $select. And ky searchParams would overwrite the skip token.
-      let messagesJSON = await this.account.graphGetAll<TGraphEMail>(this.deltaURL);
-      this.deltaURL = (messagesJSON as any).deltaURL;
-      let { newMessages, missingMessagesJSON } = await this.processChangedMessages(messagesJSON);
-      await this.storage.saveFolderProperties(this);
-
-      if (missingMessagesJSON.hasItems) {
-        console.log("Missing", missingMessagesJSON.length, "messages, found during sync. Starting all message fetch again");
-         // TODO fetch only those messages
-        await this.listAllMessages();
+      // <https://learn.microsoft.com/en-us/graph/delta-query-messages>
+      const kFirstURL = `${this.path}/messages/delta?$select=${TGraphEMailHeaderProperties.join(",")}`;
+      const kMaxRounds = 10000; // 1,000,000 emails, even if the server sends only 100 per page
+      let loop = new LoopGuard(kMaxRounds, () =>
+        this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
+      let isNewMail = !!this.deltaURL;
+      let url = this.deltaURL ?? kFirstURL;
+      let allNewMessages = new ArrayColl<GraphEMail>();
+      while (url && loop.nextRound()) {
+        if (loop.isSameAsLastRound(url)) {
+          break;
+        }
+        let messagesJSON: TGraphEMail[];
+        try {
+          // The next and delta links already include the $select. And ky searchParams would overwrite the skip token.
+          messagesJSON = await this.account.graphGet<TGraphEMail>(url, null, {
+            headers: { Prefer: `odata.maxpagesize=${kMaxFetchCount}` },
+          });
+        } catch (ex) {
+          // The server no longer knows our delta link, e.g. because it expired.
+          // <https://learn.microsoft.com/en-us/graph/delta-query-overview#synchronization-reset>
+          if (!this.deltaURL || ![400, 404, 410].includes(ex.httpCode)) {
+            throw ex;
+          }
+          this.deltaURL = null;
+          isNewMail = false;
+          url = kFirstURL;
+          continue;
+        }
+        allNewMessages.addAll(await this.processChangedMessages(messagesJSON, isNewMail));
+        let extra = messagesJSON as any;
+        url = extra.nextURL;
+        this.deltaURL = extra.deltaURL ?? this.deltaURL;
       }
-
-      return newMessages;
+      await this.storage.saveFolderProperties(this);
+      return allNewMessages;
     } finally {
       lock.release();
     }
   }
 
   /**
+   * @param isNewMail The new messages just arrived, and are not only listed for the first time
    * @returns new messages
    */
-  protected async processChangedMessages(messagesJSON: TGraphEMail[]): Promise<{ newMessages: ArrayColl<GraphEMail>, missingMessagesJSON: ArrayColl<TGraphEMail> }> {
-    let newMessages = new ArrayColl<GraphEMail>();
-    let updatedMessages = new ArrayColl<GraphEMail>();
+  protected async processChangedMessages(messagesJSON: TGraphEMail[], isNewMail: boolean): Promise<ArrayColl<GraphEMail>> {
     let removedMessages = new ArrayColl<GraphEMail>();
-    let missingMessagesJSON = new ArrayColl<TGraphEMail>();
     for (let messageJSON of messagesJSON) {
       let msg = this.getEMailByPID(messageJSON.id);
-      if (messageJSON["@removed"]) {
-        if (msg) {
-          removedMessages.add(msg);
-        }
-        continue;
-      }
-      if (messageJSON.internetMessageId) { // new
-        msg = this.newEMail();
-        msg.fromGraph(messageJSON);
-        newMessages.add(msg);
-      } else { // changed
-        if (!msg) {
-          missingMessagesJSON.add(messageJSON);
-        } else {
-          msg.setFlagsLocal(messageJSON);
-          updatedMessages.add(msg);
-        }
+      if (messageJSON["@removed"] && msg) {
+        removedMessages.add(msg);
       }
     }
+    // The server sends a changed message with all the properties of our $select
+    let { newMessages, updatedMessages } = this.parseMessageList(messagesJSON.filter(json => !json["@removed"]));
 
     for (let msg of newMessages) {
-      msg.isNewArrived = true;
+      msg.isNewArrived = isNewMail;
     }
     this.messages.addAll(newMessages);
     this.messages.removeAll(removedMessages);
@@ -167,7 +141,7 @@ export class GraphFolder extends Folder {
       await msg.deleteMessageLocally();
     }
 
-    return { newMessages, missingMessagesJSON };
+    return newMessages;
   }
 
   parseMessageList(msgs: TGraphEMail[], checkUpdates = true): { newMessages: ArrayColl<GraphEMail>, updatedMessages: ArrayColl<GraphEMail> } {
