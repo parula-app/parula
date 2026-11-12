@@ -1,4 +1,4 @@
-import { setMainWindow, startupBackend, shutdownBackend, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
+import { setMainWindow, startupBackend, shutdownBackend, runBeforeQuit, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
 import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents } from 'electron'
 import { ipcMain } from 'electron/main';
 import { join } from 'path'
@@ -45,6 +45,33 @@ async function createWindow(): Promise<void> {
       });
     }
 
+    let mayClose = false;
+    let isRunningOnQuit = false;
+    mainWindow.on('close', event => {
+      if (mayClose) {
+        return;
+      }
+      event.preventDefault();
+      if (!isRunningOnQuit) {
+        closeAfterRunOnQuit()
+          .catch(console.error);
+      }
+    });
+    /** Lets the frontend finish its work, e.g. save drafts, then closes the window or quits */
+    async function closeAfterRunOnQuit() {
+      isRunningOnQuit = true;
+      mayClose = await runBeforeQuit();
+      isRunningOnQuit = false;
+      if (!mayClose) {
+        isQuitting = false;
+        return;
+      }
+      if (isQuitting) {
+        app.quit();
+      } else {
+        mainWindow.close();
+      }
+    }
     mainWindow.on('closed', () => shutdownBackend().catch(console.error));
 
     /** Ensure that new web windows are opened in the browser, not inside our app.
@@ -192,6 +219,10 @@ app.on('web-contents-created', (event, webContents) => {
   setWindowOpenHandler(webContents);
   restrictWebViews(webContents);
 });
+
+/** The app quits, e.g. with Ctrl+Q or for an update, as opposed to the user closing the main window */
+let isQuitting = false;
+app.on('before-quit', () => isQuitting = true);
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
