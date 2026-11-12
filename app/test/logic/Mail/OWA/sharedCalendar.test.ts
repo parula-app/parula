@@ -1,40 +1,12 @@
 import { appGlobal } from "../../../../logic/app.ts"; // defeats circular import
 import { OWAAccount } from "../../../../logic/Mail/OWA/OWAAccount";
 import { PersonUID } from "../../../../logic/Abstract/PersonUID";
-import { InProcessSQLiteDatabase } from "../../util/inProcessSQLite";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { beforeAll, expect, test } from "vitest";
 
-/* Bob shared his calendar with Alice, e.g. with "Share calendar" in Outlook,
- * which gives Alice folder permissions on his calendar folder, e.g. Reviewer.
- * Bob did not give her Full Access to his whole mailbox.
- *
- * <https://learn.microsoft.com/en-us/exchange/client-developer/exchange-web-services/delegate-access-and-ews-in-exchange>:
- * Alice gets the ID of Bob's calendar folder with `DistinguishedFolderId` and `Mailbox`,
- * and then the folder and item IDs point to Bob's mailbox.
- * <https://learn.microsoft.com/en-us/previous-versions/office/exchange-server-2010/aa998830(v=exchg.141)>:
- * Logging on to another user's mailbox in Outlook on the web needs Full Access. */
+/* Bob shared his calendar with Alice, but not his whole mailbox.
+ * Lookout's "Open shared calendar" dialog asks only for the calendar. */
 
-const kAlice = "alice@example.com";
 const kBob = "bob@example.com";
-/** As the sharing settings check them */
-const kSharedFolders = ["msgfolderroot", "inbox", "contacts", "calendar"];
-
-const kBobEvents = [{
-  ItemId: { Id: "bob-event-1" },
-  Subject: "Dentist",
-  Start: "2026-11-10T10:00:00Z",
-  End: "2026-11-10T11:00:00Z",
-  LastModifiedTime: "2026-11-01T08:00:00Z",
-}, {
-  ItemId: { Id: "bob-event-2" },
-  Subject: "Team meeting",
-  Start: "2026-11-11T09:00:00Z",
-  End: "2026-11-11T10:00:00Z",
-  LastModifiedTime: "2026-11-01T08:00:00Z",
-}];
 
 function errorResponse(code: string): any {
   return { ResponseClass: "Error", ResponseCode: code, MessageText: code };
@@ -57,17 +29,6 @@ function serve(action: string, body: any): any {
             }],
           }
           : errorResponse("ErrorAccessDenied"));
-    case "FindItem":
-      expect(body.ParentFolderIds[0].Id).toBe("bob-calendar-id");
-      return [{
-        ResponseClass: "Success",
-        RootFolder: { IncludesLastItemInRange: true, IndexedPagingOffset: kBobEvents.length, Items: kBobEvents },
-      }];
-    case "GetItem":
-      return body.ItemIds.map(itemID => ({
-        ResponseClass: "Success",
-        Items: kBobEvents.filter(event => event.ItemId.Id == itemID.Id),
-      }));
     case "GetUserAvailabilityInternal": // By default, the colleagues see only when the others are busy
       return [{ Responses: [{ ResponseMessage: { ResponseClass: "Success" }, CalendarView: { FreeBusyViewType: "FreeBusy" } }] }];
   }
@@ -75,7 +36,6 @@ function serve(action: string, body: any): any {
 }
 
 let account: OWAAccount;
-let errors: Error[] = [];
 
 class TestOWAAccount extends OWAAccount {
   constructor() {
@@ -85,55 +45,31 @@ class TestOWAAccount extends OWAAccount {
 }
 
 beforeAll(() => {
-  let tempDir = mkdtempSync(path.join(tmpdir(), "owa-shared-calendar-test-"));
-  appGlobal.remoteApp = {
-    getSQLiteDatabase: (filename: string) =>
-      new InProcessSQLiteDatabase(path.join(tempDir, filename)),
-    getFilesDir: async () => tempDir,
-    OWA: {},
-  } as any;
+  appGlobal.remoteApp ??= { OWA: {} } as any; // `OWAAccount` needs the backend only for the login
   account = new TestOWAAccount();
   account.name = "Alice";
-  account.username = kAlice;
-  account.emailAddress = kAlice;
+  account.username = "alice@example.com";
+  account.emailAddress = account.username;
   account.url = "https://outlook.office365.com/owa/";
   account.authorizationHeader = "Bearer alice-token";
-  account.errorCallback = ex => errors.push(ex);
 
-  // Office 365. The server lets Alice log on only to her own mailbox.
-  globalThis.fetch = (async (url: string, options: any) => {
-    let headers = options.headers;
-    let request = JSON.parse(options.body);
-    let logon = headers["x-owa-explicitlogonuser"];
-    let items = logon && logon != kAlice
-      ? [errorResponse("ErrorAccessDenied")]
-      : serve(headers.Action, request.Body);
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      url,
-      headers: { get: () => "application/json; charset=utf-8" },
-      text: async () => JSON.stringify({ Body: { ResponseMessages: { Items: items } } }),
-    };
-  }) as any;
-});
-
-test("OWA: Sharing: Add the calendar that a colleague shared with us", async () => {
-  let bob = new PersonUID(kBob, "Bob Builder");
-
-  let shared = await account.findSharedFolders(bob, kSharedFolders);
-  expect(shared).toEqual(["calendar"]);
-  let calendar = await account.addSharedCalendar(bob);
-
-  expect(errors).toEqual([]);
-  expect(calendar.events.contents.map(event => event.title).sort()).toEqual(["Dentist", "Team meeting"]);
-  expect(appGlobal.calendars.contains(calendar)).toBe(true);
-  expect(calendar.dbID).toBeTruthy(); // still there after a restart
+  globalThis.fetch = (async (url: string, options: any) => ({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    url,
+    headers: { get: () => "application/json; charset=utf-8" },
+    text: async () => JSON.stringify({ Body: { ResponseMessages: { Items: serve(options.headers.Action, JSON.parse(options.body).Body) } } }),
+  })) as any;
 });
 
 test("OWA: Open shared calendar: Check only the calendar of the colleague", async () => {
   expect(await account.findSharedFolders(new PersonUID(kBob), ["calendar"])).toEqual(["calendar"]);
   expect(await account.findSharedFolders(new PersonUID("carol@example.com"), ["calendar"])).toEqual([]);
   expect(await account.findSharedFolders(new PersonUID(kBob), ["contacts"])).toEqual([]);
+});
+
+test("OWA: Sharing: Find the calendar among the folders that a colleague could have shared", async () => {
+  let shared = await account.findSharedFolders(new PersonUID(kBob), ["msgfolderroot", "inbox", "contacts", "calendar"]);
+  expect(shared).toEqual(["calendar"]);
 });

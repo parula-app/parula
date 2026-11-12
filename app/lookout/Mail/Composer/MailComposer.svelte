@@ -24,7 +24,6 @@
             <UndoRedoButtons {editor} />
             <DialogButton label={$t`Save`} icon={SaveIcon} classes="plain"
               tooltip={$t`Save as draft (Ctrl+S)`}
-              disabled={saveDisabledReason ?? false}
               onClick={onSave} />
             <DialogButton label={$t`Discard`} icon={DiscardIcon} classes="plain"
               onClick={onDiscard} />
@@ -123,7 +122,6 @@
 {/if}
 {#if showSaveChanges}
   <SaveChangesDialog
-    yesDisabled={saveDisabledReason}
     onYes={onSaveAndClose}
     onNo={onDiscard}
     on:close={() => showSaveChanges = false} />
@@ -397,8 +395,6 @@
     MessageActions.popOut(mail);
   }
 
-  $: saveDisabledReason = $mail.shouldEncrypt ? $t`Encrypted drafts are not supported yet` : null;
-
   async function onSendRequest() {
     if (sendDisabledTooltip) {
       throw new UserError(sendDisabledTooltip);
@@ -407,9 +403,6 @@
   }
 
   async function onSave() {
-    if (saveDisabledReason) {
-      throw new UserError(saveDisabledReason);
-    }
     await mail.compose.saveAsDraft();
   }
 

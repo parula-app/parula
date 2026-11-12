@@ -201,7 +201,7 @@ DOMPurify.addHook('afterSanitizeAttributes', node => {
           if (!url) {
             continue;
           }
-          let domain = getBaseDomainFromURL(url);
+          let domain = getBaseDomainFromURL(url) ?? ""; // null for `mailto:`, `tel:` etc.
           node.setAttribute("title", domain + "\n\n" + url.substring(0, 120));
         } catch (ex) {
           node.setAttribute(attribute, "");

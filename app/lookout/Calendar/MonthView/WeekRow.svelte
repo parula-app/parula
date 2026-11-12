@@ -268,6 +268,9 @@
     font: inherit;
     font-size: var(--lo-font-size-small);
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     cursor: pointer;
     z-index: 1;
   }

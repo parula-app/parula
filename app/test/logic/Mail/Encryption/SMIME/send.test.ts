@@ -6,8 +6,10 @@ import { findOrCreatePersonUID } from "../../../../../logic/Abstract/PersonUID";
 import { SMIMESend } from "../../../../../logic/Mail/Encryption/SMIME/SMIMESend";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
+import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
+import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
-import type { Folder } from "../../../../../logic/Mail/Folder";
+import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
 import { expect, test, describe, beforeAll } from "vitest";
 
 // The browser has these, but Node does not.
@@ -31,8 +33,9 @@ let key: SMIMEPrivateKey;
 beforeAll(async () => {
   ({ folder } = await setupTestFolder({
     // Stands in for nodemailer in the backend, which writes a message in
-    // plain text, without attachments, as a single quoted-printable part.
-    getMIMENodemailer: async () => new TextEncoder().encode(kPlainTextMIME.replace(/\n/g, "\r\n")),
+    // plain text, without attachments, as a single quoted-printable part,
+    // and a `raw` message as it is.
+    getMIMENodemailer: async (mail: any) => new TextEncoder().encode(mail.raw ?? kPlainTextMIME.replace(/\n/g, "\r\n")),
     getCACertificates: async () => [],
   }));
   identity = new MailIdentity(folder.account);
@@ -57,6 +60,7 @@ async function sendAndReceive(sign: boolean, encrypt: boolean): Promise<EMail> {
   let sent = await SMIMESend.encryptAndSign(mail);
 
   let received = newTestEMail(folder, "plain-text@example.com");
+  received.from = mail.from; // as the server reports it
   received.mime = new TextEncoder().encode(sent.sendRawMIME);
   await received.parseMIME();
   return received;
@@ -80,6 +84,59 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
     expect(email.wasEncrypted).toBe(true);
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
     expect(email.signedByKeyID).toBe(key.id);
+  });
+});
+
+describe("A draft", () => {
+  let drafts: Folder;
+  let savedMIME: Uint8Array;
+
+  beforeAll(() => {
+    drafts = new Folder(folder.account);
+    drafts.specialFolder = SpecialFolder.Drafts;
+    // Keeps what an IMAP server would get
+    drafts.addMessage = async (message: EMail) => {
+      savedMIME = message.mime ?? await CreateMIME.getMIME(message);
+    };
+    folder.account.rootFolders.add(drafts);
+  });
+
+  /** To a recipient whose certificate we don't have yet */
+  async function saveDraft(encrypt: boolean): Promise<Uint8Array> {
+    let mail = folder.newEMail();
+    mail.identity = identity;
+    mail.from = findOrCreatePersonUID("user@example.com", "User");
+    mail.to.add(findOrCreatePersonUID("no-certificate@example.com", "No Certificate"));
+    mail.shouldEncrypt = encrypt;
+    await mail.compose.saveAsDraft();
+    return savedMIME;
+  }
+
+  test("that is encrypted is saved without the text in clear", async () => {
+    let mime = new TextDecoder().decode(await saveDraft(true));
+    expect(mime).not.toContain("K=C3=B6ln");
+    expect(mime).not.toContain("Zeile");
+  });
+
+  test("that is encrypted reopens with its text, and must stay encrypted", async () => {
+    let draft = drafts.newEMail();
+    draft.mime = await saveDraft(true);
+    await draft.parseMIME(); // as the download does
+    await draft.compose.editDraft();
+    expect(draft.system).toBe(EncryptionSystem.SMIME);
+    expect(draft.wasEncrypted).toBe(true);
+    expect(draft.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
+    expect(draft.shouldEncrypt).toBe(true);
+    expect(draft.mustEncrypt).toBe(true);
+  });
+
+  test("that is not encrypted reopens with encryption optional", async () => {
+    let draft = drafts.newEMail();
+    draft.mime = await saveDraft(false);
+    await draft.parseMIME();
+    await draft.compose.editDraft();
+    expect(draft.wasEncrypted).toBe(false);
+    expect(draft.mustEncrypt).toBe(false);
   });
 });
 
