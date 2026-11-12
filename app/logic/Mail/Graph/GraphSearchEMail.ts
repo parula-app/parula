@@ -31,7 +31,7 @@ export class GraphSearchEMail extends SearchEMail {
       `${searchedFolder ? searchedFolder.path + "/" : ""}messages` +
       `?$search=${encodeURIComponent(`"${query}"`)}` +
       `&$select=${properties.join(",")}`,
-      { top: limit ?? kMaxFetchCount });
+      { $top: limit ?? kMaxFetchCount });
 
     let folders = this.account.getAllFolders() as ArrayColl<GraphFolder>;
     for (let json of messagesJSON) {
