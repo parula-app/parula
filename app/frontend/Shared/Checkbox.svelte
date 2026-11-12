@@ -73,7 +73,11 @@
 
   let id: string = randomID();
 
-  function onToggle() {
+  function onToggle(event: MouseEvent) {
+    // A click on the label also clicks the <input>, so we get 2 clicks. Toggle only once.
+    if (!toggle && (event.target as Element).closest("label")) {
+      return;
+    }
     if (disabled) {
       return;
     }
@@ -118,7 +122,7 @@
   input {
     cursor: pointer;
     appearance: none;
-    background: #fff;
+    background: var(--input-bg);
     border: 1px solid var(--button-border);
     width: 20px;
     height: 20px;

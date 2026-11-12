@@ -107,6 +107,7 @@
     padding-top: 20px;
   }
   .order-buttons {
+    flex-wrap: wrap;
     gap: 8px;
     justify-content: end;
     padding-top: 4px;

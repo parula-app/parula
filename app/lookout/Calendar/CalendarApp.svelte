@@ -94,7 +94,7 @@
   {/if}
   {#if $eventPeek}
     {#key $eventPeek}
-      <EventPeek event={$eventPeek.event} anchor={$eventPeek.anchor} />
+      <EventPeek peek={$eventPeek} />
     {/key}
   {/if}
 </vbox>
