@@ -83,6 +83,8 @@ export function sanitizeHTMLWithoutStyleTag(html: string): string {
   });
 }
 
+const editorPurify = DOMPurify();
+
 /** For HTML that we load into the editor, e.g. a draft or an event description.
  * Unlike the other sanitizers, this keeps what the author wrote:
  * links without our `target` and `title`, remote images like a logo in the signature,
@@ -92,6 +94,7 @@ export function sanitizeHTMLForEditor(html: string): string {
   if (!html) {
     return "";
   }
+  /** DOMPurify, but without our hooks below, which prepare HTML for display */
   return editorPurify.sanitize(html, {
     USE_PROFILES: { html: true },
     FORBID_TAGS: ["svg", "mathml", "style", "form"],
@@ -102,9 +105,6 @@ export function sanitizeHTMLForEditor(html: string): string {
     ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
   });
 }
-
-/** Without our hooks below, which prepare HTML for display */
-const editorPurify = DOMPurify();
 
 /** Allow to load images from Internet */
 export function sanitizeHTMLExternal(html: string): string {
