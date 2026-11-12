@@ -12,7 +12,7 @@ import { assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl, Collection } from "svelte-collections";
 import { Buffer } from "buffer";
-import type { ImapFlow, MailboxLockObject, SearchObject } from "../../../../desktop/backend/node_modules/imapflow";
+import type { ImapFlow, MailboxLockObject, SearchObject, StatusObject } from "../../../../desktop/backend/node_modules/imapflow";
 
 export class IMAPFolder extends Folder {
   declare account: IMAPAccount;
@@ -111,7 +111,10 @@ export class IMAPFolder extends Folder {
   async listMessages(): Promise<Collection<IMAPEMail>>  {
     await this.readFolder();
     if (this.countTotal === 0) {
-      return new ArrayColl<IMAPEMail>();
+      await this.fetchCounts();
+      if (this.countTotal === 0) {
+        return new ArrayColl<IMAPEMail>();
+      }
     }
     let lock = await this.listMessagesLock.lock();
     try {
@@ -130,6 +133,21 @@ export class IMAPFolder extends Folder {
     } finally {
       lock.release();
     }
+  }
+
+  /** Our counts may be from the folder listing at startup */
+  protected async fetchCounts() {
+    let conn = await this.account.connection();
+    let lock = await this.account.connectionLock.get(conn).lock();
+    let status: StatusObject;
+    try {
+      this.account.log(this, conn, "status");
+      status = await conn.status(this.path, { messages: true, unseen: true });
+    } finally {
+      lock.release();
+    }
+    this.countTotal = sanitize.integer(status?.messages, this.countTotal);
+    this.countUnread = sanitize.integer(status?.unseen, this.countUnread);
   }
 
   /** Lists all messages in this folder that have not been fetched yet.
@@ -212,7 +230,10 @@ export class IMAPFolder extends Folder {
     let lock = await this.listMessagesLock.lock();
     try {
       if (this.countTotal === 0) {
-        return new ArrayColl();
+        await this.fetchCounts();
+        if (this.countTotal === 0) {
+          return new ArrayColl();
+        }
       }
       let isNewMail = this.messages.hasItems;
       let fromUID = this.getHighestUID() ?? 1;
