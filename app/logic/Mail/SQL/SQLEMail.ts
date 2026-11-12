@@ -296,6 +296,7 @@ export class SQLEMail {
     let emailLocks: Locked[] = [];
     try {
       await (await getDatabase()).run(sql`BEGIN TRANSACTION`);
+      for (let email of new Set(emails)) {
         if (!email.subject) {
           continue;
         }
