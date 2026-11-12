@@ -295,22 +295,24 @@ export class SQLEMail {
     let emailLocks: Locked[] = [];
     try {
       await (await getDatabase()).run(sql`BEGIN TRANSACTION`);
-      let saved: EMail[] = [];
+      let queries: Query[] = [];
       for (let email of emails) {
         if (!email.subject) {
           continue;
         }
         emailLocks.push(await email.storageLock.lock());
-        await this.saveMainProps(email);
-        saved.push(email);
+        try {
+          await this.saveMainProps(email);
+          await this.saveAttachments(email);
+          queries.push(sql`
+            $${this.saveWritablePropsSQL(email)}
+            $${this.saveRecipientsSQL(email)}
+            `);
+        } catch (ex) {
+          email.folder.account.errorCallback(ex); // and save the other emails
+        }
       }
-      await (await getDatabase()).execute(joinSQL(saved.map(email => sql`
-        $${this.saveWritablePropsSQL(email)}
-        $${this.saveRecipientsSQL(email)}
-        `)));
-      for (let email of saved) {
-        await this.saveAttachments(email);
-      }
+      await (await getDatabase()).execute(joinSQL(queries));
       await (await getDatabase()).run(sql`END TRANSACTION`);
     } catch (ex) {
       await (await getDatabase()).run(sql`ROLLBACK TRANSACTION`);
