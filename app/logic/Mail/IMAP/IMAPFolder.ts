@@ -156,11 +156,8 @@ export class IMAPFolder extends Folder {
     let saving = Promise.resolve();
     while (newUIDs.hasItems) {
       let fetchUIDs = newUIDs.splice(0, kBatchSize); // Gets the first n, and removes them from the list
-      // Saves the last page while fetching this one
-      let [{ newMessages }] = await Promise.all([
-        this.fetchMessageList({ uid: fetchUIDs.join(",") }, {}),
-        saving,
-      ]);
+      let { newMessages } = await this.fetchMessageList({ uid: fetchUIDs.join(",") }, {});
+      await saving; // Save the last page and fetch this one at the same time
       for (let msg of newMessages) {
         msg.isNewArrived ||= isNewMail; // \Recent deprecated by IMAP4rev2
       }

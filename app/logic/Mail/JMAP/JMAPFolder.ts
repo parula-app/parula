@@ -69,15 +69,13 @@ export class JMAPFolder extends Folder {
     let allNewMessages = new ArrayColl<JMAPEMail>();
     let position = 0;
     let saving = Promise.resolve();
-    const kMaxRounds = 5000; // 2,500,000 emails
+    const kMaxRounds = Math.min(5000, 1000000 / batchSize);
     let loop = new LoopGuard(kMaxRounds, () =>
       this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
     while (loop.nextRound()) {
-      // Saves the last page while fetching this one
-      let [{ newMessages, syncState, ids, limit }] = await Promise.all([
-        retryOnTransientError(() => this.fetchMessageList(position, batchSize)),
-        saving,
-      ]);
+      let { newMessages, syncState, ids, limit } = await retryOnTransientError(() =>
+        this.fetchMessageList(position, batchSize));
+      await saving; // Save the last page and fetch this one at the same time
       if (loop.isSameAsLastRound(ids.join(" "))) {
         break;
       }

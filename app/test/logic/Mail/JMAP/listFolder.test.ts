@@ -151,6 +151,6 @@ test("Listing stops after a maximum number of rounds, when the server always ret
 
   await inbox.listMessages();
 
-  expect(queries()).toBe(5000);
+  expect(queries()).toBe(1000000 / 500); // 1,000,000 emails in pages of 500
   expect(errors.length).toBe(1);
 });
