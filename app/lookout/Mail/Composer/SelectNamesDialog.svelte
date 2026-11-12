@@ -278,13 +278,13 @@
     justify-content: center;
   }
   .picks {
-    grid-template-columns: 96px 1fr;
+    grid-template-columns: max-content 1fr;
     align-items: center;
     gap: 8px 8px;
     margin-block-start: 12px;
   }
   .picks > :global(button) {
-    width: 96px;
+    min-width: 96px;
   }
   .pick-field {
     min-width: 0;

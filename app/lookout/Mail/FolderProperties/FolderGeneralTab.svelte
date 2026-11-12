@@ -4,7 +4,7 @@
     <TextField label={$t`Name`} bind:value={name} disabled={$folder.disableRename()} />
   </hbox>
   <hbox class="separator" />
-  <FormGrid columns="90px minmax(0, 1fr)">
+  <FormGrid columns="minmax(90px, max-content) minmax(0, 1fr)">
     <span class="lo-form-label">{$t`Type *=> Type of the folder`}</span>
     <span>{$t`Folder containing Mail Items`}</span>
     <span class="lo-form-label">{$t`Location *=> Where the folder is in the folder tree`}</span>
