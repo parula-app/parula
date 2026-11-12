@@ -80,7 +80,7 @@ export class GraphAccount extends ExchangeMailAccount {
 
   async verifyLogin(): Promise<void> {
     await this.loginOAuth2(true);
-    await this.graphGet1("mailFolders");
+    await this.graphGet1("mailFolders", { $top: 1 });
     await this.logout();
   }
 
@@ -107,7 +107,7 @@ export class GraphAccount extends ExchangeMailAccount {
    */
   async graphGet1<T>(path: string, args?: Record<string, any>): Promise<T | null> {
     let responses = await this.graphGet<T>(path, args);
-    assert(responses.length > 1, this.name + ": " + `${path} returned multiple results, but only 1 was expected`);
+    assert(responses.length <= 1, this.name + ": " + `${path} returned multiple results, but only 1 was expected`);
     return responses[0];
   }
 
