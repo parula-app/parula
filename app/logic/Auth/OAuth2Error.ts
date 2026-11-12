@@ -18,6 +18,9 @@ export class OAuth2ServerError extends OAuth2Error {
   code: string;
   codes: number[];
   details: any;
+  /** HTTP status of the token server's response, e.g. 400 or 503.
+   * Lets `isTransientError()` see a 503 as temporary. */
+  httpCode?: number;
   consentRequired = false;
   constructor(prefix: string, json: any) {
     let msg = prefix + ": " +
