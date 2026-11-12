@@ -1,4 +1,5 @@
 import JPCWebSocket from '../../lib/jpc-ws';
+import { fetchDAV } from '../../lib/util/fetchDAV';
 import { production } from '../../app/logic/build';
 import { Database, type Query } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
 import Zip from "adm-zip";
@@ -376,7 +377,7 @@ async function getMIMENodemailer(mail): Promise<Uint8Array> {
 
 async function createTSDAVClient(options: any) {
   const { DAVClient } = await import("tsdav");
-  return new DAVClient(options);
+  return new DAVClient({ ...options, fetch: fetchDAV });
 }
 
 async function createWebDAVClient(serverURL: string, options: any) {

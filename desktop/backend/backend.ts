@@ -15,6 +15,7 @@ import electronUpdater, { type UpdateCheckResult } from 'electron-updater';
 import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer';
 import { DAVClient } from "tsdav";
+import { fetchDAV } from '../../lib/util/fetchDAV';
 import { createClient as createWebDAVFileClient } from "webdav";
 import { createType1Message, decodeType2Message, createType3Message } from "./ntlm";
 import net from "node:net";
@@ -624,7 +625,7 @@ async function getMIMENodemailer(mail): Promise<Uint8Array> {
 }
 
 function createTSDAVClient(options: any) {
-  return new DAVClient(options);
+  return new DAVClient({ ...options, fetch: fetchDAV });
 }
 
 function createWebDAVClient(serverURL: string, options: any) {
