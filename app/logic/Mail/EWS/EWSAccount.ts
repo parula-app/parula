@@ -1186,7 +1186,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     };
     try {
       let result = await this.callEWS(request);
-      return result.filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
+      return ensureArray(result).filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
     } catch (ex) {
       return [];
     }
