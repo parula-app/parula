@@ -10,6 +10,9 @@ import fsPromises from "node:fs/promises";
 import crypto from "node:crypto";
 import net from "node:net";
 import tls from "node:tls";
+// #if [IOS]
+import { NodeHTTPDispatcher } from "./NodeHTTPDispatcher";
+// #endif
 
 // TODO Remove backend OWA.* entirely and
 // use standard HTTP requests and Auth window.
@@ -22,6 +25,9 @@ const OWA = {
 let jpc: JPCWebSocket | null = null;
 
 export async function startupBackend(jpcSecret: string) {
+  // #if [IOS]
+  (globalThis as any)[Symbol.for("undici.globalDispatcher.1")] = new NodeHTTPDispatcher(); // Used by `fetch()`
+  // #endif
   let appGlobal = await createSharedAppObject();
   jpc = new JPCWebSocket(appGlobal);
   await jpc.listen(jpcSecret, production ? 5455 : 5453, false);
