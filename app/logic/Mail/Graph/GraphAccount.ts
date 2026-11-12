@@ -384,7 +384,12 @@ export class GraphAccount extends ExchangeMailAccount {
     */
 
     let mime = await CreateMIME.getMIME(email);
-    let base64 = await blobToBase64(new Blob([mime]));
+    // Graph takes the recipients from the To, Cc and Bcc headers.
+    // The MIME has no Bcc header, because over SMTP, all recipients would see it.
+    let bcc = email.bcc.hasItems
+      ? "Bcc: " + email.bcc.contents.map(person => sanitize.emailAddress(person.emailAddress)).join(",\r\n ") + "\r\n"
+      : "";
+    let base64 = await blobToBase64(new Blob([bcc, mime]));
 
     let sendResponse = await this.graphCall("sendMail", {
       method: "post",
