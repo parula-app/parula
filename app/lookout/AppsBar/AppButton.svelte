@@ -7,7 +7,7 @@
     <AppIcon icon={app.icon} size={small ? "16px" : "24px"} />
   </hbox>
   {#if !small}
-    <hbox class="label">{app.name}</hbox>
+    <div class="label">{app.name}</div> <!-- not a flex box, so that a long name gets "…" -->
   {/if}
 </button>
 
