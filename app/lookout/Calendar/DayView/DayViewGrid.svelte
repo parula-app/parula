@@ -164,6 +164,9 @@
 
   let topMinute: number | null = null;
   function onScroll() {
+    if (!scrollEl) {
+      return; // The browser sends a scroll event only with the next frame
+    }
     topMinute = scrollEl.scrollTop / pxPerMinute;
     $eventPeek = null;
   }
