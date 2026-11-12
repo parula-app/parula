@@ -28,11 +28,8 @@
 
 <script lang="ts" context="module">
   // #if [MOBILE]
-  import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+  import { linkTapPlugin, type LinkTap } from "../../logic/util/os-integration";
 
-  /** Android and iOS: The native app doesn't open a link that the user tapped on,
-   * but gives it to us, see `LinkTapPlugin` in `mobile/`. */
-  const linkTapPlugin = registerPlugin<LinkTapPlugin>("LinkTap");
   linkTapPlugin.addListener("linkTap", tap => onLinkTap(tap).catch(console.error))
     .catch(console.error);
 
@@ -43,19 +40,6 @@
     if (tapped.dispatchEvent(new CustomEvent("linktap", { detail: tap, cancelable: true }))) {
       await linkTapPlugin.open({ url: tap.url });
     }
-  }
-
-  interface LinkTapPlugin {
-    addListener(eventName: "linkTap", listener: (tap: LinkTap) => void): Promise<PluginListenerHandle>;
-    /** Opens the link in the browser or another app, as Android and iOS do */
-    open(options: { url: string }): Promise<void>;
-  }
-
-  interface LinkTap {
-    url: string;
-    /** Where the user tapped, in CSS pixels of our window */
-    x: number;
-    y: number;
   }
   // #endif
 </script>
