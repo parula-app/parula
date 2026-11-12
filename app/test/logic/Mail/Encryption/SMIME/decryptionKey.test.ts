@@ -3,7 +3,7 @@ import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
-import { Certificate } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { Certificate, EnvelopedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import type { Folder } from "../../../../../logic/Mail/Folder";
 import type { MailAccount } from "../../../../../logic/Mail/MailAccount";
 import type { EMail } from "../../../../../logic/Mail/EMail";
@@ -81,6 +81,53 @@ test("A recipient identifier of an unknown type does not match our certificate",
   let value = { issuer: cert.tbsCertificate.issuer, serialNumber: cert.tbsCertificate.serialNumber };
   expect(key.isRecipient({ type: "issuerAndSerialNumber", value })).toBe(true);
   expect(key.isRecipient({ type: "unknown", value })).toBe(false);
+});
+
+// The fixtures are defined further down, so they're passed as functions
+test.each([
+  ["SHA-1, the default", () => kOAEP],
+  ["SHA-256", () => kOAEPSHA256],
+  ["SHA-384", () => kOAEPSHA384],
+  ["SHA-512", () => kOAEPSHA512],
+  ["a label", () => kOAEPLabel],
+])("A message whose key is encrypted with RSA-OAEP and %s decrypts", async (_name, cms) => {
+  let folder = await addAccount("dana@example.com", kDanaKey, kDanaCert);
+  let { email, errors } = await read(folder, "Dana <dana@example.com>", cms());
+  expect(errors).toEqual([]);
+  expect(email.text.trim()).toBe("Hello Dana");
+});
+
+test("A message whose key is encrypted with RSA-OAEP without parameters decrypts with the defaults", async () => {
+  let folder = await addAccount("dana@example.com", kDanaKey, kDanaCert);
+  let envelopedData = EnvelopedData.decodeFromBase64(kOAEP);
+  delete envelopedData.content.recipientInfos[0].value.keyEncryptionAlgorithm.parameters;
+  let { email, errors } = await read(folder, "Dana <dana@example.com>", EnvelopedData.encodeToBase64(envelopedData));
+  expect(errors).toEqual([]);
+  expect(email.text.trim()).toBe("Hello Dana");
+});
+
+test("A message whose key is encrypted with RSA-OAEP and 2 different hashes tells the user both", async () => {
+  let folder = await addAccount("dana@example.com", kDanaKey, kDanaCert);
+  let { errors } = await read(folder, "Dana <dana@example.com>", kOAEPMixedHashes);
+  expect(errors).toEqual([expect.stringMatching(/sha-?256/i)]);
+  expect(errors[0]).toMatch(/sha-?1\b/i);
+});
+
+test("A message whose RSA-OAEP encrypted key is damaged says that it cannot be decrypted", async () => {
+  let folder = await addAccount("dana@example.com", kDanaKey, kDanaCert);
+  let envelopedData = EnvelopedData.decodeFromBase64(kOAEP);
+  envelopedData.content.recipientInfos[0].value.encryptedKey[100] ^= 1;
+  let { errors } = await read(folder, "Dana <dana@example.com>", EnvelopedData.encodeToBase64(envelopedData));
+  expect(errors).toEqual([expect.stringMatching(/decrypt/i)]);
+});
+
+test("A message whose key is encrypted with an algorithm that we do not know names it", async () => {
+  let folder = await addAccount("dana@example.com", kDanaKey, kDanaCert);
+  let envelopedData = EnvelopedData.decodeFromBase64(kBcc);
+  // RSA-KEM, RFC 5990
+  envelopedData.content.recipientInfos[0].value.keyEncryptionAlgorithm = { algorithm: [1, 2, 840, 113549, 1, 9, 16, 3, 14] };
+  let { errors } = await read(folder, "Dana <dana@example.com>", EnvelopedData.encodeToBase64(envelopedData));
+  expect(errors).toEqual([expect.stringContaining("1.2.840.113549.1.9.16.3.14")]);
 });
 
 /** @returns the INBOX of a new account with this identity */
@@ -380,4 +427,95 @@ Hvr5/5t4x58ENMp2S0UAtSC2/ifFVqG9z+5DZ2SY2+7NpVqkaqdYJgmwuoFNmBPG
 9ccJz95pLm/grbbY1alAxwUwbAYJKoZIhvcNAQcBMB0GCWCGSAFlAwQBKgQQgRbY
 9nTpb8qQjJ0arfh8iYBAWRfqATx0ULKazPZF7sxLQlSpgUDTPcXFE6rbW/ox02Zc
 i/cnfStdTyhtDkOej7cN+ybucpU0BgcBsM3m0JR2lw==
+`;
+
+/** `openssl cms -encrypt -aes-256-cbc -keyopt rsa_padding_mode:oaep` to kDanaCert,
+ * which writes empty parameters for SHA-1 and MGF1 with SHA-1 */
+const kOAEP = `
+MIIBywYJKoZIhvcNAQcDoIIBvDCCAbgCAQAxggFDMIIBPwIBADAnMA8xDTALBgNV
+BAMMBERhbmECFHSNAW0q8n0Wb1poSUTRdeMBaaYKMA0GCSqGSIb3DQEBBzAABIIB
+AKXlqOInviNrHMd+JGhtZT8xddWpQ5LXoi1Nn718XbeK9w3kINEUkNR5yzhvsgCV
+FANPuL/tE06PXe3BVeHgswuMuCWI4TpUgCjWzREsSe9m4x/Q9ED/4C9DwpRY/U1E
+smS/SmwvxARAJP2U8fbFpJdfkkXsAMf3jlRB5bRzoddMoYOI3TLMBP8pBL7OT2i6
+hPEcVE0NeW5noRnOFLxr1m7+8B6bczyTQAulpv2m3ys7Vl354eH/UyPLz2MR02vY
++85wkRsfXuTm96x01s69pUnZSVFNtBNv1ki5kqCNowb6YSOaFm5YVQtMBbOrDKFt
+Pl8rV+VsfkyPubXakIoMvnYwbAYJKoZIhvcNAQcBMB0GCWCGSAFlAwQBKgQQynNv
+weXrkQxw+YM88HO7NYBAO0MFDO48oegxr9kirIDCbi850e0LVThsBPdWAlFDGYJE
+WDjH+qGljxeNY54yC6xSn//YOv+MuJYGgXUHizoOUQ==
+`;
+
+/** As kOAEP, with `-keyopt rsa_oaep_md:sha256 -keyopt rsa_mgf1_md:sha256` */
+const kOAEPSHA256 = `
+MIIB9gYJKoZIhvcNAQcDoIIB5zCCAeMCAQAxggFuMIIBagIBADAnMA8xDTALBgNV
+BAMMBERhbmECFHSNAW0q8n0Wb1poSUTRdeMBaaYKMDgGCSqGSIb3DQEBBzAroA0w
+CwYJYIZIAWUDBAIBoRowGAYJKoZIhvcNAQEIMAsGCWCGSAFlAwQCAQSCAQDMRR+c
+pSi+K5JUltt+un3PD2wkC5Zn7hZ6eel1rK4RZut+lMFOvA6iPM48XNMPRdg75aW4
+Py/ci1BtIj6riqVn+C9KvkyoHM87WvD62RCT/vyrVBVFjLkh2LIsYmAqPBqxpCg3
+vV2Da5ecJJ2J1WA1jKAQ3SMW2OhoRFRfGWO332fTUkYdMtDq7xiob/itGNmYWh2K
+sYPN+YsrE1gVEm/pEnqIvi+VmOPcliP0oYaggeJmFmZymCxoNbDGOlGwybo4X6Au
+oB8ABJ45euY3707JGMWiIQ+jB0o4WOfzz+fIAu0VrjoVmOV1bmJCMqJb21fvIw7/
+YsrhvctMuYwvrBoiMGwGCSqGSIb3DQEHATAdBglghkgBZQMEASoEEEbh8WAlKjO7
+w+6shzxhoBWAQO7N4t6WWb2+3Gg2j7Ezk7IkVmtitQHggzjWdFkY0V952cIJuWxf
+tzGjK1c8VhltQxYOrVkyc4dqSzebf9XTEzg=
+`;
+
+/** As kOAEP, with `-keyopt rsa_oaep_md:sha384 -keyopt rsa_mgf1_md:sha384` */
+const kOAEPSHA384 = `
+MIIB9gYJKoZIhvcNAQcDoIIB5zCCAeMCAQAxggFuMIIBagIBADAnMA8xDTALBgNV
+BAMMBERhbmECFHSNAW0q8n0Wb1poSUTRdeMBaaYKMDgGCSqGSIb3DQEBBzAroA0w
+CwYJYIZIAWUDBAICoRowGAYJKoZIhvcNAQEIMAsGCWCGSAFlAwQCAgSCAQAa1Bpj
+VoMduMFYI/KQfSmLyeY3WxIBq6CMwC4Zy1dgN8Bw4LSz//YjjQ+mK50toxm+ssvq
+ZjpABRSEi17bHxO/PWzIyWkjD+Gs+XCjBaWiTYyp9bB0zhia41IGZDCW/At9yN5g
+uNFmXQTwppRgB9l0Mq315g9E5RQZBqYtTa7WOZuKIztOSZMGm4vi2ozPEcg3jFw5
+cxnHuQzBE0P4UoUyXRmm/Q01I4kXFi9ptHofxPMhpGQPF35qlxKSQST8E2r4cEZQ
+nCXK/5Ffx5ZKuKqR7ns12rvZNIUtroGbbMNXUXWzZkZ8xJZ+nQZYvk9c67RCUef/
+GM630yE8Z3j3LJsKMGwGCSqGSIb3DQEHATAdBglghkgBZQMEASoEEPkblD33Y3xT
+vwUhz0sL9yWAQBv3Us4lAwAAKYqrz1c6LQcKPXknJailR3loMphAQKJMHkxKELY/
+0Dzn8QXOSD07HMRQKSm+kHomfohIOBZtDsA=
+`;
+
+/** As kOAEP, with `-keyopt rsa_oaep_md:sha512 -keyopt rsa_mgf1_md:sha512` */
+const kOAEPSHA512 = `
+MIIB9gYJKoZIhvcNAQcDoIIB5zCCAeMCAQAxggFuMIIBagIBADAnMA8xDTALBgNV
+BAMMBERhbmECFHSNAW0q8n0Wb1poSUTRdeMBaaYKMDgGCSqGSIb3DQEBBzAroA0w
+CwYJYIZIAWUDBAIDoRowGAYJKoZIhvcNAQEIMAsGCWCGSAFlAwQCAwSCAQBkXS+V
+gUWqktOnkD0EBJwucnN3YVHegx1JQhCgcPi5a/rBzwWCmwfB8VNhcz75R09al+O7
+5PxqivurOaKVu58+UgBwRQZm+Dr/2VsYY7uTBxRR6CrBo0U5SrMOAm9Avfdb/lHV
++M+9VzGVZri6ScFWvYfdn8y4YqH77rxILA2+Sn1N92RjXX2dTLlks6vPGq161DCp
+7BkseLs+YM7jUuPDcQYQM0KSUPX4yPGEpbaVLpHTiizrl8EZvBqmLw0QV+o/scC2
+Np9m4jaZitUDOi7+AIdAmzjQbhWxRy3evCyattQbs4t85/BLWK9FxojnJV5fCxG6
+FXmzoU1DDaaqk7pyMGwGCSqGSIb3DQEHATAdBglghkgBZQMEASoEEHI0yDFrL87p
+fkMjr7r0GvyAQBTQP1prGznRurwoIRjrxEAy/loO/wdFJuw3LMLyQqSJqg9dkSAF
+lyWkd4W+qTSDEgPuM/6yRYHx2hdiymDQyvc=
+`;
+
+/** As kOAEPSHA256, with `-keyopt rsa_oaep_label:4d757374616e67` ("Mustang") */
+const kOAEPLabel = `
+MIICDgYJKoZIhvcNAQcDoIIB/zCCAfsCAQAxggGGMIIBggIBADAnMA8xDTALBgNV
+BAMMBERhbmECFHSNAW0q8n0Wb1poSUTRdeMBaaYKMFAGCSqGSIb3DQEBBzBDoA0w
+CwYJYIZIAWUDBAIBoRowGAYJKoZIhvcNAQEIMAsGCWCGSAFlAwQCAaIWMBQGCSqG
+SIb3DQEBCQQHTXVzdGFuZwSCAQA62vUMGR6Cxwu1pqwjy0l/nCUZWzRph7Wcp15a
+lTz6DBc14YEyLrQ3bLicPYUPr6Koqn1gUGKZKUe1BwAvaZN5ew3dgDlDaxuOoEsQ
+9+35+XU/vMtWi+Z6cvKUATFxDP4sdzFsfbiIK6cayaec3K8nxqhXSwGZCpNyVgBA
+FAJ7VyqQN/ITvdqZa+VnKUWbd21KHCGZoU3+bIioi8uIl/w8fVYB35orVH4Xd1r7
++oQwbQozhIb4F35/c6IUsd69bRo53jfMmQqtKAkg+7WSc9axX8rkTghwHTEjUpbs
+oEzoGX3nyT5s2jfS5UiVeUJbaeo5qAh+UZtND9VPiADInNUQMGwGCSqGSIb3DQEH
+ATAdBglghkgBZQMEASoEEITeJC2X6DUs1dfWbBzzHGyAQG4Y/dgEM8fdVlvxoHcv
+dVdtwUdEaeQmQxcZIBfeS02kPn0b+WSS9QdFrhVrruc0ItmcHPqE5ihnrsx6v5p8
+uCM=
+`;
+
+/** As kOAEP, with `-keyopt rsa_oaep_md:sha256 -keyopt rsa_mgf1_md:sha1`.
+ * WebCrypto uses the same hash for both. */
+const kOAEPMixedHashes = `
+MIIB2gYJKoZIhvcNAQcDoIIByzCCAccCAQAxggFSMIIBTgIBADAnMA8xDTALBgNV
+BAMMBERhbmECFHSNAW0q8n0Wb1poSUTRdeMBaaYKMBwGCSqGSIb3DQEBBzAPoA0w
+CwYJYIZIAWUDBAIBBIIBALEmCTvhPERU35EfuEH/WElHczPbGn+wtLnNwTTqlZHb
+WbmlwYuwC4qov9WqOXULolzGHY0mPa9pJF4rPQi+vJXv571qr3QVnI7Tg5m9+FtS
+h1jRaQrsWGJocU552cPFKbjxqachTntbYw6jnk2H7QikP5RfTJDVWZxSniu2SkwQ
+mxllU4yuZu1fL1TpzbX7SP49OsfMm6LPHPe5tCrm6UjLpa37rhRjeOkUEtSzvUbX
+Mp2Bt26s60uIxH0M17LRFtJBKBDt9esxMJFHzR1DGqF05Mw27zrBvwQuYWU9iXws
+hhucWJ866RpPoWq4ZJ1igvT3cBA3zZPVUSqWHcnm5i4wbAYJKoZIhvcNAQcBMB0G
+CWCGSAFlAwQBKgQQxM/g074A9r2cK51lE9UBGIBAwsSAMGhbFLLwK/zkra+1JRf9
+jatf7AMUe0co69clnv2Y7POTYqddQXfl//yM+3wykI2c+16HWzTF6/CtYZeeFQ==
 `;
