@@ -239,6 +239,14 @@ export class SMIMEPublicKey extends PublicKey {
     return ExtKeyUsage.decode(extKeyUsage).some(purpose => purpose == "emailProtection" || (purpose == "anyExtendedKeyUsage" && kAcceptAnyPurpose));
   }
 
+  usableForEncryption(): boolean {
+    if (!this.certificate) {
+      return false;
+    }
+    let isEC = this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm == "ecPublicKey";
+    return this.allowsAnyKeyUsage(isEC ? KeyUsageBit.keyAgreement : KeyUsageBit.keyEncipherment) && this.allowsEMailProtection();
+  }
+
   protected extension(extnID: string): Uint8Array | undefined {
     assert(this.certificate, "The S/MIME key has no certificate");
     let cert = Certificate.decodePEM(this.certificate, { label: "CERTIFICATE" });

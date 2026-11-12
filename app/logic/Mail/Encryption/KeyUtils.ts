@@ -96,8 +96,8 @@ export function getPublicKeyForPersonUID<T extends PublicKey>(uid: PersonUID, ke
   return isUsableKey(known, keyType) ? known : null;
 }
 
-function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {
-  return !!key && !key.obsolete && (!keyType || key instanceof keyType);
+export function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {
+  return !!key && !key.obsolete && key.usableForEncryption() && (!keyType || key instanceof keyType);
 }
 
 /** For composer, which own key to use for signing the outgoing email */
