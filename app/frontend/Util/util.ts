@@ -21,7 +21,8 @@ export function isTextField(target: EventTarget | null): boolean {
 /** Arrow Up/Down, Home and End select the previous, next, first or last row of the list
  * that this keydown handler is on, by clicking the row. The selected row has the class `selected`. */
 export function onListKey(event: KeyboardEvent, rowSelector: string) {
-  if (event.key != "ArrowDown" && event.key != "ArrowUp" && event.key != "Home" && event.key != "End" || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+  if (![ "ArrowDown", "ArrowUp", "Home", "End" ].includes(event.key) ||
+      event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
     return;
   }
   if (isTextField(event.target)) {
