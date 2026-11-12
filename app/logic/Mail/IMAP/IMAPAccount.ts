@@ -8,7 +8,7 @@ import type { EMail } from "../EMail";
 import { ConnectError, LoginError } from "../../Abstract/Account";
 import { SpecialFolder, MailShareCombinedPermissions, MailShareIndividualPermissions } from "../Folder";
 import { assert, NotReached, SpecificError } from "../../util/util";
-import { retryOnTransientError } from "../../util/netUtil";
+import { isTransientError, retryOnTransientError } from "../../util/netUtil";
 import { Lock } from "../../util/flow/Lock";
 import { Throttle } from "../../util/flow/Throttle";
 import { RunOnce } from "../../util/flow/RunOnce";
@@ -193,6 +193,11 @@ export class IMAPAccount extends MailAccount {
       } catch (ex) {
         this.fatalError = new ConnectError(ex,
           `Reconnection failed after connection closed:\n${ex.message}\n${this.hostname} IMAP server`);
+        if (isTransientError(ex) || ex instanceof ConnectError) {
+          // e.g. the computer woke up, and the network is not back yet. Don't stay offline.
+          this.reconnectInBackground()
+            .catch(this.errorCallback);
+        }
       }
     });
     connection.on("error", async (ex: any) => {
