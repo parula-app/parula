@@ -113,16 +113,16 @@ export class GraphAccount extends ExchangeMailAccount {
 
   /**
    * @param path The function and object to call. This is the part of the URL path *after* the user.
-   * @param args URL query parameters. Will be appended after "?". Optional.
+   * @param args URL query parameters, e.g. `{ $top: 100 }`. Will be appended after "?". Optional.
    * @param options @see graphCall()
    * @returns The list of objects that the server returned in `.value`, as array
    *   If not the entire list was returned, `.nextURL` contains the URL to retrieve the next batch.
    *   Otherwise, `.deltaURL` (optional) contains the URL to retrieve changes in the future.
    */
   async graphGet<T>(path: string, args?: Record<string, any>, options?: any): Promise<T[]> {
-    if (args?.top) {
+    for (let name in args) {
       // Avoid using options.searchParams, because it deletes all existing ones in the URL
-      path += (path.includes("?") ? "&" : "?") + "$top=" + args.top;
+      path += (path.includes("?") ? "&" : "?") + name + "=" + encodeURIComponent(args[name]);
     }
 
     let responses = await this.graphCall(path, options);
@@ -143,7 +143,7 @@ export class GraphAccount extends ExchangeMailAccount {
     let allResults = new ArrayColl<T>();
     let firstResults = await this.graphGet<T>(path, args, options);
     allResults.addAll(firstResults);
-    let deltaURL: URLString;
+    let deltaURL: URLString = (firstResults as any).deltaURL;
     let nextURL = (firstResults as any).nextURL;
     let loop = new LoopGuard(30000, () =>
       this.errorCallback(new Error(`${this.name}: The server keeps returning more results. Stopped.`)));
@@ -154,8 +154,8 @@ export class GraphAccount extends ExchangeMailAccount {
       // nextURL already includes the $select. And ky searchParams would overwrite the skip token.
       let nextResults = await this.graphGet<T>(nextURL);
       allResults.addAll(nextResults);
-      nextURL = (nextResults as any).nextLink;
-      deltaURL = (nextResults as any).deltaLink;
+      nextURL = (nextResults as any).nextURL;
+      deltaURL = (nextResults as any).deltaURL;
     }
     let array = allResults.contents;
     (array as any).deltaURL = deltaURL;
@@ -322,7 +322,7 @@ export class GraphAccount extends ExchangeMailAccount {
   protected async listSubFolders(parentFolder: GraphFolder | null, currentFolders: Map<string, GraphFolder>): Promise<void> {
     let foldersJSON = await this.graphGetAll<TGraphFolder>(
       parentFolder ? `mailFolders/${parentFolder.id}/childFolders` : `mailFolders`,
-      { top: kMaxFetchCount },
+      { $top: kMaxFetchCount },
       { beta: true }
     );
     let parentFolders = parentFolder ? parentFolder.subFolders : this.rootFolders;

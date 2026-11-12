@@ -76,7 +76,7 @@ export class GraphFolder extends Folder {
         newMessagesJSON = await this.account.graphGet<TGraphEMail>(nextURL);
       } else {
         newMessagesJSON = await this.account.graphGet<TGraphEMail>(`${this.path}/messages`, {
-          top: batchSize,
+          $top: batchSize,
           "$select": TGraphEMailHeaderProperties.join(","),
         });
       }
@@ -377,7 +377,7 @@ export class GraphFolder extends Folder {
     while (loop.nextRound()) {
       let unread = await this.account.graphGet<TGraphEMail>(
         `${this.path}/messages?$filter=${encodeURIComponent("isRead eq false")}&$select=id`,
-        { top: kMaxFetchCount });
+        { $top: kMaxFetchCount });
       if (!unread.length) {
         return;
       }
