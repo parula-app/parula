@@ -337,17 +337,11 @@ async function createIMAPFlowConnection(...args): ImapFlow {
 
 function getSQLiteDatabase(filename: string, options: any, buffer?: Uint8Array): Database {
   let safeOptions = { readonly: !!options?.readonly }; // `nativeBinding` in it would `require()` any file as native code
-  if (buffer) {
-    return addRunMultiple(new Database(Buffer.from(buffer), safeOptions));
-  }
-  return addRunMultiple(new Database(filename, safeOptions));
-}
-
-/** Lets the frontend run several statements with one call over JPC,
- * each with its values as bound parameters.
- * Not as a subclass of `Database`: JPC would then miss the functions of `Database`,
- * because its parent class has the same name. */
-function addRunMultiple(db: Database) {
+  let db = new Database(buffer ? Buffer.from(buffer) : filename, safeOptions);
+  // Lets the frontend run several statements with one call over JPC,
+  // each with its values as bound parameters.
+  // Not as a subclass of `Database`: JPC would then miss the functions of `Database`,
+  // because its parent class has the same name.
   return Object.assign(db, {
     runMultiple(queries: Query[]) {
       for (let query of queries) {
