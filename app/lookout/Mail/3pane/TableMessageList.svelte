@@ -95,7 +95,7 @@
   import { tick } from "svelte";
   import { t } from "../../../l10n/l10n";
   import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
-  import MessageWindow from "../../../frontend/Mail/Message/MessageWindow.svelte";
+  import MessageWindow from "../Message/MessageWindow.svelte";
 
   const appWindow = AppWindow.current();
 

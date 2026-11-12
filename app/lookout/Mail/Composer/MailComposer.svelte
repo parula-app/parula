@@ -150,6 +150,7 @@
   import type { RibbonLayout } from "../../Shared/Ribbon/RibbonGroup";
   import { EditorTool } from "../../Shared/Editor/EditorTool";
   import { removeInlineReply } from "./InlineReplies";
+  import { MessageActions } from "../MessageActions";
   import { inlineRibbon } from "../Selected";
   import { get } from "svelte/store";
   import { goBack } from "../../../frontend/AppsBar/selectedApp";
@@ -320,7 +321,7 @@
       await mail.compose.send(onClose);
     } catch (ex) {
       if (closing) { // Already closed. Re-open, to not lose the mail.
-        mailMustangApp.writeMail(mail);
+        MessageActions.writeMail(mail);
       }
       throw ex;
     }
@@ -350,7 +351,7 @@
 
   async function onPopOut() {
     onClose();
-    await mailMustangApp.writeMailInNewWindow(mail);
+    await MessageActions.writeMailInNewWindow(mail);
   }
 
   /** The user closed the separate window of the composer */
@@ -361,7 +362,7 @@
     mail.compose.saveAsDraft()
       .catch(ex => {
         showError(ex);
-        mailMustangApp.writeMail(mail);
+        MessageActions.writeMail(mail);
       });
   });
 

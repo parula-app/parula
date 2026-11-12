@@ -19,7 +19,7 @@ import { globalSearchTerm, openApp } from "../../../frontend/AppsBar/selectedApp
 import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
 import { contactsMustangApp } from "../../../frontend/Contacts/ContactsMustangApp";
 import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
-import MessageWindow from "../../../frontend/Mail/Message/MessageWindow.svelte";
+import MessageWindow from "../../Mail/Message/MessageWindow.svelte";
 import { ArrayColl } from "svelte-collections";
 import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
 import { flushSync, mount, unmount } from "svelte";

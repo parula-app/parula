@@ -26,6 +26,8 @@ import { getLocalStorage } from "../../frontend/Util/LocalStorage";
 import { saveBlobAsFile } from "../../frontend/Util/util";
 import { draggedMessages } from "../../frontend/Mail/Message/drag";
 import { AppWindow } from "../../frontend/MainWindow/AppWindow";
+import { showError } from "../../frontend/Util/error";
+import ComposerWindow from "./Composer/ComposerWindow.svelte";
 import { URLPart } from "../../logic/util/blob";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../logic/util/util";
@@ -42,10 +44,27 @@ export class MessageActions {
     return account;
   }
 
+  /**
+   * Opens the composer.
+   * In a main window, as a page of the Mail app. In the composer and email windows, in a new window.
+   */
+  static writeMail(mail: EMail) {
+    if (AppWindow.current().isMainWindow) {
+      mailMustangApp.writeMail(mail);
+      return;
+    }
+    MessageActions.writeMailInNewWindow(mail)
+      .catch(showError);
+  }
+
+  static async writeMailInNewWindow(mail: EMail) {
+    await AppWindow.current().open(ComposerWindow, { mail }, 1000);
+  }
+
   static writeMailTo(recipient: PersonUID, folder: Folder | null) {
     let mail = MessageActions.accountForNewMail(folder).newEMailFrom();
     mail.to.add(recipient);
-    mailMustangApp.writeMail(mail);
+    MessageActions.writeMail(mail);
   }
 
   static newMeeting(calendar: Calendar | null = null) {
@@ -70,7 +89,7 @@ export class MessageActions {
     if (MessageActions.respondsInline(original)) {
       await startInlineReply(original, draft);
     } else {
-      mailMustangApp.writeMail(draft);
+      MessageActions.writeMail(draft);
     }
   }
 
@@ -103,7 +122,7 @@ export class MessageActions {
     }
     // <copied from="../../frontend/Mail/Message/MessageToolbar.svelte" editDraft()>
     await message.compose.editDraft();
-    mailMustangApp.writeMail(message);
+    MessageActions.writeMail(message);
     // </copied>
   }
 

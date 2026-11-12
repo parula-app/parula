@@ -91,16 +91,16 @@
     disabled={!(message.allRecipients().length > 1 && !(message.bcc.hasItems && !message.outgoing)) && $t`There are no other recipients`}
     onClick={() => MessageActions.respond(message, message.compose.replyAll())} />
   <MenuItem label={$t`Forward`} icon={ForwardIcon} onClick={event => MessageActions.forward(message, event as MouseEvent)} />
-  <MenuItem label={$t`Forward as Attachment`} icon={ForwardAttachmentIcon} onClick={async () => mailMustangApp.writeMail(await message.compose.forwardAsAttachment())} />
+  <MenuItem label={$t`Forward as Attachment`} icon={ForwardAttachmentIcon} onClick={async () => MessageActions.writeMail(await message.compose.forwardAsAttachment())} />
   <MenuItem label={$t`Redirect`} icon={RedirectIcon}
     tooltip={$t`Send this message to somebody else, who can reply to the original sender`}
-    onClick={async () => mailMustangApp.writeMail(await message.compose.redirect())} />
+    onClick={async () => MessageActions.writeMail(await message.compose.redirect())} />
   {#if $message.outgoing}
-    <MenuItem label={$t`Edit as New`} icon={EditAsNewIcon} onClick={async () => mailMustangApp.writeMail(await message.compose.editAsNew())} />
+    <MenuItem label={$t`Edit as New`} icon={EditAsNewIcon} onClick={async () => MessageActions.writeMail(await message.compose.editAsNew())} />
   {/if}
   <MenuItem label={$t`New Topic to All`} icon={NewToAllIcon}
     tooltip={$t`Send a new, unrelated message to all recipients`}
-    onClick={() => mailMustangApp.writeMail(message.compose.newToAll())} />
+    onClick={() => MessageActions.writeMail(message.compose.newToAll())} />
   <MenuDivider />
   <MenuItem label={$t`Delete`} icon={DeleteIcon} onClick={() => message.deleteMessage()} />
   <MenuItem label={$message.isRead ? $t`Mark as Unread` : $t`Mark as Read`} icon={$message.isRead ? UnreadIcon : ReadIcon}
@@ -175,9 +175,8 @@
   import { catchErrors } from "../../../frontend/Util/error";
   import { ArrayColl } from "svelte-collections";
   import { t } from "../../../l10n/l10n";
-  import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
   import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
-  import MessageWindow from "../../../frontend/Mail/Message/MessageWindow.svelte";
+  import MessageWindow from "./MessageWindow.svelte";
 
   const appWindow = AppWindow.current();
 

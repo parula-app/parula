@@ -8,24 +8,19 @@ import { DummyMailStorage } from "../../../../logic/Mail/Store/DummyMailStorage"
 import { findOrCreatePersonUID } from "../../../../logic/Abstract/PersonUID";
 import { AppWindow } from "../../../../frontend/MainWindow/AppWindow";
 import { selectedMessage } from "../../../../frontend/Mail/Selected";
-import { getLocalStorage } from "../../../../frontend/Util/LocalStorage";
-// The window that the pop-out buttons open, in both frontends
-import MessageWindow from "../../../../frontend/Mail/Message/MessageWindow.svelte";
+import MessageWindow from "../../../Mail/Message/MessageWindow.svelte";
 import { flushSync, mount, unmount } from "svelte";
 import { get } from "svelte/store";
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
-beforeAll(async () => {
+beforeAll(() => {
   (globalThis as any).ResizeObserver ??= class {
     observe() {}
     unobserve() {}
     disconnect() {}
   };
-  // Loading the Lookout window takes longer than a test waits for it
-  await import("../../../Mail/Message/MessageWindow.svelte");
-}, 60000);
+});
 
-const frontend = getLocalStorage("appearance.frontend", "classic");
 let inbox: Folder;
 let message: EMail;
 let appWindow: AppWindow;
@@ -60,7 +55,6 @@ afterEach(() => {
   unmount(app);
   app = null;
   document.body.innerHTML = "";
-  frontend.value = "classic";
   vi.restoreAllMocks();
 });
 
@@ -71,35 +65,23 @@ function openWindow() {
   flushSync();
 }
 
-test("In Lookout, the email window has the Lookout frame and shows the email", async () => {
-  frontend.value = "lookout";
+test("The email window has the Lookout frame and shows the email", () => {
   openWindow();
-  await vi.waitFor(() => expect(document.querySelector(".lookout-window")).toBeTruthy());
+  expect(document.querySelector(".lookout-window")).toBeTruthy();
   expect(document.title).toBe("Lunch on Friday");
   expect(document.querySelector(".lookout-window").textContent).toContain("Alice");
 });
 
-test("In Lookout, the email window selects its email only in its own window", async () => {
+test("The email window selects its email only in its own window", () => {
   let mainSelection = get(selectedMessage);
-  frontend.value = "lookout";
   openWindow();
-  await vi.waitFor(() => expect(document.querySelector(".lookout-window")).toBeTruthy());
   expect(get(appWindow.uiState(selectedMessage))).toBe(message);
   expect(get(AppWindow.main.uiState(selectedMessage))).toBe(mainSelection);
 });
 
-test("In Lookout, the email window closes when its email is deleted or moved", async () => {
-  frontend.value = "lookout";
+test("The email window closes when its email is deleted or moved", () => {
   openWindow();
-  await vi.waitFor(() => expect(document.querySelector(".lookout-window")).toBeTruthy());
   expect(appWindow.close).not.toHaveBeenCalled();
   inbox.messages.remove(message);
   expect(appWindow.close).toHaveBeenCalledTimes(1);
-});
-
-test("In the classic frontend, the email window keeps the classic frame", async () => {
-  openWindow();
-  await vi.waitFor(() => expect(document.querySelector(".secondary-window")).toBeTruthy());
-  expect(document.querySelector(".lookout-window")).toBeNull();
-  expect(document.title).toBe("Lunch on Friday");
 });

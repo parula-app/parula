@@ -1,12 +1,6 @@
-{#if frontend == "lookout"}
-  {#await import("../../../lookout/Mail/Message/MessageWindow.svelte") then lookout}
-    <svelte:component this={lookout.default} {message} />
-  {/await}
-{:else}
-  <SecondaryWindow title={$message.subject ?? ""}>
-    <MessageDisplay {message} />
-  </SecondaryWindow>
-{/if}
+<SecondaryWindow title={$message.subject ?? ""}>
+  <MessageDisplay {message} />
+</SecondaryWindow>
 
 <script lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
@@ -14,14 +8,10 @@
   import { AppWindow } from "../../MainWindow/AppWindow";
   import SecondaryWindow from "../../MainWindow/SecondaryWindow.svelte";
   import MessageDisplay from "./MessageDisplay.svelte";
-  import { getLocalStorage } from "../../Util/LocalStorage";
   import { ArrayColl, CollectionObserver } from "svelte-collections";
   import { onDestroy } from "svelte";
 
   export let message: EMail;
-
-  const frontendSetting = getLocalStorage("appearance.frontend", "classic");
-  $: frontend = $frontendSetting.value;
 
   const appWindow = AppWindow.current();
   $selectedMessage = message;

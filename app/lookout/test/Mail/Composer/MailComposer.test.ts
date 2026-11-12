@@ -9,6 +9,7 @@ import { DummyMailStorage } from "../../../../logic/Mail/Store/DummyMailStorage"
 import { PersonUID } from "../../../../logic/Abstract/PersonUID";
 import { sleep } from "../../../../logic/util/util";
 import MailComposer from "../../../Mail/Composer/MailComposer.svelte";
+import LookoutComposerWindow from "../../../Mail/Composer/ComposerWindow.svelte";
 import { mailMustangApp } from "../../../../frontend/Mail/MailMustangApp";
 import { AppWindow } from "../../../../frontend/MainWindow/AppWindow";
 import { flushSync, mount, unmount } from "svelte";
@@ -184,12 +185,12 @@ function popOutButton(): HTMLButtonElement | undefined {
 
 const kOwnText = "<p>" + "This is what I want to say about it. ".repeat(4) + "</p>";
 
-test("Pop Out on the composer page opens the composer in its own window", async () => {
-  let writeMailInNewWindow = vi.spyOn(mailMustangApp, "writeMailInNewWindow").mockImplementation(async () => {});
+test("Pop Out on the composer page opens Lookout's composer in its own window", async () => {
+  let open = vi.spyOn(AppWindow.prototype, "open").mockImplementation(async () => null);
   vi.spyOn(AppWindow.main.window.history, "go").mockImplementation(() => {});
   popOutButton().click();
   await sleep(0.01);
-  expect(writeMailInNewWindow).toHaveBeenCalledWith(mail);
+  expect(open).toHaveBeenCalledWith(LookoutComposerWindow, { mail }, 1000);
 });
 
 test("In its own window, the composer has no Pop Out, and Close closes the window", async () => {

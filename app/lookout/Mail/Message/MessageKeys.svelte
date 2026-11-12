@@ -5,7 +5,6 @@
   import { MessageActions } from "../MessageActions";
   import { printMessage } from "../Selected";
   import { isTextField } from "../../Util/util";
-  import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
   import { catchErrors } from "../../../frontend/Util/error";
   import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
 
@@ -31,7 +30,7 @@
         event.preventDefault();
         event.stopPropagation();
         if (message) {
-          mailMustangApp.writeMail(await message.compose.forwardAsAttachment());
+          MessageActions.writeMail(await message.compose.forwardAsAttachment());
         }
         return;
       } else if (letter == "j") {
