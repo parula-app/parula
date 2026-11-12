@@ -1,9 +1,14 @@
 // #if [!WEBMAIL && !MOBILE]
 <webview bind:this={webviewE} src={url ?? blobURL} {title} class:hidden {partition} />
-<!-- No Svelte if-block between the conditional compile lines: The plugin takes it as its own condition. The popup shows only on `show()` anyways. -->
-<OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
 // #else
 <iframe bind:this={webviewE} src={url ?? blobURL} {title} {sandbox} class:hidden />
+// #endif
+// #if [!WEBMAIL]
+<!-- No Svelte if-block between the conditional compile lines: The plugin takes it as its own condition. The popup shows only on `show()` anyways. -->
+<OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
+// #endif
+// #if [MOBILE]
+<svelte:window on:message={event => catchErrors(() => onTapInPage(event))} />
 // #endif
 
 <!--
@@ -37,6 +42,10 @@
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { openExternalURL } from "../../logic/util/os-integration";
   import { removeTrackingURL } from "../../logic/util/netUtil";
+  // #if [MOBILE]
+  import { sanitize } from "../../../lib/util/sanitizeDatatypes";
+  import linkScriptURL from "./linkScript.js?url&no-inline"; // a file, so that the CSP can allow just this one script
+  // #endif
   const dispatch = createEventDispatcher();
 
   /**
@@ -84,13 +93,25 @@
    * `allow-popups` keeps the `target="_blank"` links working that `sanitizeHTML()` creates.
    * Android: The WebView has no second window, so Chromium opens such a link in the top frame
    * instead, and Capacitor then gives it to the system browser. That needs a top navigation.
+   * Mobile: Scripts only for our `html`, whose CSP allows only `linkScript`, see `setURL()`.
    * Only a page that a web server gave us is not jailed, e.g. a web app or the payment page:
    * That page gets the origin of its server. A `blob:` URL would get *ours*. */
   let jail = "allow-popups allow-popups-to-escape-sandbox";
   // #if [MOBILE]
   jail += " allow-top-navigation-by-user-activation";
   // #endif
-  $: sandbox = url?.startsWith("https:") ? undefined : jail;
+  $: sandbox = url?.startsWith("https:") ? undefined : jail + (linkScript && !url ? " allow-scripts" : "");
+
+  /** Mobile: We don't see the taps in the jailed `<iframe>`. So if we should ask before opening
+   * links, the page gets this script, which tells us about each tap, see `onTapInPage()`.
+   * The page still has an opaque origin, so the script can't reach our app.
+   * Absolute URL, because the page has a `blob:` URL. */
+  let linkScript = "";
+  // #if [MOBILE]
+  if (askBeforeOpeningLinks) {
+    linkScript = new URL(linkScriptURL, location.href).href;
+  }
+  // #endif
 
   onMount(() =>{
     if (autoSize) {
@@ -118,8 +139,9 @@
       }
     </style>`;
     let servers = allowServerCalls === true ? "*" : allowServerCalls || "";
-    const head = `<meta http-equiv="Content-Security-Policy" content="default-src 'none';
-      style-src ${servers} 'unsafe-inline'; img-src data: blob: ${servers}">\n\n` + headHTML + `\n\n`;
+    const head = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${linkScript || "'none'"};
+      style-src ${servers} 'unsafe-inline'; img-src data: blob: ${servers}">\n\n` +
+      (linkScript ? `<script src="${linkScript}"><\/script>\n\n` : "") + headHTML + `\n\n`;
     /* Put our head additions in front of the mail, because the content is untrusted.
      * The HTML parser moves a leading meta and style element into the head for us. */
     let displayHTML = head + (autoSize ? autoSizeCSS : "") + (html ?? "");
@@ -189,22 +211,26 @@
         return;
       }
       if (event.type == "mouseDown" && event.button == "left") {
-        if (!askBeforeOpeningLinks) {
-          await openExternalURL(url);
-        } else if (askBeforeOpening(url)) {
-          clickEvent = event;
-          await openLinkPopup.show(url);
-        } else {
-          // Like the default in the popup
-          await openExternalURL(removeTrackingURL(url));
-        }
+        clickEvent = event;
+        await onLinkClick(url);
       }
     }), showError);
   }
 
+  async function onLinkClick(url: string) {
+    if (!askBeforeOpeningLinks) {
+      await openExternalURL(url);
+    } else if (askBeforeOpening(url)) {
+      await openLinkPopup.show(url);
+    } else {
+      // Like the default in the popup
+      await openExternalURL(removeTrackingURL(url));
+    }
+  }
+
   let openLinkPopup: OpenLinkPopup;
-  /** The Electron `MouseInputEvent` of the click on the link.
-   * Its `x` and `y` are relative to the webview. */
+  /** Where the user clicked on the link, relative to the webview:
+   * The Electron `MouseInputEvent`, or on mobile, the tap from `linkScript` */
   let clickEvent: { x: number, y: number };
   /** We don't know how high the link is, so we assume 1 line in the normal font of a mail:
    * 16px with `line-height: 1.5` in `content-body.css` */
@@ -262,6 +288,22 @@
   async function onLoadResize() {
     await getContentSize();
     resizeWebview();
+  }
+  // #endif
+
+  // #if [MOBILE]
+  /** The user tapped in the page, see `linkScript` */
+  async function onTapInPage(event: MessageEvent) {
+    if (event.source != webviewE?.contentWindow) {
+      return;
+    }
+    webviewE.click(); // e.g. to close the popup, like `addInputListener()`
+    let url = sanitize.url(event.data?.url, null);
+    if (!url) {
+      return;
+    }
+    clickEvent = { x: sanitize.float(event.data.x), y: sanitize.float(event.data.y) };
+    await onLinkClick(url);
   }
   // #endif
 
