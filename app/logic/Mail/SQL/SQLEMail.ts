@@ -290,7 +290,11 @@ export class SQLEMail {
         if (!email.subject) {
           continue;
         }
-        await this.save(email);
+        try {
+          await this.save(email);
+        } catch (ex) {
+          email.folder.account.errorCallback(ex); // and save the other emails
+        }
       }
       await (await getDatabase()).run(sql`END TRANSACTION`);
     } catch (ex) {
