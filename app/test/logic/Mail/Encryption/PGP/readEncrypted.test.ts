@@ -2,6 +2,7 @@ import "../../../../../logic/app";
 import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
+import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
 import { expect, test } from "vitest";
 
 test("An encrypted message that is not for us tells the user why it stays empty", async () => {
@@ -20,6 +21,23 @@ test("An encrypted message that is not for us tells the user why it stays empty"
 
   expect(email.subject).toBe("PGP encrypted test");
   expect(errors.map(ex => ex.message)).toEqual(["This message is encrypted, and the key is not available"]);
+});
+
+test("Opening an encrypted message for another key than ours shows the error instead of an empty body", async () => {
+  let { folder } = await setupTestFolder();
+  let identity = new MailIdentity(folder.account);
+  identity.emailAddress = "user@example.com";
+  identity.realname = "User";
+  identity.encryptionPrivateKeys.add(await PGPPrivateKey.createNewPrivateKey({ realname: "User", emailAddress: "user@example.com" }));
+  folder.account.identities.add(identity);
+  appGlobal.emailAccounts.replaceAll([folder.account]);
+
+  let email = folder.newEMail();
+  email.download = async () => { // as the protocols do
+    email.mime = new TextEncoder().encode(kPGPEncrypted.replace(/\n/g, "\r\n"));
+    await email.parseMIME();
+  };
+  await expect(email.loadBody()).rejects.toThrow(/decrypt/i);
 });
 
 /** `gpg --encrypt`, to a key that is not ours */

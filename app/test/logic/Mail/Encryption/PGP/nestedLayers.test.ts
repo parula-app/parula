@@ -52,14 +52,18 @@ describe("Nested PGP layers", () => {
   async function read(layers: number): Promise<{ text: string, errors: Error[] }> {
     let errors: Error[] = [];
     folder.account.errorCallback = (ex) => errors.push(ex);
+    let email = folder.newEMail();
+    email.mime = await encryptedLayers(layers);
+    await email.parseMIME();
+    return { text: email.text?.trim(), errors };
+  }
+
+  async function encryptedLayers(layers: number): Promise<Uint8Array> {
     let mime = kHeaders + "Content-Type: text/plain\r\n\r\nHello\r\n";
     for (let i = 0; i < layers; i++) {
       mime = await encrypted(mime);
     }
-    let email = folder.newEMail();
-    email.mime = new TextEncoder().encode(mime);
-    await email.parseMIME();
-    return { text: email.text?.trim(), errors };
+    return new TextEncoder().encode(mime);
   }
 
   test("A message encrypted twice is read", async () => {
@@ -69,5 +73,15 @@ describe("Nested PGP layers", () => {
   test("Endless layers are not unwrapped, and that is reported", async () => {
     let { errors } = await read(25);
     expect(errors.length).toBeGreaterThan(0);
+  });
+
+  test("Opening a message with endless layers shows the error instead of an empty body", async () => {
+    let mime = await encryptedLayers(25);
+    let email = folder.newEMail();
+    email.download = async () => { // as the protocols do
+      email.mime = mime;
+      await email.parseMIME();
+    };
+    await expect(email.loadBody()).rejects.toThrow(/layers/);
   });
 });
