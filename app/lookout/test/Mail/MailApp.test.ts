@@ -266,7 +266,7 @@ test("Double-click opens an email in its own window, and a draft in the composer
   doubleClick(rowOf(message(1)));
   await sleep(0.01);
   expect(open).toHaveBeenCalledTimes(1);
-  expect(open).toHaveBeenCalledWith(MessageWindow, { message: message(1) }, 1000, 800);
+  expect(open).toHaveBeenCalledWith(MessageWindow, { message: message(1) }, 1000);
   expect(openDraft).not.toHaveBeenCalled();
 
   message(2).isDraft = true;

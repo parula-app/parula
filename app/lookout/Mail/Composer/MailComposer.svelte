@@ -216,7 +216,7 @@
   let ccField: MailAutocomplete;
   let bccField: MailAutocomplete;
 
-  // <copied from="../../../frontend/Mail/Composer/MailComposer.svelte">, plus inline replies, and the draft is saved with onSave(), which refuses encrypted drafts
+  // <copied from="../../../frontend/Mail/Composer/MailComposer.svelte">, plus inline replies
   // HACK to reload the HTMLEditor to force it to load the new text
   // See <https://github.com/ueberdosis/tiptap/issues/4918>
   let lastMail = null;
@@ -343,9 +343,8 @@
       appWindow.close();
       return;
     }
-    let subApps = appWindow.uiState(mailMustangApp.subApps);
-    let me = subApps.find(app => app instanceof WriteMailMustangApp && app.windowParams.mail == mail);
-    subApps.remove(me);
+    let me = mailMustangApp.subApps.find(app => app instanceof WriteMailMustangApp && app.windowParams.mail == mail);
+    mailMustangApp.subApps.remove(me);
     goBack();
   }
 
@@ -359,8 +358,11 @@
     if (closing || appWindow.isMainWindow || !hasOwnText(mail)) {
       return;
     }
-    onSave()
-      .catch(showError);
+    mail.compose.saveAsDraft()
+      .catch(ex => {
+        showError(ex);
+        mailMustangApp.writeMail(mail);
+      });
   });
 
   $: bccList = mail.bcc;

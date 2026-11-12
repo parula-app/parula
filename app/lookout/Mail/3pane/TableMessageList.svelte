@@ -356,7 +356,7 @@
       await MessageActions.openDraft(message);
       return;
     }
-    await appWindow.open(MessageWindow, { message }, 1000, 800);
+    await appWindow.open(MessageWindow, { message }, 1000);
   }
 
   let anchor: EMail | null = null;

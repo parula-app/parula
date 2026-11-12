@@ -122,7 +122,7 @@
   </SubMenu>
   {#if appWindow.isMainWindow}
     <MenuItem label={$t`Open in New Window`} icon={PopOutIcon}
-      onClick={async () => { await appWindow.open(MessageWindow, { message }, 1000, 800); }} />
+      onClick={async () => { await appWindow.open(MessageWindow, { message }, 1000); }} />
   {/if}
   <MenuItem label={$t`Message Properties…`} icon={PropertiesIcon}
     onClick={() => { isPropertiesOpen = true; }} />

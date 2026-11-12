@@ -23,6 +23,7 @@ afterEach(() => {
   app = null;
   document.body.innerHTML = "";
   notifications.clear();
+  localStorage.removeItem("lookout.quickaction.shown");
   vi.restoreAllMocks();
 });
 
@@ -54,12 +55,14 @@ test("A secondary window has the Lookout frame, with its title", () => {
 });
 
 test("A secondary window has no search box and no Quick Access Toolbar", () => {
+  localStorage.setItem("lookout.quickaction.shown", "true");
   mountIn(newSecondaryWindow(), SecondaryWindow, { title: "Lunch on Friday" });
   expect(titleBar().querySelector("input")).toBeNull();
   expect(document.querySelector("[role='toolbar']")).toBeNull();
 });
 
 test("The main window's title bar keeps the search box and the Quick Access Toolbar", () => {
+  localStorage.setItem("lookout.quickaction.shown", "true");
   mountIn(null, WindowHeader, {});
   expect(titleBar().querySelector("input")).toBeTruthy();
   expect(document.querySelector("[role='toolbar']")).toBeTruthy();

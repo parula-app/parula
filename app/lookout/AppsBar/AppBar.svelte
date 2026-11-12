@@ -17,7 +17,6 @@
   import { contactsMustangApp } from "../../frontend/Contacts/ContactsMustangApp";
   import { settingsMustangApp } from "../../frontend/Settings/Window/SettingsMustangApp";
   import { openOptions } from "../Settings/SettingsDialogs";
-  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
   import AppButton from "./AppButton.svelte";
   import SubAppsList from "./SubAppsList.svelte";
   import { catchErrors } from "../../frontend/Util/error";
@@ -26,8 +25,6 @@
 
   export let selectedApp: MustangApp;
   export let showApps: Collection<MustangApp>;
-
-  const appWindow = AppWindow.current();
 
   $: railApps = sortRailApps($showApps.contents);
 
@@ -44,7 +41,7 @@
   }
 
   function isSelected(app: MustangApp, current: MustangApp): boolean {
-    return !!current && (current == app || appWindow.uiState(app.subApps).includes(current));
+    return !!current && (current == app || app.subApps.includes(current));
   }
 </script>
 

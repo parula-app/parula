@@ -9,19 +9,27 @@
 
 <script lang="ts">
   import type { MustangApp } from "../../frontend/AppsBar/MustangApp";
-  import { openApp } from "../../frontend/AppsBar/selectedApp";
+  import { openApp, selectedApp as selectedAppOfWindow } from "../../frontend/AppsBar/selectedApp";
   import { AppWindow } from "../../frontend/MainWindow/AppWindow";
   import AppButton from "./AppButton.svelte";
   import { catchErrors } from "../../frontend/Util/error";
+  import { get } from "svelte/store";
 
   const appWindow = AppWindow.current();
 
   export let mainApp: MustangApp;
   export let selectedApp: MustangApp | null;
 
-  $: subApps = appWindow.uiState($mainApp.subApps);
+  $: subApps = $mainApp.subApps;
 
   function onSelectApp(app: MustangApp) {
+    // <copied from="../../frontend/AppsBar/SubAppsList.svelte">
+    let shownIn = AppWindow.all.find(other => other != appWindow && other.isMainWindow && get(other.uiState(selectedAppOfWindow)) == app);
+    if (shownIn) {
+      shownIn.focus();
+      return;
+    }
+    // </copied>
     openApp(app, app.windowParams);
   }
 </script>

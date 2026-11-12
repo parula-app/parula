@@ -76,7 +76,7 @@
 
   const appWindow = AppWindow.current();
 
-  $: isMail = !!selectedApp && (selectedApp == mailMustangApp || appWindow.uiState(mailMustangApp.subApps).includes(selectedApp));
+  $: isMail = !!selectedApp && (selectedApp == mailMustangApp || mailMustangApp.subApps.includes(selectedApp));
 
   let searchField: SearchField;
   export function focusSearch() {
