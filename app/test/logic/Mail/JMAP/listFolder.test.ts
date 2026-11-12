@@ -74,15 +74,58 @@ test("An empty folder stores the sync state, so that changes can be fetched late
 });
 
 test("Listing pages until a short page, not by the outdated folder count", async () => {
-  let { inbox, queries } = newAccount(450);
+  let { inbox, queries } = newAccount(1100);
   inbox.countTotal = 300;
 
   await inbox.listMessages();
 
-  expect(queries.map(query => query.position)).toEqual([0, 200, 400]);
+  expect(queries.map(query => query.position)).toEqual([0, 500, 1000]);
   expect(queries.some(query => query.calculateTotal)).toBe(false); // expensive for the server
-  expect(inbox.messages.length).toBe(450);
+  expect(inbox.messages.length).toBe(1100);
   expect(inbox.countTotal).toBe(300); // Listing doesn't change it: `countTotal` comes from `Mailbox/get`
+});
+
+test("The next page is fetched while the last page is still being saved", async () => {
+  let { inbox, queries } = newAccount(1100);
+  let queriesDuringSave: number[] = [];
+  let saveNewMsgs = (inbox as any).saveNewMsgs.bind(inbox);
+  (inbox as any).saveNewMsgs = async (emails: any) => {
+    let queriesBefore = queries.length;
+    await new Promise(resolve => setTimeout(resolve, 10));
+    await saveNewMsgs(emails);
+    queriesDuringSave.push(queries.length - queriesBefore);
+  };
+
+  await inbox.listMessages();
+
+  expect(queriesDuringSave).toEqual([1, 1, 0]); // nothing after the last page
+  expect(inbox.messages.length).toBe(1100);
+});
+
+test("An error while saving a page is reported, and the listing goes on", async () => {
+  let { account, inbox, errors } = newAccount(1100);
+  let saves = 0;
+  account.storage.saveMessages = async () => {
+    if (++saves == 1) {
+      throw new Error("Disk full");
+    }
+  };
+
+  await inbox.listMessages();
+
+  expect(errors.map(ex => ex.message)).toEqual(["Disk full"]);
+  expect(saves).toBe(3);
+  expect(inbox.messages.length).toBe(1100);
+});
+
+test("A server that allows fewer emails per request gets smaller pages", async () => {
+  let { account, inbox, queries } = newAccount(250);
+  account.session.capabilities["urn:ietf:params:jmap:core"] = { maxObjectsInGet: 100 } as any;
+
+  await inbox.listMessages();
+
+  expect(queries.every(query => query.limit <= 100)).toBe(true);
+  expect(inbox.messages.length).toBe(250);
 });
 
 test("A server with a lower limit than we asked for still gets all emails listed", async () => {
@@ -124,7 +167,7 @@ test("Listing stops after a maximum number of rounds, when the server always ret
 
   await inbox.listMessages();
 
-  expect(queries()).toBe(5000);
+  expect(queries()).toBe(1000000 / 500); // 1,000,000 emails in pages of 500
   expect(errors.length).toBe(1);
 });
 
