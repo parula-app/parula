@@ -82,9 +82,12 @@
 
   /** Jail untrusted `html`, e.g. a mail: No scripts, and an opaque origin to block access of app.
    * `allow-popups` keeps the `target="_blank"` links working that `sanitizeHTML()` creates.
-   * Only a page that a web server gave us is not jailed, e.g. a web app or the payment page:
-   * That page gets the origin of its server. A `blob:` URL would get *ours*. */
-  $: sandbox = url?.startsWith("https:") ? undefined : "allow-popups allow-popups-to-escape-sandbox";
+   * A page that a web server gave us, e.g. a web app or the payment page, may run scripts
+   * and keeps the origin of its server, so that its login works, e.g. with Okta, Microsoft or Google.
+   * A `blob:` URL would get *our* origin. No `allow-top-navigation`: The page must not replace the app. */
+  $: sandbox = url?.startsWith("https:")
+    ? "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-storage-access-by-user-activation"
+    : "allow-popups allow-popups-to-escape-sandbox";
 
   onMount(() =>{
     if (autoSize) {
