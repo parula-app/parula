@@ -1,7 +1,7 @@
 // The key classes use the app singleton. Importing it first breaks the
 // import cycle, which would otherwise leave the base classes undefined.
 import { appGlobal } from "../../../../../logic/app";
-import { Attributes, BasicConstraints, Certificate, DigestInfo, Null, OctetString, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SignedData, TBSCertificate, UTCTime } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { Attributes, BasicConstraints, Certificate, DigestInfo, Null, OctetString, Oid, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SignedData, TBSCertificate, UTCTime } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { verifySignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEVerify";
 import { encrypt, decrypt, padFF } from "../../../../../logic/Mail/Encryption/SMIME/SMIMERSAES";
@@ -178,6 +178,30 @@ describe("Signature", () => {
     expect(await verifySignedData(trailing, content)).toBeNull();
     let parameters = await signedData(await sign(content, key, OctetString.encode(Uint8Array.of(1, 2, 3))), cert);
     expect(await verifySignedData(parameters, content)).toBeNull();
+  });
+
+  test("made for another type of content is not taken for a mail, RFC 5652 section 5.3", async () => {
+    let key = await generateRSAKey();
+    let cert = craftCertificate("Alice", "Alice", key);
+    let messageDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", content));
+    // The content type in the signed attributes is the signer's, the eContentType is the attacker's
+    async function signedFor(contentType: string | number[] | null, eContentType: string | number[] = "data"): Promise<any> {
+      let signedAttrs = [{ attrType: "messageDigest", attrValue: [OctetString.encode(messageDigest)] }];
+      if (contentType) {
+        signedAttrs.unshift({ attrType: "contentType", attrValue: [Oid.encode(contentType as any)] });
+      }
+      let signed = await signedData(await sign(Attributes.encode(signedAttrs), key), cert);
+      signed.content.contentInfo = { contentType: eContentType };
+      signed.content.signerInfos[0].signedAttrs = signedAttrs;
+      return signed;
+    }
+    expect(await verifySignedData(await signedFor("data"), content)).not.toBeNull();
+    // A signed receipt (RFC 2634), which the recipient of a mail signs and sends back
+    let receipt = [1, 2, 840, 113549, 1, 9, 16, 1, 1];
+    expect(await verifySignedData(await signedFor(receipt), content)).toBeNull();
+    // In multipart/signed, the attacker writes the whole SignedData, so also the eContentType
+    expect(await verifySignedData(await signedFor(receipt, receipt), content)).toBeNull();
+    expect(await verifySignedData(await signedFor(null), content)).toBeNull();
   });
 
   test("of a CA verifies only with the exact PKCS #1 block", async () => {
