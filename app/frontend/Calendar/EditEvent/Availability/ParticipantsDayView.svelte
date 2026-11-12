@@ -252,6 +252,7 @@
     background-color: var(--appointment-color);
     color: black;
     --stripe-color: color-mix(in srgb, var(--appointment-color) 70%, transparent);
+    container-type: size;
   }
   .appointment.status-busy {
     --appointment-color: #9DB7EC;
@@ -279,12 +280,26 @@
   .title,
   .location {
     display: block;
+    flex-shrink: 0; /* Whole lines. Squeezed lines would show only the top half of the letters. */
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
   .location {
     opacity: 70%;
+  }
+  /* A short appointment shows only the title, so small that it fits. The tooltip has the rest. */
+  @container (height < 3em) {
+    .location {
+      display: none;
+    }
+  }
+  @container (height < 1.5em) {
+    .title {
+      margin-block: auto;
+      font-size: clamp(8px, (100cqh - 2px) / 1.2, 1em);
+      line-height: 1.2;
+    }
   }
   .no-info {
     grid-row: 3 / -1;
