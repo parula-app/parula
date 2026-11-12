@@ -3,7 +3,7 @@ import type { Folder } from "../../../../logic/Mail/Folder";
 import type { EMail } from "../../../../logic/Mail/EMail";
 import { SQLEMail } from "../../../../logic/Mail/SQL/SQLEMail";
 import { getDatabase } from "../../../../logic/Mail/SQL/SQLDatabase";
-import { findOrCreatePersonUID } from "../../../../logic/Abstract/PersonUID";
+import { findOrCreatePersonUID, PersonUID } from "../../../../logic/Abstract/PersonUID";
 import { beforeAll, expect, test } from "vitest";
 import sql from "../../../../../lib/rs-sqlite";
 
@@ -41,4 +41,22 @@ test("Emails saved in parallel get their own recipients", async () => {
     expect(rows.map(row => row.emailAddress)).toEqual(
       [email.from, ...email.to, ...email.cc].map(puid => puid.emailAddress));
   }
+});
+
+test("A sender without name is saved only once, not again for each email", async () => {
+  // E.g. an email without `From:` header keeps the default `from`
+  let first = newTestEMail(folder, "nameless1@example.com");
+  first.from = new PersonUID("nameless@example.com");
+  let second = newTestEMail(folder, "nameless2@example.com");
+  second.from = new PersonUID("nameless@example.com");
+  await SQLEMail.save(first);
+  await SQLEMail.save(second);
+
+  let rows = await (await getDatabase()).all(sql`
+    SELECT
+      id
+    FROM emailPerson
+    WHERE emailAddress = ${"nameless@example.com"}
+    `) as any[];
+  expect(rows.length).toBe(1);
 });

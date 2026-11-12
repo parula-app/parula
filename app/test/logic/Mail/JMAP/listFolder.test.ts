@@ -154,3 +154,15 @@ test("Listing stops after a maximum number of rounds, when the server always ret
   expect(queries()).toBe(1000000 / 500); // 1,000,000 emails in pages of 500
   expect(errors.length).toBe(1);
 });
+
+test("The listed emails are saved a page at a time, not one by one", async () => {
+  let { account, inbox } = newAccount(450);
+  let saves: number[] = [];
+  account.storage.saveMessage = async () => { saves.push(1) };
+  account.storage.saveMessages = async emails => { saves.push(emails.length) };
+
+  await inbox.listMessages();
+
+  expect(saves.reduce((sum, count) => sum + count)).toBe(450);
+  expect(saves.length).toBeLessThanOrEqual(3); // one per page
+});

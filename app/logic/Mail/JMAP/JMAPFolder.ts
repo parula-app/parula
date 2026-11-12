@@ -394,16 +394,11 @@ export class JMAPFolder extends Folder {
   }
 
   protected async saveNewMsgs(msgs: Collection<JMAPEMail>) {
-    let startTime = Date.now();
-    for (let email of msgs) {
-      try {
-        if (email.subject) {
-          await email.saveMetadataLocally();
-        }
-      } catch (ex) {
-        this.account.errorCallback(ex);
-      }
+    if (msgs.isEmpty) {
+      return;
     }
+    let startTime = Date.now();
+    await this.storage.saveMessages(msgs);
     let saveTime = Date.now() - startTime;
     console.log("  Saved", msgs.length, "msgs in", saveTime, "ms =", saveTime / msgs.length, "ms/msg");
   }
