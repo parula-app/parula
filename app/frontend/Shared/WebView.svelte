@@ -1,9 +1,14 @@
 // #if [!WEBMAIL && !MOBILE]
 <webview bind:this={webviewE} src={url ?? blobURL} {title} class:hidden {partition} />
-<!-- No Svelte if-block between the conditional compile lines: The plugin takes it as its own condition. The popup shows only on `show()` anyways. -->
-<OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
 // #else
 <iframe bind:this={webviewE} src={url ?? blobURL} {title} {sandbox} class:hidden />
+// #endif
+// #if [!WEBMAIL]
+<!-- No Svelte if-block between the conditional compile lines: The plugin takes it as its own condition. The popup shows only on `show()` anyways. -->
+<OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
+// #endif
+// #if [MOBILE]
+<svelte:window on:blur={onBlur} />
 // #endif
 
 <!--
@@ -20,6 +25,40 @@
   </Menu>
 {/if}
 -->
+
+<script lang="ts" context="module">
+  // #if [MOBILE]
+  import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+
+  /** Android and iOS: The native app doesn't open a link that the user tapped on,
+   * but gives it to us, see `LinkTapPlugin` in `mobile/`. */
+  const linkTapPlugin = registerPlugin<LinkTapPlugin>("LinkTap");
+  linkTapPlugin.addListener("linkTap", tap => onLinkTap(tap).catch(console.error))
+    .catch(console.error);
+
+  /** The `WebView` where the user tapped may take the link, to show where it goes.
+   * Else, we open it, as Android and iOS would have. */
+  async function onLinkTap(tap: LinkTap) {
+    let tapped = document.elementFromPoint(tap.x, tap.y) ?? document.body;
+    if (tapped.dispatchEvent(new CustomEvent("linktap", { detail: tap, cancelable: true }))) {
+      await linkTapPlugin.open({ url: tap.url });
+    }
+  }
+
+  interface LinkTapPlugin {
+    addListener(eventName: "linkTap", listener: (tap: LinkTap) => void): Promise<PluginListenerHandle>;
+    /** Opens the link in the browser or another app, as Android and iOS do */
+    open(options: { url: string }): Promise<void>;
+  }
+
+  interface LinkTap {
+    url: string;
+    /** Where the user tapped, in CSS pixels of our window */
+    x: number;
+    y: number;
+  }
+  // #endif
+</script>
 
 <script lang="ts">
   // #if [!WEBMAIL]
@@ -156,6 +195,10 @@
     webviewE.addEventListener("context-menu", event =>
       catchErrors(() => onContextMenu((event as any).params)));
     // #endif
+    // #if [MOBILE]
+    webviewE.addEventListener("linktap", event =>
+      catchErrors(() => onTapOnLink(event as CustomEvent<LinkTap>)));
+    // #endif
   }
 
   // #if [!WEBMAIL]
@@ -189,22 +232,26 @@
         return;
       }
       if (event.type == "mouseDown" && event.button == "left") {
-        if (!askBeforeOpeningLinks) {
-          await openExternalURL(url);
-        } else if (askBeforeOpening(url)) {
-          clickEvent = event;
-          await openLinkPopup.show(url);
-        } else {
-          // Like the default in the popup
-          await openExternalURL(removeTrackingURL(url));
-        }
+        clickEvent = event;
+        await onLinkClick(url);
       }
     }), showError);
   }
 
+  async function onLinkClick(url: string) {
+    if (!askBeforeOpeningLinks) {
+      await openExternalURL(url);
+    } else if (askBeforeOpening(url)) {
+      await openLinkPopup.show(url);
+    } else {
+      // Like the default in the popup
+      await openExternalURL(removeTrackingURL(url));
+    }
+  }
+
   let openLinkPopup: OpenLinkPopup;
-  /** The Electron `MouseInputEvent` of the click on the link.
-   * Its `x` and `y` are relative to the webview. */
+  /** Where the user clicked on the link, relative to the webview:
+   * The Electron `MouseInputEvent`, or on mobile, from `onTapOnLink()` */
   let clickEvent: { x: number, y: number };
   /** We don't know how high the link is, so we assume 1 line in the normal font of a mail:
    * 16px with `line-height: 1.5` in `content-body.css` */
@@ -262,6 +309,27 @@
   async function onLoadResize() {
     await getContentSize();
     resizeWebview();
+  }
+  // #endif
+
+  // #if [MOBILE]
+  /** The user tapped on a link in the page, see `onLinkTap()` */
+  async function onTapOnLink(event: CustomEvent<LinkTap>) {
+    let { url, x, y } = event.detail;
+    if (!askBeforeOpeningLinks || !(url.startsWith("https:") || url.startsWith("http:"))) {
+      return; // Android or iOS opens it, as before, e.g. `mailto:`
+    }
+    event.preventDefault(); // We take it
+    let webview = webviewE.getBoundingClientRect();
+    clickEvent = { x: x - webview.x, y: y - webview.y };
+    await onLinkClick(url);
+  }
+
+  /** A tap into the page moves the focus there, but we don't get its events */
+  function onBlur() {
+    if (document.activeElement == webviewE) {
+      webviewE.click(); // e.g. to close the popup, like `addInputListener()`
+    }
   }
   // #endif
 
