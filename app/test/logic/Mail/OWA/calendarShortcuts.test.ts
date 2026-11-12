@@ -68,15 +68,11 @@ class TestOWAAccount extends OWAAccount {
         return { RootFolder: { Folders: [] } };
       case "GetCalendarFolders":
         return { CalendarGroups: kCalendarGroups, CalendarFolders: [] };
-      case "ResolveNames": {
-        // Exchange finds the owner by `smtp:` + email address, and returns the plain email address.
-        // Accept the plain email address as well.
-        let emailAddress = request.Body.UnresolvedEntry.replace(/^smtp:/i, "");
-        let person = kPersons[emailAddress];
-        if (!person) {
-          throw new OWAError({ status: 200, json: { ResponseMessages: { Items: [{ ResponseClass: "Error", ResponseCode: "ErrorNameResolutionNoResults", MessageText: "No results" }] } } });
-        }
-        return { ResolutionSet: [{ Mailbox: { Name: person, EmailAddress: emailAddress, RoutingType: "SMTP" } }] };
+      case "FindPeople": { // Exchange finds an email address in the directory only with `smtp:`
+        expect(request.Body.ParentFolderId.BaseFolderId.Id).toBe("directory");
+        let emailAddress = request.Body.QueryString.match(/^smtp:(.*)/i)?.[1];
+        let name = kPersons[emailAddress];
+        return { ResultSet: name ? [{ DisplayName: name, EmailAddresses: [{ EmailAddress: emailAddress, RoutingType: "SMTP" }] }] : [] };
       }
       case "GetFolder": {
         let folderID = request.Body.FolderIds[0];
