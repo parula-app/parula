@@ -74,7 +74,8 @@ async function createWindow(): Promise<void> {
 
     /** Keep the app in its window. A link without `target`, or a link or file that the user
      * drops onto the window, would replace the app, and that page would get our preload.
-     * `mailto:`, `tel:` etc. don't replace the app. Electron hands them to the OS. */
+     * `mailto:`, `tel:` etc. don't replace the app. Electron hands them to the OS,
+     * with the `openExternal` permission, which only our app gets, see `isPermissionAllowed()`. */
     mainWindow.webContents.on('will-navigate', (event, url) => {
       if (["https", "http", "file", "data", "blob"].some(scheme => url.startsWith(scheme + ":")) &&
           url.split("#")[0] != mainWindow.webContents.getURL().split("#")[0]) { // not a reload
