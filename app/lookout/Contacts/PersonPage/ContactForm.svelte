@@ -332,7 +332,7 @@
   }
   .fields {
     display: grid;
-    grid-template-columns: 140px minmax(0, 1fr);
+    grid-template-columns: minmax(140px, max-content) minmax(0, 1fr);
     align-items: center;
     gap: 6px 12px;
   }
