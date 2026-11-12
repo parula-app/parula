@@ -19,7 +19,7 @@ export class SQLEMail {
     let lock = await email.storageLock.lock();
     try {
       await this.saveMainProps(email);
-      await (await getDatabase()).execute(sql`
+      await execute(sql`
         $${this.saveWritablePropsSQL(email)}
         $${this.saveRecipientsSQL(email)}
         `);
@@ -100,7 +100,7 @@ export class SQLEMail {
     assert(email.dbID, "Need Email DB ID to save props");
     let lock = await email.storageLock.lock();
     try {
-      await (await getDatabase()).execute(this.saveWritablePropsSQL(email));
+      await execute(this.saveWritablePropsSQL(email));
     } finally {
       lock.release();
     }
@@ -265,7 +265,7 @@ export class SQLEMail {
     assert(email.dbID, "Need Email DB ID");
     let lock = await email.storageLock.lock();
     try {
-      await (await getDatabase()).execute(this.saveTagsSQL(email));
+      await execute(this.saveTagsSQL(email));
     } finally {
       lock.release();
     }
@@ -312,7 +312,7 @@ export class SQLEMail {
           email.folder.account.errorCallback(ex); // and save the other emails
         }
       }
-      await (await getDatabase()).execute(joinSQL(queries));
+      await execute(joinSQL(queries));
       await (await getDatabase()).run(sql`END TRANSACTION`);
     } catch (ex) {
       await (await getDatabase()).run(sql`ROLLBACK TRANSACTION`);
@@ -667,6 +667,14 @@ export class SQLEMail {
     }
     folder.messages.addAll(newEmails);
   }
+}
+
+/** The backend's `execute()` puts the parameter values into the SQL text, quoted.
+ * A value in an SQL comment could end the comment, with a newline or with star and slash,
+ * and the rest of the value would run as SQL. So comments go in TypeScript. */
+async function execute(query: Query) {
+  assert(!query.sourceParts.some(part => part.includes("--") || part.includes("/*")), "SQL for execute() must not have comments");
+  await (await getDatabase()).execute(query);
 }
 
 /** Several queries as one, so that `execute()` runs them with one call to the backend */
