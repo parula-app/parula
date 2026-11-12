@@ -73,11 +73,22 @@ async function createWindow(): Promise<void> {
     })
 
     /** Keep the app in its window. A link without `target`, or a link or file that the user
-     * drops onto the window, would replace the app, and that page would get our preload.
-     * `mailto:`, `tel:` etc. don't replace the app. Electron hands them to the OS,
-     * with the `openExternal` permission, which only our app gets, see `isPermissionAllowed()`. */
+     * drops onto the window, would replace the app, and that page would get our preload. */
     mainWindow.webContents.on('will-navigate', (event, url) => {
-      if (["https", "http", "file", "data", "blob"].some(scheme => url.startsWith(scheme + ":")) &&
+      /** Schemes that load a page into our window, instead of our app.
+       * Others, like `mailto:` and `tel:`, don't replace the app. Electron hands them to the OS,
+       * with the `openExternal` permission, which only our app gets, see `isPermissionAllowed()`.
+       * Not the same as `kAllowedURLSchemes` in `desktop/backend/backend.ts`: Those are what we
+       * let the OS open, for a link in a mail or web page. These are what our window may not load. */
+      const kPageURLSchemes = [
+        "https:",
+        "http:",
+        "file:",
+        "data:",
+        "blob:",
+      ];
+      let scheme = URL.parse(url)?.protocol; // null for a malformed URL, which we block, too
+      if ((!scheme || kPageURLSchemes.includes(scheme)) &&
           url.split("#")[0] != mainWindow.webContents.getURL().split("#")[0]) { // not a reload
         event.preventDefault();
       }
