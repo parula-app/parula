@@ -273,13 +273,13 @@ export class GraphAccount extends ExchangeMailAccount {
   /** @throws an appropriate exception (always throws) */
   protected async httpError(ex: Error) {
     if (ex.name == "HTTPError") {
-      // HTTPFetchError from backend.ts, which has only scalar properties
+      // HTTPFetchError from backend.ts
       let ext = ex as any;
       let msg: string;
       try {
         // <https://learn.microsoft.com/en-us/graph/errors#json-representation>
         let json = JSON.parse(ext.responseBody);
-        msg = sanitize.nonemptystring(json.error.message, null);
+        msg = sanitize.nonemptylabel(json.error.message, null);
         ext.code = sanitize.nonemptystring(json.error.code, null);
       } catch (ex2) { // not JSON, e.g. from a proxy
       }
