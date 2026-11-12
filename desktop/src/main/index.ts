@@ -31,7 +31,7 @@ async function createWindow(): Promise<void> {
       }
     })
     setMainWindow(mainWindow);
-    appWebContents = mainWindow.webContents;
+    mainWindowWebContents = mainWindow.webContents;
 
     if (process.platform == "linux" && app.commandLine.getSwitchValue("ozone-platform") == "wayland") {
       // The "ready-to-show" event doesn't always fire on Wayland.
@@ -349,11 +349,14 @@ function restrictPermissions(session: Session) {
 }
 
 /** Our app window. Only it gets all permissions. */
-let appWebContents: WebContents | null = null;
+let mainWindowWebContents: WebContents | null = null;
 
 function isPermissionAllowed(webContents: WebContents | null, permission: string): boolean {
+  if (webContents == mainWindowWebContents && webContents) {
+    return true; // our main window
+  }
   const kWebPagePermissions = ["media", "display-capture", "notifications", "fullscreen", "pointerLock", "clipboard-sanitized-write", "speaker-selection", "storage-access", "top-level-storage-access", "mediaKeySystem"];
-  return !!webContents && webContents == appWebContents || kWebPagePermissions.includes(permission);
+  return kWebPagePermissions.includes(permission);
 }
 
 // In this file you can include the rest of your app"s specific main process
