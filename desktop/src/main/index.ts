@@ -1,12 +1,10 @@
 import { setMainWindow, startupBackend, shutdownBackend, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
 import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents, type Session } from 'electron'
-import { ipcMain } from 'electron/main';
 import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
 import { appName, dataAppName } from '../../../app/logic/build'
-import { sanitize } from '../../../lib/util/sanitizeDatatypes'
 
 async function createWindow(): Promise<void> {
   try {
@@ -59,15 +57,6 @@ async function createWindow(): Promise<void> {
       if (!details.url?.startsWith("https://")) {
         return { action: 'deny' };
       }
-      // Windows opened by us for OAuth2
-      // Must match OAuth2Window.ts login()
-      if (details?.features?.includes("oauth2popup")) {
-        let features = details.features.split(",");
-        let feature = (name: string) => features.find(pair => pair.startsWith(name + "="))?.substring(name.length + 1);
-        openBrowserWindow(mainWindow, sanitize.url(details.url, null, ["https"]),
-          sanitize.alphanumdash(feature("oauth2session"), null), sanitize.alphanumdash(feature("oauth2window"), null));
-        return { action: 'deny' };
-      }
       // Open the URL in the system web browser
       shell.openExternal(details.url)
         .catch(console.error); // must return the action synchronously
@@ -114,43 +103,6 @@ async function createWindow(): Promise<void> {
   } catch (ex) {
     console.error(ex);
   }
-}
-
-/** The OAuth2 login window of `OAuth2Window.ts`.
- * Not the window of `window.open()`: Electron gives that the cookies of our app,
- * and its login page an `opener`, through which it could navigate our app window.
- * Instead, a window with the cookies of the account, like `<webview partition>` in `Browser.svelte`.
- * @param sessionID `Account.webSessionID`
- * @param windowID Which login window the messages to and from `OAuth2Window` are about.
- *   There may be several at once. */
-function openBrowserWindow(mainWindow: BrowserWindow, url: string | null, sessionID: string | null, windowID: string | null) {
-  if (!url || !sessionID || !windowID) {
-    console.error("Refusing to open the login window", url, sessionID, windowID);
-    return;
-  }
-  let loginWindow = new BrowserWindow({
-    center: true,
-    webPreferences: {
-      partition: "persist:" + sessionID,
-      sandbox: true,
-    },
-  });
-  // Workaround for window.close() not closing in some cases
-  let onCloseRequest = (_event, id: string) => {
-    if (id == windowID) {
-      loginWindow.close();
-    }
-  };
-  ipcMain.on('oauth2-close', onCloseRequest);
-  loginWindow.on('closed', () => {
-    ipcMain.removeListener('oauth2-close', onCloseRequest);
-    mainWindow.webContents.send('oauth2-close', windowID);
-  });
-  loginWindow.webContents.on('did-navigate', (_event, url) => {
-    mainWindow.webContents.send('oauth2-navigate', windowID, url);
-  });
-  loginWindow.loadURL(url)
-    .catch(console.error);
 }
 
 function createMenu() {
@@ -383,8 +335,8 @@ function restrictWebViews(webContents: WebContents) {
 }
 
 /** Electron grants every permission to every page, unless we decide.
- * Pages other than our app, i.e. in a `<webview>` (a web app, a login page or a mail)
- * and in the login window, get only what web apps need for calls and notifications.
+ * Pages other than our app, i.e. in a `<webview>` (a web app, a login page or a mail),
+ * get only what web apps need for calls and notifications.
  * They must not e.g. start other apps with an `openExternal` URL, read the clipboard,
  * or know where the user is. Our app keeps all permissions.
  * Links that the user clicks in a `<webview>` don't need `openExternal`: `WebView.svelte` opens them

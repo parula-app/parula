@@ -8,7 +8,6 @@ import { Observable } from "../../util/Observable";
  *
  * This can be implemented in various ways:
  * - Opening a dialog within the app, with the login website
- * - Opening a new window, with the login website
  * - Opening the system browser, with the login website
  * These mechanisms are implemented as subclasses.
  */

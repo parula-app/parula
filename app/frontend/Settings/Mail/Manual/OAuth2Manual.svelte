@@ -9,7 +9,6 @@
             <option value={OAuth2UIMethod.Embed}>{$t`Embedded inside app UI`}</option>
           {/if}
           <option value={OAuth2UIMethod.Tab}>{$t`Inside app UI`}</option>
-          <option value={OAuth2UIMethod.Window}>{$t`Separate window`}</option>
           <option value={OAuth2UIMethod.SystemBrowser}>{$t`Browser`}</option>
           {#if oAuth2.uiMethod == OAuth2UIMethod.Embed}
             <option value={OAuth2UIMethod.Localhost}>{$t`Copy URL`}</option>
