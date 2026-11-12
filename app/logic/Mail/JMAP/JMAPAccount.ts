@@ -427,17 +427,23 @@ export class JMAPAccount extends MailAccount {
   /** @throws an appropriate exception (always throws) */
   protected async httpError(ex: Error) {
     if (ex.name == "HTTPError") {
-      // HTTPFetchError from backend.ts, which has only scalar properties, not the HTTP response body
+      // HTTPFetchError from backend.ts
       let ext = ex as any;
+      let msg: string;
+      try {
+        // Problem details <https://www.rfc-editor.org/rfc/rfc8620#section-3.6.1>
+        msg = sanitize.nonemptylabel(JSON.parse(ext.responseBody).detail, null);
+      } catch (ex2) { // not JSON, e.g. from a proxy
+      }
       if (ext.httpCode == 401) {
-        throw new LoginError(ex, null);
+        throw new LoginError(ex, msg);
       } else {
         if (isTransientError(ext)) {
           const kDefaultBackoffSec = 5;
           const kMaxBackoffSec = 20; // Sensible upper limit
           this.throttle.waitForSecond(Math.min(ext.retryAfterSeconds ?? kDefaultBackoffSec, kMaxBackoffSec));
         }
-        throw new ConnectError(ex, null);
+        throw new ConnectError(ex, msg);
       }
     }
     throw ex;

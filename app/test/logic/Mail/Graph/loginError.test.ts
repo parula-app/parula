@@ -4,9 +4,9 @@ import { GraphAccount } from "../../../../logic/Mail/Graph/GraphAccount";
 import { expect, test } from "vitest";
 
 /** An `HTTPFetchError` as it arrives from the backend: scalar properties only */
-function httpError(httpCode: number): Error {
+function httpError(httpCode: number, responseBody?: string): Error {
   let ex = new Error(`HTTP GET <https://graph.microsoft.com/v1.0/me/mailFolders> failed with ${httpCode}`);
-  Object.assign(ex, { name: "HTTPError", httpCode });
+  Object.assign(ex, { name: "HTTPError", httpCode, responseBody });
   return ex;
 }
 
@@ -37,4 +37,15 @@ test("Other HTTP errors are no login errors, and keep their message", async () =
 
   expect(ex.authFail).toBeFalsy();
   expect(ex.message).toContain("404");
+});
+
+test("An HTTP error shows the error message of the server", async () => {
+  let account = newAccount(httpError(404, JSON.stringify({
+    error: { code: "ErrorItemNotFound", message: "The specified object was not found in the store." },
+  })));
+
+  let ex = await account.graphGet("mailFolders").catch(ex => ex);
+
+  expect(ex.message).toContain("The specified object was not found in the store.");
+  expect(ex.code).toBe("ErrorItemNotFound");
 });
