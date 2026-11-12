@@ -344,9 +344,8 @@ function restrictPermissions(session: Session) {
   session.setPermissionCheckHandler((webContents, permission) => isPermissionAllowed(webContents, permission));
 }
 
-const kWebViewPermissions = ["media", "display-capture", "notifications", "fullscreen", "pointerLock", "clipboard-sanitized-write", "speaker-selection", "storage-access", "top-level-storage-access", "mediaKeySystem"];
-
 function isPermissionAllowed(webContents: WebContents | null, permission: string): boolean {
+  const kWebViewPermissions = ["media", "display-capture", "notifications", "fullscreen", "pointerLock", "clipboard-sanitized-write", "speaker-selection", "storage-access", "top-level-storage-access", "mediaKeySystem"];
   return webContents?.getType() != "webview" || kWebViewPermissions.includes(permission);
 }
 
