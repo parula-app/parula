@@ -114,8 +114,8 @@
   import { appGlobal } from "../../logic/app";
   import { getToday } from "../../logic/util/date";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
-  import { getOSName } from "../../frontend/Util/util";
-  import { getKeyDigit, isTextField } from "../Util/util";
+  import { getOSName, isTextField } from "../../frontend/Util/util";
+  import { getKeyDigit } from "../Util/util";
   import { catchErrors } from "../../frontend/Util/error";
   import { statusBarContent, type StatusBarContent } from "../MainWindow/StatusBar.svelte";
   import CalendarRibbon from "./CalendarRibbon.svelte";

@@ -1,4 +1,5 @@
-<vbox class="settings-categories-pane nav-list" role="tree" aria-label={$t`Categories *=> List of the settings pages`}>
+<vbox class="settings-categories-pane nav-list" role="tree" tabindex="-1" aria-label={$t`Categories *=> List of the settings pages`}
+  on:keydown={event => onListKey(event, ".settings-category, .account")}>
   {#if account}
     <AccountItem {account} category={null} />
   {:else}
@@ -13,6 +14,7 @@
   import type { Account } from "../../../logic/Abstract/Account";
   import CategoryItem from "./CategoryItem.svelte";
   import AccountItem from "./AccountItem.svelte";
+  import { onListKey } from "../../../frontend/Util/util";
   import type { Collection } from "svelte-collections";
   import { t } from "../../../l10n/l10n";
 
