@@ -19,7 +19,7 @@ export class SQLEMail {
     let lock = await email.storageLock.lock();
     try {
       await this.saveMainProps(email);
-      await runAll([...this.saveWritablePropsSQL(email), ...this.saveRecipientsSQL(email)]);
+      await (await getDatabase()).runMultiple([...this.saveWritablePropsSQL(email), ...this.saveRecipientsSQL(email)]);
       await this.saveAttachments(email);
     } finally {
       lock.release();
@@ -97,7 +97,7 @@ export class SQLEMail {
     assert(email.dbID, "Need Email DB ID to save props");
     let lock = await email.storageLock.lock();
     try {
-      await runAll(this.saveWritablePropsSQL(email));
+      await (await getDatabase()).runMultiple(this.saveWritablePropsSQL(email));
     } finally {
       lock.release();
     }
@@ -267,7 +267,7 @@ export class SQLEMail {
     assert(email.dbID, "Need Email DB ID");
     let lock = await email.storageLock.lock();
     try {
-      await runAll(this.saveTagsSQL(email));
+      await (await getDatabase()).runMultiple(this.saveTagsSQL(email));
     } finally {
       lock.release();
     }
@@ -291,11 +291,13 @@ export class SQLEMail {
 
   protected static readonly transactionLock = new Lock();
 
+  /** Makes only about one call to the backend per email */
   static async saveMultiple(emails: Collection<EMail>) {
     let lock = await SQLEMail.transactionLock.lock();
     let emailLocks: Locked[] = [];
     try {
       await (await getDatabase()).run(sql`BEGIN TRANSACTION`);
+      let queries: Query[] = [];
       for (let email of new Set(emails)) {
         if (!email.subject) {
           continue;
@@ -304,11 +306,12 @@ export class SQLEMail {
         try {
           await this.saveMainProps(email);
           await this.saveAttachments(email);
-          await runAll([...this.saveWritablePropsSQL(email), ...this.saveRecipientsSQL(email)]);
+          queries.push(...this.saveWritablePropsSQL(email), ...this.saveRecipientsSQL(email));
         } catch (ex) {
           email.folder.account.errorCallback(ex); // and save the other emails
         }
       }
+      await (await getDatabase()).runMultiple(queries);
       await (await getDatabase()).run(sql`END TRANSACTION`);
     } catch (ex) {
       await (await getDatabase()).run(sql`ROLLBACK TRANSACTION`);
@@ -662,14 +665,5 @@ export class SQLEMail {
       newEmails.add(email);
     }
     folder.messages.addAll(newEmails);
-  }
-}
-
-/** Runs each statement with its own call to the backend,
- * so that SQLite gets the values as bound parameters */
-async function runAll(queries: Query[]) {
-  let db = await getDatabase();
-  for (let query of queries) {
-    await db.run(query);
   }
 }

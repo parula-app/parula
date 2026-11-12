@@ -63,6 +63,13 @@ export class InProcessSQLiteDatabase {
     return this.db.prepare(this.source(query)).run(...this.parameters(query));
   }
 
+  /** Like the backend: one call, but each statement with its bound parameters */
+  runMultiple(queries: Query[]): void {
+    for (let query of queries) {
+      this.db.prepare(this.source(query)).run(...this.parameters(query));
+    }
+  }
+
   get<Type>(query: Query): Type | undefined {
     return this.db.prepare(this.source(query)).get(...this.parameters(query)) as Type | undefined;
   }
