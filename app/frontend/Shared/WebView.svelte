@@ -224,6 +224,8 @@
     }), showError);
   }
 
+  /** `openExternalURL()` opens only some URL schemes. Desktop: The page itself can't open others,
+   * see `isPermissionAllowed()` in `desktop/src/main/index.ts`. */
   async function onLinkClick(url: string) {
     if (!askBeforeOpeningLinks) {
       await openExternalURL(url);
