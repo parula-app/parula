@@ -82,7 +82,7 @@ export class JMAPFolder extends Folder {
       state ??= syncState;
       this.messages.addAll(newMessages);
       saving = this.saveNewMsgs(newMessages)
-        .catch(this.account.errorCallback); // also when the next fetch fails and nothing awaits it
+        .catch(this.account.errorCallback);
       allNewMessages.addAll(newMessages);
       position += ids.length;
       if (ids.length < limit) {

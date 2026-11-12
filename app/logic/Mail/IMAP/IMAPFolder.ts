@@ -164,7 +164,7 @@ export class IMAPFolder extends Folder {
       newMsgs.addAll(newMessages);
       this.messages.addAll(newMessages);
       saving = this.saveNewMsgs(newMessages)
-        .catch(this.account.errorCallback); // also when the next fetch fails and nothing awaits it
+        .catch(this.account.errorCallback);
     }
     await saving;
 
