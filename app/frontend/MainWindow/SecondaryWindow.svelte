@@ -6,7 +6,7 @@
 
   Usage: A component wraps its content in this, e.g. `ComposerWindow.svelte`:
   `<SecondaryWindow title={...}><MailComposer {mail} /></SecondaryWindow>`.
-  Then `AppWindow.current().open(ComposerWindow, { mail }, width, height)` opens the window
+  Then `AppWindow.current().open(ComposerWindow, { mail }, width)` opens the window
   and mounts `ComposerWindow` into it.
 
   Content: Any component of the app.

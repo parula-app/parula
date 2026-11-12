@@ -68,6 +68,7 @@
   let endHour = 24;
   let intervalHour = 1;
 
+  // <copied to="../EditEvent/Availability/ParticipantsDayView.svelte">
   let scrollE: Scroll;
   let visibleHeight = 0;
   $: pxPerHour =  visibleHeight / showHours;
@@ -80,6 +81,7 @@
     await tick(); // The new grid height reaches the DOM only after the update
     scrollE?.scrollTo((focusHour - 0.5) * pxPerHour);
   }
+  // </copied>
 
   let startTimes: Date[] = [];
   $: start, setStartTimes();
@@ -157,6 +159,7 @@
     grid-template-columns: max-content 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
     /* overridden by $: above */
   }
+  /* <copied to="../EditEvent/Availability/ParticipantsDayView.svelte"> */
   .headers {
     grid-column: 1 / -1;
     grid-row: 1 / span 2;
@@ -181,6 +184,10 @@
     border-left: 1px dotted var(--border);
     min-width: 0px; /* Long titles must not widen the column */
   }
+  .time-label {
+    grid-column: 1;
+  }
+  /* </copied> */
   .date-day {
     padding: 8px 16px;
   }
@@ -193,9 +200,6 @@
     margin-block-end: 4px;
     max-height: 1.3em;
     overflow: hidden;
-  }
-  .time-label {
-    grid-column: 1;
   }
   :where(.compact) .day-header .date-day {
     flex-direction: row;

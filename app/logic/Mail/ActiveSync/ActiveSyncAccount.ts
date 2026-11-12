@@ -19,6 +19,7 @@ import { appGlobal } from "../../app";
 import { Throttle } from "../../util/flow/Throttle";
 import { Semaphore } from "../../util/flow/Semaphore";
 import { RunOnce } from "../../util/flow/RunOnce";
+import { isTransientError } from "../../util/netUtil";
 import { ensureArray, assert, NotSupported } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
@@ -573,6 +574,7 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
     try {
       this.listening = true;
       let lastAttempt = 0;
+      let reconnectThrottle = new Throttle(1, 10);
       while (this.pingsMRU.hasItems) {
         try {
           lastAttempt = Date.now();
@@ -612,12 +614,13 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
             throw new ActiveSyncError("Ping", response.Status, this);
           }
         } catch (ex) {
-          if (Date.now() - lastAttempt < 10 * 1000) {
+          if (Date.now() - lastAttempt < 10 * 1000 && !isTransientError(ex)) {
             // Failed right away: give up, to avoid hammering the server
             throw ex;
           }
           // The connection was up for a while, e.g. a network interruption
-          // after a long poll: retry
+          // after a long poll, or the network isn't back yet, e.g. a late VPN: retry
+          await reconnectThrottle.throttle();
         }
       }
     } catch (ex) {

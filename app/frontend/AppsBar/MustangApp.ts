@@ -1,7 +1,6 @@
 import type { PageParams } from "./selectedApp";
 import { Observable, notifyChangedProperty } from "../../logic/util/Observable";
 import type { URLString } from "../../logic/util/util";
-import { AppWindow } from "../MainWindow/AppWindow";
 import { ArrayColl, Collection } from "svelte-collections";
 import { derived, type Readable } from "svelte/store";
 
@@ -36,9 +35,7 @@ export class MustangApp extends Observable {
    *
    * Should be a very small number (0, 1 up to max 3-5),
    * due to UI space constaints.
-   *
-   * Each main window has its own sub-apps.
    */
   @notifyChangedProperty
-  subApps: Collection<MustangApp> = AppWindow.perMainWindow(() => new ArrayColl<MustangApp>());
+  subApps: Collection<MustangApp> = new ArrayColl<MustangApp>();
 }

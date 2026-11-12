@@ -6,6 +6,7 @@ import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
+import { appName, dataAppName } from '../../../app/logic/build'
 
 const windowFrame: BrowserWindowConstructorOptions = {
   autoHideMenuBar: true,
@@ -181,6 +182,10 @@ function createMenu() {
     { role: 'windowMenu' },
   ]);
   Menu.setApplicationMenu(menu);
+}
+
+if (dataAppName != appName) {
+  app.setPath('userData', join(app.getPath('appData'), dataAppName));
 }
 
 const gotLock = app.requestSingleInstanceLock();

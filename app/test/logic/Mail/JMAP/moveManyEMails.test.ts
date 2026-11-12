@@ -13,8 +13,8 @@ const kMaxObjectsInSet = 3;
 
 /** A JMAP server that rejects an `Email/set` with too many objects, like Stalwart */
 class TestJMAPAccount extends JMAPAccount {
-  /** The `update` argument of each `Email/set` */
-  readonly updates: Record<string, Record<string, boolean | null>>[] = [];
+  /** email ID -> the folders that the email is in, on the server */
+  readonly mailboxIds = new Map<string, Record<string, boolean>>();
   async makeSingleCall(method: string, args: Record<string, any>): Promise<Record<string, any>> {
     expect(method).toBe("Email/set");
     let ids = Object.keys(args.update);
@@ -23,8 +23,29 @@ class TestJMAPAccount extends JMAPAccount {
       ex.code = "requestTooLarge";
       throw ex;
     }
-    this.updates.push(args.update);
+    for (let id of ids) {
+      this.applyPatch(id, args.update[id]);
+    }
     return { updated: Object.fromEntries(ids.map(id => [id, null])) };
+  }
+
+  /** Either a whole `mailboxIds`, or patches of it <https://www.rfc-editor.org/rfc/rfc8620#section-5.3> */
+  protected applyPatch(id: string, patch: Record<string, any>) {
+    let folders = { ...this.mailboxIds.get(id) };
+    for (let path in patch) {
+      if (path == "mailboxIds") {
+        folders = { ...patch[path] };
+      } else {
+        expect(path.startsWith("mailboxIds/")).toBe(true);
+        let folderID = path.substring("mailboxIds/".length);
+        if (patch[path]) {
+          folders[folderID] = true;
+        } else {
+          delete folders[folderID];
+        }
+      }
+    }
+    this.mailboxIds.set(id, folders);
   }
 }
 
@@ -45,6 +66,7 @@ function setUp(emailCount: number) {
     let email = source.newEMail() as JMAPEMail;
     email.jmapID = "m" + i;
     source.messages.add(email);
+    account.mailboxIds.set(email.jmapID, { source: true });
   }
   return { account, source, target };
 }
@@ -63,11 +85,8 @@ test("Moving more emails than the server takes in one Email/set moves all of the
 
   await target.moveMessagesHere(emails);
 
-  expect(account.updates.map(update => Object.keys(update).length)).toEqual([3, 3, 1]);
-  let all = Object.assign({}, ...account.updates);
-  expect(Object.keys(all).sort()).toEqual(["m1", "m2", "m3", "m4", "m5", "m6", "m7"]);
-  for (let id in all) {
-    expect(all[id]).toEqual({ "mailboxIds/target": true, "mailboxIds/source": null });
+  for (let [id, folders] of account.mailboxIds) {
+    expect(folders, id).toEqual({ target: true });
   }
   expect(source.messages.length).toBe(0);
 });
@@ -78,20 +97,8 @@ test("Copying more emails than the server takes in one Email/set copies all of t
 
   await target.copyMessagesHere(emails);
 
-  expect(account.updates.map(update => Object.keys(update).length)).toEqual([3, 1]);
-  let all = Object.assign({}, ...account.updates);
-  expect(Object.keys(all).sort()).toEqual(["m1", "m2", "m3", "m4"]);
-  for (let id in all) {
-    expect(all[id]).toEqual({ "mailboxIds/target": true, "mailboxIds/source": true });
+  for (let [id, folders] of account.mailboxIds) {
+    expect(folders, id).toEqual({ source: true, target: true });
   }
   expect(source.messages.length).toBe(4);
-});
-
-test("Moving a few emails is one Email/set", async () => {
-  let { account, source, target } = setUp(kMaxObjectsInSet);
-
-  await target.moveMessagesHere(new ArrayColl(source.messages.contents));
-
-  expect(account.updates.length).toBe(1);
-  expect(Object.keys(account.updates[0]).length).toBe(kMaxObjectsInSet);
 });

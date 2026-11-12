@@ -15,7 +15,7 @@
   import SecondaryWindow from "../../MainWindow/SecondaryWindow.svelte";
   import MessageDisplay from "./MessageDisplay.svelte";
   import { getLocalStorage } from "../../Util/LocalStorage";
-  import { ArrayColl, CollectionObserver, type Collection } from "svelte-collections";
+  import { ArrayColl, CollectionObserver } from "svelte-collections";
   import { onDestroy } from "svelte";
 
   export let message: EMail;
@@ -29,9 +29,9 @@
 
   /** Closes the window when the message was deleted or moved */
   class RemovalObserver extends CollectionObserver<EMail> {
-    added(messages: Collection<EMail> | EMail[]) {}
-    removed(messages: Collection<EMail> | EMail[]) {
-      if (Array.from(messages).includes(message)) {
+    added(messages: EMail[]) {}
+    removed(messages: EMail[]) {
+      if (messages.includes(message)) {
         appWindow.close();
       }
     }

@@ -37,7 +37,7 @@ export class MailMustangApp extends MustangApp {
   }
 
   async writeMailInNewWindow(mail: EMail) {
-    await AppWindow.current().open(ComposerWindow, { mail }, 1000, 800);
+    await AppWindow.current().open(ComposerWindow, { mail }, 1000);
   }
 
   login(tab: OAuth2Tab): LoginDialogMustangApp {
@@ -76,9 +76,7 @@ const tabsObserver = {
   },
   removed(tabs: OAuth2Tab[]) {
     for (let tab of tabs) {
-      for (let appWindow of AppWindow.all) {
-        appWindow.uiState(mailMustangApp.subApps).remove(tab.mustangApp);
-      }
+      mailMustangApp.subApps.remove(tab.mustangApp);
     }
     openApp(mailMustangApp, {});
   },

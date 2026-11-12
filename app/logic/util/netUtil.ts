@@ -1,5 +1,5 @@
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
-import { sleep } from "./util";
+import { sleep, waitTime } from "./util";
 import psl from "psl";
 
 export function getDomainForEmailAddress(emailAddress: string): string {
@@ -11,8 +11,13 @@ export function getDomainForEmailAddress(emailAddress: string): string {
  * Returns the base domain of hostname.
  * E.g. for "www2.static.amazon.com" returns "amazon.com"
  * and for "www2.static.amazon.co.uk" returns "amazon.co.uk"
+ * and for an IP address like "192.168.1.5" or "[::1]" returns the IP address.
  */
 export function getBaseDomainFromHost(hostname: string): string {
+  // Has a ":" -> IPv6 address; ends in a number -> IPv4 address
+  if (hostname?.includes(":") || /^[0-9]+$/.test(hostname?.split(".").pop())) {
+    return hostname; // IP address
+  }
   return psl.get(hostname);
 }
 
@@ -49,7 +54,7 @@ export async function retryOnTransientError<T>(func: () => Promise<T>, attempts 
         throw ex;
       }
       console.log(`Failed (attempt ${attempt} of ${attempts}), trying again in ${delaySeconds * attempt}s:`, ex?.message);
-      await sleep(delaySeconds * attempt);
+      await sleep(delaySeconds * attempt * waitTime.factor); // tests wait less
     }
   }
 }
@@ -64,8 +69,8 @@ export function isNetworkError(ex: any): boolean {
     "ETIMEOUT", "CONNECT_TIMEOUT", "GREETING_TIMEOUT", "UPGRADE_TIMEOUT", "NoConnection"];
   // Error class `instanceof` doesn't survive JPC
   return kNetworkErrorCodes.includes(ex?.code) ||
-    // Chromium `net` module, e.g. `net::ERR_CONNECTION_RESET`
-    /net::ERR_(CONNECTION_|EMPTY_RESPONSE|NETWORK_CHANGED|INTERNET_DISCONNECTED|INCOMPLETE_CHUNKED_ENCODING|CONTENT_LENGTH_MISMATCH)/.test(ex?.message) ||
+    // Chromium `net` module, e.g. `net::ERR_CONNECTION_RESET`, or `net::ERR_NAME_NOT_RESOLVED` while the VPN is down
+    /net::ERR_(CONNECTION_|EMPTY_RESPONSE|NETWORK_CHANGED|INTERNET_DISCONNECTED|INCOMPLETE_CHUNKED_ENCODING|CONTENT_LENGTH_MISMATCH|NAME_NOT_RESOLVED|NAME_RESOLUTION_FAILED|ADDRESS_UNREACHABLE|TIMED_OUT|NETWORK_IO_SUSPENDED)/.test(ex?.message) ||
     // browser fetch
     ex?.name == "TypeError" &&
     /network ?error|failed to fetch|fetch failed|load failed/i.test(ex.message);

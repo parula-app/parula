@@ -26,7 +26,7 @@ export class AppWindow {
   /** What this window shows. Only for the windows that we opened. */
   component: Component<any>;
   props: Record<string, any>;
-  /** `SecondaryBrowserWindow` in the backend. Only for the windows that we opened, and not in the webmail. */
+  /** `SecondaryBrowserWindow` in the backend, for the first window the same functions of `remoteApp`. Not for the other windows in the webmail. */
   protected browserWindow: any;
   protected readonly uiStates = new Map<object, object>();
 
@@ -65,8 +65,9 @@ export class AppWindow {
 
   protected static ofEvent(): AppWindow | undefined {
     // The event handlers of all windows run in the JS context of the main window, so it has their current event
-    let target = window.event?.target as any;
-    let win = target?.ownerDocument?.defaultView ?? target?.defaultView ?? target?.window;
+    let event = window.event as UIEvent;
+    let target = event?.target as any;
+    let win = event?.view ?? target?.ownerDocument?.defaultView ?? target?.defaultView ?? target?.window;
     return win ? AppWindow.all.find(appWindow => appWindow.window == win) : undefined;
   }
 
@@ -130,19 +131,19 @@ export class AppWindow {
   }
 
   /**
-   * Opens a new window that shows only `component`.
+   * Opens a new window that shows only `component`, with the height of the main window.
    * The apps keep showing in our main window.
    * If such a window is already open with the same `props`, brings it to the front instead.
    * The new window closes when the first main window closes.
    */
-  async open<Props extends Record<string, any>>(component: Component<Props>, props: Props, width: number, height: number): Promise<AppWindow> {
+  async open<Props extends Record<string, any>>(component: Component<Props>, props: Props, width: number): Promise<AppWindow> {
     let existing = AppWindow.opened.find(appWindow => appWindow.component == component &&
       Object.keys(props).every(key => appWindow.props[key] == props[key]));
     if (existing) {
       existing.focus();
       return existing;
     }
-    return await AppWindow.openWindow(component, props, width, height, this.mainWindow);
+    return await AppWindow.openWindow(component, props, width, this.mainWindow.window.outerHeight, this.mainWindow);
   }
 
   /**
@@ -319,32 +320,25 @@ export class AppWindow {
   }
 
   async minimize() {
-    if (this == AppWindow.main) {
-      await appGlobal.remoteApp.minimizeMainWindow();
-    } else {
-      await this.browserWindow.minimize();
-    }
+    await this.browserWindow.minimize();
   }
 
   async maximize() {
-    if (this == AppWindow.main) {
-      await appGlobal.remoteApp.maximizeMainWindow();
-    } else {
-      await this.browserWindow.maximize();
-    }
+    await this.browserWindow.maximize();
   }
 
   /** From minimized or maximized */
   async restore() {
-    if (this == AppWindow.main) {
-      await appGlobal.remoteApp.unminimizeMainWindow();
-    } else {
-      await this.browserWindow.restore();
-    }
+    await this.browserWindow.restore();
   }
 
   /** Must be called once at app start, before the UI shows */
   static init() {
+    AppWindow.main.browserWindow = {
+      minimize: () => appGlobal.remoteApp.minimizeMainWindow(),
+      maximize: () => appGlobal.remoteApp.maximizeMainWindow(),
+      restore: () => appGlobal.remoteApp.unminimizeMainWindow(),
+    };
     AppWindow.main.listenToLinks();
     AppWindow.main.listenToUse();
     AppWindow.allowResizeObserverInAllWindows();

@@ -8,13 +8,21 @@
         </svelte:fragment>
       </SMLDisplayKinds>
     {:else}
-      <ActionCard title={label(type)} subtitle={editSubtitle(type)} icon={icon(type)}>
+      <ActionCard title={label(type)} subtitle={editSubtitle(type)} icon={icon(type)} wide={useCalendar && type != "SimplePoll"}>
         <svelte:fragment slot="actions">
+          {#if type != "SimplePoll"}
+            <DialogButton label={$t`Use calendar`} icon={CalendarIcon} classes="plain" pressed={useCalendar}
+              onClick={() => { useCalendar = !useCalendar; }} />
+          {/if}
           <DialogButton label={$t`Preview`} icon={PreviewIcon} classes="plain" onClick={() => { preview = true; }} />
           <DialogButton label={$t`Remove`} icon={RemoveIcon} classes="plain" onClick={onRemove} />
         </svelte:fragment>
         {#if type == "SimplePoll"}
           <PollEdit {sml} />
+        {:else if useCalendar}
+          <SMLCalendar>
+            <CalendarPollEdit {sml} />
+          </SMLCalendar>
         {:else}
           <TimePollEdit {sml} />
         {/if}
@@ -32,8 +40,11 @@
   import SMLDisplayKinds from "../SML/SMLDisplayKinds.svelte";
   import PollEdit from "../SML/PollEdit.svelte";
   import TimePollEdit from "../../Calendar/SML/Shared/PollEdit.svelte";
+  import SMLCalendar from "../../Calendar/SML/Shared/SMLCalendar.svelte";
+  import CalendarPollEdit from "../../../frontend/Calendar/SML/Shared/PollEdit.svelte";
   import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
   import PreviewIcon from "lucide-svelte/icons/eye";
+  import CalendarIcon from "lucide-svelte/icons/calendar";
   import EditIcon from "lucide-svelte/icons/pencil";
   import RemoveIcon from "lucide-svelte/icons/trash-2";
   import { t } from "../../../l10n/l10n";
@@ -46,6 +57,7 @@
   }
 
   let preview = false;
+  let useCalendar = false;
   $: type = sml?.type ?? sml?.sml?.["@type"];
 
   /* <copied to="PollsGroup.svelte"> */

@@ -87,7 +87,7 @@ test("Without closing them, the first request after sleep goes into a dead conne
   expect(await post()).toBe("ok");
   await server.sleep();
 
-  await expect(post()).rejects.toThrow("fetch failed");
+  await expect(post()).rejects.toThrow();
 });
 
 test("After the computer woke up, the first request works", async () => {

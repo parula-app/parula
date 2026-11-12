@@ -51,7 +51,7 @@
   async function autoFetchMissingKeys() {
     await Promise.all([
       Promise.all(recipientsWithoutKeys.contents.map(recipient =>
-        recipient.findPerson()?.fetchEncryptionKeys())),
+        recipient.fetchEncryptionKeys())),
       hasKeyServers ? queryKeyServers(recipientsWithoutKeys, true) : null,
     ]);
   }

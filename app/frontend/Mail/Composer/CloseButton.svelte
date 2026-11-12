@@ -35,8 +35,7 @@
     for (let blockquote of doc.body.querySelectorAll("blockquote")) {
       blockquote.remove();
     }
-    let text = doc.body.textContent ?? "";
-    text = text.replace(/\s+/g, "").trim();
+    let text = doc.body.textContent.replace(/\s+/g, "");
     return text.length >= 100; // Ignore attribution line before quote. TODO Match more precisely
   }
 </script>

@@ -39,6 +39,8 @@ test.each(testFiles)("Parse %s", async name => {
   invitation.content = new File([calendar], invitation.filename, { type: invitation.mimeType });
   const email: EMail = {
     attachments: new ArrayColl([invitation]),
+    // Without calendars, so that nothing updates a calendar event
+    folder: { account: { calendarsAvailable: new ArrayColl() } },
   };
   await processor.process(email, null);
   expect(email.invitationMessage).toEqual(invitationMessage);

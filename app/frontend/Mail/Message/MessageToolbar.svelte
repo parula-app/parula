@@ -151,7 +151,7 @@
     await message.markStarred(!message.isStarred);
   }
   async function onPopOut() {
-    await appWindow.open(MessageWindow, { message }, 1000, 800);
+    await appWindow.open(MessageWindow, { message }, 1000);
   }
   function reply() {
     let reply = message.compose.replyToAuthor();
@@ -168,7 +168,7 @@
     await message.treatSpam(!message.isSpam);
   }
   async function editDraft() {
-    await message.loadMIME();
+    await message.compose.editDraft();
     mailMustangApp.writeMail(message);
   }
 

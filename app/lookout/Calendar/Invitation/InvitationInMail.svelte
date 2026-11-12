@@ -45,20 +45,17 @@
       </hbox>
     {:else if canRespond}
       <hbox class="respond" role="group" aria-label={$t`Respond *=> Buttons to answer the meeting invitation`}>
-        <ResponseButton label={$t`Accept *=> Accept the invitation to the meeting`} icon={AcceptIcon} classes="accept"
-          pressed={response == InvitationResponse.Accept}
-          onClick={() => onRespond(InvitationResponse.Accept)} />
-        <ResponseButton label={$t`Tentative *=> Not sure to join this business meeting`} icon={TentativeIcon} classes="tentative"
-          pressed={response == InvitationResponse.Tentative}
-          onClick={() => onRespond(InvitationResponse.Tentative)} />
-        <ResponseButton label={$t`Decline *=> Decline the invitation to the meeting`} icon={DeclineIcon} classes="decline"
-          pressed={response == InvitationResponse.Decline}
-          onClick={() => onRespond(InvitationResponse.Decline)} />
+        <RespondButtons {response} onRespond={onRespond}
+          onReplyToOrganizer={() => MessageActions.respond(message, message.compose.replyToAuthor())}
+          onReplyToAll={() => MessageActions.respond(message, message.compose.replyAll())}
+          onForward={clickEvent => MessageActions.forward(message, clickEvent as MouseEvent)} />
       </hbox>
     {/if}
     <grid class="details">
-      <ClockIcon size={16} />
-      <span class:cancelled={isCancelled}>{when}</span>
+      {#if when}
+        <ClockIcon size={16} />
+        <span class:cancelled={isCancelled}>{when}</span>
+      {/if}
       {#if $event.location}
         <LocationIcon size={16} />
         <span>{$event.location}</span>
@@ -72,7 +69,7 @@
         </hbox>
       {/if}
     </grid>
-    {#if kind != "reply"}
+    {#if kind != "reply" && $event.startTime}
       <EventInDayView event={$event} onShowInCalendar={showInCalendar} />
     {/if}
   {/if}
@@ -95,14 +92,13 @@
   import { eventWhenText, eventConflict, myResponseText } from "../EditEvent/EventFormInfo";
   import EventInDayView from "../DisplayEvent/EventInDayView.svelte";
   import ResponseButton from "./ResponseButton.svelte";
+  import RespondButtons from "./RespondButtons.svelte";
+  import { MessageActions } from "../../Mail/MessageActions";
   import { catchErrors } from "../../../frontend/Util/error";
   import InfoIcon from "lucide-svelte/icons/info";
   import WarningIcon from "lucide-svelte/icons/triangle-alert";
   import CancelledIcon from "lucide-svelte/icons/calendar-x-2";
   import RemoveIcon from "lucide-svelte/icons/calendar-minus-2";
-  import AcceptIcon from "lucide-svelte/icons/check";
-  import TentativeIcon from "lucide-svelte/icons/circle-help";
-  import DeclineIcon from "lucide-svelte/icons/x";
   import ClockIcon from "lucide-svelte/icons/clock-3";
   import LocationIcon from "lucide-svelte/icons/map-pin";
   import OnlineIcon from "lucide-svelte/icons/video";
@@ -123,7 +119,7 @@
   $: hasCalEvent = !!calEvent;
   $: isCancelled = kind == "cancellation" || !!calEvent?.isCancelled;
   $: statusText = response && invitationStatusText(message, incoming, response, calEvent);
-  $: when = $event ? eventWhenText($event, getDateTimeLocale()) : "";
+  $: when = $event?.startTime ? eventWhenText($event, getDateTimeLocale()) : "";
   $: conflict = kind == "invitation" && !isCancelled && $event && response != InvitationResponse.Decline
     ? eventConflict(calEvent ?? $event, $calendarEvents.filter(dayEvent => !dayEvent.isSameUID($event)))
     : null;
@@ -172,6 +168,9 @@
     if (calEvent?.isCancelled) {
       return $t`This meeting has been cancelled by the organizer`;
     }
+    if (calEvent?.isMoved) {
+      return $t`The organizer changed the time or place of this meeting. Please respond again.`;
+    }
     return myResponseText(myResponse);
   }
 
@@ -200,8 +199,8 @@
   }
   // </copied>
 
-  async function onRespond(newResponse: InvitationResponseInMessage) {
-    await incoming.respondToInvitationFromMail(newResponse);
+  async function onRespond(newResponse: InvitationResponseInMessage, sendReply: boolean) {
+    await incoming.respondToInvitationFromMail(newResponse, sendReply);
     response = newResponse;
   }
 

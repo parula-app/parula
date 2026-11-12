@@ -3,6 +3,7 @@ import { Person } from "../Abstract/Person";
 import type { PersonUID } from "../Abstract/PersonUID";
 import { Group } from "../Abstract/Group";
 import type { Contact } from "../Abstract/Contact";
+import type { PublicKey } from "../Mail/Encryption/PublicKey";
 import { SQLGroup } from "./SQL/SQLGroup";
 import { SQLPerson } from "./SQL/SQLPerson";
 import { appGlobal } from "../app";
@@ -165,6 +166,14 @@ export class SearchOnlyAddressbook extends Addressbook {
 
   async quickSearchAsync(searchTerm: string, results: ArrayColl<Person>) {
     throw new AbstractFunction();
+  }
+
+  /** The encryption keys, e.g. the S/MIME certificate, that this directory
+   * has for a person, who may be in another address book, or in none.
+   * Reports errors, does not throw.
+   * @param emailAddresses of the person */
+  async fetchEncryptionKeys(emailAddresses: Collection<string>): Promise<Collection<PublicKey>> {
+    return new ArrayColl<PublicKey>();
   }
 }
 

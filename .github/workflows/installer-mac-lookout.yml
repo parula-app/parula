@@ -1,0 +1,65 @@
+name: Lookout Installers for Mac OS X
+
+on:
+  workflow_dispatch: # manually triggered
+    inputs:
+      release_type:
+        type: choice
+        options:
+          - prerelease
+          - test
+        default: 'test'
+  push:
+    tags: 'v*'
+
+jobs:
+  build:
+    runs-on: macos-15
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v6
+    - name: Build installers for Mac
+      uses: actions/setup-node@v6
+      with:
+        node-version: 24.x
+
+    - run: cd app/build; sh lookout-brand.sh
+    - run: sudo -H pip install setuptools
+    - run: cd app; yarn install
+    - run: cd lib; yarn install
+    - run: cd desktop; yarn install
+    - run: cd desktop/backend; yarn install
+    - run: cd desktop; yarn install
+    - run: cd desktop/backend; yarn install
+    - run: |
+        mkdir -p ~/private_keys/
+        echo '${{ secrets.APPLE_API_KEY }}' > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
+    - run: cd desktop; yarn run build:release:mac
+      if: github.event_name == 'push' || inputs.release_type == 'release'
+      env: &build_env
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        CSC_LINK: ${{ secrets.CSC_LINK }}
+        CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        CSC_INSTALLER_LINK: ${{ secrets.CSC_INSTALLER_LINK }}
+        CSC_INSTALLER_KEY_PASSWORD: ${{ secrets.CSC_INSTALLER_KEY_PASSWORD }}
+        APPLE_API_KEY: ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
+        APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        # For Sentry source maps. Otherwise, vite build is out of memory
+        NODE_OPTIONS: '--max-old-space-size=32768'
+    - run: cd desktop; yarn run build:prerelease:mac
+      if: inputs.release_type == 'prerelease'
+      env: *build_env
+    - run: cd desktop; yarn run build:mac
+      if: inputs.release_type == 'test'
+      env: *build_env
+    - name: Upload
+      uses: actions/upload-artifact@v7
+      with:
+        name: Lookout Installers Mac
+        path: |
+          desktop/dist/*.dmg
+          desktop/dist/*.pkg

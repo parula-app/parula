@@ -67,8 +67,9 @@
           </div>
           {#each $participants.each as participant (participant)}
             <div class="row" class:no-info={freeBusy && !busyOf(freeBusy, participant)}>
-              {#each spans(busyOf(freeBusy, participant), timeline) as busy}
-                <div class="busy" style:left="{busy.left}px" style:width="{busy.width}px" />
+              {#each appointmentSpans(freeBusy, participant, timeline) as appointment}
+                <div class="busy status-{appointment.status}" style:left="{appointment.left}px" style:width="{appointment.width}px"
+                  title={appointment.details}>{appointment.title}</div>
               {/each}
             </div>
           {/each}
@@ -91,6 +92,9 @@
   </hbox>
   <hbox class="legend">
     <span class="legend-item"><span class="swatch swatch-busy" /> {$t`Busy`}</span>
+    <span class="legend-item"><span class="swatch swatch-busy status-tentative" /> {freeBusyStatusLabels[FreeBusyStatus.Tentative]}</span>
+    <span class="legend-item"><span class="swatch swatch-busy status-out-of-office" /> {freeBusyStatusLabels[FreeBusyStatus.OutOfOffice]}</span>
+    <span class="legend-item"><span class="swatch swatch-busy status-elsewhere" /> {freeBusyStatusLabels[FreeBusyStatus.WorkingElsewhere]}</span>
     <span class="legend-item"><span class="swatch swatch-no-info" /> {$t`No information *=> Availability: unknown`}</span>
     <hbox flex />
     <button class="zoom" bind:this={zoomButton} class:open={isZoomMenuOpen}
@@ -111,7 +115,9 @@
   import type { Event } from "../../../logic/Calendar/Event";
   import type { Participant } from "../../../logic/Calendar/Participant";
   import { InvitationResponse } from "../../../logic/Calendar/Invitation/InvitationStatus";
-  import { FreeBusy, type AvailabilityStatus, type BusyInterval } from "./FreeBusy";
+  import { FreeBusy, type AvailabilityStatus } from "../../../logic/Calendar/FreeBusy";
+  import { appGlobal } from "../../../logic/app";
+  import { FreeBusyStatus, freeBusyStatusLabels } from "../../../logic/Calendar/FreeBusyEvent";
   import { Timeline } from "./AvailabilityGrid";
   import { EventEditFlow } from "./EventEditFlow";
   import type { EventTimeEditor } from "./EventTimeEditor";
@@ -128,6 +134,7 @@
   import ChevronIcon from "lucide-svelte/icons/chevron-up";
   import { onMount, tick } from "svelte";
   import { derived } from "svelte/store";
+  import { getTimeString, type TimeInterval } from "../../../logic/util/date";
   import { getDateTimeLocale, t } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -201,7 +208,7 @@
       let shownDays = new Timeline(day, kHourWidth, kDayCount);
       let result = await FreeBusy.load(event.calendar, event.participants.contents, shownDays.day, shownDays.dayEnd);
       if (count == loadCount) {
-        freeBusy = result;
+        freeBusy = result.withMyEvents(event, appGlobal.calendarEvents, shownDays.day, shownDays.dayEnd);
       }
     } catch (ex) {
       if (count == loadCount) {
@@ -230,14 +237,31 @@
     scrollEl.scrollLeft = Math.max(0, target);
   }
 
-  function busyOf(freeBusy: FreeBusy | null, participant: Participant): BusyInterval[] | null {
+  function busyOf(freeBusy: FreeBusy | null, participant: Participant): TimeInterval[] | null {
     return freeBusy?.rowFor(participant)?.busy ?? null;
   }
 
-  function spans(intervals: BusyInterval[] | null, timeline: Timeline): { left: number, width: number }[] {
+  function spans(intervals: TimeInterval[] | null, timeline: Timeline): { left: number, width: number }[] {
     return (intervals ?? [])
-      .map(interval => timeline.span(interval.from, interval.to))
+      .map(interval => timeline.span(interval.startTime, interval.endTime))
       .filter(span => span && span.width > 0);
+  }
+
+  function appointmentSpans(freeBusy: FreeBusy | null, participant: Participant, timeline: Timeline) {
+    return (freeBusy?.rowFor(participant)?.appointments ?? [])
+      .map(appointment => ({ appointment, span: timeline.span(appointment.startTime, appointment.endTime) }))
+      .filter(({ span }) => span && span.width > 0)
+      .map(({ appointment, span }) => ({
+        left: span.left,
+        width: span.width,
+        status: appointment.busyStatus,
+        title: appointment.title ?? "",
+        details: [
+          `${getTimeString(appointment.startTime)} – ${getTimeString(appointment.endTime)}`,
+          appointment.title || appointment.statusLabel,
+          appointment.location,
+        ].filter(line => line).join("\n"),
+      }));
   }
 
   function statusOf(freeBusy: FreeBusy, participant: Participant, event: Event): AvailabilityStatus {
@@ -312,6 +336,7 @@
   .free-busy-grid {
     min-height: 0;
     --busy-color: color-mix(in srgb, var(--lo-accent) 72%, black);
+    --out-of-office-color: #7A3E9D;
     --no-info-pattern: repeating-linear-gradient(135deg,
       color-mix(in srgb, var(--lo-fg-secondary) 35%, transparent) 0 1px,
       transparent 1px 6px);
@@ -491,8 +516,35 @@
     position: absolute;
     top: 6px;
     bottom: 6px;
+    box-sizing: border-box;
+    padding: 0 4px;
+    overflow: hidden;
     border-radius: 2px;
     background-color: var(--busy-color);
+    color: var(--lo-accent-fg);
+    font-size: var(--lo-font-size-small);
+    line-height: calc(var(--row-height) - 12px);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .busy.status-tentative,
+  .swatch-busy.status-tentative {
+    background-color: var(--lo-accent-tint);
+    background-image: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--busy-color) 45%, transparent) 0 2px, transparent 2px 6px);
+    border: 1px solid var(--busy-color);
+    color: var(--lo-fg);
+  }
+  .busy.status-out-of-office,
+  .swatch-busy.status-out-of-office {
+    background-color: var(--out-of-office-color);
+  }
+  .busy.status-elsewhere,
+  .swatch-busy.status-elsewhere {
+    background-color: var(--lo-accent-tint);
+    background-image: radial-gradient(color-mix(in srgb, var(--busy-color) 60%, transparent) 1px, transparent 1.5px);
+    background-size: 5px 5px;
+    border: 1px solid var(--busy-color);
+    color: var(--lo-fg);
   }
   .meeting {
     position: absolute;

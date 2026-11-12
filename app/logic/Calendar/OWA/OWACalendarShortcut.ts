@@ -1,7 +1,7 @@
 import { EWSCalendarShortcut } from "../EWS/EWSCalendarShortcut";
 import type { OWACalendar } from "./OWACalendar";
 import type { OWAAccount } from "../../Mail/OWA/OWAAccount";
-import { OWAGetFolderRequest } from "../../Mail/OWA/Request/OWAGetFolderRequest";
+import { owaGetFolderRequest, owaSharedFolderRequest } from "../../Mail/OWA/Request/OWAFolderRequests";
 import { owaResolveNamesRequest } from "../../Contacts/OWA/Request/OWAPersonRequests";
 import { PersonUID } from "../../Abstract/PersonUID";
 import { ensureArray } from "../../util/util";
@@ -49,19 +49,10 @@ export class OWACalendarShortcut {
   }
 
   async createCalendar(): Promise<OWACalendar | null> {
-    let folderID = this.sharedFolderID
-      ? {
-        __type: "FolderId:#Exchange",
-        Id: this.sharedFolderID,
-      }
-      : {
-        __type: "DistinguishedFolderId:#Exchange",
-        Id: "calendar",
-        Mailbox: {
-          EmailAddress: this.ownerEmailAddress,
-        },
-      };
-    let result = await this.account.callOWA(new OWAGetFolderRequest(folderID));
+    let request = this.sharedFolderID
+      ? owaGetFolderRequest(this.sharedFolderID)
+      : owaSharedFolderRequest(["calendar"], this.ownerEmailAddress);
+    let result = await this.account.callOWA(request);
     let folder = result.Folders?.[0];
     if (folder?.FolderClass != "IPF.Appointment") {
       return null;
@@ -76,7 +67,7 @@ export class OWACalendarShortcut {
 
   protected async resolveOwner(): Promise<PersonUID> {
     try {
-      let response = await this.account.callOWA(owaResolveNamesRequest(this.ownerEmailAddress));
+      let response = await this.account.callOWA(owaResolveNamesRequest("smtp:" + this.ownerEmailAddress));
       let resolution = ensureArray(response.ResolutionSet).find(candidate =>
         candidate?.Mailbox?.EmailAddress?.toLowerCase() == this.ownerEmailAddress);
       return new PersonUID(this.ownerEmailAddress, sanitize.nonemptylabel(resolution?.Mailbox?.Name, null) ?? undefined);

@@ -3,15 +3,8 @@ import { base64ToUint8Array, uint8ArrayToHex } from "../../util/blob";
 export class MAPIEntryID {
   readonly bytes: Uint8Array;
 
-  constructor(bytes: Uint8Array) {
-    this.bytes = bytes;
-  }
-
-  static fromBase64<T extends MAPIEntryID>(this: new (bytes: Uint8Array) => T, base64: string | null | undefined): T | null {
-    if (!base64) {
-      return null;
-    }
-    return new this(base64ToUint8Array(base64));
+  constructor(base64: string | null | undefined) {
+    this.bytes = base64ToUint8Array(base64 ?? "");
   }
 
   get hex(): string {

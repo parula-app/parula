@@ -5,7 +5,7 @@
 
 <div>
   <T msg={$t`Copyright 2024 Ben Bucksch, #, and other contributors`}>
-    <a href="{siteRoot}" target="_blank">{appName == "Parula" ? "Beonex GmbH" : "Mustang GmbH"}</a>
+    <a href="{siteRoot}" target="_blank">{appName == "Parula" || appName == "Lookout" ? "Beonex GmbH" : "Mustang GmbH"}</a>
   </T>
 </div>
 

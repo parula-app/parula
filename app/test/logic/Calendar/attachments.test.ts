@@ -153,7 +153,12 @@ async function newInvitationEMail(): Promise<EMail> {
   organizerEvent.attachments.clear();
   let ics = await getICal(organizerEvent, "REQUEST");
 
-  let email = { attachments: new ArrayColl<Attachment>(), hasHTML: false } as any as EMail;
+  let email = {
+    attachments: new ArrayColl<Attachment>(),
+    hasHTML: false,
+    // Without calendars, so that nothing updates a calendar event
+    folder: { account: { calendarsAvailable: new ArrayColl() } },
+  } as any as EMail;
   let invitation = new Attachment();
   invitation.filename = "invite.ics";
   invitation.mimeType = "text/calendar";
