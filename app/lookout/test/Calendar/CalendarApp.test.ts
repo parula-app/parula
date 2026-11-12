@@ -6,6 +6,7 @@ import { Calendar } from "../../../logic/Calendar/Calendar";
 import { appGlobal } from "../../../logic/app";
 import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
 import { InvitationResponse } from "../../../logic/Calendar/Invitation/InvitationStatus";
+import { Frequency } from "../../../logic/Calendar/RecurrenceRule";
 import CalendarApp from "../../Calendar/CalendarApp.svelte";
 import { CalendarActions } from "../../Calendar/CalendarActions";
 import { eventPeek, inlineTitle, selectedSlots, type CalendarViewType } from "../../Calendar/selected";
@@ -73,6 +74,7 @@ afterEach(() => {
   inlineTitle.set(null);
   eventPeek.set(null);
   isGoToDateOpen.set(false);
+  appGlobal.calendars.clear();
 });
 
 /** Presses the key on the calendar page and returns whether the calendar handled it */
@@ -213,12 +215,11 @@ function clickInPopup(event: Event, buttonTitle: string) {
   flushSync();
 }
 
+/** A new event in a shown calendar, because the popup closes for events that aren't shown */
 function newPopupEvent(): Event {
-  let event = new Event();
-  event.title = "Meeting";
-  event.startTime = new Date(2026, 9, 14, 10);
-  event.endTime = new Date(2026, 9, 14, 11);
-  return event;
+  let work = newCalendar("Work", [14]);
+  appGlobal.calendars.add(work);
+  return work.events.first;
 }
 
 test("Popup: Delete deletes the event and closes the popup", async () => {
@@ -336,6 +337,51 @@ for (let [closer, close] of Object.entries(kPopupClosers)) {
     }
   });
 }
+
+test("Popup: Deleting the event elsewhere closes the popup", () => {
+  let work = newCalendar("Work", [14]);
+  appGlobal.calendars.add(work);
+  flushSync();
+  document.querySelector<HTMLElement>(".time-grid .event-block").click();
+  flushSync();
+  expect(get(eventPeek)?.event).toBe(work.events.first);
+
+  work.events.remove(work.events.first);
+  flushSync();
+  expect(get(eventPeek)).toBe(null);
+  expect(document.querySelector(".event-peek")).toBe(null);
+});
+
+test("Popup: Deleting the series elsewhere closes the popup of its occurrence", () => {
+  let work = newCalendar("Work", [14]);
+  let series = work.events.first;
+  series.newRecurrenceRule(Frequency.Daily);
+  appGlobal.calendars.add(work);
+  flushSync();
+  document.querySelector<HTMLElement>(".time-grid .event-block").click();
+  flushSync();
+  expect(series.instances.contents).toContain(get(eventPeek)?.event);
+
+  work.events.remove(series);
+  flushSync();
+  expect(get(eventPeek)).toBe(null);
+  expect(document.querySelector(".event-peek")).toBe(null);
+});
+
+test("Popup: Deleting another event elsewhere leaves the popup open", () => {
+  let work = newCalendar("Work", [14, 15]);
+  appGlobal.calendars.add(work);
+  flushSync();
+  document.querySelector<HTMLElement>(".time-grid .event-block").click();
+  flushSync();
+  let event = get(eventPeek)?.event;
+  expect(work.events.contents).toContain(event);
+
+  work.events.remove(work.events.contents.find(other => other != event));
+  flushSync();
+  expect(get(eventPeek)?.event).toBe(event);
+  expect(document.querySelector(".event-peek")).not.toBe(null);
+});
 
 test("Typing on selected time slots starts a new event's title", () => {
   expect(handled("M", { shiftKey: true })).toBe(false);
