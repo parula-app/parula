@@ -273,24 +273,17 @@ export class GraphAccount extends ExchangeMailAccount {
   /** @throws an appropriate exception (always throws) */
   protected async httpError(ex: Error) {
     if (ex.name == "HTTPError") {
-      let ext = ex as any;
-      let msg: string;
-      let code: string;
-      try {
+      // HTTPFetchError from backend.ts, which has only scalar properties, not the HTTP response body
+      /* TODO get the response body, and read
         let json = await ext.response.json();
-        msg = json.message;
-        code = json.code;
-      } catch (ex2) {
+        ex.msg = json.message;
+        ext.code = json.code;
+      */
+      let ext = ex as any;
+      if (ext.httpCode == 401) {
+        throw new LoginError(ex, null);
       }
-      if (ext.status == 401) {
-        throw new LoginError(ex, msg);
-      } else if (ext.status && ext.status >= 400 && ext.status < 500) {
-        ex.message = msg;
-        ext.code = code;
-        throw ex;
-      } else {
-        throw new ConnectError(ex, msg);
-      }
+      throw new ConnectError(ex, null);
     }
     throw ex;
   }
