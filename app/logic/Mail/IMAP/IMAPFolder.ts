@@ -153,20 +153,20 @@ export class IMAPFolder extends Folder {
     let newMsgs = new ArrayColl<IMAPEMail>();
     //console.log("Folder", this.account.name, this.name, "has", allUIDs.length, "msgs,", localUIDs.length, "local msgs,", newUIDs.length, "new");
     const kBatchSize = 200;
+    let saving = Promise.resolve();
     while (newUIDs.hasItems) {
-      //let startTime = Date.now();
       let fetchUIDs = newUIDs.splice(0, kBatchSize); // Gets the first n, and removes them from the list
       let { newMessages } = await this.fetchMessageList({ uid: fetchUIDs.join(",") }, {});
+      await saving; // Save the last page and fetch this one at the same time
       for (let msg of newMessages) {
         msg.isNewArrived ||= isNewMail; // \Recent deprecated by IMAP4rev2
       }
       newMsgs.addAll(newMessages);
       this.messages.addAll(newMessages);
-      //let fetchTime = Date.now() - startTime;
-      await this.saveNewMsgs(newMessages);
-      //let saveTime = Date.now() - startTime - fetchTime;
-      //console.log("  Fetched", fetchUIDs.length, ", remaining", newUIDs.length, "- Time: Fetch:", fetchTime / kBatchSize, "ms/msg, save time", saveTime / kBatchSize, "ms/msg");
+      saving = this.saveNewMsgs(newMessages)
+        .catch(this.account.errorCallback);
     }
+    await saving;
 
     await this.storage.saveFolderProperties(this);
     return newMsgs;

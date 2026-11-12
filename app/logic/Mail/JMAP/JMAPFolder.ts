@@ -64,28 +64,32 @@ export class JMAPFolder extends Folder {
   /** Lists all messages in this folder.
    * But doesn't download their contents. @see downloadMessages() */
   protected async listAllMessages(): Promise<ArrayColl<JMAPEMail>> {
-    const batchSize = 200;
+    const batchSize = Math.min(500, this.account.maxObjectsInGet);
     let state: string;
     let allNewMessages = new ArrayColl<JMAPEMail>();
     let position = 0;
-    const kMaxRounds = 5000; // 1,000,000 emails
+    let saving = Promise.resolve();
+    const kMaxRounds = Math.min(5000, 1000000 / batchSize);
     let loop = new LoopGuard(kMaxRounds, () =>
       this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
     while (loop.nextRound()) {
       let { newMessages, syncState, ids, limit } = await retryOnTransientError(() =>
         this.fetchMessageList(position, batchSize));
+      await saving; // Save the last page and fetch this one at the same time
       if (loop.isSameAsLastRound(ids.join(" "))) {
         break;
       }
       state ??= syncState;
       this.messages.addAll(newMessages);
-      await this.saveNewMsgs(newMessages);
+      saving = this.saveNewMsgs(newMessages)
+        .catch(this.account.errorCallback);
       allNewMessages.addAll(newMessages);
       position += ids.length;
       if (ids.length < limit) {
         break;
       }
     }
+    await saving;
     if (state) {
       this.account.syncState.set("Email", state);
     }
