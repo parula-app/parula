@@ -1,5 +1,5 @@
 import { setMainWindow, startupBackend, shutdownBackend, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
-import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents } from 'electron'
+import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents, type Session } from 'electron'
 import { ipcMain } from 'electron/main';
 import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
@@ -191,6 +191,7 @@ async function whenReady() {
 app.on('web-contents-created', (event, webContents) => {
   setWindowOpenHandler(webContents);
   restrictWebViews(webContents);
+  restrictPermissions(webContents.session);
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -330,6 +331,23 @@ function restrictWebViews(webContents: WebContents) {
     delete params.disablewebsecurity;
     delete params.allowpopups;
   });
+}
+
+/** Electron grants every permission to every page, unless we decide.
+ * A page in a `<webview>`, e.g. a web app or a mail, gets only what web apps need for calls
+ * and notifications. It must not e.g. start other apps with an `openExternal` URL,
+ * read the clipboard, or know where the user is. Our app keeps all permissions. */
+function restrictPermissions(session: Session) {
+  session.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(isPermissionAllowed(webContents, permission));
+  });
+  session.setPermissionCheckHandler((webContents, permission) => isPermissionAllowed(webContents, permission));
+}
+
+const kWebViewPermissions = ["media", "display-capture", "notifications", "fullscreen", "pointerLock", "clipboard-sanitized-write", "speaker-selection", "storage-access", "top-level-storage-access", "mediaKeySystem"];
+
+function isPermissionAllowed(webContents: WebContents | null, permission: string): boolean {
+  return webContents?.getType() != "webview" || kWebViewPermissions.includes(permission);
 }
 
 // In this file you can include the rest of your app"s specific main process
