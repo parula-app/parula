@@ -70,7 +70,7 @@
     "svelte-navigator": "^3.2.2",
     "timezone-picker-svelte": "^1.0.2",
     "tiptap-extension-resize-image": "^1.3.2",
-    "tsdav": "^2.1.6",
+    "tsdav": "^2.2.0",
     "vite-plugin-wasm": "^3.5.0",
     "volume-meter": "^2.0.1",
     "ws": "^8.19.0"
