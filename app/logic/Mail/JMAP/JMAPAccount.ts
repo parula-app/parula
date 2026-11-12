@@ -427,7 +427,7 @@ export class JMAPAccount extends MailAccount {
   /** @throws an appropriate exception (always throws) */
   protected async httpError(ex: Error) {
     if (ex.name == "HTTPError") {
-      // HTTPFetchError from backend.ts, which has only scalar properties, not the HTTP response body
+      // HTTPFetchError from backend.ts, which has only scalar properties
       let ext = ex as any;
       if (ext.httpCode == 401) {
         throw new LoginError(ex, null);
