@@ -8,7 +8,7 @@
 </hbox>
 
 <script lang="ts">
-  import type { StatusBarItem } from "./StatusBar.svelte";
+  import type { StatusBarItem } from "./Selected";
   import BusyIcon from "lucide-svelte/icons/loader-circle";
 
   export let item: StatusBarItem;

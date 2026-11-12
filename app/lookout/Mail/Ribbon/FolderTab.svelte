@@ -47,10 +47,8 @@
   import { SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
   import { appGlobal } from "../../../logic/app";
   import { FolderTreeActions } from "../LeftPane/FolderTreeActions";
-  import { FolderPropertiesTab, openFolderProperties } from "../FolderProperties.svelte";
-  import { openNewFolder } from "../LeftPane/NewFolderDialog.svelte";
-  import { openMoveFolder } from "../LeftPane/MoveFolderDialog.svelte";
-  import { openNewSearchFolder } from "../Search/NewSearchFolderDialog.svelte";
+  import { openFolderProperties, openNewFolder, openMoveFolder, openNewSearchFolder, renamingFolder } from "../Selected";
+  import { FolderPropertiesTab } from "../FolderProperties.svelte";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
   import RibbonButton from "../../Shared/Ribbon/RibbonButton.svelte";
@@ -63,7 +61,6 @@
   import DeleteAllIcon from "lucide-svelte/icons/trash-2";
   import PropertiesIcon from "lucide-svelte/icons/folder-cog";
   import PermissionsIcon from "lucide-svelte/icons/folder-key";
-  import { renamingFolder } from "../LeftPane/FolderLine.svelte";
   import { t } from "../../../l10n/l10n";
 
   export let folder: Folder | null = null;

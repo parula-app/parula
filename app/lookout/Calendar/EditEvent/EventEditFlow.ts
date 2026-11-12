@@ -10,6 +10,7 @@ import { showMessageBox, askYesNo } from "../../Shared/Dialog/MessageBox";
 import { calendarMustangApp } from "../../../frontend/Calendar/CalendarMustangApp";
 import { selectedEvent } from "../../../frontend/Calendar/selected";
 import { goBack } from "../../../frontend/AppsBar/selectedApp";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 import { showError } from "../../../frontend/Util/error";
 import { gt } from "../../../l10n/l10n";
 
@@ -19,6 +20,7 @@ export class EventEditFlow {
   readonly event: Event;
   pattern: RecurrencePattern;
   protected onClosed: () => void;
+  protected readonly appWindow = AppWindow.current();
 
   constructor(event: Event, onClosed: () => void = () => goBack()) {
     this.event = event;
@@ -274,7 +276,7 @@ export class EventEditFlow {
     return shifted;
   }
 
-  // <copied from="../../../frontend/Calendar/EditEvent/DialogHeader.svelte">, plus the series end and the time from the recurrence dialog
+  // <copied from="../../../frontend/Calendar/EditEvent/DialogHeader.svelte">, plus the series end and the time from the recurrence dialog, and deselects in the editor's own window
   async changeRemainder() {
     let event = this.event;
     let skipped = this.skippedOccurrences();
@@ -308,7 +310,7 @@ export class EventEditFlow {
     event.finishEditing();
     calendarMustangApp.closeEvent(event);
     if (deselect) {
-      selectedEvent.set(null);
+      this.appWindow.uiState(selectedEvent).set(null);
     }
     this.onClosed();
   }

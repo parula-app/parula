@@ -10,15 +10,16 @@
         <input id="event-form-title" class="field title" type="text" bind:value={event.title}
           autofocus={!event.title} />
         {#if isMeeting}
-          <button class="field-button" on:click={() => $openSelectAttendees = event}
+          <button class="field-button" on:click={onSelectAttendees}
             title={$t`Select attendees from the address book`}>
             {$t`Required *=> Attendees who must attend the meeting`}
           </button>
           <hbox class="field attendees">
-            <ParticipantsBox {event} {flow} autofocus={(!!event.title || isShown) && !flow.attendees.length} />
+            <ParticipantsBox {event} {flow} autofocus={(!!event.title || isShown) && !flow.attendees.length}
+              bind:this={participantsBox} />
           </hbox>
         {/if}
-        <TimeBox {event} editor={timeEditor} {flow} />
+        <TimeBox {event} editor={timeEditor} {flow} {onEditRecurrence} />
         <label class="field-button" for="event-form-location">{$t`Location`}</label>
         <input id="event-form-location" class="field location" type="text" bind:value={event.location} />
         {#if $event.isOnline}
@@ -54,7 +55,6 @@
   import SendButton from "./SendButton.svelte";
   import TimeBox from "./TimeBox.svelte";
   import ParticipantsBox from "./ParticipantsBox.svelte";
-  import { openSelectAttendees } from "./EditEvent.svelte";
   import OnlineMeetingBox from "./OnlineMeetingBox.svelte";
   import HTMLEditor from "../../../frontend/Shared/Editor/HTMLEditor.svelte";
   import EmojiPane from "../../Shared/Editor/EmojiPane.svelte";
@@ -75,6 +75,8 @@
   export let sendLabel: string;
   export let sendDisabled: string | false = false;
   export let onSend: () => Promise<void>;
+  export let onEditRecurrence: () => void;
+  export let onSelectAttendees: () => void;
 
   const spellcheck = getLocalStorage<boolean>("mail.send.spellcheck.enabled", false);
 
@@ -86,6 +88,11 @@
   onMount(() => {
     isShown = true;
   });
+
+  let participantsBox: ParticipantsBox;
+  export async function checkNames() {
+    await participantsBox?.checkNames();
+  }
 
   function onFilesDrop(dropped: CustomEvent) {
     addFilesAsAttachments(event, dropped.detail.files as File[]);

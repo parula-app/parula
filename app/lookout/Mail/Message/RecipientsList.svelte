@@ -10,7 +10,7 @@
   {/if}
 </span>
 <Menu bind:isMenuOpen anchor={menuAnchor} placement="bottom-start">
-  <MenuItem label={$t`Send Email`} icon={SendIcon} onClick={() => MessageActions.writeMailTo(menuRecipient)} />
+  <MenuItem label={$t`Send Email`} icon={SendIcon} onClick={() => MessageActions.writeMailTo(menuRecipient, message.folder)} />
   <MenuItem label={$t`Copy`} icon={CopyIcon} onClick={() => navigator.clipboard.writeText(clipboardText(menuRecipient))} />
   <MenuDivider />
   <MenuItem label={menuRecipient?.findPerson() ? $t`Open Contact Card` : $t`Add to Contacts`}
@@ -18,6 +18,7 @@
 </Menu>
 
 <script lang="ts">
+  import type { EMail } from "../../../logic/Mail/EMail";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import { MessageActions } from "../MessageActions";
   import Menu from "../../Shared/Menu/Menu.svelte";
@@ -32,6 +33,7 @@
   import { openPersonFromOtherApp } from "../../../frontend/Contacts/open";
 
   export let recipients: Collection<PersonUID>;
+  export let message: EMail;
   export let withAddress = false;
   export let maxShown = 8;
 

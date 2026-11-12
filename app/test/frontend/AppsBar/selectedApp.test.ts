@@ -50,5 +50,7 @@ test("Closing the composer goes back to the event window, which then can close i
 test("Starts when the page reloads with params in the history entry", async () => {
   window.history.replaceState({ usr: { id: 1 }, key: "reload", idx: 0 }, "", "#/calendar");
   vi.resetModules();
-  await expect(import("../../../frontend/AppsBar/selectedApp")).resolves.toHaveProperty("selectedApp");
+  let { history } = await import("../../../frontend/AppsBar/selectedApp");
+  // The history of a window is created on first use, and `listen()` calls `syncSelectedApp()` right away
+  expect(history.location.pathname).toBe("/calendar");
 });

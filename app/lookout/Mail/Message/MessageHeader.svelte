@@ -9,26 +9,26 @@
       <hbox class="from">
         <hbox class="sender-name">
           {#if $message.from}
-            <RecipientsList recipients={new ArrayColl([$message.from])} withAddress />
+            <RecipientsList recipients={new ArrayColl([$message.from])} {message} withAddress />
           {/if}
         </hbox>
       </hbox>
       {#if $to.hasItems}
         <hbox class="recipients">
           <span class="recipients-label">{$t`To`}</span>
-          <RecipientsList recipients={to} />
+          <RecipientsList recipients={to} {message} />
         </hbox>
       {/if}
       {#if $cc.hasItems}
         <hbox class="recipients">
           <span class="recipients-label">{$t`Cc`}</span>
-          <RecipientsList recipients={cc} />
+          <RecipientsList recipients={cc} {message} />
         </hbox>
       {/if}
       {#if $bcc.hasItems}
         <hbox class="recipients">
           <span class="recipients-label">{$t`Bcc`}</span>
-          <RecipientsList recipients={bcc} />
+          <RecipientsList recipients={bcc} {message} />
         </hbox>
       {/if}
     </vbox>
@@ -91,16 +91,16 @@
     disabled={!(message.allRecipients().length > 1 && !(message.bcc.hasItems && !message.outgoing)) && $t`There are no other recipients`}
     onClick={() => MessageActions.respond(message, message.compose.replyAll())} />
   <MenuItem label={$t`Forward`} icon={ForwardIcon} onClick={event => MessageActions.forward(message, event as MouseEvent)} />
-  <MenuItem label={$t`Forward as Attachment`} icon={ForwardAttachmentIcon} onClick={async () => mailMustangApp.writeMail(await message.compose.forwardAsAttachment())} />
+  <MenuItem label={$t`Forward as Attachment`} icon={ForwardAttachmentIcon} onClick={async () => MessageActions.writeMail(await message.compose.forwardAsAttachment())} />
   <MenuItem label={$t`Redirect`} icon={RedirectIcon}
     tooltip={$t`Send this message to somebody else, who can reply to the original sender`}
-    onClick={async () => mailMustangApp.writeMail(await message.compose.redirect())} />
+    onClick={async () => MessageActions.writeMail(await message.compose.redirect())} />
   {#if $message.outgoing}
-    <MenuItem label={$t`Edit as New`} icon={EditAsNewIcon} onClick={async () => mailMustangApp.writeMail(await message.compose.editAsNew())} />
+    <MenuItem label={$t`Edit as New`} icon={EditAsNewIcon} onClick={async () => MessageActions.writeMail(await message.compose.editAsNew())} />
   {/if}
   <MenuItem label={$t`New Topic to All`} icon={NewToAllIcon}
     tooltip={$t`Send a new, unrelated message to all recipients`}
-    onClick={() => mailMustangApp.writeMail(message.compose.newToAll())} />
+    onClick={() => MessageActions.writeMail(message.compose.newToAll())} />
   <MenuDivider />
   <MenuItem label={$t`Delete`} icon={DeleteIcon} onClick={() => message.deleteMessage()} />
   <MenuItem label={$message.isRead ? $t`Mark as Unread` : $t`Mark as Read`} icon={$message.isRead ? UnreadIcon : ReadIcon}
@@ -120,6 +120,10 @@
   <SubMenu label={$t`View *=> Choose how the email is displayed`} icon={SourceIcon}>
     <DisplayModeSwitcher />
   </SubMenu>
+  {#if appWindow.isMainWindow}
+    <MenuItem label={$t`Open in New Window`} icon={PopOutIcon}
+      onClick={async () => { await appWindow.open(MessageWindow, { message }, 1000); }} />
+  {/if}
   <MenuItem label={$t`Message Properties…`} icon={PropertiesIcon}
     onClick={() => { isPropertiesOpen = true; }} />
 </Menu>
@@ -161,16 +165,20 @@
   import JunkIcon from "lucide-svelte/icons/shield-x";
   import CategorizeIcon from "lucide-svelte/icons/tag";
   import PrintIcon from "lucide-svelte/icons/printer";
-  import { printMessage } from "./MessagePrint.svelte";
+  import { printMessage } from "../Selected";
   import SaveIcon from "lucide-svelte/icons/save";
   import SourceIcon from "lucide-svelte/icons/code-xml";
   import PropertiesIcon from "lucide-svelte/icons/file-cog";
+  import PopOutIcon from "lucide-svelte/icons/square-arrow-out-up-right";
   import RemoveIcon from "lucide-svelte/icons/x";
   import ErrorIcon from "lucide-svelte/icons/circle-x";
   import { catchErrors } from "../../../frontend/Util/error";
   import { ArrayColl } from "svelte-collections";
   import { t } from "../../../l10n/l10n";
-  import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import MessageWindow from "./MessageWindow.svelte";
+
+  const appWindow = AppWindow.current();
 
   export let message: EMail;
 

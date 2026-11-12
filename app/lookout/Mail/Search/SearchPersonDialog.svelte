@@ -1,13 +1,7 @@
 <SelectNamesDialog persons={picks} label={fieldLabel} single on:ok={onOK} on:close />
 
-<script lang="ts" context="module">
-  import type { Person } from "../../../logic/Abstract/Person";
-  import { writable } from "svelte/store";
-
-  export const openSearchPerson = writable<{ fieldLabel: string, person: Person | null, onPick: (person: Person | null) => void } | null>(null);
-</script>
-
 <script lang="ts">
+  import type { Person } from "../../../logic/Abstract/Person";
   import { PersonUID } from "../../../logic/Abstract/PersonUID";
   import SelectNamesDialog from "../Composer/SelectNamesDialog.svelte";
   import { ArrayColl } from "svelte-collections";

@@ -1,4 +1,4 @@
-<Ribbon>
+<Ribbon id="calendar">
   <RibbonTab label={$t`Home *=> Ribbon tab with the most-used commands`}>
     <RibbonGroup label={$t`New`}>
       <NewEventRibbonButton label={$t`New Event`} icon={NewAppointmentIcon} shortCutInfo={$t`Ctrl+N *=> Keyboard shortcut`}
@@ -169,7 +169,7 @@
   import { MailAccount } from "../../logic/Mail/MailAccount";
   import { openSettingsDialog, openOptions } from "../Settings/SettingsDialogs";
   import { selectedCalendar, selectedDate, startDate } from "../../frontend/Calendar/selected";
-  import { calendarSearchOptions, CalendarCurrentView, CalendarFolderPane, type CalendarViewType } from "./selected";
+  import { calendarSearchOptions, isGoToDateOpen, openCalendarProperties, CalendarCurrentView, CalendarFolderPane, type CalendarViewType } from "./selected";
   import { EventTable, EventTableColumn, EventTableGrouping } from "./ListView/EventTable";
   import { getToday } from "../../logic/util/date";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
@@ -192,8 +192,6 @@
   import NewEventMenu from "./NewEventMenu.svelte";
   import NewEventRibbonButton from "./NewEventRibbonButton.svelte";
   import OpenCalendarMenuItems from "./OpenCalendarMenuItems.svelte";
-  import { openCalendarProperties } from "./CalendarPropertiesDialog.svelte";
-  import { isGoToDateOpen } from "./GoToDateDialog.svelte";
   import ViewSettingsDialog from "./ViewSettings/ViewSettingsDialog.svelte";
   import RenameDialog from "../Settings/Shared/RenameDialog.svelte";
   import ChangeViewIcon from "lucide-svelte/icons/layout-template";

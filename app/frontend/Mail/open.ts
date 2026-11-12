@@ -2,6 +2,7 @@ import { selectedAccount, selectedFolder, selectedMessage, selectedSearchTab } f
 import type { SearchView } from "./LeftPane/SearchSwitcher.svelte";
 import { mailMustangApp } from "./MailMustangApp";
 import { goTo, openApp } from "../AppsBar/selectedApp";
+import { AppWindow } from "../MainWindow/AppWindow";
 import { appGlobal } from "../../logic/app";
 import type { EMail } from "../../logic/Mail/EMail";
 import { URLPart } from "../../logic/util/blob";
@@ -10,11 +11,12 @@ import { tick } from "svelte";
 
 export async function openEMailMessage(message: EMail, tab?: SearchView) {
   assert(message.folder?.account, "no account for email");
-  selectedAccount.set(message.folder?.account);
-  selectedFolder.set(message.folder);
-  selectedMessage.set(message);
+  let appWindow = AppWindow.current().mainWindow;
+  appWindow.uiState(selectedAccount).set(message.folder?.account);
+  appWindow.uiState(selectedFolder).set(message.folder);
+  appWindow.uiState(selectedMessage).set(message);
   if (tab) {
-    selectedSearchTab.set(tab);
+    appWindow.uiState(selectedSearchTab).set(tab);
   }
 
   if (appGlobal.isMobile) { // TODO unify
@@ -34,11 +36,11 @@ export async function openEMailMessage(message: EMail, tab?: SearchView) {
   }
 
   await tick();
-  selectedAccount.set(message.folder?.account);
-  selectedFolder.set(message.folder);
-  selectedMessage.set(message);
+  appWindow.uiState(selectedAccount).set(message.folder?.account);
+  appWindow.uiState(selectedFolder).set(message.folder);
+  appWindow.uiState(selectedMessage).set(message);
   if (tab) {
-    selectedSearchTab.set(tab);
+    appWindow.uiState(selectedSearchTab).set(tab);
   }
 }
 

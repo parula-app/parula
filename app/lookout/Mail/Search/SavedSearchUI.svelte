@@ -9,19 +9,16 @@
   </vbox>
 </Dialog>
 
-<script lang="ts" context="module">
-  import type { SearchEMail } from "../../../logic/Mail/Store/SearchEMail";
-  import { writable } from "svelte/store";
-
-  export const openSaveSearch = writable<SearchEMail | null>(null);
-</script>
-
 <script lang="ts">
+  import type { SearchEMail } from "../../../logic/Mail/Store/SearchEMail";
   import { SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
   import { allAccountsAccount } from "../../../logic/Mail/AccountsList/ShowAccounts";
   import { selectedAccount, selectedFolder } from "../../../frontend/Mail/Selected";
   import Dialog from "../../Shared/Dialog/Dialog.svelte";
   import { t } from "../../../l10n/l10n";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let search: SearchEMail;
 
@@ -33,8 +30,8 @@
     folder.name = name.trim();
     await folder.save();
 
-    $selectedAccount = allAccountsAccount;
-    $selectedFolder = folder;
+    appWindow.uiState(selectedAccount).set(allAccountsAccount);
+    appWindow.uiState(selectedFolder).set(folder);
     // </copied>
   }
 

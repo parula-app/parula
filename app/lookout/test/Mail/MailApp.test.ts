@@ -12,17 +12,14 @@ import { sleep } from "../../../logic/util/util";
 import MailApp from "../../Mail/MailApp.svelte";
 import { MessageActions } from "../../Mail/MessageActions";
 import { SearchScope } from "../../Mail/Search/MailSearch";
-import { mailSearchInput } from "../../Mail/Search/MailSearchBox.svelte";
-import { isAdvancedSearchOpen, searchOptions } from "../../Mail/Selected";
-import { openMoveMessages } from "../../Mail/Message/MessageMovePopup.svelte";
-import { openNewFolder } from "../../Mail/LeftPane/NewFolderDialog.svelte";
-import { openNewSearchFolder } from "../../Mail/Search/NewSearchFolderDialog.svelte";
-import { printMessage } from "../../Mail/Message/MessagePrint.svelte";
-import { statusBarContent } from "../../MainWindow/StatusBar.svelte";
+import { isAdvancedSearchOpen, isMailSearchFocused, mailSearchInput, searchOptions, openMoveMessages, openNewFolder, openNewSearchFolder, printMessage } from "../../Mail/Selected";
+import { statusBarContent } from "../../MainWindow/Selected";
 import { selectedAccount, selectedFolder, selectedMessage, selectedMessages } from "../../../frontend/Mail/Selected";
 import { globalSearchTerm, openApp } from "../../../frontend/AppsBar/selectedApp";
 import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
 import { contactsMustangApp } from "../../../frontend/Contacts/ContactsMustangApp";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+import MessageWindow from "../../Mail/Message/MessageWindow.svelte";
 import { ArrayColl } from "svelte-collections";
 import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
 import { flushSync, mount, unmount } from "svelte";
@@ -118,6 +115,7 @@ afterEach(() => {
   done = [];
   globalSearchTerm.set(null);
   mailSearchInput.set(null);
+  isMailSearchFocused.set(false);
   isAdvancedSearchOpen.set(false);
 });
 
@@ -254,6 +252,37 @@ test("Folders and dialogs", () => {
   expect(document.querySelector("dialog")).not.toBe(null);
 });
 
+test("Double-click opens an email in its own window, and a draft in the composer, but not on the buttons of the row", async () => {
+  let open = vi.spyOn(AppWindow.prototype, "open").mockImplementation(async () => null);
+  let openDraft = vi.spyOn(MessageActions, "openDraft").mockImplementation(async () => {});
+  function rowOf(email: EMail): HTMLElement {
+    return [...document.querySelectorAll<HTMLElement>(".message-row, .message-item")]
+      .find(row => row.textContent.includes(email.subject));
+  }
+  function doubleClick(target: Element) {
+    target.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+  }
+
+  doubleClick(rowOf(message(1)));
+  await sleep(0.01);
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(open).toHaveBeenCalledWith(MessageWindow, { message: message(1) }, 1000);
+  expect(openDraft).not.toHaveBeenCalled();
+
+  message(2).isDraft = true;
+  doubleClick(rowOf(message(2)));
+  await sleep(0.01);
+  expect(openDraft).toHaveBeenCalledWith(message(2));
+  expect(open).toHaveBeenCalledTimes(1);
+
+  let button = document.createElement("button");
+  rowOf(message(0)).append(button);
+  doubleClick(button);
+  await sleep(0.01);
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(openDraft).toHaveBeenCalledTimes(1);
+});
+
 test("Next and previous message", () => {
   select(message(0));
   expect(handled(".", { code: "Period", ctrlKey: true })).toBe(true);
@@ -301,6 +330,26 @@ test("Escape closes the search", () => {
   expect(handled("Escape")).toBe(false);
 });
 
+test("The Search tab shows while the search box has the focus, and stays while the focus moves into the ribbon", () => {
+  let tabNames = () => [...document.querySelectorAll(".mail-page [role=tab]")].map(tab => tab.textContent.trim());
+  expect(tabNames()).not.toContain("Search");
+  isMailSearchFocused.set(true);
+  flushSync();
+  expect(tabNames()).toContain("Search");
+
+  isMailSearchFocused.set(false);
+  let ribbonButton = document.querySelector<HTMLElement>(".mail-page .ribbon .ribbon-content button");
+  ribbonButton.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  flushSync();
+  expect(tabNames()).toContain("Search");
+
+  // The folder pane, message list or reading pane
+  let pane = [...document.querySelectorAll<HTMLElement>(".mail-page *")].find(el => !el.closest(".ribbon"));
+  pane.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  flushSync();
+  expect(tabNames()).not.toContain("Search");
+});
+
 test("In text fields, only the keys for new mail, send/receive and search work", () => {
   let sendReceiveAll = vi.spyOn(MessageActions, "sendReceiveAll").mockImplementation(async () => {});
   select(message(1));
@@ -310,6 +359,20 @@ test("In text fields, only the keys for new mail, send/receive and search work",
   expect(handled("u", { ctrlKey: true }, input)).toBe(false);
   expect(handled("F9", {}, input)).toBe(true);
   expect(sendReceiveAll).toHaveBeenCalledTimes(1);
+  expect(done).toEqual([]);
+});
+
+test("Keys outside the mail page don't act on the messages", () => {
+  let deletePermanently = vi.spyOn(MessageActions, "deletePermanently").mockImplementation(async () => {});
+  select(message(1));
+  let outside = document.createElement("button");
+  document.body.append(outside);
+  expect(handled("Delete", {}, outside)).toBe(false);
+  expect(handled("Delete", { shiftKey: true }, outside)).toBe(false);
+  expect(handled("r", { ctrlKey: true }, outside)).toBe(false);
+  expect(handled(".", { code: "Period", ctrlKey: true }, outside)).toBe(false);
+
+  expect(deletePermanently).not.toHaveBeenCalled();
   expect(done).toEqual([]);
 });
 

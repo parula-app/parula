@@ -1,5 +1,5 @@
-<vbox flex class="mail-page" bind:this={pageEl}>
-  <Ribbon>
+<vbox flex class="mail-page" bind:this={pageEl} on:focusin={onFocusInPage}>
+  <Ribbon id="mail">
     <HomeTab messages={$selectedArray} folder={$selectedFolder} account={$selectedAccount} />
     <SendReceiveTab folder={$selectedFolder} />
     <FolderTab folder={$selectedFolder} account={$selectedAccount} />
@@ -10,7 +10,9 @@
       <SearchTab account={$selectedAccount} folder={$selectedFolder} search={currentSearch} on:close={closeSearch} />
     {/if}
     {#if $inlineRibbon}
-      <ComposerMessageTab mail={$inlineRibbon.draft} editor={$inlineRibbon.editor} isInline />
+      <ComposerMessageTab mail={$inlineRibbon.draft} editor={$inlineRibbon.editor} isInline
+        onSelectNames={$inlineRibbon.onSelectNames} onCheckNames={$inlineRibbon.onCheckNames}
+        onOpenTool={$inlineRibbon.onOpenTool} onEditSignatures={$inlineRibbon.onEditSignatures} />
     {/if}
   </Ribbon>
   <ThreePane bind:messageList
@@ -46,9 +48,11 @@
 {#if $openReadingPaneOptions}
   <ReadingPaneOptionsDialog on:close={() => $openReadingPaneOptions = false} />
 {/if}
+<!-- <copied to="Message/MessageWindow.svelte"> -->
 {#if $openColorCategories}
   <ColorCategoriesDialog items={$openColorCategories} on:close={() => $openColorCategories = null} />
 {/if}
+<!-- </copied> -->
 {#if $openSaveSearch}
   <SavedSearchUI search={$openSaveSearch} on:close={() => $openSaveSearch = null} />
 {/if}
@@ -88,8 +92,9 @@
 {#if $askedScope}
   <ApplyScopeDialog question={$askedScope.question} onChoice={$askedScope.onChoice} on:close={onScopeClosed} />
 {/if}
+<MessageKeys messages={$selectedArray} {pageEl} />
 <MessagePrint />
-<svelte:window on:keydown={(event) => catchErrors(() => onKeyOnMail(event))} on:focusin={onFocusChange} on:focusout={onFocusChange} />
+<AppWindowEvents on:keydown={(event) => catchErrors(() => onKeyOnMail(event))} />
 
 <script lang="ts">
   import type { EMail } from "../../logic/Mail/EMail";
@@ -101,12 +106,12 @@
   import { selectedAccount, selectedFolder, selectedMessage, selectedMessages, quickSearch } from "../../frontend/Mail/Selected";
   import { getParams, globalSearchTerm, openApp } from "../../frontend/AppsBar/selectedApp";
   import { catchErrors } from "../../frontend/Util/error";
-  import { statusBarContent, type StatusBarContent, type StatusBarView } from "../MainWindow/StatusBar.svelte";
+  import AppWindowEvents from "../../frontend/MainWindow/AppWindowEvents.svelte";
+  import { statusBarContent, type StatusBarContent, type StatusBarView } from "../MainWindow/Selected";
   import { FolderPaneMode } from "./LeftPane/LeftPane.svelte";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
   import NormalViewIcon from "lucide-svelte/icons/layout-panel-left";
   import ReadingViewIcon from "lucide-svelte/icons/book-open";
-  import { mailSearchInput } from "./Search/MailSearchBox.svelte";
   import { isTextField } from "../Util/util";
   import { MessageActions } from "./MessageActions";
   import { kSearchLimit, hasRefiners, isRealFolder, isRealAccount, newMailSearch, SearchScope, defaultSearchOptions } from "./Search/MailSearch";
@@ -118,28 +123,29 @@
   import ViewTab from "./Ribbon/ViewTab.svelte";
   import SearchTab from "./Ribbon/SearchTab.svelte";
   import ComposerMessageTab from "./Composer/ComposerMessageTab.svelte";
-  import { inlineRibbon, isAdvancedSearchOpen, searchOptions, updatingFolders } from "./Selected";
+  import { inlineRibbon, isAdvancedSearchOpen, searchOptions, updatingFolders, openMoveMessages, openNewFolder, openMoveFolder, openFolderProperties, openReadingPaneOptions, openColorCategories, openSaveSearch, openRulesFromSearch, openAlwaysMove, openSearchPerson, openSharedFolder, openNewSearchFolder, openCustomizeSearchFolder, openViewSettings, openShowColumns, openApplyView, askedScope, mailSearchInput, isMailSearchFocused } from "./Selected";
   import ThreePane from "./3pane/3Pane.svelte";
   import type TableMessageList from "./3pane/TableMessageList.svelte";
-  import MessagePrint, { printMessage } from "./Message/MessagePrint.svelte";
-  import MessageMovePopup, { openMoveMessages } from "./Message/MessageMovePopup.svelte";
-  import NewFolderDialog, { openNewFolder } from "./LeftPane/NewFolderDialog.svelte";
-  import MoveFolderDialog, { openMoveFolder } from "./LeftPane/MoveFolderDialog.svelte";
+  import MessagePrint from "./Message/MessagePrint.svelte";
+  import MessageKeys from "./Message/MessageKeys.svelte";
+  import MessageMovePopup from "./Message/MessageMovePopup.svelte";
+  import NewFolderDialog from "./LeftPane/NewFolderDialog.svelte";
+  import MoveFolderDialog from "./LeftPane/MoveFolderDialog.svelte";
   import GoToFolderDialog from "./LeftPane/GoToFolderDialog.svelte";
-  import FolderProperties, { openFolderProperties } from "./FolderProperties.svelte";
-  import ReadingPaneOptionsDialog, { openReadingPaneOptions } from "./Message/ReadingPaneOptionsDialog.svelte";
-  import ColorCategoriesDialog, { openColorCategories } from "../Shared/Tag/ColorCategoriesDialog.svelte";
-  import SavedSearchUI, { openSaveSearch } from "./Search/SavedSearchUI.svelte";
-  import RulesFromSearchUI, { openRulesFromSearch } from "./Search/RulesFromSearchUI.svelte";
-  import AlwaysMoveDialog, { openAlwaysMove } from "./Rules/AlwaysMoveDialog.svelte";
-  import SearchPersonDialog, { openSearchPerson } from "./Search/SearchPersonDialog.svelte";
-  import SharedFolderDialog, { openSharedFolder } from "./LeftPane/SharedFolderDialog.svelte";
-  import NewSearchFolderDialog, { openNewSearchFolder } from "./Search/NewSearchFolderDialog.svelte";
-  import CustomizeSearchFolderDialog, { openCustomizeSearchFolder } from "./Search/CustomizeSearchFolderDialog.svelte";
-  import ViewSettingsDialog, { openViewSettings } from "./ViewSettings/ViewSettingsDialog.svelte";
-  import ShowColumnsDialog, { openShowColumns } from "./ViewSettings/ShowColumnsDialog.svelte";
-  import ApplyViewDialog, { openApplyView } from "./ViewSettings/ApplyViewDialog.svelte";
-  import ApplyScopeDialog, { askedScope } from "./ViewSettings/ApplyScopeDialog.svelte";
+  import FolderProperties from "./FolderProperties.svelte";
+  import ReadingPaneOptionsDialog from "./Message/ReadingPaneOptionsDialog.svelte";
+  import ColorCategoriesDialog from "../Shared/Tag/ColorCategoriesDialog.svelte";
+  import SavedSearchUI from "./Search/SavedSearchUI.svelte";
+  import RulesFromSearchUI from "./Search/RulesFromSearchUI.svelte";
+  import AlwaysMoveDialog from "./Rules/AlwaysMoveDialog.svelte";
+  import SearchPersonDialog from "./Search/SearchPersonDialog.svelte";
+  import SharedFolderDialog from "./LeftPane/SharedFolderDialog.svelte";
+  import NewSearchFolderDialog from "./Search/NewSearchFolderDialog.svelte";
+  import CustomizeSearchFolderDialog from "./Search/CustomizeSearchFolderDialog.svelte";
+  import ViewSettingsDialog from "./ViewSettings/ViewSettingsDialog.svelte";
+  import ShowColumnsDialog from "./ViewSettings/ShowColumnsDialog.svelte";
+  import ApplyViewDialog from "./ViewSettings/ApplyViewDialog.svelte";
+  import ApplyScopeDialog from "./ViewSettings/ApplyScopeDialog.svelte";
   import { viewSettingsOf, changeViewSettings } from "./ViewSettings/ViewSettings";
   import ConnectedIcon from "lucide-svelte/icons/plug-zap";
   import DisconnectedIcon from "lucide-svelte/icons/unplug";
@@ -153,7 +159,9 @@
   import { t } from "../../l10n/l10n";
   import { contactsMustangApp } from "../../frontend/Contacts/ContactsMustangApp";
   import { mailMustangApp } from "../../frontend/Mail/MailMustangApp";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
 
+  const appWindow = AppWindow.current();
   const folderPane = getLocalStorage<FolderPaneMode>("lookout.mail.folderPane", FolderPaneMode.Normal);
   const accounts = appGlobal.emailAccounts;
 
@@ -273,7 +281,7 @@
     // </copied>
     currentSearch = search;
     searchResults = new ArrayColl<EMail>();
-    $selectedMessage = null;
+    appWindow.uiState(selectedMessage).set(null);
     isAutoSelectPending = true;
     isSearching = true;
     try {
@@ -314,11 +322,11 @@
     $mailSearchInput?.blur();
   }
 
-  function onFocusChange() {
-    setTimeout(() => {
-      let input = $mailSearchInput;
-      isSearchFocused = !!input && document.activeElement == input;
-    }, 0);
+  $: if ($isMailSearchFocused) isSearchFocused = true;
+  function onFocusInPage(event: FocusEvent) {
+    if (!(event.target as HTMLElement).closest?.(".ribbon")) {
+      isSearchFocused = false;
+    }
   }
 
   let listMessages: Collection<EMail> = new ArrayColl<EMail>();
@@ -414,8 +422,9 @@
   // <copied to="../Calendar/CalendarApp.svelte, ../Contacts/ContactsAppD.svelte">
   $: $statusBarContent = status;
   onDestroy(() => {
-    if (get(statusBarContent) == status) {
-      statusBarContent.set(null);
+    let store = appWindow.uiState(statusBarContent);
+    if (get(store) == status) {
+      store.set(null);
     }
   });
   // </copied>
@@ -437,40 +446,42 @@
   }
 
   onDestroy(() => {
-    $openMoveMessages = null;
-    $openNewFolder = null;
-    $openMoveFolder = null;
-    $openFolderProperties = null;
-    $openReadingPaneOptions = false;
-    $openColorCategories = null;
-    $openSaveSearch = null;
-    $openRulesFromSearch = null;
-    $openAlwaysMove = null;
-    $openSearchPerson = null;
-    $openSharedFolder = null;
-    $openNewSearchFolder = null;
-    $openCustomizeSearchFolder = null;
-    $openViewSettings = null;
-    $openShowColumns = null;
-    $openApplyView = null;
-    $askedScope?.onChoice(null);
-    $askedScope = null;
+    appWindow.uiState(openMoveMessages).set(null);
+    appWindow.uiState(openNewFolder).set(null);
+    appWindow.uiState(openMoveFolder).set(null);
+    appWindow.uiState(openFolderProperties).set(null);
+    appWindow.uiState(openReadingPaneOptions).set(false);
+    appWindow.uiState(openColorCategories).set(null);
+    appWindow.uiState(openSaveSearch).set(null);
+    appWindow.uiState(openRulesFromSearch).set(null);
+    appWindow.uiState(openAlwaysMove).set(null);
+    appWindow.uiState(openSearchPerson).set(null);
+    appWindow.uiState(openSharedFolder).set(null);
+    appWindow.uiState(openNewSearchFolder).set(null);
+    appWindow.uiState(openCustomizeSearchFolder).set(null);
+    appWindow.uiState(openViewSettings).set(null);
+    appWindow.uiState(openShowColumns).set(null);
+    appWindow.uiState(openApplyView).set(null);
+    let scope = appWindow.uiState(askedScope);
+    get(scope)?.onChoice(null);
+    scope.set(null);
   });
 
   async function onKeyOnMail(event: KeyboardEvent) {
+    // <copied to="Message/MessageKeys.svelte">
     let target = event.target as HTMLElement;
     let isInSearchBox = target == $mailSearchInput;
-    if (event.defaultPrevented || document.querySelector("dialog:modal") ||
-        !pageEl?.contains(target) && target != document.body && !isInSearchBox) {
+    if (event.defaultPrevented || pageEl?.ownerDocument.querySelector("dialog:modal") ||
+        !pageEl?.contains(target) && target != pageEl?.ownerDocument.body && !isInSearchBox) {
       return;
     }
-    let messages = $selectedArray;
-    let message = messages.length == 1 ? messages[0] : null;
-    let folder = $selectedFolder;
     let isCtrl = event.ctrlKey || event.metaKey;
     let key = event.key.length == 1 ? event.key.toLowerCase() : event.key;
     // With AltGr layouts, Ctrl+Alt+letter types another character
     let letter = event.code.startsWith("Key") ? event.code.slice(3).toLowerCase() : key;
+    // </copied>
+    let messages = $selectedArray;
+    let folder = $selectedFolder;
     if (key == "Escape" && isSearchActive && (isInSearchBox || !isTextField(target))) {
       event.preventDefault();
       event.stopPropagation();
@@ -548,37 +559,9 @@
     if (isTextField(target)) {
       return;
     }
-    // Ctrl+Alt+
-    if (isCtrl && event.altKey && !event.shiftKey) {
-      if (letter == "f") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (message) {
-          mailMustangApp.writeMail(await message.compose.forwardAsAttachment());
-        }
-        return;
-      } else if (letter == "j") {
-        event.preventDefault();
-        event.stopPropagation();
-        await Promise.all(messages.map(msg => msg.treatSpam(false)));
-        return;
-      } else if (letter == "u") {
-        event.preventDefault();
-        event.stopPropagation();
-        await Promise.all(messages.map(msg => msg.markRead(true)));
-        return;
-      }
-    }
     // Ctrl+Shift+
     if (isCtrl && event.shiftKey && !event.altKey) {
-      if (key == "r") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (message) {
-          await MessageActions.respond(message, message.compose.replyAll());
-        }
-        return;
-      } else if (key == "v" || key == "y") {
+      if (key == "v" || key == "y") {
         event.preventDefault();
         event.stopPropagation();
         if (messages.length) {
@@ -613,41 +596,7 @@
     }
     // Ctrl+ (or Cmd+)
     if (isCtrl && !event.altKey && !event.shiftKey) {
-      if (key == "r") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (message) {
-          await MessageActions.respond(message, message.compose.replyToAuthor());
-        }
-        return;
-      } else if (key == "f") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (message) {
-          await MessageActions.forward(message, event);
-        }
-        return;
-      } else if (key == "d") {
-        event.preventDefault();
-        event.stopPropagation();
-        await Promise.all(messages.map(msg => msg.deleteMessage()));
-        return;
-      } else if (key == "q" && event.ctrlKey) { // Cmd+Q is Quit on macOS
-        event.preventDefault();
-        event.stopPropagation();
-        await Promise.all(messages.map(msg => msg.markRead(true)));
-        return;
-      } else if (key == "u") {
-        event.preventDefault();
-        event.stopPropagation();
-        await Promise.all(messages.map(msg => msg.markRead(false)));
-        return;
-      } else if (key == "j") {
-        event.preventDefault();
-        event.stopPropagation();
-        await Promise.all(messages.map(msg => msg.treatSpam(true)));
-        return;
-      } else if (key == "y") {
+      if (key == "y") {
         event.preventDefault();
         event.stopPropagation();
         isGoToFolderOpen = true;
@@ -656,46 +605,6 @@
         event.preventDefault();
         event.stopPropagation();
         messageList?.selectRelative(key == "." ? 1 : -1);
-        return;
-      } else if (key == "p") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (message) {
-          $printMessage = message;
-        }
-        return;
-      }
-    }
-    // Shift+
-    if (event.shiftKey && !isCtrl && !event.altKey) {
-      if (key == "Delete") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (messages.length) {
-          await MessageActions.deletePermanently(messages);
-        }
-        return;
-      }
-    }
-    // No modifier
-    if (!isCtrl && !event.altKey && !event.shiftKey) {
-      if (key == "Delete") {
-        event.preventDefault();
-        event.stopPropagation();
-        await Promise.all(messages.map(msg => msg.deleteMessage()));
-        return;
-      } else if (key == "Backspace") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (messages.length) {
-          await MessageActions.archive(messages);
-        }
-        return;
-      } else if (key == "Insert") {
-        event.preventDefault();
-        event.stopPropagation();
-        let isFlagged = !messages.every(msg => msg.isStarred);
-        await Promise.all(messages.map(msg => msg.markStarred(isFlagged)));
         return;
       }
     }

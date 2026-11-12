@@ -23,7 +23,7 @@
   // Rows can be stacking contexts that paint over the menu, and they would get the menu's pointer and key events
   /* <copied from="SubMenu.svelte"> */
   function moveOutOfRow(node: HTMLElement) {
-    let target = node.closest("dialog") ?? node.closest(".lookout-window") ?? document.body;
+    let target = node.closest("dialog") ?? node.closest(".lookout-window") ?? node.ownerDocument.body;
     target.appendChild(node);
     return {
       destroy() {

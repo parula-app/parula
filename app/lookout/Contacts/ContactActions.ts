@@ -18,6 +18,7 @@ import { showMessageBox, askYesNo } from "../Shared/Dialog/MessageBox";
 import { appName } from "../../logic/build";
 import { openExternalURL } from "../../logic/util/os-integration";
 import { goTo, openApp } from "../../frontend/AppsBar/selectedApp";
+import { AppWindow } from "../../frontend/MainWindow/AppWindow";
 import { contactsMustangApp } from "../../frontend/Contacts/ContactsMustangApp";
 import { URLPart } from "../../logic/util/blob";
 import { assert } from "../../logic/util/util";
@@ -87,8 +88,9 @@ export class ContactActions {
 
   static closeForm(savedContact: Contact | null) {
     if (savedContact) {
-      selectedContact.set(savedContact);
-      selectedPerson.set(savedContact instanceof Person ? savedContact : null);
+      let appWindow = AppWindow.current().mainWindow;
+      appWindow.uiState(selectedContact).set(savedContact);
+      appWindow.uiState(selectedPerson).set(savedContact instanceof Person ? savedContact : null);
     }
     goTo("/contacts", {});
   }
@@ -102,14 +104,15 @@ export class ContactActions {
 
   static async deleteContacts(contacts: Contact[]): Promise<boolean> {
     assert(contacts.length, gt`Please select a contact first`);
+    let appWindow = AppWindow.current();
     let saved = contacts.filter(contact => !ContactActions.isUnsaved(contact));
     if (saved.length && !await showMessageBox(gt`Delete`, saved.length == 1
         ? gt`Do you want to permanently delete the contact ${saved[0].name}?`
         : gt`Do you want to permanently delete the ${saved.length} selected contacts?`)) {
       return false;
     }
-    if (contacts.includes(get(newPerson))) {
-      newPerson.set(null);
+    if (contacts.includes(get(appWindow.uiState(newPerson)))) {
+      appWindow.uiState(newPerson).set(null);
     }
     await Promise.all(saved.map(contact => contact.deleteIt()));
     return true;
@@ -173,9 +176,10 @@ export class ContactActions {
   }
 
   static show(contact: Contact) {
-    selectedAddressbook.set(null);
-    selectedContact.set(contact);
-    selectedPerson.set(contact instanceof Person ? contact : null);
+    let appWindow = AppWindow.current().mainWindow;
+    appWindow.uiState(selectedAddressbook).set(null);
+    appWindow.uiState(selectedContact).set(contact);
+    appWindow.uiState(selectedPerson).set(contact instanceof Person ? contact : null);
     openApp(contactsMustangApp, {});
   }
 
@@ -184,13 +188,14 @@ export class ContactActions {
   }
 
   static async deleteFolder(addressbook: Addressbook) {
+    let appWindow = AppWindow.current();
     if (!await askYesNo(gt`Delete Folder`, addressbook.protocol == "addressbook-local"
         ? gt`Are you sure that you want to delete the address book "${addressbook.name}" and all contacts in it?`
         : gt`Do you want to remove the address book "${addressbook.name}" from ${appName}? This does not change the address book on the server.`)) {
       return;
     }
-    if (get(selectedAddressbook) == addressbook) {
-      selectedAddressbook.set(null);
+    if (get(appWindow.uiState(selectedAddressbook)) == addressbook) {
+      appWindow.uiState(selectedAddressbook).set(null);
     }
     await addressbook.deleteIt();
   }

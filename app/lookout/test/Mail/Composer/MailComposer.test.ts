@@ -9,6 +9,9 @@ import { DummyMailStorage } from "../../../../logic/Mail/Store/DummyMailStorage"
 import { PersonUID } from "../../../../logic/Abstract/PersonUID";
 import { sleep } from "../../../../logic/util/util";
 import MailComposer from "../../../Mail/Composer/MailComposer.svelte";
+import LookoutComposerWindow from "../../../Mail/Composer/ComposerWindow.svelte";
+import { mailMustangApp } from "../../../../frontend/Mail/MailMustangApp";
+import { AppWindow } from "../../../../frontend/MainWindow/AppWindow";
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
@@ -24,7 +27,7 @@ beforeAll(() => {
 
 let account: MailAccount;
 let mail: EMail;
-let compose: { send: () => Promise<void>, saveAsDraft: () => Promise<void> };
+let compose: { send: (onClose: () => void) => Promise<void>, saveAsDraft: () => Promise<void> };
 let app: Record<string, any> | null = null;
 
 beforeEach(async () => {
@@ -61,7 +64,9 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
-  unmount(app);
+  if (app) {
+    unmount(app);
+  }
   app = null;
   document.body.innerHTML = "";
   appGlobal.emailAccounts.remove(account);
@@ -150,4 +155,89 @@ test("macOS: Option+S types ß, so it doesn't send", async () => {
   await sleep(0.01);
   expect(compose.send).toHaveBeenCalledTimes(1);
   expect(compose.saveAsDraft).toHaveBeenCalledTimes(1);
+});
+
+/** Stands in for the composer's own window */
+class ComposerWindow extends AppWindow {
+  constructor() {
+    super(window, "composer", AppWindow.main);
+  }
+}
+
+/** Mounts the composer again, as in its own window */
+async function mountInComposerWindow(): Promise<ComposerWindow> {
+  unmount(app);
+  document.body.innerHTML = "";
+  let composerWindow = new ComposerWindow();
+  vi.spyOn(composerWindow, "close").mockImplementation(() => {});
+  let target = document.createElement("div");
+  document.body.append(target);
+  app = mount(MailComposer, { target, props: { mail, autofocus: false }, context: new Map([["appWindow", composerWindow]]) });
+  flushSync();
+  await vi.waitFor(() => expect(document.querySelector(".composer [contenteditable]")).not.toBe(null));
+  return composerWindow;
+}
+
+function popOutButton(): HTMLButtonElement | undefined {
+  return [...document.querySelectorAll<HTMLButtonElement>(".title-buttons button")]
+    .find(button => button.textContent.includes("Pop Out"));
+}
+
+const kOwnText = "<p>" + "This is what I want to say about it. ".repeat(4) + "</p>";
+
+test("Pop Out on the composer page opens Lookout's composer in its own window", async () => {
+  let open = vi.spyOn(AppWindow.prototype, "open").mockImplementation(async () => null);
+  vi.spyOn(AppWindow.main.window.history, "go").mockImplementation(() => {});
+  popOutButton().click();
+  await sleep(0.01);
+  expect(open).toHaveBeenCalledWith(LookoutComposerWindow, { mail }, 1000);
+});
+
+test("In its own window, the composer has no Pop Out, and Close closes the window", async () => {
+  let composerWindow = await mountInComposerWindow();
+  expect(popOutButton()).toBeUndefined();
+  document.querySelector<HTMLButtonElement>(".title-buttons .close").click();
+  flushSync();
+  expect(composerWindow.close).toHaveBeenCalledTimes(1);
+  unmount(app);
+  app = null;
+  await sleep(0.01);
+  expect(compose.saveAsDraft).not.toHaveBeenCalled();
+});
+
+test("When the user closes the composer's window, it saves the draft, if the user wrote text", async () => {
+  await mountInComposerWindow();
+  unmount(app);
+  app = null;
+  await sleep(0.01);
+  expect(compose.saveAsDraft).not.toHaveBeenCalled();
+
+  await mountInComposerWindow();
+  // The sanitizer doesn't work in happy-dom
+  vi.spyOn(mail, "html", "get").mockReturnValue(kOwnText);
+  unmount(app);
+  app = null;
+  await sleep(0.01);
+  expect(compose.saveAsDraft).toHaveBeenCalledTimes(1);
+});
+
+test("Send closes the composer's window, and a failed send opens the composer again", async () => {
+  let composerWindow = await mountInComposerWindow();
+  let writeMail = vi.spyOn(mailMustangApp, "writeMail").mockImplementation(() => {});
+  compose.send = vi.fn(async (onClose: () => void) => onClose());
+  expect(handled("Enter", { ctrlKey: true })).toBe(true);
+  await sleep(0.01);
+  expect(composerWindow.close).toHaveBeenCalledTimes(1);
+  expect(writeMail).not.toHaveBeenCalled();
+
+  composerWindow = await mountInComposerWindow();
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  compose.send = vi.fn(async (onClose: () => void) => {
+    onClose();
+    throw new Error("Server not reachable");
+  });
+  expect(handled("Enter", { ctrlKey: true })).toBe(true);
+  await sleep(0.01);
+  expect(composerWindow.close).toHaveBeenCalledTimes(1);
+  expect(writeMail).toHaveBeenCalledWith(mail);
 });

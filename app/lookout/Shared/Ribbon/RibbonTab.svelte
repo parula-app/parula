@@ -24,12 +24,14 @@
     <div class="more-menu-group" use:hostGroupBody={group}></div>
   {/each}
 </div>
-<svelte:window on:click={onClickOutside} on:keydown={onKeyDown} on:resize={closeMoreMenu} />
+<AppWindowEvents on:click={onClickOutside} on:keydown={onKeyDown} on:resize={closeMoreMenu} />
 
 <script lang="ts">
   import { fitGroupStages, isOverflowStage, type RibbonGroupInfo, type RibbonLayout, type RibbonMetrics, type RibbonTabInfo } from "./RibbonGroup";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import RibbonButtonBase from "./RibbonButtonBase.svelte";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import MoreIcon from "lucide-svelte/icons/ellipsis";
   import { getContext, setContext, onDestroy } from "svelte";
   import { writable, type Readable, type Writable } from "svelte/store";
@@ -39,6 +41,7 @@
   export let contextual = false;
   export let isSelected = false;
 
+  const appWindow = AppWindow.current();
   const tabs = getContext<Writable<RibbonTabInfo[]>>("ribbonTabs");
   const selectedTab = getContext<Writable<RibbonTabInfo>>("ribbonSelectedTab");
   const isSurveying = getContext<Readable<boolean>>("ribbonIsSurveying");
@@ -147,7 +150,7 @@
       return;
     }
     let anchor = moreEl.getBoundingClientRect();
-    let right = Math.max(4, window.innerWidth - anchor.right);
+    let right = Math.max(4, appWindow.window.innerWidth - anchor.right);
     moreMenuStyle = `right: ${right}px; top: ${anchor.bottom + 4}px;`;
     isMoreMenuOpen = true;
   }
@@ -159,11 +162,11 @@
   }
 
   function onClickOutside(event: MouseEvent) {
-    let target = event.target as Node;
+    let target = event.target as HTMLElement;
     if (!isMoreMenuOpen || moreMenuEl?.contains(target) || moreEl?.contains(target)) {
       return;
     }
-    if (target instanceof Element && target.closest(".popup")) {
+    if (target?.closest?.(".popup")) {
       return;
     }
     closeMoreMenu();

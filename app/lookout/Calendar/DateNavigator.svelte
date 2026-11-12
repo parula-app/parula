@@ -60,7 +60,7 @@
       onClick={() => chooseMonth(choice)} />
   {/each}
 </Menu>
-<svelte:window on:mouseup={onDragEnd} />
+<AppWindowEvents on:mouseup={onDragEnd} />
 
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
@@ -71,6 +71,7 @@
   import { shownCalendarEvents } from "../../frontend/Calendar/selected";
   import Menu from "../Shared/Menu/Menu.svelte";
   import MenuItem from "../Shared/Menu/MenuItem.svelte";
+  import AppWindowEvents from "../../frontend/MainWindow/AppWindowEvents.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";
   import NextIcon from "lucide-svelte/icons/chevron-right";
   import { createEventDispatcher } from "svelte";

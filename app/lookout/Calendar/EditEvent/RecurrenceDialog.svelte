@@ -121,14 +121,8 @@
   </svelte:fragment>
 </Dialog>
 
-<script lang="ts" context="module">
-  import type { Event } from "../../../logic/Calendar/Event";
-  import { writable } from "svelte/store";
-
-  export const openRecurrence = writable<Event | null>(null);
-</script>
-
 <script lang="ts">
+  import type { Event } from "../../../logic/Calendar/Event";
   import type { EventEditFlow } from "./EventEditFlow";
   import { EventTimeEditor } from "./EventTimeEditor";
   import { RecurrencePattern, type MonthlyMode } from "./RecurrencePattern";

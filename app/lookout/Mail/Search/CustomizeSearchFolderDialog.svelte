@@ -16,13 +16,6 @@
   <SearchFolderCriteriaDialog {search} on:change={() => { search = search; }} on:close={() => { isEditingCriteria = false; }} />
 {/if}
 
-<script lang="ts" context="module">
-  import type { SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
-  import { writable } from "svelte/store";
-
-  export const openCustomizeSearchFolder = writable<SavedSearchFolder | null>(null);
-</script>
-
 <script lang="ts">
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import type { SearchEMail } from "../../../logic/Mail/Store/SearchEMail";

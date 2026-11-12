@@ -12,6 +12,7 @@ export class EventDrag {
   protected readonly startX: number;
   protected readonly startY: number;
   protected readonly originTarget: HTMLElement | null;
+  protected readonly doc: Document;
   protected target: HTMLElement | null;
   protected navigatorTarget: HTMLElement | null = null;
   protected originalHeight: string | null = null;
@@ -27,6 +28,7 @@ export class EventDrag {
     this.targetClass = mode == "move-days" ? "drop-day" : "day-column";
     this.startX = pointerEvent.clientX;
     this.startY = pointerEvent.clientY;
+    this.doc = (pointerEvent.target as Node).ownerDocument;
     this.originTarget = this.targetAt(pointerEvent.clientX, pointerEvent.clientY, null);
     this.target = this.originTarget;
   }
@@ -78,7 +80,7 @@ export class EventDrag {
 
   preview(element: HTMLElement) {
     if (this.navigatorTarget || this.mode == "move-days") {
-      for (let marked of document.querySelectorAll(".drop-target")) {
+      for (let marked of this.doc.querySelectorAll(".drop-target")) {
         marked.classList.remove("drop-target");
       }
       (this.navigatorTarget ?? this.target)?.classList.add("drop-target");
@@ -118,13 +120,13 @@ export class EventDrag {
   }
 
   protected targetAt(x: number, y: number, group: string | null | undefined): HTMLElement | null {
-    let elements = document.elementsFromPoint(x, y) as HTMLElement[];
+    let elements = this.doc.elementsFromPoint(x, y) as HTMLElement[];
     return elements.find(element => element.classList.contains(this.targetClass) &&
       (group === null || element.dataset.group == group)) ?? null;
   }
 
   protected navigatorDayAt(x: number, y: number): HTMLElement | null {
-    let elements = document.elementsFromPoint(x, y) as HTMLElement[];
+    let elements = this.doc.elementsFromPoint(x, y) as HTMLElement[];
     return elements.find(element => element.dataset.navDay) ?? null;
   }
 

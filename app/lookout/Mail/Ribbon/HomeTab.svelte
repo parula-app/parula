@@ -117,7 +117,7 @@
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import { appGlobal } from "../../../logic/app";
   import { MessageActions } from "../MessageActions";
-  import { openMoveMessages } from "../Message/MessageMovePopup.svelte";
+  import { openMoveMessages } from "../Selected";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
   import RibbonButton from "../../Shared/Ribbon/RibbonButton.svelte";

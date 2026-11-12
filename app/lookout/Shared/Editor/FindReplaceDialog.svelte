@@ -36,6 +36,7 @@
   import DialogTabs from "../Dialog/DialogTabs.svelte";
   import TextField from "../Form/TextField.svelte";
   import Checkbox from "../Form/Checkbox.svelte";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import type { Editor } from "@tiptap/core";
   import { createEventDispatcher, onDestroy } from "svelte";
   import { t } from "../../../l10n/l10n";
@@ -43,6 +44,7 @@
   export let editor: Editor;
   export let replaceMode = false;
 
+  const appWindow = AppWindow.current();
   const dispatch = createEventDispatcher<{ close: void }>();
 
   let tab = replaceMode ? "replace" : "find";
@@ -53,7 +55,7 @@
   let showOptions = false;
   let status = "";
 
-  onDestroy(() => clearFound());
+  onDestroy(() => clearFound(appWindow.window.document));
 
   function toggleOptions() {
     showOptions = !showOptions;
@@ -68,7 +70,7 @@
   }
 
   function onReplaceAll() {
-    clearFound();
+    clearFound(appWindow.window.document);
     let count = replaceAllMatches(editor, term, replacement, matchCase);
     status = count ? $t`All done. ${count} replacements were made.` : $t`The search item was not found`;
   }

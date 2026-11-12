@@ -40,7 +40,7 @@
                 {highlight}
                 on:toggleThread={() => toggleThread(row.message)}
                 on:click={event => onClickMessage(row.message, event)}
-                on:dblclick={() => catchErrors(() => MessageActions.openDraft(row.message))}
+                on:dblclick={event => catchErrors(() => onDoubleClick(row.message, event))}
                 on:contextmenu={event => onContextMenu(row.message, event)} />
             {:else}
               <VerticalMessageListItem message={row.message}
@@ -56,7 +56,7 @@
                 {showFolder}
                 on:toggleThread={() => toggleThread(row.message)}
                 on:click={event => onClickMessage(row.message, event)}
-                on:dblclick={() => catchErrors(() => MessageActions.openDraft(row.message))}
+                on:dblclick={event => catchErrors(() => onDoubleClick(row.message, event))}
                 on:contextmenu={event => onContextMenu(row.message, event)} />
             {/if}
           </div>
@@ -94,6 +94,10 @@
   import { catchErrors, minorError } from "../../../frontend/Util/error";
   import { tick } from "svelte";
   import { t } from "../../../l10n/l10n";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import MessageWindow from "../Message/MessageWindow.svelte";
+
+  const appWindow = AppWindow.current();
 
   export let messages: Collection<EMail>;
   export let folder: Folder | null;
@@ -342,6 +346,17 @@
       return;
     }
     toggleGroup(group.id);
+  }
+
+  async function onDoubleClick(message: EMail, event: MouseEvent) {
+    if ((event.target as Element).closest("button")) {
+      return;
+    }
+    if (message.isDraft || message.folder?.specialFolder == SpecialFolder.Drafts) {
+      await MessageActions.openDraft(message);
+      return;
+    }
+    await appWindow.open(MessageWindow, { message }, 1000);
   }
 
   let anchor: EMail | null = null;

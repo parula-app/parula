@@ -19,7 +19,7 @@
   import { appGlobal } from "../../../logic/app";
   import { recentFolders } from "../RecentFolders";
   import { MessageActions } from "../MessageActions";
-  import { openMoveMessages } from "./MessageMovePopup.svelte";
+  import { openMoveMessages } from "../Selected";
   import { FolderTreeActions } from "../LeftPane/FolderTreeActions";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";

@@ -42,22 +42,25 @@ export function findNext(editor: Editor, term: string, matchCase = false): boole
 }
 
 function showFound(editor: Editor, found: TextRange) {
-  if (typeof CSS == "undefined" || !CSS.highlights) {
+  let doc = editor.view.dom.ownerDocument;
+  let win = doc.defaultView;
+  if (!win?.CSS?.highlights) {
     return;
   }
   let start = editor.view.domAtPos(found.from);
   let end = editor.view.domAtPos(found.to);
-  let range = document.createRange();
+  let range = doc.createRange();
   range.setStart(start.node, start.offset);
   range.setEnd(end.node, end.offset);
-  CSS.highlights.set(kHighlightName, new Highlight(range));
+  win.CSS.highlights.set(kHighlightName, new win.Highlight(range));
 }
 
-export function clearFound() {
-  if (typeof CSS == "undefined" || !CSS.highlights) {
+export function clearFound(doc: Document) {
+  let win = doc.defaultView;
+  if (!win?.CSS?.highlights) {
     return;
   }
-  CSS.highlights.delete(kHighlightName);
+  win.CSS.highlights.delete(kHighlightName);
 }
 
 export function replaceMatch(editor: Editor, term: string, replacement: string, matchCase = false): boolean {

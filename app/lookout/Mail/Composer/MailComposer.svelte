@@ -1,6 +1,6 @@
 <vbox flex class="composer-page" class:inline={isInline} on:keydown|capture={event => catchErrors(() => onKey(event))}>
   {#if !isInline}
-    <ComposerRibbon {mail} {editor} bind:showEmojis bind:openedTool />
+    <ComposerRibbon {mail} {editor} bind:showEmojis bind:openedTool {onSelectNames} {onCheckNames} {onEditSignatures} />
   {/if}
   <vbox flex class="composer" class:lo-card={!isInline} on:keydown={onEscape}>
     <FileDropTarget
@@ -12,8 +12,8 @@
           <DialogButton label={$t`Discard`} icon={DiscardIcon} classes="plain"
             tooltip={$t`Discard this response`}
             onClick={onDiscard} />
-          <DialogButton label={$t`Pop Out *=> Open this reply in its own message page`} icon={PopOutIcon} classes="plain"
-            tooltip={$t`Open this response in its own message page`}
+          <DialogButton label={$t`Pop Out *=> Open the message in its own window`} icon={PopOutIcon} classes="plain"
+            tooltip={$t`Open in a separate window`}
             onClick={onPopOut} />
         </hbox>
       {:else}
@@ -27,6 +27,11 @@
               onClick={onSave} />
             <DialogButton label={$t`Discard`} icon={DiscardIcon} classes="plain"
               onClick={onDiscard} />
+            {#if appWindow.isMainWindow}
+              <DialogButton label={$t`Pop Out *=> Open the message in its own window`} icon={PopOutIcon} classes="plain"
+                tooltip={$t`Open in a separate window`}
+                onClick={onPopOut} />
+            {/if}
             <button class="close" title={$t`Close`} aria-label={$t`Close`} on:click={onCloseRequest}>
               <CloseIcon size={18} />
             </button>
@@ -47,7 +52,7 @@
               bind:fromAddress={mail.from.emailAddress}
               bind:fromName={mail.from.name} />
           {/if}
-          <button class="field-button" on:click={() => $openSelectNames = { mail, field: RecipientField.To }} tabindex={-1}
+          <button class="field-button" on:click={() => selectNamesField = RecipientField.To} tabindex={-1}
             title={$t`Select recipients from the address book`}>
             {$t`To`}
           </button>
@@ -55,7 +60,7 @@
             <MailAutocomplete addresses={mail.to} label={$t`To`} chips={isChips} tabindex={1} askForName
               autofocus={autofocus && mail.to.isEmpty} on:add={event => onRecipientAdded(event.detail)} bind:this={toField} />
           </hbox>
-          <button class="field-button" on:click={() => $openSelectNames = { mail, field: RecipientField.Cc }} tabindex={-1}
+          <button class="field-button" on:click={() => selectNamesField = RecipientField.Cc} tabindex={-1}
             title={$t`Select recipients from the address book`}>
             {$t`Cc`}
           </button>
@@ -64,7 +69,7 @@
               on:add={event => onRecipientAdded(event.detail)} bind:this={ccField} />
           </hbox>
           {#if showBCC}
-            <button class="field-button" on:click={() => $openSelectNames = { mail, field: RecipientField.Bcc }} tabindex={-1}
+            <button class="field-button" on:click={() => selectNamesField = RecipientField.Bcc} tabindex={-1}
               title={$t`Select recipients from the address book`}>
               {$t`Bcc`}
             </button>
@@ -117,8 +122,8 @@
 </vbox>
 
 {#if isSelectNamesOpen}
-  <SelectNamesDialog {mail} defaultField={$openSelectNames.field}
-    on:close={() => $openSelectNames = null} />
+  <SelectNamesDialog {mail} defaultField={selectNamesField}
+    on:close={() => selectNamesField = null} />
 {/if}
 {#if showSaveChanges}
   <SaveChangesDialog
@@ -127,20 +132,12 @@
     on:close={() => showSaveChanges = false} />
 {/if}
 {#if showSignatures}
-  <SignaturesDialog identity={fromIdentity} on:close={() => $openSignatures = null} />
+  <SignaturesDialog identity={fromIdentity} on:close={() => showSignatures = false} />
 {/if}
 <EditorToolDialogs {editor} bind:openedTool />
 
-<script lang="ts" context="module">
-  import type { EMail } from "../../../logic/Mail/EMail";
-  import { EditorTool } from "../../Shared/Editor/EditorTool";
-  import { writable } from "svelte/store";
-
-  export const checkNamesOf = writable<EMail | null>(null);
-  export const openEditorTool = writable<{ mail: EMail, tool: EditorTool } | null>(null);
-</script>
-
 <script lang="ts">
+  import type { EMail } from "../../../logic/Mail/EMail";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
   import { findAllIdentities, type MailIdentity } from "../../../logic/Mail/MailIdentity";
@@ -151,20 +148,21 @@
   import { WriteMailMustangApp, mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import type { RibbonLayout } from "../../Shared/Ribbon/RibbonGroup";
+  import { EditorTool } from "../../Shared/Editor/EditorTool";
   import { removeInlineReply } from "./InlineReplies";
+  import { MessageActions } from "../MessageActions";
   import { inlineRibbon } from "../Selected";
   import { get } from "svelte/store";
-  import { MessageActions } from "../MessageActions";
   import { goBack } from "../../../frontend/AppsBar/selectedApp";
   import { minorError, catchErrors, showError, showUserError } from "../../../frontend/Util/error";
   import { isTextField } from "../../Util/util";
   import { getOSName } from "../../../frontend/Util/util";
   import { getMyPrivateKey } from "../../../logic/Mail/Encryption/KeyUtils";
-  import { hasUserText } from "./DraftContent";
+  import { hasOwnText } from "../../../frontend/Mail/Composer/CloseButton.svelte";
   import ComposerRibbon from "./ComposerRibbon.svelte";
-  import SelectNamesDialog, { RecipientField, openSelectNames } from "./SelectNamesDialog.svelte";
+  import SelectNamesDialog, { RecipientField } from "./SelectNamesDialog.svelte";
   import SaveChangesDialog from "./SaveChangesDialog.svelte";
-  import SignaturesDialog, { openSignatures } from "./SignaturesDialog.svelte";
+  import SignaturesDialog from "./SignaturesDialog.svelte";
   import EditorToolDialogs from "../../Shared/Editor/EditorToolDialogs.svelte";
   import EmojiPane from "../../Shared/Editor/EmojiPane.svelte";
   import UndoRedoButtons from "../../Shared/Editor/UndoRedoButtons.svelte";
@@ -187,6 +185,9 @@
   import { t } from "../../../l10n/l10n";
   import { onDestroy, tick } from "svelte";
   import type { Editor } from "@tiptap/core";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let mail: EMail;
   export let isInline = false;
@@ -205,9 +206,10 @@
   const showBccSetting = getLocalStorage<boolean>("lookout.mail.compose.showBcc", false);
   let encryptionError: string | null = null;
   let showEmojis = false;
-  $: isSelectNamesOpen = $openSelectNames?.mail == mail;
+  let selectNamesField: RecipientField | null = null;
+  $: isSelectNamesOpen = !!selectNamesField;
   let showSaveChanges = false;
-  $: showSignatures = $openSignatures == mail;
+  let showSignatures = false;
   let openedTool: EditorTool | null = null;
   let ribbonLayout = getLocalStorage<RibbonLayout>("lookout.ribbon.layout", "classic");
   $: isChips = $ribbonLayout.value == "simplified";
@@ -215,7 +217,7 @@
   let ccField: MailAutocomplete;
   let bccField: MailAutocomplete;
 
-  // <copied from="../../../frontend/Mail/Composer/MailComposer.svelte">
+  // <copied from="../../../frontend/Mail/Composer/MailComposer.svelte">, plus inline replies
   // HACK to reload the HTMLEditor to force it to load the new text
   // See <https://github.com/ueberdosis/tiptap/issues/4918>
   let lastMail = null;
@@ -319,7 +321,7 @@
       await mail.compose.send(onClose);
     } catch (ex) {
       if (closing) { // Already closed. Re-open, to not lose the mail.
-        mailMustangApp.writeMail(mail);
+        MessageActions.writeMail(mail);
       }
       throw ex;
     }
@@ -334,14 +336,35 @@
     }
     doOnClose = [];
     if (isInline) {
-      removeInlineReply(mail);
+      removeInlineReply(mail, appWindow);
       return;
     }
 
+    if (!appWindow.isMainWindow) {
+      appWindow.close();
+      return;
+    }
     let me = mailMustangApp.subApps.find(app => app instanceof WriteMailMustangApp && app.windowParams.mail == mail);
     mailMustangApp.subApps.remove(me);
     goBack();
   }
+
+  async function onPopOut() {
+    onClose();
+    await MessageActions.writeMailInNewWindow(mail);
+  }
+
+  /** The user closed the separate window of the composer */
+  onDestroy(() => {
+    if (closing || appWindow.isMainWindow || !hasOwnText(mail)) {
+      return;
+    }
+    mail.compose.saveAsDraft()
+      .catch(ex => {
+        showError(ex);
+        MessageActions.writeMail(mail);
+      });
+  });
 
   $: bccList = mail.bcc;
   $: attachmentsList = mail.attachments;
@@ -382,18 +405,14 @@
   // </copied>
 
   $: if (isInline && !closing) {
-    $inlineRibbon = { draft: mail, editor };
+    $inlineRibbon = { draft: mail, editor, onSelectNames, onCheckNames, onOpenTool, onEditSignatures };
   }
   onDestroy(() => {
-    if (get(inlineRibbon)?.draft == mail) {
-      inlineRibbon.set(null);
+    let ribbon = appWindow.uiState(inlineRibbon);
+    if (get(ribbon)?.draft == mail) {
+      ribbon.set(null);
     }
   });
-
-  function onPopOut() {
-    closing = true;
-    MessageActions.popOut(mail);
-  }
 
   async function onSendRequest() {
     if (sendDisabledTooltip) {
@@ -420,22 +439,25 @@
   }
 
   function onCloseRequest() {
-    if (hasUserText(mail.html)) {
+    if (hasOwnText(mail)) {
       showSaveChanges = true;
     } else {
       onClose();
     }
   }
 
-  $: if ($openEditorTool?.mail == mail) {
-    openedTool = $openEditorTool.tool;
-    $openEditorTool = null;
+  function onSelectNames(field: RecipientField) {
+    selectNamesField = field;
   }
 
-  $: if ($checkNamesOf == mail) {
-    $checkNamesOf = null;
-    catchErrors(onCheckNames);
+  function onOpenTool(tool: EditorTool) {
+    openedTool = tool;
   }
+
+  function onEditSignatures() {
+    showSignatures = true;
+  }
+
   async function onCheckNames() {
     let fields = [toField, ccField, bccField].filter(field => !!field);
     let errors: Error[] = [];

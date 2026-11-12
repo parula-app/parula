@@ -27,13 +27,6 @@
   </hbox>
 </Dialog>
 
-<script lang="ts" context="module">
-  import type { Folder } from "../../../logic/Mail/Folder";
-  import { writable } from "svelte/store";
-
-  export const openShowColumns = writable<{ folder: Folder | null } | null>(null);
-</script>
-
 <script lang="ts">
   import { Column, ColumnInfo } from "./ViewSettings";
   import Dialog from "../../Shared/Dialog/Dialog.svelte";

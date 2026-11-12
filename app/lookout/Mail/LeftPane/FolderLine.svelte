@@ -47,20 +47,14 @@
   <FolderMenu {folder} />
 </ContextMenu>
 
-<script lang="ts" context="module">
-  import type { Folder } from "../../../logic/Mail/Folder";
-  import { writable } from "svelte/store";
-
-  export const renamingFolder = writable<Folder | null>(null);
-</script>
-
 <script lang="ts">
-  import { SpecialFolder } from "../../../logic/Mail/Folder";
+  import { SpecialFolder, type Folder } from "../../../logic/Mail/Folder";
   import { AllFolders } from "../../../logic/Mail/Virtual/AllFolders";
   import { SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
   import { appGlobal } from "../../../logic/app";
   import { onDragOverMail } from "../../../frontend/Mail/Message/drag";
   import { MessageActions } from "../MessageActions";
+  import { renamingFolder } from "../Selected";
   import { FolderCountMode, FolderTreeActions } from "./FolderTreeActions";
   import FolderMenu from "./FolderMenu.svelte";
   import ConnectButton from "./ConnectButton.svelte";
@@ -93,7 +87,6 @@
     $expandedIDs.value = ids;
   }
   /* </copied> */
-  const renaming = renamingFolder;
   const accounts = appGlobal.emailAccounts;
 
   $: name = $folder && FolderTreeActions.displayName(folder);
@@ -148,7 +141,7 @@
     catchErrors(() => MessageActions.dropMessages(event, folder));
   }
 
-  $: isRenaming = $renaming == folder;
+  $: isRenaming = $renamingFolder == folder;
   let newName = "";
   $: if (isRenaming) {
     newName = folder.name;
@@ -159,7 +152,7 @@
       finishRename();
     } else if (event.key == "Escape") {
       event.preventDefault();
-      $renaming = null;
+      $renamingFolder = null;
     }
     event.stopPropagation();
   }
@@ -167,7 +160,7 @@
     if (!isRenaming) {
       return;
     }
-    $renaming = null;
+    $renamingFolder = null;
     catchErrors(() => FolderTreeActions.rename(folder, newName));
   }
   function focusAndSelect(input: HTMLInputElement) {

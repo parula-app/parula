@@ -102,11 +102,8 @@
   import type { SearchEMail } from "../../../logic/Mail/Store/SearchEMail";
   import { availableTags } from "../../../logic/Abstract/Tag";
   import { isRealFolder, isRealAccount, isScopeAvailable, effectiveScope, scopeLabel, scopeShortLabel, SearchScope } from "../Search/MailSearch";
-  import { isAdvancedSearchOpen, searchOptions } from "../Selected";
+  import { isAdvancedSearchOpen, searchOptions, openSearchPerson, openSaveSearch, openRulesFromSearch } from "../Selected";
   // import { ReceivedRange, receivedRangeLabel } from "../Search/SearchRanges";
-  import { openSearchPerson } from "../Search/SearchPersonDialog.svelte";
-  import { openSaveSearch } from "../Search/SavedSearchUI.svelte";
-  import { openRulesFromSearch } from "../Search/RulesFromSearchUI.svelte";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
   import RibbonButton from "../../Shared/Ribbon/RibbonButton.svelte";

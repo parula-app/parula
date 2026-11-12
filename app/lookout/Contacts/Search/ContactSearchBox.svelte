@@ -14,15 +14,10 @@
   {/if}
 </hbox>
 
-<script lang="ts" context="module">
-  import { writable } from "svelte/store";
-
-  export const contactSearchInput = writable<HTMLInputElement | null>(null);
-</script>
-
 <script lang="ts">
   import { defaultContactSearchOptions } from "../ContactSearch";
-  import { contactSearchOptions as options } from "../Person/Selected";
+  import { contactSearchOptions as options, contactSearchInput } from "../Person/Selected";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import SearchIcon from "lucide-svelte/icons/search";
   import { onDestroy } from "svelte";
   import CloseIcon from "lucide-svelte/icons/x";
@@ -30,9 +25,10 @@
 
   export let placeholder: string;
 
+  const appWindow = AppWindow.current();
   let inputEl: HTMLInputElement;
   $: $contactSearchInput = inputEl ?? null;
-  onDestroy(() => $contactSearchInput = null);
+  onDestroy(() => appWindow.uiState(contactSearchInput).set(null));
 
   // <copied from="../ContactsAppD.svelte">
   function closeSearch() {

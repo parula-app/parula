@@ -48,14 +48,11 @@
 </Dialog>
 
 <script lang="ts" context="module">
-  import type { Calendar } from "../../logic/Calendar/Calendar";
-  import { writable } from "svelte/store";
-
   export type CalendarPropertiesTab = "general" | "permissions";
-  export const openCalendarProperties = writable<{ calendar: Calendar, tab: CalendarPropertiesTab } | null>(null);
 </script>
 
 <script lang="ts">
+  import type { Calendar } from "../../logic/Calendar/Calendar";
   import { MailAccount } from "../../logic/Mail/MailAccount";
   import { calendarColors } from "./CalendarColors";
   import { CalendarGroups } from "./CalendarGroups";

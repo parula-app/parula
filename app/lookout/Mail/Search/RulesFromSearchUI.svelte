@@ -1,13 +1,7 @@
 <RulesWizard {rule} on:finish={event => catchErrors(() => onFinish(event.detail))} on:close={onClose} />
 
-<script lang="ts" context="module">
-  import { SearchEMail } from "../../../logic/Mail/Store/SearchEMail";
-  import { writable } from "svelte/store";
-
-  export const openRulesFromSearch = writable<SearchEMail | null>(null);
-</script>
-
 <script lang="ts">
+  import { SearchEMail } from "../../../logic/Mail/Store/SearchEMail";
   import { FilterRuleAction } from "../../../logic/Mail/FilterRules/FilterRuleAction";
   import { selectedAccount, selectedFolder } from "../../../frontend/Mail/Selected";
   import { isRealFolder, isRealAccount } from "./MailSearch";

@@ -48,17 +48,17 @@
   </RibbonGroup>
   <RibbonGroup label={$t`Names *=> Ribbon group with commands for the recipient names`}>
     <RibbonButton label={$t`Address Book`} icon={AddressBookIcon}
-      onClick={() => { $openSelectNames = { mail, field: RecipientField.To }; }} />
+      onClick={() => onSelectNames(RecipientField.To)} />
     <RibbonButton label={$t`Check Names`} icon={CheckNamesIcon}
       tooltip={$t`Check the names you typed in the To, Cc and Bcc boxes against your address books`}
-      onClick={() => { $checkNamesOf = mail; }} />
+      onClick={onCheckNames} />
   </RibbonGroup>
   <RibbonGroup label={$t`Include *=> Ribbon group to add files, links and signatures to the email`} icon={AttachIcon}>
     <RibbonButton label={$t`Attach File`} icon={AttachIcon} size="small" onClick={onAddAttachment} />
     <RibbonButton label={$t`Link *=> Insert or edit a link in the text`} icon={LinkIcon} size="small" shortCutInfo={$t`Ctrl+K *=> Keyboard shortcut`}
-      disabled={!editor} onClick={() => { $openEditorTool = { mail, tool: EditorTool.Link }; }} />
+      disabled={!editor} onClick={() => onOpenTool(EditorTool.Link)} />
     <RibbonMenuButton label={$t`Signature`} icon={SignatureIcon} size="small">
-      <SignatureMenuItems {identity} {editor} on:editSignatures={() => { $openSignatures = mail; }} />
+      <SignatureMenuItems {identity} {editor} on:editSignatures={onEditSignatures} />
     </RibbonMenuButton>
   </RibbonGroup>
   {#if isInline}
@@ -87,9 +87,7 @@
   import RibbonMenuButton from "../../Shared/Ribbon/RibbonMenuButton.svelte";
   import RibbonSplitButton from "../../Shared/Ribbon/RibbonSplitButton.svelte";
   import RibbonButtonRow from "../../Shared/Ribbon/RibbonButtonRow.svelte";
-  import { checkNamesOf, openEditorTool } from "./MailComposer.svelte";
-  import { openSelectNames, RecipientField } from "./SelectNamesDialog.svelte";
-  import { openSignatures } from "./SignaturesDialog.svelte";
+  import { RecipientField } from "./SelectNamesDialog.svelte";
   import SignatureMenuItems from "./SignatureMenuItems.svelte";
   import ShowFieldsGroup from "./ShowFieldsGroup.svelte";
   import EncryptionButtons from "./EncryptionButtons.svelte";
@@ -121,6 +119,10 @@
   export let mail: EMail;
   export let editor: Editor | null;
   export let isInline = false;
+  export let onSelectNames: (field: RecipientField) => void;
+  export let onCheckNames: () => Promise<void>;
+  export let onOpenTool: (tool: EditorTool) => void;
+  export let onEditSignatures: () => void;
 
   const spellcheck = getLocalStorage<boolean>("mail.send.spellcheck.enabled", false);
   $: identity = mail.identity;

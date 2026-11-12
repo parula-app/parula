@@ -23,14 +23,8 @@
     on:close={() => { isCreating = false; }} />
 {/if}
 
-<script lang="ts" context="module">
-  import type { EMail } from "../../../logic/Mail/EMail";
-  import { writable } from "svelte/store";
-
-  export const openMoveMessages = writable<{ messages: EMail[], copy: boolean } | null>(null);
-</script>
-
 <script lang="ts">
+  import type { EMail } from "../../../logic/Mail/EMail";
   import type { Folder } from "../../../logic/Mail/Folder";
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import { MessageActions } from "../MessageActions";

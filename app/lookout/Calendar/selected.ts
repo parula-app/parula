@@ -1,5 +1,6 @@
 import type { Event } from "../../logic/Calendar/Event";
 import type { Calendar } from "../../logic/Calendar/Calendar";
+import type { CalendarPropertiesTab } from "./CalendarPropertiesDialog.svelte";
 import { shownCalendars } from "../../frontend/Calendar/selected";
 import { k1MinuteMS } from "../../logic/util/date";
 import { EventTable } from "./ListView/EventTable";
@@ -7,6 +8,7 @@ import { appGlobal } from "../../logic/app";
 import { mergeColls, type Collection } from "svelte-collections";
 import { TimeZoneRuler } from "./TimeZones";
 import { getLocalStorage } from "../../frontend/Util/LocalStorage";
+import { AppWindow } from "../../frontend/MainWindow/AppWindow";
 import { derived, readable, writable, type Readable } from "svelte/store";
 
 export type CalendarViewType = "day" | "workweek" | "week" | "month" | "schedule" | "dual";
@@ -36,15 +38,15 @@ export interface CalendarSearchOptions {
   organizerEMail: string | null;
 }
 
-export const calendarSearchOptions = writable<CalendarSearchOptions>({
+export const calendarSearchOptions = AppWindow.perWindow(() => writable<CalendarSearchOptions>({
   scope: CalendarSearchScope.AllCalendarItems,
   isRecurring: false,
   hasAttachments: false,
   organizerEMail: null,
-});
+}));
 
-export const listedEvents: Collection<Event> =
-  mergeColls(shownCalendars.map(calendar => calendar.events)).filterObservable(event => EventTable.isListed(event));
+export const listedEvents: Collection<Event> = AppWindow.perWindow(appWindow =>
+  mergeColls(appWindow.uiState(shownCalendars).map(calendar => calendar.events)).filterObservable(event => EventTable.isListed(event)));
 export const allListedEvents: Collection<Event> =
   mergeColls(appGlobal.calendars.map(calendar => calendar.events)).filterObservable(event => EventTable.isListed(event));
 
@@ -60,10 +62,13 @@ export interface EventPeek {
   anchor: HTMLElement;
 }
 
-export const selectedSlots = writable<SlotSelection | null>(null);
+export const selectedSlots = AppWindow.perWindow(() => writable<SlotSelection | null>(null));
 export const updatingCount = writable(0);
-export const eventPeek = writable<EventPeek | null>(null);
-export const inlineTitle = writable<string | null>(null);
+export const eventPeek = AppWindow.perWindow(() => writable<EventPeek | null>(null));
+export const inlineTitle = AppWindow.perWindow(() => writable<string | null>(null));
+export const isGoToDateOpen = AppWindow.perWindow(() => writable(false));
+export const openCalendarProperties = AppWindow.perWindow(() => writable<{ calendar: Calendar, tab: CalendarPropertiesTab } | null>(null));
+export const openSharedCalendar = AppWindow.perWindow(() => writable<{ fromAddressBook: boolean } | null>(null));
 // <copied from="../../frontend/Calendar/CurrentTimeMarker.svelte">
 export const now = readable(new Date(), set => {
   let timeout: ReturnType<typeof setTimeout>;

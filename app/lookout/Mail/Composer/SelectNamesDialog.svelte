@@ -72,19 +72,15 @@
 </Dialog>
 
 <script lang="ts" context="module">
-  import type { EMail } from "../../../logic/Mail/EMail";
-  import { writable } from "svelte/store";
-
   export enum RecipientField {
     To = "to",
     Cc = "cc",
     Bcc = "bcc",
   }
-
-  export const openSelectNames = writable<{ mail: EMail, field: RecipientField } | null>(null);
 </script>
 
 <script lang="ts">
+  import type { EMail } from "../../../logic/Mail/EMail";
   import type { Person } from "../../../logic/Abstract/Person";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import type { Addressbook } from "../../../logic/Contacts/Addressbook";

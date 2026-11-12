@@ -2,11 +2,10 @@
 // Copyright (c) 2020 Michel Strelow
 // MIT License (MIT)
 
-import { createHashHistory as _createHashHistory } from "history";
+import { createHashHistory as _createHashHistory, createMemoryHistory as _createMemoryHistory, type History } from "history";
 import { createHistory, type HistorySource } from "svelte-navigator";
 
-function createHashSource(window?: Window): HistorySource {
-	const history = _createHashHistory({ window });
+function createSource(history: History): HistorySource {
 	let listeners = [];
 
 	history.listen(location => {
@@ -45,5 +44,10 @@ function createHashSource(window?: Window): HistorySource {
 }
 
 export function createHashHistory(window?: Window) {
-  return createHistory(createHashSource(window));
+  return createHistory(createSource(_createHashHistory({ window })));
+}
+
+/** Navigation that doesn't show in the URL */
+export function createMemoryHistory() {
+  return createHistory(createSource(_createMemoryHistory()));
 }

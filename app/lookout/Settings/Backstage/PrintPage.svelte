@@ -41,7 +41,7 @@
 
 <script lang="ts">
   import { selectedMessage } from "../../../frontend/Mail/Selected";
-  import { printMessage } from "../../Mail/Message/MessagePrint.svelte";
+  import { printMessage } from "../../Mail/Selected";
   import { isBackstageOpen } from "./selected";
   import WebView from "../../../frontend/Shared/WebView.svelte";
   import cssContent from "../../../frontend/Mail/Message/content.css?inline";

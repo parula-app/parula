@@ -3,7 +3,7 @@
   <vbox class="recurrence-summary">
     <span>{summary}</span>
     {#if !readOnly}
-      <button class="link-button" on:click={() => $openRecurrence = event}>
+      <button class="link-button" on:click={onEditRecurrence}>
         <RecurrenceIcon size={14} /> {$t`Edit Recurrence`}
       </button>
     {/if}
@@ -35,7 +35,7 @@
         on:change={ev => editor.setEnd(ev.detail)} />
     {/if}
     {#if showRecurrenceLink && !readOnly}
-      <button class="link-button" on:click={() => $openRecurrence = event}>
+      <button class="link-button" on:click={onEditRecurrence}>
         <RecurrenceIcon size={14} />
         {isRecurring ? $t`Edit Recurrence` : $t`Make Recurring`}
       </button>
@@ -50,7 +50,6 @@
   import { EventTimeEditor } from "./EventTimeEditor";
   import { startTimeOptions, endTimeOptions } from "./TimeOptions";
   import TimeInput from "./TimeInput.svelte";
-  import { openRecurrence } from "./RecurrenceDialog.svelte";
   import DateField from "../../Shared/Form/DateField.svelte";
   import { isSameTimezone } from "../../../logic/util/date";
   import RecurrenceIcon from "lucide-svelte/icons/repeat-2";
@@ -63,6 +62,7 @@
   export let readOnly = false;
   export let showSummary = true;
   export let showRecurrenceLink = true;
+  export let onEditRecurrence: () => void;
 
   $: parentEvent = $event.parentEvent;
   $: isSeriesMaster = !!$event.recurrenceRule && !$event.parentEvent;

@@ -10,7 +10,7 @@ import { defaultContactSearchOptions } from "../../Contacts/ContactSearch";
 import { ContactView } from "../../Contacts/Person/ContactColumns";
 import { contactSearchOptions, ContactSearchScope, selectedAddressbook, selectedContact } from "../../Contacts/Person/Selected";
 import { selectedPerson } from "../../../frontend/Contacts/Person/Selected";
-import { statusBarContent } from "../../MainWindow/StatusBar.svelte";
+import { statusBarContent } from "../../MainWindow/Selected";
 import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
 import { flushSync, mount, unmount } from "svelte";
 import { get } from "svelte/store";

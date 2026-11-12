@@ -4,6 +4,7 @@ import type { MustangApp } from "../../AppsBar/MustangApp";
 import type { Account } from "../../../logic/Abstract/Account";
 import { settingsMustangApp } from "./SettingsMustangApp";
 import { openApp } from "../../AppsBar/selectedApp";
+import { AppWindow } from "../../MainWindow/AppWindow";
 import { selectedAccount, selectedCategory } from "./selected";
 import { assert } from "../../../logic/util/util";
 
@@ -38,7 +39,7 @@ export function openSettingsCategoryByID(id: string) {
 }
 
 export function openSettingsCategory(cat: SettingsCategory) {
-  selectedCategory.set(cat);
+  AppWindow.current().mainWindow.uiState(selectedCategory).set(cat);
   openApp(settingsMustangApp, {});
 }
 
@@ -50,8 +51,9 @@ export function getSettingsCategoryForAccount(account: Account, categoryID = "ma
 export function openSettingsCategoryForAccount(account: Account, categoryID = "main") {
   let cat = getSettingsCategoryForAccount(account, categoryID);
   assert(cat, "Account not found in settings");
-  selectedAccount.set(account);
-  selectedCategory.set(cat);
+  let appWindow = AppWindow.current().mainWindow;
+  appWindow.uiState(selectedAccount).set(account);
+  appWindow.uiState(selectedCategory).set(cat);
   // TODO Mobile? goTo(URLPart`/settings/account/${account.id}`, { category, account }); or goTo(URLPart`/settings/account/${account.id}/${category.id}`, { category, account });
   openApp(settingsMustangApp, { category: cat, account: account });
 }

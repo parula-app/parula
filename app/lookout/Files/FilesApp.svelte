@@ -3,19 +3,20 @@
   <slot />
 </vbox>
 
-<svelte:window on:keydown={onKeyDown} />
+<AppWindowEvents on:keydown={onKeyDown} />
 
 <script lang="ts">
   import { viewFile } from "../../frontend/Files/selected";
   import FilesRibbon from "./FilesRibbon.svelte";
   import { catchErrors } from "../../frontend/Util/error";
+  import AppWindowEvents from "../../frontend/MainWindow/AppWindowEvents.svelte";
 
   let ribbon: FilesRibbon;
   let pageEl: HTMLElement;
 
   function onKeyDown(event: KeyboardEvent) {
     let target = event.target as HTMLElement;
-    if (event.defaultPrevented || !pageEl?.contains(target) && target != document.body) {
+    if (event.defaultPrevented || !pageEl?.contains(target) && target != pageEl?.ownerDocument.body) {
       return;
     }
     if (target?.closest?.("input, textarea, select, [contenteditable]") || event.ctrlKey || event.altKey) {

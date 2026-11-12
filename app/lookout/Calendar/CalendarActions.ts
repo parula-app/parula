@@ -13,6 +13,7 @@ import { appName } from "../../logic/build";
 import { appGlobal } from "../../logic/app";
 import { assert } from "../../logic/util/util";
 import { catchErrors } from "../../frontend/Util/error";
+import { AppWindow } from "../../frontend/MainWindow/AppWindow";
 import { gt } from "../../l10n/l10n";
 import { get } from "svelte/store";
 
@@ -80,6 +81,7 @@ export class CalendarActions {
   }
 
   static async newEventWithTitle(selection: SlotSelection, title: string) {
+    let appWindow = AppWindow.current();
     let calendar = selection.calendar ?? get(selectedCalendar) ?? appGlobal.calendars.first;
     assert(calendar, gt`Please set up a calendar first`);
     let event = calendar.newEvent();
@@ -94,8 +96,8 @@ export class CalendarActions {
     await event.save();
     // </copied>
     event.finishEditing();
-    if (!get(selectedSlots)) {
-      selectedEvent.set(event);
+    if (!get(appWindow.uiState(selectedSlots))) {
+      appWindow.uiState(selectedEvent).set(event);
     }
   }
 
@@ -178,8 +180,11 @@ export class CalendarActions {
 
   protected static deselect(event: Event) {
     calendarMustangApp.closeEvent(event);
-    if (get(selectedEvent) == event) {
-      selectedEvent.set(null);
+    for (let appWindow of AppWindow.all) {
+      let selected = appWindow.uiState(selectedEvent);
+      if (get(selected) == event) {
+        selected.set(null);
+      }
     }
   }
 

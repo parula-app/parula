@@ -13,9 +13,9 @@ export function contrastTextColor(hex: string): "#ffffff" | "#000000" {
     return yiq >= 128 ? "#000000" : "#ffffff";
 }
 
-export function applyColors(colors: Record<string, string>) {
+export function applyColors(colors: Record<string, string>, doc: Document) {
   console.log("apply colors", colors);
-  let style = document.documentElement.style;
+  let style = doc.documentElement.style;
   for (let cssVar in colors) {
     let color = colors[cssVar];
     console.log("apply color", cssVar, color);

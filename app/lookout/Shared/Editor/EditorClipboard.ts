@@ -2,17 +2,17 @@ import type { Editor } from "@tiptap/core";
 
 export function cutSelection(editor: Editor) {
   editor.commands.focus();
-  document.execCommand("cut");
+  editor.view.dom.ownerDocument.execCommand("cut");
 }
 
 export function copySelection(editor: Editor) {
   editor.commands.focus();
-  document.execCommand("copy");
+  editor.view.dom.ownerDocument.execCommand("copy");
 }
 
 export async function pasteClipboard(editor: Editor) {
   editor.commands.focus();
-  if (document.execCommand("paste")) {
+  if (editor.view.dom.ownerDocument.execCommand("paste")) {
     return;
   }
   for (let item of await navigator.clipboard.read()) {

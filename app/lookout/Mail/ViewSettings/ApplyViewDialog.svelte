@@ -19,14 +19,8 @@
   </vbox>
 </Dialog>
 
-<script lang="ts" context="module">
-  import type { Folder } from "../../../logic/Mail/Folder";
-  import { writable } from "svelte/store";
-
-  export const openApplyView = writable<{ folder: Folder | null } | null>(null);
-</script>
-
 <script lang="ts">
+  import type { Folder } from "../../../logic/Mail/Folder";
   import { appGlobal } from "../../../logic/app";
   import { applyViewSettingsToFolders } from "./ViewSettings";
   import { FolderTreeActions } from "../LeftPane/FolderTreeActions";

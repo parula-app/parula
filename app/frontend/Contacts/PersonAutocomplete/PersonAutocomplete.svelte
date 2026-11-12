@@ -60,7 +60,7 @@
     </hbox>
   {/if}
 </hbox>
-<svelte:window on:click|capture={event => catchErrors(() => onClickOutside(event))} />
+<AppWindowEvents capture on:click={event => catchErrors(() => onClickOutside(event))} />
 
 <script lang="ts">
   import { findPerson, nameFromEmailAddress, PersonUID } from "../../../logic/Abstract/PersonUID";
@@ -77,6 +77,7 @@
   // <https://github.com/pstanoev/simple-svelte-autocomplete>
   // <http://simple-svelte-autocomplete.surge.sh>
   import Autocomplete from 'simple-svelte-autocomplete';
+  import AppWindowEvents from "../../MainWindow/AppWindowEvents.svelte";
   import { tick } from 'svelte';
   import { catchErrors, showError } from "../../Util/error";
   import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
@@ -161,13 +162,12 @@
     let highlightedResult = topEl.querySelector(".autocomplete-list:not(.hidden) .autocomplete-list-item.selected");
     if (hasNameField && !highlightedResult && canCreate(typedText)) {
       await addNewPerson();
-      return;
+    } else if (highlightedResult || canCreate(typedText)) { // else nothing to add, e.g. a half-typed name
+      // The autocomplete component offers no API to add, so fake the ENTER key
+      inputEl.dispatchEvent(new KeyboardEvent("keypress", { key: "Enter" }));
     }
-    if (!highlightedResult && !canCreate(typedText)) {
-      return; // nothing to add, e.g. a half-typed name
-    }
-    // The autocomplete component offers no API to add, so fake the ENTER key
-    inputEl.dispatchEvent(new KeyboardEvent("keypress", { key: "Enter" }));
+    // It closes its list only on clicks in the main window, and the TAB key
+    inputEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
   }
 
   function canCreate(typedText: string) {
