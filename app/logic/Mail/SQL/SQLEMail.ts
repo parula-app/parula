@@ -2,171 +2,179 @@ import type { EMail } from "../EMail";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
 import type { Folder } from "../Folder";
 import { Attachment, ContentDisposition } from "../../Abstract/Attachment";
-import { getTagByName, Tag } from "../../Abstract/Tag";
+import { getTagByName } from "../../Abstract/Tag";
 import { JSONEMail } from "../JSON/JSONEMail";
 import { getDatabase } from "./SQLDatabase";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { Lock } from "../../util/flow/Lock";
+import { Lock, type Locked } from "../../util/flow/Lock";
 import { assert, fileExtensionForMIMEType } from "../../util/util";
 import { ArrayColl, Collection } from "svelte-collections";
-import sql from "../../../../lib/rs-sqlite";
+import sql, { type Query } from "../../../../lib/rs-sqlite";
 
 export class SQLEMail {
   /**
    * Save only fully downloaded emails
    */
   static async save(email: EMail) {
-    assert(!(email.downloadComplete && !email.rawText && !email.rawHTMLDangerous), "An email without body is not complete");
     let lock = await email.storageLock.lock();
     try {
-      if (!email.folder.dbID) {
-        await email.folder.save();
-      }
-      if (!email.dbID) {
-        let existing = await (await getDatabase()).get(sql`
-          SELECT
-            id
-          FROM email
-          WHERE
-            messageID = ${email.id} AND
-            pID = ${email.pID} AND
-            folderID = ${email.folder.dbID}
-          `) as any;
-        if (existing?.id) {
-          email.dbID = existing.id;
-        }
-      }
-      if (!email.sent) {
-        email.sent = new Date();
-      }
-      let contact = email.contact as PersonUID;
-      if (!email.dbID) {
-        let insert = await (await getDatabase()).run(sql`
-          INSERT INTO email (
-            messageID, folderID, pID, parentMsgID,
-            size, dateSent, dateReceived,
-            outgoing, contactEmail, contactName,
-            subject, plaintext, html
-          ) VALUES (
-            ${email.id}, ${email.folder.dbID}, ${email.pID}, ${email.inReplyTo},
-            ${email.size}, ${email.sent.getTime() / 1000}, ${email.received.getTime() / 1000},
-            ${email.outgoing ? 1 : 0}, ${contact?.emailAddress}, ${email.contact?.name},
-            ${email.subject}, ${email.rawText}, ${email.rawHTMLDangerous}
-          )`);
-        // -- contactEmail, contactName, myEmail
-        email.dbID = insert.lastInsertRowid;
-      } else {
-        // This might be an update with only metadata, so don't overwrite content
-        await (await getDatabase()).run(sql`
-          UPDATE email SET
-            messageID = ${email.id},
-            folderID = ${email.folder.dbID},
-            pID = ${email.pID},
-            parentMsgID = ${email.inReplyTo},
-            size = ${email.size},
-            dateSent = ${email.sent.getTime() / 1000},
-            dateReceived = ${email.received.getTime() / 1000},
-            outgoing = ${email.outgoing ? 1 : 0},
-            contactEmail = ${contact?.emailAddress},
-            contactName = ${email.contact?.name},
-            subject = ${email.subject},
-            plaintext = COALESCE(${email.rawText}, plaintext),
-            html = COALESCE(${email.rawHTMLDangerous}, html)
-          WHERE id = ${email.dbID}
+      await this.saveMainProps(email);
+      await (await getDatabase()).execute(sql`
+        $${this.saveWritablePropsSQL(email)}
+        $${this.saveRecipientsSQL(email)}
         `);
-      }
-      await this.saveWritableProps(email, false);
-      await this.saveRecipients(email);
       await this.saveAttachments(email);
     } finally {
       lock.release();
     }
   }
 
-  static async saveWritableProps(email: EMail, doLock = true) {
-    assert(email.dbID, "Need Email DB ID to save props");
-    let lock = doLock ? await email.storageLock.lock() : null;
-    try {
-      let json = {} as any;
-      JSONEMail.saveExtraData(email, json);
-      let jsonStr = Object.keys(json).length
-        ? JSON.stringify(json, null, 2)
-        : null;
-
+  /** Saves subject, dates, body etc., and sets `email.dbID` */
+  protected static async saveMainProps(email: EMail) {
+    assert(!(email.downloadComplete && !email.rawText && !email.rawHTMLDangerous), "An email without body is not complete");
+    if (!email.folder.dbID) {
+      await email.folder.save();
+    }
+    if (!email.sent) {
+      email.sent = new Date();
+    }
+    let contact = email.contact as PersonUID;
+    if (!email.dbID) {
+      let sameEMail = sql`
+        messageID = ${email.id} AND
+        pID = ${email.pID} AND
+        folderID = ${email.folder.dbID}
+        `;
+      let insert = await (await getDatabase()).run(sql`
+        INSERT INTO email (
+          messageID, folderID, pID, parentMsgID,
+          size, dateSent, dateReceived,
+          outgoing, contactEmail, contactName,
+          subject, plaintext, html
+        ) SELECT
+          ${email.id}, ${email.folder.dbID}, ${email.pID}, ${email.inReplyTo},
+          ${email.size}, ${email.sent.getTime() / 1000}, ${email.received.getTime() / 1000},
+          ${email.outgoing ? 1 : 0}, ${contact?.emailAddress}, ${email.contact?.name},
+          ${email.subject}, ${email.rawText}, ${email.rawHTMLDangerous}
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM email
+          WHERE $${sameEMail})
+        `);
+      // -- contactEmail, contactName, myEmail
+      if (insert.changes) {
+        email.dbID = insert.lastInsertRowid;
+      } else { // Already saved, e.g. by another listing of the folder
+        let existing = await (await getDatabase()).get(sql`
+          SELECT
+            id
+          FROM email
+          WHERE $${sameEMail}
+          `) as any;
+        email.dbID = existing.id;
+        await this.saveMainProps(email); // now with `dbID`, so it updates the row
+      }
+    } else {
       // This might be an update with only metadata, so don't overwrite content
       await (await getDatabase()).run(sql`
         UPDATE email SET
-          isRead = ${email.isRead ? 1 : 0},
-          isStarred = ${email.isStarred ? 1 : 0},
-          isReplied = ${email.isReplied ? 1 : 0},
-          isForwarded = ${email.isForwarded ? 1 : 0},
-          isImportant = ${email.isImportant ? 1 : 0},
-          isSpam = ${email.isSpam ? 1 : 0},
-          isDraft = ${email.isDraft ? 1 : 0},
-          threadID = COALESCE(${email.threadID}, threadID),
-          downloadComplete = MAX(downloadComplete, ${email.downloadComplete ? 1 : 0}),
-          json = COALESCE(${jsonStr}, json)
+          messageID = ${email.id},
+          folderID = ${email.folder.dbID},
+          pID = ${email.pID},
+          parentMsgID = ${email.inReplyTo},
+          size = ${email.size},
+          dateSent = ${email.sent.getTime() / 1000},
+          dateReceived = ${email.received.getTime() / 1000},
+          outgoing = ${email.outgoing ? 1 : 0},
+          contactEmail = ${contact?.emailAddress},
+          contactName = ${email.contact?.name},
+          subject = ${email.subject},
+          plaintext = COALESCE(${email.rawText}, plaintext),
+          html = COALESCE(${email.rawHTMLDangerous}, html)
         WHERE id = ${email.dbID}
         `);
-
-      await this.saveTags(email, false);
-    } finally {
-      lock?.release();
     }
   }
 
-  protected static async saveRecipients(email: EMail) {
+  static async saveWritableProps(email: EMail) {
+    assert(email.dbID, "Need Email DB ID to save props");
+    let lock = await email.storageLock.lock();
+    try {
+      await (await getDatabase()).execute(this.saveWritablePropsSQL(email));
+    } finally {
+      lock.release();
+    }
+  }
+
+  /** The statements that save the props and the tags,
+   * so that `execute()` runs them together with others, in one call to the backend */
+  protected static saveWritablePropsSQL(email: EMail): Query {
+    let json = {} as any;
+    JSONEMail.saveExtraData(email, json);
+    let jsonStr = Object.keys(json).length
+      ? JSON.stringify(json, null, 2)
+      : null;
+
+    // This might be an update with only metadata, so don't overwrite content
+    return sql`
+      UPDATE email SET
+        isRead = ${email.isRead ? 1 : 0},
+        isStarred = ${email.isStarred ? 1 : 0},
+        isReplied = ${email.isReplied ? 1 : 0},
+        isForwarded = ${email.isForwarded ? 1 : 0},
+        isImportant = ${email.isImportant ? 1 : 0},
+        isSpam = ${email.isSpam ? 1 : 0},
+        isDraft = ${email.isDraft ? 1 : 0},
+        threadID = COALESCE(${email.threadID}, threadID),
+        downloadComplete = MAX(downloadComplete, ${email.downloadComplete ? 1 : 0}),
+        json = COALESCE(${jsonStr}, json)
+      WHERE id = ${email.dbID};
+      $${this.saveTagsSQL(email)}
+      `;
+  }
+
+  protected static saveRecipientsSQL(email: EMail): Query {
     assert(email.dbID, "Need Email DB ID");
     // See comment in `saveAttachments()` below
-    await (await getDatabase()).run(sql`
-      DELETE FROM emailPersonRel
-      WHERE emailID = ${email.dbID}
-      `);
-
-    await this.saveRecipient(email, email.from, 1);
-    await this.saveRecipientsOfType(email, email.to, 2);
-    await this.saveRecipientsOfType(email, email.cc, 3);
-    await this.saveRecipientsOfType(email, email.bcc, 4);
+    let queries = [
+      sql`
+        DELETE FROM emailPersonRel
+        WHERE emailID = ${email.dbID};
+        `,
+      this.saveRecipientSQL(email, email.from, 1),
+      ...email.to.contents.map(puid => this.saveRecipientSQL(email, puid, 2)),
+      ...email.cc.contents.map(puid => this.saveRecipientSQL(email, puid, 3)),
+      ...email.bcc.contents.map(puid => this.saveRecipientSQL(email, puid, 4)),
+    ];
     if (email.replyTo?.emailAddress) {
-      await this.saveRecipient(email, email.replyTo, 5);
+      queries.push(this.saveRecipientSQL(email, email.replyTo, 5));
     }
+    return joinSQL(queries);
   }
 
-  protected static async saveRecipientsOfType(email: EMail, recipients: ArrayColl<PersonUID>, recipientsType: number) {
-    for (let recipient of recipients) {
-      await this.saveRecipient(email, recipient, recipientsType);
-    }
-  }
-
-  protected static async saveRecipient(email: EMail, puid: PersonUID, recipientType: number) {
-    let findPerson = sql`
-        SELECT
-          id
+  protected static saveRecipientSQL(email: EMail, puid: PersonUID, recipientType: number): Query {
+    // "IS", unlike "=", also finds a person without name (NULL)
+    return sql`
+      INSERT INTO emailPerson (
+        name, emailAddress, personID
+      ) SELECT
+        ${puid.name}, ${puid.emailAddress}, ${puid.person?.dbID}
+      WHERE NOT EXISTS (
+        SELECT 1
         FROM emailPerson
         WHERE
-          emailAddress = ${puid.emailAddress} AND
-          name IS ${puid.name} -- unlike "=", also finds a person without name (NULL)
-      `;
-    let exists = await (await getDatabase()).get(findPerson) as any;
-    let personID = exists?.id;
-    if (!personID) {
-      let insert = await (await getDatabase()).run(sql`
-      INSERT OR IGNORE INTO emailPerson (
-        name, emailAddress, personID
-      ) VALUES (
-        ${puid.name}, ${puid.emailAddress}, ${puid.person?.dbID}
-      )`);
-      // An ignored insert leaves `lastInsertRowid` at another table's row
-      personID = insert.changes
-        ? insert.lastInsertRowid
-        : (await (await getDatabase()).get(findPerson) as any)?.id;
-    }
-    await (await getDatabase()).run(sql`
+          emailAddress IS ${puid.emailAddress} AND
+          name IS ${puid.name});
       INSERT INTO emailPersonRel (
         emailID, emailPersonID, recipientType
-      ) VALUES (
-        ${email.dbID}, ${personID}, ${recipientType}
-      )`);
+      ) SELECT
+        ${email.dbID}, id, ${recipientType}
+      FROM emailPerson
+      WHERE
+        emailAddress IS ${puid.emailAddress} AND
+        name IS ${puid.name}
+      LIMIT 1;
+      `;
   }
 
   protected static async saveAttachments(email: EMail) {
@@ -253,54 +261,66 @@ export class SQLEMail {
       `);
   }
 
-  static async saveTags(email: EMail, doLock = true) {
+  static async saveTags(email: EMail) {
     assert(email.dbID, "Need Email DB ID");
-    let lock = doLock ? await email.storageLock.lock() : null;
+    let lock = await email.storageLock.lock();
     try {
-      await (await getDatabase()).run(sql`
+      await (await getDatabase()).execute(this.saveTagsSQL(email));
+    } finally {
+      lock.release();
+    }
+  }
+
+  protected static saveTagsSQL(email: EMail): Query {
+    return joinSQL([
+      sql`
         DELETE FROM emailTag
-        WHERE emailID = ${email.dbID}
-        `);
-
-      for (let tag of email.tags) {
-        await this.saveTag(email, tag);
-      }
-  } finally {
-    lock?.release();
-  }
-  }
-
-  protected static async saveTag(email: EMail, tag: Tag) {
-    assert(email.dbID, "Need to save email before tags");
-    await (await getDatabase()).run(sql`
-      INSERT OR IGNORE INTO emailTag (
-        emailID, tagName
-      ) VALUES (
-        ${email.dbID}, ${tag.name}
-      )`);
+        WHERE emailID = ${email.dbID};
+        `,
+      ...email.tags.contents.map(tag => sql`
+        INSERT OR IGNORE INTO emailTag (
+          emailID, tagName
+        ) VALUES (
+          ${email.dbID}, ${tag.name}
+        );
+        `),
+    ]);
   }
 
   protected static readonly transactionLock = new Lock();
 
+  /** Makes only about one call to the backend per email */
   static async saveMultiple(emails: Collection<EMail>) {
     let lock = await SQLEMail.transactionLock.lock();
+    let emailLocks: Locked[] = [];
     try {
       await (await getDatabase()).run(sql`BEGIN TRANSACTION`);
+      let queries: Query[] = [];
       for (let email of emails) {
         if (!email.subject) {
           continue;
         }
+        emailLocks.push(await email.storageLock.lock());
         try {
-          await this.save(email);
+          await this.saveMainProps(email);
+          await this.saveAttachments(email);
+          queries.push(sql`
+            $${this.saveWritablePropsSQL(email)}
+            $${this.saveRecipientsSQL(email)}
+            `);
         } catch (ex) {
           email.folder.account.errorCallback(ex); // and save the other emails
         }
       }
+      await (await getDatabase()).execute(joinSQL(queries));
       await (await getDatabase()).run(sql`END TRANSACTION`);
     } catch (ex) {
       await (await getDatabase()).run(sql`ROLLBACK TRANSACTION`);
       throw ex;
     } finally {
+      for (let emailLock of emailLocks) {
+        emailLock.release();
+      }
       lock.release();
     }
   }
@@ -647,4 +667,14 @@ export class SQLEMail {
     }
     folder.messages.addAll(newEmails);
   }
+}
+
+/** Several queries as one, so that `execute()` runs them with one call to the backend */
+function joinSQL(queries: Query[]): Query {
+  let joined: Query = { sourceParts: [""], parameters: [] };
+  for (let query of queries) {
+    joined.sourceParts.push(joined.sourceParts.pop() + query.sourceParts[0], ...query.sourceParts.slice(1));
+    joined.parameters.push(...query.parameters);
+  }
+  return joined;
 }

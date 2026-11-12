@@ -47,7 +47,15 @@ export class InProcessSQLiteDatabase {
   }
 
   execute(query: Query): this {
-    this.db.exec(this.source(query));
+    // `exec()` takes no parameters, so quote them into the source,
+    // like @radically-straightforward/sqlite does
+    let parameters = this.parameters(query);
+    let source = query.sourceParts[0];
+    for (let i = 0; i < parameters.length; i++) {
+      let quoted = this.db.prepare("SELECT quote(?) AS quoted").get(parameters[i]) as any;
+      source += quoted.quoted + query.sourceParts[i + 1];
+    }
+    this.db.exec(source);
     return this;
   }
 
