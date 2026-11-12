@@ -8,8 +8,6 @@ import { appGlobal } from "../app";
 export async function openExternalURL(url: string) {
   // #if [MOBILE]
   // <copied from="../../../desktop/backend/backend.ts" modified="true">
-  let scheme = new URL(url).protocol; // throws on a malformed URL
-
   /** Schemes that we let the OS open, see there why. A web app fully controls the URL of its links, too. */
   const kAllowedURLSchemes = [
     "https:",
@@ -19,6 +17,7 @@ export async function openExternalURL(url: string) {
     "xmpp:",
     "matrix:",
   ];
+  let scheme = new URL(url).protocol; // throws on a malformed URL
   if (!kAllowedURLSchemes.includes(scheme)) {
     throw new Error(`Refusing to open a ${scheme} URL in an OS app`);
   }
