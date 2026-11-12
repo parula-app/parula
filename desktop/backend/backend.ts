@@ -7,7 +7,7 @@ import { dataAppName, production } from '../../app/logic/build';
 import { WebContents } from './WebContents';
 import { Observable, notifyChangedProperty } from '../../lib/util/Observable';
 import { ImapFlow } from 'imapflow';
-import { Database } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
+import { Database, type Query } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
 import Zip from "adm-zip";
 import ky from 'ky';
 import { shell, nativeTheme, Notification, Tray, nativeImage, app, BrowserWindow, webContents, Menu, MenuItemConstructorOptions, clipboard, NativeImage, session, desktopCapturer, type DesktopCapturerSource, autoUpdater, systemPreferences, powerMonitor } from "electron";
@@ -582,13 +582,21 @@ function createIMAPFlowConnection(...args): ImapFlow {
 
 function getSQLiteDatabase(filename: string, options: any, buffer?: Uint8Array): Database {
   let safeOptions = { readonly: !!options?.readonly }; // `nativeBinding` in it would `require()` any file as native code
-  if (buffer) {
-    return new Database(Buffer.from(buffer), safeOptions);
-  }
-  if (!filename.startsWith("/")) {
+  if (!buffer && !filename.startsWith("/")) {
     filename = path.join(getConfigDir(), filename);
   }
-  return new Database(filename, safeOptions);
+  let db = new Database(buffer ? Buffer.from(buffer) : filename, safeOptions);
+  // Lets the frontend run several statements with one call over JPC,
+  // each with its values as bound parameters.
+  // Not as a subclass of `Database`: JPC would then miss the functions of `Database`,
+  // because its parent class has the same name.
+  return Object.assign(db, {
+    runMultiple(queries: Query[]) {
+      for (let query of queries) {
+        db.run(query);
+      }
+    },
+  });
 }
 
 async function sendMailNodemailer(transport, mail) {

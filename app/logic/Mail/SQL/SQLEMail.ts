@@ -19,10 +19,7 @@ export class SQLEMail {
     let lock = await email.storageLock.lock();
     try {
       await this.saveMainProps(email);
-      await (await getDatabase()).execute(sql`
-        $${this.saveWritablePropsSQL(email)}
-        $${this.saveRecipientsSQL(email)}
-        `);
+      await (await getDatabase()).runMultiple([...this.saveWritablePropsSQL(email), ...this.saveRecipientsSQL(email)]);
       await this.saveAttachments(email);
     } finally {
       lock.release();
@@ -100,15 +97,14 @@ export class SQLEMail {
     assert(email.dbID, "Need Email DB ID to save props");
     let lock = await email.storageLock.lock();
     try {
-      await (await getDatabase()).execute(this.saveWritablePropsSQL(email));
+      await (await getDatabase()).runMultiple(this.saveWritablePropsSQL(email));
     } finally {
       lock.release();
     }
   }
 
-  /** The statements that save the props and the tags,
-   * so that `execute()` runs them together with others, in one call to the backend */
-  protected static saveWritablePropsSQL(email: EMail): Query {
+  /** The statements that save the props and the tags */
+  protected static saveWritablePropsSQL(email: EMail): Query[] {
     let json = {} as any;
     JSONEMail.saveExtraData(email, json);
     let jsonStr = Object.keys(json).length
@@ -116,65 +112,71 @@ export class SQLEMail {
       : null;
 
     // This might be an update with only metadata, so don't overwrite content
-    return sql`
-      UPDATE email SET
-        isRead = ${email.isRead ? 1 : 0},
-        isStarred = ${email.isStarred ? 1 : 0},
-        isReplied = ${email.isReplied ? 1 : 0},
-        isForwarded = ${email.isForwarded ? 1 : 0},
-        isImportant = ${email.isImportant ? 1 : 0},
-        isSpam = ${email.isSpam ? 1 : 0},
-        isDraft = ${email.isDraft ? 1 : 0},
-        threadID = COALESCE(${email.threadID}, threadID),
-        downloadComplete = MAX(downloadComplete, ${email.downloadComplete ? 1 : 0}),
-        json = COALESCE(${jsonStr}, json)
-      WHERE id = ${email.dbID};
-      $${this.saveTagsSQL(email)}
-      `;
+    return [
+      sql`
+        UPDATE email SET
+          isRead = ${email.isRead ? 1 : 0},
+          isStarred = ${email.isStarred ? 1 : 0},
+          isReplied = ${email.isReplied ? 1 : 0},
+          isForwarded = ${email.isForwarded ? 1 : 0},
+          isImportant = ${email.isImportant ? 1 : 0},
+          isSpam = ${email.isSpam ? 1 : 0},
+          isDraft = ${email.isDraft ? 1 : 0},
+          threadID = COALESCE(${email.threadID}, threadID),
+          downloadComplete = MAX(downloadComplete, ${email.downloadComplete ? 1 : 0}),
+          json = COALESCE(${jsonStr}, json)
+        WHERE id = ${email.dbID}
+        `,
+      ...this.saveTagsSQL(email),
+    ];
   }
 
-  protected static saveRecipientsSQL(email: EMail): Query {
+  protected static saveRecipientsSQL(email: EMail): Query[] {
     assert(email.dbID, "Need Email DB ID");
     // See comment in `saveAttachments()` below
     let queries = [
       sql`
         DELETE FROM emailPersonRel
-        WHERE emailID = ${email.dbID};
+        WHERE emailID = ${email.dbID}
         `,
-      this.saveRecipientSQL(email, email.from, 1),
-      ...email.to.contents.map(puid => this.saveRecipientSQL(email, puid, 2)),
-      ...email.cc.contents.map(puid => this.saveRecipientSQL(email, puid, 3)),
-      ...email.bcc.contents.map(puid => this.saveRecipientSQL(email, puid, 4)),
+      ...this.saveRecipientSQL(email, email.from, 1),
+      ...email.to.contents.flatMap(puid => this.saveRecipientSQL(email, puid, 2)),
+      ...email.cc.contents.flatMap(puid => this.saveRecipientSQL(email, puid, 3)),
+      ...email.bcc.contents.flatMap(puid => this.saveRecipientSQL(email, puid, 4)),
     ];
     if (email.replyTo?.emailAddress) {
-      queries.push(this.saveRecipientSQL(email, email.replyTo, 5));
+      queries.push(...this.saveRecipientSQL(email, email.replyTo, 5));
     }
-    return joinSQL(queries);
+    return queries;
   }
 
-  protected static saveRecipientSQL(email: EMail, puid: PersonUID, recipientType: number): Query {
+  protected static saveRecipientSQL(email: EMail, puid: PersonUID, recipientType: number): Query[] {
     // "IS", unlike "=", also finds a person without name (NULL)
-    return sql`
-      INSERT INTO emailPerson (
-        name, emailAddress, personID
-      ) SELECT
-        ${puid.name}, ${puid.emailAddress}, ${puid.person?.dbID}
-      WHERE NOT EXISTS (
-        SELECT 1
+    return [
+      sql`
+        INSERT INTO emailPerson (
+          name, emailAddress, personID
+        ) SELECT
+          ${puid.name}, ${puid.emailAddress}, ${puid.person?.dbID}
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM emailPerson
+          WHERE
+            emailAddress IS ${puid.emailAddress} AND
+            name IS ${puid.name})
+        `,
+      sql`
+        INSERT INTO emailPersonRel (
+          emailID, emailPersonID, recipientType
+        ) SELECT
+          ${email.dbID}, id, ${recipientType}
         FROM emailPerson
         WHERE
           emailAddress IS ${puid.emailAddress} AND
-          name IS ${puid.name});
-      INSERT INTO emailPersonRel (
-        emailID, emailPersonID, recipientType
-      ) SELECT
-        ${email.dbID}, id, ${recipientType}
-      FROM emailPerson
-      WHERE
-        emailAddress IS ${puid.emailAddress} AND
-        name IS ${puid.name}
-      LIMIT 1;
-      `;
+          name IS ${puid.name}
+        LIMIT 1
+        `,
+    ];
   }
 
   protected static async saveAttachments(email: EMail) {
@@ -265,26 +267,26 @@ export class SQLEMail {
     assert(email.dbID, "Need Email DB ID");
     let lock = await email.storageLock.lock();
     try {
-      await (await getDatabase()).execute(this.saveTagsSQL(email));
+      await (await getDatabase()).runMultiple(this.saveTagsSQL(email));
     } finally {
       lock.release();
     }
   }
 
-  protected static saveTagsSQL(email: EMail): Query {
-    return joinSQL([
+  protected static saveTagsSQL(email: EMail): Query[] {
+    return [
       sql`
         DELETE FROM emailTag
-        WHERE emailID = ${email.dbID};
+        WHERE emailID = ${email.dbID}
         `,
       ...email.tags.contents.map(tag => sql`
         INSERT OR IGNORE INTO emailTag (
           emailID, tagName
         ) VALUES (
           ${email.dbID}, ${tag.name}
-        );
+        )
         `),
-    ]);
+    ];
   }
 
   protected static readonly transactionLock = new Lock();
@@ -304,15 +306,12 @@ export class SQLEMail {
         try {
           await this.saveMainProps(email);
           await this.saveAttachments(email);
-          queries.push(sql`
-            $${this.saveWritablePropsSQL(email)}
-            $${this.saveRecipientsSQL(email)}
-            `);
+          queries.push(...this.saveWritablePropsSQL(email), ...this.saveRecipientsSQL(email));
         } catch (ex) {
           email.folder.account.errorCallback(ex); // and save the other emails
         }
       }
-      await (await getDatabase()).execute(joinSQL(queries));
+      await (await getDatabase()).runMultiple(queries);
       await (await getDatabase()).run(sql`END TRANSACTION`);
     } catch (ex) {
       await (await getDatabase()).run(sql`ROLLBACK TRANSACTION`);
@@ -667,14 +666,4 @@ export class SQLEMail {
     }
     folder.messages.addAll(newEmails);
   }
-}
-
-/** Several queries as one, so that `execute()` runs them with one call to the backend */
-function joinSQL(queries: Query[]): Query {
-  let joined: Query = { sourceParts: [""], parameters: [] };
-  for (let query of queries) {
-    joined.sourceParts.push(joined.sourceParts.pop() + query.sourceParts[0], ...query.sourceParts.slice(1));
-    joined.parameters.push(...query.parameters);
-  }
-  return joined;
 }

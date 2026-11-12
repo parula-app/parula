@@ -13,7 +13,7 @@ let calls = 0;
 beforeAll(async () => {
   ({ folder } = await setupTestFolder());
   let db = await getDatabase() as any;
-  for (let method of ["run", "get", "all", "execute"]) {
+  for (let method of ["run", "runMultiple", "get", "all", "execute"]) {
     let original = db[method].bind(db);
     db[method] = (...args: any[]) => {
       calls++;
