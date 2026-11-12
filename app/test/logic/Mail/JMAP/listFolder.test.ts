@@ -102,6 +102,22 @@ test("The next page is fetched while the last page is still being saved", async 
   expect(inbox.messages.length).toBe(1100);
 });
 
+test("An error while saving a page is reported, and the listing goes on", async () => {
+  let { account, inbox, errors } = newAccount(1100);
+  let saves = 0;
+  account.storage.saveMessages = async () => {
+    if (++saves == 1) {
+      throw new Error("Disk full");
+    }
+  };
+
+  await inbox.listMessages();
+
+  expect(errors.map(ex => ex.message)).toEqual(["Disk full"]);
+  expect(saves).toBe(3);
+  expect(inbox.messages.length).toBe(1100);
+});
+
 test("A server that allows fewer emails per request gets smaller pages", async () => {
   let { account, inbox, queries } = newAccount(250);
   account.session.capabilities["urn:ietf:params:jmap:core"] = { maxObjectsInGet: 100 } as any;

@@ -29,10 +29,12 @@ function setUpFolder(count: number) {
   account.username = "me@example.com";
   account.password = "secret";
   account.storage = new DummyMailStorage();
+  let errors: Error[] = [];
+  account.errorCallback = ex => errors.push(ex);
   let inbox = account.newFolder() as IMAPFolder;
   inbox.path = "INBOX";
   account.rootFolders.add(inbox);
-  return { account, inbox, fetches: () => fetches };
+  return { account, inbox, errors, fetches: () => fetches };
 }
 
 test("The next page is fetched while the last page is still being saved", async () => {
@@ -47,5 +49,21 @@ test("The next page is fetched while the last page is still being saved", async 
   await (inbox as any).listAllUnknownMessages();
 
   expect(fetchesDuringSave).toEqual([1, 1, 0]); // nothing after the last page
+  expect(inbox.messages.length).toBe(450);
+});
+
+test("An error while saving a page is reported, and the listing goes on", async () => {
+  let { account, inbox, errors } = setUpFolder(450);
+  let saves = 0;
+  account.storage.saveMessages = async () => {
+    if (++saves == 1) {
+      throw new Error("Disk full");
+    }
+  };
+
+  await (inbox as any).listAllUnknownMessages();
+
+  expect(errors.map(ex => ex.message)).toEqual(["Disk full"]);
+  expect(saves).toBe(3);
   expect(inbox.messages.length).toBe(450);
 });
