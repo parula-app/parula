@@ -7,7 +7,7 @@
     <AppIcon icon={app.icon} size={small ? "16px" : "24px"} />
   </hbox>
   {#if !small}
-    <div class="label">{app.name}</div> <!-- not a flex box, so that a long name gets "…" -->
+    <div class="label" data-label={app.name}>{app.name}</div>
   {/if}
 </button>
 
@@ -29,7 +29,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: calc(var(--lo-nav-rail-width) - 8px);
+    align-self: stretch;
     height: 55px;
     padding: 0;
     border: none;
@@ -77,6 +77,7 @@
   }
   .label {
     max-width: 100%;
+    text-align: center;
     margin-block-start: 5px;
     font-size: var(--lo-font-size-small);
     line-height: 15px;
@@ -86,5 +87,13 @@
   }
   .selected .label {
     font-weight: 600;
+  }
+  /* Takes the width of the bold name, so that the bar doesn't get wider when the app is selected */
+  .label::after {
+    content: attr(data-label);
+    display: block;
+    height: 0;
+    font-weight: 600;
+    visibility: hidden;
   }
 </style>

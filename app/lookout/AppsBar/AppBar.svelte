@@ -48,10 +48,11 @@
 <style>
   .nav-rail {
     flex: 0 0 auto;
-    width: var(--lo-nav-rail-width);
+    box-sizing: border-box;
+    min-width: var(--lo-nav-rail-width); /* wider for long app names, e.g. in German */
     align-items: center;
     gap: 8px;
-    padding: var(--lo-ribbon-tab-row-height) 0 8px 0;
+    padding: var(--lo-ribbon-tab-row-height) 4px 8px 4px;
     background-color: var(--lo-window-bg);
   }
 </style>
