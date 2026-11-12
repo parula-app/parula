@@ -14,12 +14,14 @@
           <ReplyAllIcon size="16" />
         </button>
       {/if}
-      <button class="icon-button" title={$t`Open`} on:click={onOpen}>
-        <OpenIcon size="16" />
-      </button>
-      <button class="icon-button" title={deleteLabel} on:click={onDelete}>
-        <DeleteIcon size="16" />
-      </button>
+      {#if !$event.isReadOnly}
+        <button class="icon-button" title={$t`Open`} on:click={onOpen}>
+          <OpenIcon size="16" />
+        </button>
+        <button class="icon-button" title={deleteLabel} on:click={onDelete}>
+          <DeleteIcon size="16" />
+        </button>
+      {/if}
       <button class="icon-button" title={$t`Close`} on:click={onClose}>
         <CloseIcon size="16" />
       </button>
@@ -56,7 +58,7 @@
           <DeclineIcon size="14" /> <span class="label">{$t`Decline *=> Decline the invitation to the meeting`}</span>
         </button>
       </hbox>
-    {:else}
+    {:else if !$event.isReadOnly}
       <hbox class="buttons">
         <button class="peek-button primary" on:click={onOpen}>{$t`Open`}</button>
       </hbox>
