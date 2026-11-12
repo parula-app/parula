@@ -74,7 +74,8 @@
         // }),
         ...extraExtensions,
       ],
-      content: html,
+      // Only when we load the content, not on every change of the user
+      content: sanitizeHTMLForEditor(html),
       onTransaction: () => {
         // force re-render so `editor.isActive` works as expected
         editor = editor;

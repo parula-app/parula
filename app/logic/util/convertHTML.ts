@@ -84,11 +84,26 @@ export function sanitizeHTMLWithoutStyleTag(html: string): string {
 }
 
 const editorPurify = DOMPurify();
+if (editorPurify.isSupported) { // not in unit tests without DOM
+  editorPurify.addHook("afterSanitizeAttributes", node => {
+    // Remote images: Our users may not add them, and those of others tell them when we open it
+    let src = node.getAttribute("src");
+    if (node.tagName == "IMG" && src && !["data:image/", "cid:", "blob:"].some(prefix => src.startsWith(prefix))) {
+      node.removeAttribute("src");
+    }
+  });
+}
 
-/** For HTML that we load into the editor, e.g. a draft or an event description.
- * Unlike the other sanitizers, this keeps what the author wrote:
- * links without our `target` and `title`, remote images like a logo in the signature,
- * the size of resized images, and the `blob:` images of a forwarded mail.
+/** For HTML that the editor loads, or that the user pastes.
+ *
+ * Most HTML in the editor is the user's own. HTML from others mostly comes as the quote
+ * in a reply or forward, which is already the output of `sanitizeHTML()`.
+ * Only an event description from an invitation, a draft from the server and pasted HTML
+ * come from others without that, so the editor sanitizes all HTML that it gets.
+ *
+ * Unlike `sanitizeHTML()`, this keeps what the author wrote, because the editor saves
+ * and sends it: links without our `target`, `source` and `title`, the size of resized images,
+ * and the `blob:` images of a forwarded mail. Like `sanitizeHTML()`, it drops remote images.
  * @returns HTML snipplet, not whole document */
 export function sanitizeHTMLForEditor(html: string): string {
   if (!html) {
