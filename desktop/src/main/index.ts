@@ -72,6 +72,16 @@ async function createWindow(): Promise<void> {
       return { action: 'deny' }
     })
 
+    /** Keep the app in its window. A link without `target`, or a link or file that the user
+     * drops onto the window, would replace the app, and that page would get our preload.
+     * `mailto:`, `tel:` etc. don't replace the app. Electron hands them to the OS. */
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+      if (/^(https?|file|data|blob):/.test(url) &&
+          url.split("#")[0] != mainWindow.webContents.getURL().split("#")[0]) { // not a reload
+        event.preventDefault();
+      }
+    });
+
     mainWindow.webContents.on('did-create-window', (child, _details) => {
       child.on('closed', () => {
         mainWindow.webContents.send('oauth2-close');
