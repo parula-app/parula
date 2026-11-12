@@ -72,5 +72,6 @@ class MainViewController: CAPBridgeViewController {
 
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(LinkTapPlugin())
+        bridge?.registerPluginInstance(LoginWebViewPlugin())
     }
 }
