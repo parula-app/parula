@@ -87,7 +87,7 @@ export function sanitizeHTMLWithoutStyleTag(html: string): string {
  *
  * Most HTML in the editor is the user's own. HTML from others mostly comes as the quote
  * in a reply or forward, which is already the output of `sanitizeHTML()`.
- * Only an event description from an invitation, a draft from the server and pasted HTML
+ * Only a draft from the server and pasted HTML
  * come from others without that, so the editor sanitizes all HTML that it gets.
  *
  * Like `sanitizeHTMLWithoutStyleTag()`, with the same hooks below. But the editor saves
