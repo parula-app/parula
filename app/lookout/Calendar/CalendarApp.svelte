@@ -94,7 +94,7 @@
   {/if}
   {#if $eventPeek}
     {#key $eventPeek}
-      <EventPeek event={$eventPeek.event} anchor={$eventPeek.anchor} />
+      <EventPeek peek={$eventPeek} />
     {/key}
   {/if}
 </vbox>
@@ -200,6 +200,10 @@
   }
 
   $: visibleEvents = visible(shownCalendarEvents, showDeclined);
+  // The event of the popup was deleted, e.g. on another device
+  $: if ($eventPeek && !$visibleEvents.contains($eventPeek.event)) {
+    $eventPeek = null;
+  }
   $: isSplit = splitView && view != "schedule" && $shownCalendars.length > 1;
   $: scheduleRows = $shownCalendars.contents.map(calendar => ({ calendar, events: visible(calendar.eventsWithRecurrences, showDeclined) })) as CalendarColumnGroup[];
   let groups: CalendarColumnGroup[] = [];

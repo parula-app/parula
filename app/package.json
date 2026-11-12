@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@capacitor/app": "^7.0.2",
-    "@capacitor/browser": "^7.0.2",
     "@capacitor/core": "^7.0.0",
     "@capacitor/file-viewer": "^2.0.0",
     "@capacitor/filesystem": "^7.1.4",
@@ -104,7 +103,8 @@
     "webdav-server": "^2.6.2"
   },
   "resolutions": {
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "compute-scroll-into-view": "~3.1.1"
   },
   "repository": {
     "type": "git",

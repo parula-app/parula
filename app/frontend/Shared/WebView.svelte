@@ -1,9 +1,14 @@
 // #if [!WEBMAIL && !MOBILE]
 <webview bind:this={webviewE} src={url ?? blobURL} {title} class:hidden {partition} />
-<!-- No Svelte if-block between the conditional compile lines: The plugin takes it as its own condition. The popup shows only on `show()` anyways. -->
-<OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
 // #else
 <iframe bind:this={webviewE} src={url ?? blobURL} {title} {sandbox} class:hidden />
+// #endif
+// #if [!WEBMAIL]
+<!-- No Svelte if-block between the conditional compile lines: The plugin takes it as its own condition. The popup shows only on `show()` anyways. -->
+<OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
+// #endif
+// #if [MOBILE]
+<svelte:window on:blur={onBlur} />
 // #endif
 
 <!--
@@ -20,6 +25,24 @@
   </Menu>
 {/if}
 -->
+
+<script lang="ts" context="module">
+  // #if [MOBILE]
+  import { linkTapPlugin, type LinkTap } from "../../logic/util/os-integration";
+
+  linkTapPlugin.addListener("linkTap", tap => onLinkTap(tap).catch(console.error))
+    .catch(console.error);
+
+  /** The `WebView` where the user tapped may take the link, to show where it goes.
+   * Else, we open it, as Android and iOS would have. */
+  async function onLinkTap(tap: LinkTap) {
+    let tapped = document.elementFromPoint(tap.x, tap.y) ?? document.body;
+    if (tapped.dispatchEvent(new CustomEvent("linktap", { detail: tap, cancelable: true }))) {
+      await linkTapPlugin.open({ url: tap.url });
+    }
+  }
+  // #endif
+</script>
 
 <script lang="ts">
   // #if [!WEBMAIL]
@@ -82,12 +105,18 @@
 
   /** Jail untrusted `html`, e.g. a mail: No scripts, and an opaque origin to block access of app.
    * `allow-popups` keeps the `target="_blank"` links working that `sanitizeHTML()` creates.
+   * Android: The WebView has no second window, so Chromium opens such a link in the top frame
+   * instead, and Capacitor then gives it to the system browser. That needs a top navigation.
    * A page that a web server gave us, e.g. a web app or the payment page, may run scripts
    * and keeps the origin of its server, so that login pages work.
-   * A `blob:` URL would get *our* origin. No `allow-top-navigation`: The page must not replace the app. */
-  $: sandbox = url?.startsWith("https:")
-    ? "allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-storage-access-by-user-activation"
-    : "allow-popups allow-popups-to-escape-sandbox";
+   * A `blob:` URL would get *our* origin. No other top navigation: The page must not replace the app. */
+  let jail = "allow-popups allow-popups-to-escape-sandbox";
+  let webPageJail = "allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-storage-access-by-user-activation";
+  // #if [MOBILE]
+  jail += " allow-top-navigation-by-user-activation";
+  webPageJail += " allow-top-navigation-by-user-activation";
+  // #endif
+  $: sandbox = url?.startsWith("https:") ? webPageJail : jail;
 
   onMount(() =>{
     if (autoSize) {
@@ -153,6 +182,10 @@
     webviewE.addEventListener("context-menu", event =>
       catchErrors(() => onContextMenu((event as any).params)));
     // #endif
+    // #if [MOBILE]
+    webviewE.addEventListener("linktap", event =>
+      catchErrors(() => onTapOnLink(event as CustomEvent<LinkTap>)));
+    // #endif
   }
 
   // #if [!WEBMAIL]
@@ -186,22 +219,26 @@
         return;
       }
       if (event.type == "mouseDown" && event.button == "left") {
-        if (!askBeforeOpeningLinks) {
-          await openExternalURL(url);
-        } else if (askBeforeOpening(url)) {
-          clickEvent = event;
-          await openLinkPopup.show(url);
-        } else {
-          // Like the default in the popup
-          await openExternalURL(removeTrackingURL(url));
-        }
+        clickEvent = event;
+        await onLinkClick(url);
       }
     }), showError);
   }
 
+  async function onLinkClick(url: string) {
+    if (!askBeforeOpeningLinks) {
+      await openExternalURL(url);
+    } else if (askBeforeOpening(url)) {
+      await openLinkPopup.show(url);
+    } else {
+      // Like the default in the popup
+      await openExternalURL(removeTrackingURL(url));
+    }
+  }
+
   let openLinkPopup: OpenLinkPopup;
-  /** The Electron `MouseInputEvent` of the click on the link.
-   * Its `x` and `y` are relative to the webview. */
+  /** Where the user clicked on the link, relative to the webview:
+   * The Electron `MouseInputEvent`, or on mobile, from `onTapOnLink()` */
   let clickEvent: { x: number, y: number };
   /** We don't know how high the link is, so we assume 1 line in the normal font of a mail:
    * 16px with `line-height: 1.5` in `content-body.css` */
@@ -259,6 +296,27 @@
   async function onLoadResize() {
     await getContentSize();
     resizeWebview();
+  }
+  // #endif
+
+  // #if [MOBILE]
+  /** The user tapped on a link in the page, see `onLinkTap()` */
+  async function onTapOnLink(event: CustomEvent<LinkTap>) {
+    let { url, x, y } = event.detail;
+    if (!askBeforeOpeningLinks || !(url.startsWith("https:") || url.startsWith("http:"))) {
+      return; // Android or iOS opens it, as before, e.g. `mailto:`
+    }
+    event.preventDefault(); // We take it
+    let webview = webviewE.getBoundingClientRect();
+    clickEvent = { x: x - webview.x, y: y - webview.y };
+    await onLinkClick(url);
+  }
+
+  /** A tap into the page moves the focus there, but we don't get its events */
+  function onBlur() {
+    if (document.activeElement == webviewE) {
+      webviewE.click(); // e.g. to close the popup, like `addInputListener()`
+    }
   }
   // #endif
 
