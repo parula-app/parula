@@ -7,7 +7,7 @@ import { dataAppName, production } from '../../app/logic/build';
 import { WebContents } from './WebContents';
 import { Observable, notifyChangedProperty } from '../../lib/util/Observable';
 import { ImapFlow } from 'imapflow';
-import { Database } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
+import { Database, type Query } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
 import Zip from "adm-zip";
 import ky from 'ky';
 import { shell, nativeTheme, Notification, Tray, nativeImage, app, BrowserWindow, webContents, Menu, MenuItemConstructorOptions, clipboard, NativeImage, session, desktopCapturer, type DesktopCapturerSource, autoUpdater, systemPreferences, powerMonitor } from "electron";
@@ -211,7 +211,9 @@ function kyCreate(defaultOptions) {
           // let json = await resultKy.json();
           return await kyFetch[resultType]();
         } catch (ex) {
-          throw new HTTPFetchError(ex);
+          let error = new HTTPFetchError(ex);
+          error.responseBody = await ex.response?.text().catch(() => undefined);
+          throw error;
         }
       } else {
         return kyFetch;
@@ -231,6 +233,8 @@ export class HTTPFetchError extends Error {
   hostname: string;
   /** `Retry-After`, in seconds, when the server rate-limited us */
   retryAfterSeconds: number;
+  /** The body of the server's error response, e.g. its error message as JSON */
+  responseBody: string;
 
   constructor(ex: Error) {
     super(ex?.message ?? ex + "");
@@ -582,13 +586,21 @@ function createIMAPFlowConnection(...args): ImapFlow {
 
 function getSQLiteDatabase(filename: string, options: any, buffer?: Uint8Array): Database {
   let safeOptions = { readonly: !!options?.readonly }; // `nativeBinding` in it would `require()` any file as native code
-  if (buffer) {
-    return new Database(Buffer.from(buffer), safeOptions);
-  }
-  if (!filename.startsWith("/")) {
+  if (!buffer && !filename.startsWith("/")) {
     filename = path.join(getConfigDir(), filename);
   }
-  return new Database(filename, safeOptions);
+  let db = new Database(buffer ? Buffer.from(buffer) : filename, safeOptions);
+  // Lets the frontend run several statements with one call over JPC,
+  // each with its values as bound parameters.
+  // Not as a subclass of `Database`: JPC would then miss the functions of `Database`,
+  // because its parent class has the same name.
+  return Object.assign(db, {
+    runMultiple(queries: Query[]) {
+      for (let query of queries) {
+        db.run(query);
+      }
+    },
+  });
 }
 
 async function sendMailNodemailer(transport, mail) {
@@ -650,15 +662,28 @@ function maximizeMainWindow() {
   mainWindow.maximize();
 }
 
-function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => void) {
+/**
+ * @param eventHandler Called for each event. It's in the frontend.
+ * @param errorCallback Gets the errors of `eventHandler`, e.g. `showError()` in the frontend
+ */
+function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => Promise<void> | void, errorCallback: (ex: Error) => Promise<void> | void) {
   const win = webContents.fromId(webContentsID);
   if (!win) {
     // race?
     console.error(`WebContents ID ${webContentsID} not found`);
     return;
   }
-  win.on(webviewEvent as any, (_: any, event: Event) => {
-    eventHandler(event);
+  win.on(webviewEvent as any, async (_: any, event: Event) => {
+    try {
+      await eventHandler(event);
+    } catch (ex) {
+      ex.stack = ex.backendStack ?? ex.stack;
+      try {
+        await errorCallback(ex);
+      } catch (ex2) {
+        console.error(ex);
+      }
+    }
   });
 }
 

@@ -11,6 +11,7 @@
     "l10n:extract": "npx tsx l10n/extractor/extractor.ts",
     "l10n:placeholder": "npx mustang-autotranslate --input l10n/locales --service dry-run --delete-unused-strings --type key-based --exclude **/*.template.json",
     "l10n:auto-translate": "npx mustang-autotranslate --input l10n/locales --service deepl-free --config $DEEPL_API_KEY,default,1000 --delete-unused-strings --type key-based --template messages.template.json --decode-escapes=dynamic",
+    "smime:update-roots": "npx tsx build/update-smime-roots.ts",
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {

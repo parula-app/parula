@@ -99,6 +99,15 @@ export class PublicKey extends Observable {
     return [filenamePrefix, this.userIDs.first, this.name].filter(part => part).join("-") + "." + fileExt;
   }
 
+  isForEMailAddress(emailAddress: string): boolean {
+    let address = emailAddress?.toLowerCase();
+    return !!address && this.userIDs.some(userID => userID.toLowerCase() == address);
+  }
+
+  usableForEncryption(): boolean {
+    return true;
+  }
+
   get sortOrder(): number {
     return -(
       sanitize.translate(this.system, { [EncryptionSystem.PGP]: 2, [EncryptionSystem.SMIME]: 1 }, 0) +

@@ -52,6 +52,7 @@ const oids = {
   "1.2.840.113549.1.9.3": "contentType",
   "1.2.840.113549.1.9.4": "messageDigest",
   "1.2.840.113549.1.9.5": "signingTime",
+  "1.2.840.113549.1.9.14": "extensionRequest",
   "1.2.840.113549.1.9.15": "smimeCapabilities",
   "1.2.840.113549.1.9.16.1.23": "authEnvelopedData",
   "1.2.840.113549.1.9.22.1": "x509Certificate",
@@ -72,7 +73,9 @@ const oids = {
   "1.2.840.113549.2.10": "hmacWithSHA384",
   "1.2.840.113549.2.11": "hmacWithSHA512",
   "1.2.840.113549.3.7": "desEDE3CBC",
+  "1.3.6.1.5.5.7.1.1": "authorityInfoAccess",
   "1.3.6.1.5.5.7.3.4": "emailProtection",
+  "1.3.6.1.5.5.7.48.2": "caIssuers",
   //"1.3.6.1.5.5.8.1.2": "hmacWithSHA1",
   "1.3.14.3.2.26": "sha1",
   "2.1.0.1.1": "printstr",
@@ -88,6 +91,7 @@ const oids = {
   "2.5.29.19": "basicConstraints",
   "2.5.29.35": "authorityKeyIdentifier",
   "2.5.29.37": "extKeyUsage",
+  "2.5.29.37.0": "anyExtendedKeyUsage",
   "2.16.840.1.101.3.4.1.2": "aes128cbc",
   "2.16.840.1.101.3.4.1.6": "aes128gcm",
   "2.16.840.1.101.3.4.1.22": "aes192cbc",
@@ -190,7 +194,7 @@ export const RDNSequence = define<AttributeValue[]>("RDNSequence", function() {
 });
 
 export interface SubjectPublicKeyInfo {
-  algorithmIdenfitier: AlgorithmIdentifier;
+  algorithmIdentifier: AlgorithmIdentifier;
   subjectPublicKey: BitString;
 }
 export const SubjectPublicKeyInfo = define<SubjectPublicKeyInfo>("SubjectPublicKeyInfo", function() {
@@ -230,6 +234,10 @@ const Extension = define<Extension>("Extension", function() {
   );
 });
 
+export const Extensions = define<Extension[]>("Extensions", function() {
+  this.seqof(Extension);
+});
+
 const GeneralName = define("GeneralName", function() {
   this.choice({
     otherName: this.seq().obj(this.key("typeid").objid(oids), this.key("value").any().explicit(0)).implicit(0),
@@ -241,8 +249,50 @@ const GeneralName = define("GeneralName", function() {
   });
 });
 
+const AccessDescription = define("AccessDescription", function() {
+  this.seq().obj(
+    this.key("accessMethod").objid(oids),
+    this.key("accessLocation").use(GeneralName),
+  );
+});
+
+/** Where to get the certificate of the CA that issued a certificate, RFC 5280 4.2.2.1 */
+export const AuthorityInfoAccess = define("AuthorityInfoAccess", function() {
+  this.seqof(AccessDescription);
+});
+
 export const SubjectAlternativeName = define("SubjectAlternativeName", function() {
   this.seqof(GeneralName);
+});
+
+export interface BasicConstraints {
+  cA: boolean;
+  pathLenConstraint?: bigint;
+}
+export const BasicConstraints = define<BasicConstraints>("BasicConstraints", function() {
+  this.seq().obj(
+    this.key("cA").def(false).bool(),
+    this.key("pathLenConstraint").optional().int(),
+  );
+});
+
+export enum KeyUsageBit {
+  digitalSignature,
+  nonRepudiation,
+  keyEncipherment,
+  dataEncipherment,
+  keyAgreement,
+  keyCertSign,
+  cRLSign,
+  encipherOnly,
+  decipherOnly,
+}
+export const KeyUsage = define<BitString>("KeyUsage", function() {
+  this.bitstr();
+});
+
+export const ExtKeyUsage = define<string[]>("ExtKeyUsage", function() {
+  this.seqof(Oid);
 });
 
 /** The part of a certificate that is (to be) signed */
@@ -377,7 +427,7 @@ const RecipientInfo = define("RecipientInfo", function() {
           this.key("issuer").seqof(AttributeValue),
           this.key("serialNumber").int(),
         ),
-        subjectKeyIdentifier: this.implicit(0).octstr(), // TODO
+        subjectKeyIdentifier: this.implicit(0).octstr(),
       }),
       this.key("keyEncryptionAlgorithm").use(AlgorithmIdentifier),
       this.key("encryptedKey").octstr(),
@@ -530,7 +580,7 @@ export const CertificationRequestInfo = define("CertificationRequestInfo", funct
     this.key("version").int(),
     this.key("subject").seqof(AttributeValue),
     this.key("subjectPublicKeyInfo").use(SubjectPublicKeyInfo),
-    this.key("attributes").implicit(0).setof(Any),
+    this.key("attributes").implicit(0).use(Attributes),
   );
 });
 
