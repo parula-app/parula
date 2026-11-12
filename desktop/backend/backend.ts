@@ -434,7 +434,9 @@ async function openExternalURL(url: string) {
   /** Schemes that we let the OS open. A mail fully controls the URL of its links,
    * and `shell.openExternal()` starts whichever app the OS registered for the scheme.
    * E.g. `file:` runs a `.desktop` file or an `.exe`, and `ms-msdt:` and `search-ms:`
-   * are remote code execution on Windows. */
+   * are remote code execution on Windows.
+   * A page can't get around this by going to such a URL itself:
+   * `isPermissionAllowed()` in `desktop/src/main/index.ts` denies it `openExternal`. */
   const kAllowedURLSchemes = [
     "https:",
     "http:",

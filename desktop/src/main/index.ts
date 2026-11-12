@@ -31,6 +31,7 @@ async function createWindow(): Promise<void> {
       }
     })
     setMainWindow(mainWindow);
+    appWebContents = mainWindow.webContents;
 
     if (process.platform == "linux" && app.commandLine.getSwitchValue("ozone-platform") == "wayland") {
       // The "ready-to-show" event doesn't always fire on Wayland.
@@ -334,9 +335,12 @@ function restrictWebViews(webContents: WebContents) {
 }
 
 /** Electron grants every permission to every page, unless we decide.
- * A page in a `<webview>`, e.g. a web app or a mail, gets only what web apps need for calls
- * and notifications. It must not e.g. start other apps with an `openExternal` URL,
- * read the clipboard, or know where the user is. Our app keeps all permissions. */
+ * Pages other than our app, i.e. in a `<webview>` (a web app, a login page or a mail)
+ * and in the login window, get only what web apps need for calls and notifications.
+ * They must not e.g. start other apps with an `openExternal` URL, read the clipboard,
+ * or know where the user is. Our app keeps all permissions.
+ * Links that the user clicks in a `<webview>` don't need `openExternal`: `WebView.svelte` opens them
+ * with `openExternalURL()` in `desktop/backend/backend.ts`, which allows only some URL schemes. */
 function restrictPermissions(session: Session) {
   session.setPermissionRequestHandler((webContents, permission, callback) => {
     callback(isPermissionAllowed(webContents, permission));
@@ -344,9 +348,12 @@ function restrictPermissions(session: Session) {
   session.setPermissionCheckHandler((webContents, permission) => isPermissionAllowed(webContents, permission));
 }
 
+/** Our app window. Only it gets all permissions. */
+let appWebContents: WebContents | null = null;
+
 function isPermissionAllowed(webContents: WebContents | null, permission: string): boolean {
-  const kWebViewPermissions = ["media", "display-capture", "notifications", "fullscreen", "pointerLock", "clipboard-sanitized-write", "speaker-selection", "storage-access", "top-level-storage-access", "mediaKeySystem"];
-  return webContents?.getType() != "webview" || kWebViewPermissions.includes(permission);
+  const kWebPagePermissions = ["media", "display-capture", "notifications", "fullscreen", "pointerLock", "clipboard-sanitized-write", "speaker-selection", "storage-access", "top-level-storage-access", "mediaKeySystem"];
+  return !!webContents && webContents == appWebContents || kWebPagePermissions.includes(permission);
 }
 
 // In this file you can include the rest of your app"s specific main process
