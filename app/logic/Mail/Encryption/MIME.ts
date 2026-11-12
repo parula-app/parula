@@ -126,7 +126,7 @@ export function toCRLF(content: string): string {
   }
 }
 
-/** Like `toCRLF()`, but byte-wise, so that 8-bit content like ISO-8859-1 survives */
+/** Like `toCRLF()`, but byte-wise, so that 8-bit content in UTF-8 or any other charset survives */
 export function toCRLFBytes(content: Uint8Array): Uint8Array {
   let bareLineBreaks = 0;
   for (let i = 0; i < content.length; i++) {

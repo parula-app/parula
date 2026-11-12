@@ -5,7 +5,7 @@ import { setupTestFolder } from "../../logic/Mail/SQL/setup";
 import type { EMail } from "../../../logic/Mail/EMail";
 import { openFileInternally } from "../../../frontend/Files/open";
 import { openEMailMessage } from "../../../frontend/Mail/open";
-import { kClearSigned, kClearSignedLatin1, kOpaqueSigned } from "../../logic/Mail/Encryption/SMIME/signedMessages";
+import { kClearSigned, kClearSignedLatin1, kClearSignedUTF8, kOpaqueSigned } from "../../logic/Mail/Encryption/SMIME/signedMessages";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("../../../frontend/Mail/open", () => ({ openEMailMessage: vi.fn() }));
@@ -48,6 +48,13 @@ describe("S/MIME signed .eml file with LF line endings", () => {
     expect(email.signedKey?.userIDs.contents).toContain("alice@example.com");
   });
 
+  test("clear-signed, 8-bit text in UTF-8", async () => {
+    let email = await openEMLFile(new TextEncoder().encode(kClearSignedUTF8));
+    expect(email.text.trim()).toBe("Grüße aus Köln");
+    expect(email.signedKey?.userIDs.contents).toContain("joerg@example.com");
+  });
+
+  /** Fails if the conversion goes through a UTF-8 string */
   test("clear-signed, 8-bit text in ISO-8859-1", async () => {
     let email = await openEMLFile(withLF(kClearSignedLatin1));
     expect(email.text.trim()).toBe("Grüße aus Köln");
