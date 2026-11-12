@@ -9,7 +9,7 @@ import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { Lock, type Locked } from "../../util/flow/Lock";
 import { assert, fileExtensionForMIMEType } from "../../util/util";
 import { ArrayColl, Collection } from "svelte-collections";
-import sql, { type Query } from "../../../../lib/rs-sqlite";
+import sql from "../../../../lib/rs-sqlite";
 
 export class SQLEMail {
   /**
@@ -19,10 +19,8 @@ export class SQLEMail {
     let lock = await email.storageLock.lock();
     try {
       await this.saveMainProps(email);
-      await (await getDatabase()).execute(sql`
-        $${this.saveWritablePropsSQL(email)}
-        $${this.saveRecipientsSQL(email)}
-        `);
+      await this.saveWritablePropsMultiple([email]);
+      await this.saveRecipientsMultiple([email]);
       await this.saveAttachments(email);
     } finally {
       lock.release();
@@ -100,81 +98,115 @@ export class SQLEMail {
     assert(email.dbID, "Need Email DB ID to save props");
     let lock = await email.storageLock.lock();
     try {
-      await (await getDatabase()).execute(this.saveWritablePropsSQL(email));
+      await this.saveWritablePropsMultiple([email]);
     } finally {
       lock.release();
     }
   }
 
-  /** The statements that save the props and the tags,
-   * so that `execute()` runs them together with others, in one call to the backend */
-  protected static saveWritablePropsSQL(email: EMail): Query {
-    let json = {} as any;
-    JSONEMail.saveExtraData(email, json);
-    let jsonStr = Object.keys(json).length
-      ? JSON.stringify(json, null, 2)
-      : null;
+  /** Saves the props and the tags of all these emails, with a few calls to the backend.
+   * The values of all emails go to SQLite as one bound parameter in JSON,
+   * which `json_each()` makes into rows. */
+  protected static async saveWritablePropsMultiple(emails: EMail[]) {
+    let props = emails.map(email => {
+      let json = {} as any;
+      JSONEMail.saveExtraData(email, json);
+      return {
+        id: email.dbID,
+        isRead: email.isRead ? 1 : 0,
+        isStarred: email.isStarred ? 1 : 0,
+        isReplied: email.isReplied ? 1 : 0,
+        isForwarded: email.isForwarded ? 1 : 0,
+        isImportant: email.isImportant ? 1 : 0,
+        isSpam: email.isSpam ? 1 : 0,
+        isDraft: email.isDraft ? 1 : 0,
+        threadID: email.threadID,
+        downloadComplete: email.downloadComplete ? 1 : 0,
+        json: Object.keys(json).length
+          ? JSON.stringify(json, null, 2)
+          : null,
+      };
+    });
 
     // This might be an update with only metadata, so don't overwrite content
-    return sql`
+    await (await getDatabase()).run(sql`
       UPDATE email SET
-        isRead = ${email.isRead ? 1 : 0},
-        isStarred = ${email.isStarred ? 1 : 0},
-        isReplied = ${email.isReplied ? 1 : 0},
-        isForwarded = ${email.isForwarded ? 1 : 0},
-        isImportant = ${email.isImportant ? 1 : 0},
-        isSpam = ${email.isSpam ? 1 : 0},
-        isDraft = ${email.isDraft ? 1 : 0},
-        threadID = COALESCE(${email.threadID}, threadID),
-        downloadComplete = MAX(downloadComplete, ${email.downloadComplete ? 1 : 0}),
-        json = COALESCE(${jsonStr}, json)
-      WHERE id = ${email.dbID};
-      $${this.saveTagsSQL(email)}
-      `;
+        isRead = props.value ->> 'isRead',
+        isStarred = props.value ->> 'isStarred',
+        isReplied = props.value ->> 'isReplied',
+        isForwarded = props.value ->> 'isForwarded',
+        isImportant = props.value ->> 'isImportant',
+        isSpam = props.value ->> 'isSpam',
+        isDraft = props.value ->> 'isDraft',
+        threadID = COALESCE(props.value ->> 'threadID', email.threadID),
+        downloadComplete = MAX(email.downloadComplete, props.value ->> 'downloadComplete'),
+        json = COALESCE(props.value ->> 'json', email.json)
+      FROM json_each(${JSON.stringify(props)}) AS props
+      WHERE email.id = props.value ->> 'id'
+      `);
+    await this.saveTagsMultiple(emails);
   }
 
-  protected static saveRecipientsSQL(email: EMail): Query {
-    assert(email.dbID, "Need Email DB ID");
+  /** Like `saveWritablePropsMultiple()` */
+  protected static async saveRecipientsMultiple(emails: EMail[]) {
     // See comment in `saveAttachments()` below
-    let queries = [
-      sql`
-        DELETE FROM emailPersonRel
-        WHERE emailID = ${email.dbID};
-        `,
-      this.saveRecipientSQL(email, email.from, 1),
-      ...email.to.contents.map(puid => this.saveRecipientSQL(email, puid, 2)),
-      ...email.cc.contents.map(puid => this.saveRecipientSQL(email, puid, 3)),
-      ...email.bcc.contents.map(puid => this.saveRecipientSQL(email, puid, 4)),
-    ];
-    if (email.replyTo?.emailAddress) {
-      queries.push(this.saveRecipientSQL(email, email.replyTo, 5));
-    }
-    return joinSQL(queries);
-  }
-
-  protected static saveRecipientSQL(email: EMail, puid: PersonUID, recipientType: number): Query {
-    // "IS", unlike "=", also finds a person without name (NULL)
-    return sql`
+    let recipients = JSON.stringify(emails.flatMap(email => {
+      let rows = [
+        this.recipientRow(email, email.from, 1),
+        ...email.to.contents.map(puid => this.recipientRow(email, puid, 2)),
+        ...email.cc.contents.map(puid => this.recipientRow(email, puid, 3)),
+        ...email.bcc.contents.map(puid => this.recipientRow(email, puid, 4)),
+      ];
+      if (email.replyTo?.emailAddress) {
+        rows.push(this.recipientRow(email, email.replyTo, 5));
+      }
+      return rows;
+    }));
+    let db = await getDatabase();
+    await db.run(sql`
+      DELETE FROM emailPersonRel
+      WHERE emailID IN (SELECT value FROM json_each(${JSON.stringify(emails.map(email => email.dbID))}))
+      `);
+    // "IS", unlike "=", also finds a person without name (NULL).
+    // GROUP BY: A person who is in several of these emails only once.
+    await db.run(sql`
       INSERT INTO emailPerson (
         name, emailAddress, personID
       ) SELECT
-        ${puid.name}, ${puid.emailAddress}, ${puid.person?.dbID}
+        r.value ->> 'name', r.value ->> 'emailAddress', r.value ->> 'personID'
+      FROM json_each(${recipients}) AS r
       WHERE NOT EXISTS (
         SELECT 1
         FROM emailPerson
         WHERE
-          emailAddress IS ${puid.emailAddress} AND
-          name IS ${puid.name});
+          emailAddress IS r.value ->> 'emailAddress' AND
+          name IS r.value ->> 'name')
+      GROUP BY r.value ->> 'emailAddress', r.value ->> 'name'
+      `);
+    await db.run(sql`
       INSERT INTO emailPersonRel (
         emailID, emailPersonID, recipientType
       ) SELECT
-        ${email.dbID}, id, ${recipientType}
-      FROM emailPerson
-      WHERE
-        emailAddress IS ${puid.emailAddress} AND
-        name IS ${puid.name}
-      LIMIT 1;
-      `;
+        r.value ->> 'emailID',
+        (SELECT id
+          FROM emailPerson
+          WHERE
+            emailAddress IS r.value ->> 'emailAddress' AND
+            name IS r.value ->> 'name'
+          LIMIT 1),
+        r.value ->> 'recipientType'
+      FROM json_each(${recipients}) AS r
+      `);
+  }
+
+  protected static recipientRow(email: EMail, puid: PersonUID, recipientType: number) {
+    return {
+      emailID: email.dbID,
+      name: puid.name,
+      emailAddress: puid.emailAddress,
+      personID: puid.person?.dbID,
+      recipientType,
+    };
   }
 
   protected static async saveAttachments(email: EMail) {
@@ -265,26 +297,30 @@ export class SQLEMail {
     assert(email.dbID, "Need Email DB ID");
     let lock = await email.storageLock.lock();
     try {
-      await (await getDatabase()).execute(this.saveTagsSQL(email));
+      await this.saveTagsMultiple([email]);
     } finally {
       lock.release();
     }
   }
 
-  protected static saveTagsSQL(email: EMail): Query {
-    return joinSQL([
-      sql`
-        DELETE FROM emailTag
-        WHERE emailID = ${email.dbID};
-        `,
-      ...email.tags.contents.map(tag => sql`
-        INSERT OR IGNORE INTO emailTag (
-          emailID, tagName
-        ) VALUES (
-          ${email.dbID}, ${tag.name}
-        );
-        `),
-    ]);
+  /** Like `saveWritablePropsMultiple()` */
+  protected static async saveTagsMultiple(emails: EMail[]) {
+    let db = await getDatabase();
+    await db.run(sql`
+      DELETE FROM emailTag
+      WHERE emailID IN (SELECT value FROM json_each(${JSON.stringify(emails.map(email => email.dbID))}))
+      `);
+    let tags = emails.flatMap(email => email.tags.contents.map(tag => ({ emailID: email.dbID, tagName: tag.name })));
+    if (!tags.length) {
+      return;
+    }
+    await db.run(sql`
+      INSERT OR IGNORE INTO emailTag (
+        emailID, tagName
+      ) SELECT
+        value ->> 'emailID', value ->> 'tagName'
+      FROM json_each(${JSON.stringify(tags)})
+      `);
   }
 
   protected static readonly transactionLock = new Lock();
@@ -295,7 +331,7 @@ export class SQLEMail {
     let emailLocks: Locked[] = [];
     try {
       await (await getDatabase()).run(sql`BEGIN TRANSACTION`);
-      let queries: Query[] = [];
+      let savedEMails: EMail[] = [];
       for (let email of new Set(emails)) {
         if (!email.subject) {
           continue;
@@ -304,15 +340,13 @@ export class SQLEMail {
         try {
           await this.saveMainProps(email);
           await this.saveAttachments(email);
-          queries.push(sql`
-            $${this.saveWritablePropsSQL(email)}
-            $${this.saveRecipientsSQL(email)}
-            `);
+          savedEMails.push(email);
         } catch (ex) {
           email.folder.account.errorCallback(ex); // and save the other emails
         }
       }
-      await (await getDatabase()).execute(joinSQL(queries));
+      await this.saveWritablePropsMultiple(savedEMails);
+      await this.saveRecipientsMultiple(savedEMails);
       await (await getDatabase()).run(sql`END TRANSACTION`);
     } catch (ex) {
       await (await getDatabase()).run(sql`ROLLBACK TRANSACTION`);
@@ -667,14 +701,4 @@ export class SQLEMail {
     }
     folder.messages.addAll(newEmails);
   }
-}
-
-/** Several queries as one, so that `execute()` runs them with one call to the backend */
-function joinSQL(queries: Query[]): Query {
-  let joined: Query = { sourceParts: [""], parameters: [] };
-  for (let query of queries) {
-    joined.sourceParts.push(joined.sourceParts.pop() + query.sourceParts[0], ...query.sourceParts.slice(1));
-    joined.parameters.push(...query.parameters);
-  }
-  return joined;
 }

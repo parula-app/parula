@@ -48,5 +48,5 @@ test("Saving one email makes a few calls to the backend, not one per recipient",
 
   await SQLEMail.save(email);
 
-  expect(calls).toBeLessThan(5);
+  expect(calls).toBeLessThan(10);
 });
