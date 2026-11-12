@@ -82,9 +82,15 @@
 
   /** Jail untrusted `html`, e.g. a mail: No scripts, and an opaque origin to block access of app.
    * `allow-popups` keeps the `target="_blank"` links working that `sanitizeHTML()` creates.
+   * Android: The WebView has no second window, so Chromium opens such a link in the top frame
+   * instead, and Capacitor then gives it to the system browser. That needs a top navigation.
    * Only a page that a web server gave us is not jailed, e.g. a web app or the payment page:
    * That page gets the origin of its server. A `blob:` URL would get *ours*. */
-  $: sandbox = url?.startsWith("https:") ? undefined : "allow-popups allow-popups-to-escape-sandbox";
+  let jail = "allow-popups allow-popups-to-escape-sandbox";
+  // #if [MOBILE]
+  jail += " allow-top-navigation-by-user-activation";
+  // #endif
+  $: sandbox = url?.startsWith("https:") ? undefined : jail;
 
   onMount(() =>{
     if (autoSize) {
