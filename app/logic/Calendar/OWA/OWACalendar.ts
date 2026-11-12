@@ -37,7 +37,8 @@ export class OWACalendar extends ExchangeCalendar {
   }
 
   callOWA(aRequest: any) {
-    return this.username == this.account.username
+    // With limited details, we may not open the colleague's mailbox, only ask for their availability
+    return this.username == this.account.username || this.hasLimitedDetails
       ? this.account.callOWA(aRequest)
       : this.account.callOWA(aRequest, this.username);
   }

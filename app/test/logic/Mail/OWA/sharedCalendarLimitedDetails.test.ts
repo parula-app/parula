@@ -153,6 +153,7 @@ beforeAll(() => {
   globalThis.fetch = (async (url: string, options: any) => {
     let headers = options.headers;
     let logon = headers["x-owa-explicitlogonuser"];
+    // Alice may not open the mailboxes of Bob and Carol, she may only see their availability
     let body = logon && logon != kAlice
       ? { ResponseMessages: { Items: [errorResponse("ErrorAccessDenied")] } }
       : serve(headers.Action, JSON.parse(options.body));
