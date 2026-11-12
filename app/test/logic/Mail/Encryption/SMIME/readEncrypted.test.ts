@@ -3,7 +3,8 @@ import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
-import { expect, test } from "vitest";
+import type { EMail } from "../../../../../logic/Mail/EMail";
+import { describe, expect, test, vi } from "vitest";
 
 // The browser has this, but Node does not.
 globalThis.indexedDB ??= {
@@ -62,9 +63,56 @@ test("A message encrypted with AES-CCM, which we can't decrypt, tells the user w
   expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/\bccm|2\.16\.840\.1\.101\.3\.4\.1\.47/i)]);
 });
 
+describe("Opening the message", () => {
+  test("A message encrypted with 3DES shows the error instead of an empty body", async () => {
+    let { email, errors } = await newMailToBob(cmsMail("enveloped-data", kDES3));
+    serveFromServer(email);
+    await email.download(); // the sync, in the background
+    expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/\bdes/i)]);
+
+    // `MessageBody` shows what `loadBody()` throws
+    await expect(email.loadBody()).rejects.toThrow(/\bdes/i);
+  });
+
+  test("A message whose signature we can't read still shows its body", async () => {
+    let { email, errors } = await newMailToBob(kBrokenSignature);
+    serveFromServer(email);
+    await email.loadBody();
+    expect(email.text.trim()).toBe("Hello, this is signed.");
+    expect(errors).toHaveLength(1);
+  });
+
+  test("A normal message is parsed once", async () => {
+    let { email, errors } = await newMailToBob(kPlain);
+    serveFromServer(email);
+    let parse = vi.spyOn(email, "parseMIME");
+    await email.loadBody();
+    expect(email.text.trim()).toBe("Hello Bob");
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(errors).toEqual([]);
+  });
+});
+
 /** Reads the CMS blob as a message to Bob, whose private key we have.
  * @returns the errors that the user sees */
 async function readAsBob(smimeType: string, cms: string): Promise<Error[]> {
+  let { email, errors } = await newMailToBob(cmsMail(smimeType, cms));
+  await email.parseMIME();
+  return errors;
+}
+
+/** Lets `download()` fetch the message again, parse and save it, as the protocols do */
+function serveFromServer(email: EMail) {
+  let mime = email.mime;
+  email.download = async () => {
+    email.mime = mime;
+    await email.parseMIME();
+    await email.saveCompleteMessage();
+  };
+}
+
+/** A message to Bob, whose private key we have */
+async function newMailToBob(mime: string): Promise<{ email: EMail, errors: Error[] }> {
   let { folder } = await setupTestFolder();
   let identity = new MailIdentity(folder.account);
   identity.emailAddress = "bob@example.com";
@@ -76,7 +124,12 @@ async function readAsBob(smimeType: string, cms: string): Promise<Error[]> {
   folder.account.errorCallback = (ex) => errors.push(ex);
 
   let email = folder.newEMail();
-  email.mime = new TextEncoder().encode(`From: Alice <alice@example.com>
+  email.mime = new TextEncoder().encode(mime.replace(/\n/g, "\r\n"));
+  return { email, errors };
+}
+
+function cmsMail(smimeType: string, cms: string): string {
+  return `From: Alice <alice@example.com>
 To: Bob <bob@example.com>
 Subject: Encrypted
 Date: Tue, 14 Jul 2026 10:00:00 +0000
@@ -87,10 +140,43 @@ Content-Type: application/pkcs7-mime; smime-type=${smimeType}; name="smime.p7m"
 Content-Transfer-Encoding: base64
 
 ${cms}
-`.replace(/\n/g, "\r\n"));
-  await email.parseMIME();
-  return errors;
+`;
 }
+
+const kPlain = `From: Alice <alice@example.com>
+To: Bob <bob@example.com>
+Subject: Plain
+Date: Tue, 14 Jul 2026 10:00:00 +0000
+Message-ID: <plain@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Hello Bob
+`;
+
+/** Clear-signed, but the signature is not CMS */
+const kBrokenSignature = `From: Alice <alice@example.com>
+To: Bob <bob@example.com>
+Subject: Signed
+Date: Tue, 14 Jul 2026 10:00:00 +0000
+Message-ID: <broken-signature@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg="sha-256"; boundary="boundary"
+
+--boundary
+Content-Type: text/plain; charset=utf-8
+
+Hello, this is signed.
+
+--boundary
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+AAAAAAAA
+
+--boundary--
+`;
 
 /** `openssl smime -sign | openssl smime -encrypt`, to a certificate that is not ours */
 const kEncrypted = `From: Alice <alice@example.com>

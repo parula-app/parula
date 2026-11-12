@@ -1,6 +1,6 @@
 import type { EMail } from "./EMail";
 import type { ExtraData } from "./ExtraData";
-import { AbstractFunction } from "../util/util";
+import { AbstractFunction, SpecificError } from "../util/util";
 import { ArrayColl, MapColl } from "svelte-collections";
 import type { Email as MIME } from "postal-mime";
 
@@ -25,6 +25,12 @@ export class EMailProcessor {
   unhookup() {
     EMailProcessorList.processors.remove(this);
   }
+}
+
+/** A processor can't get the content of the mail, e.g. can't decrypt it */
+export class CannotReadMail extends SpecificError {
+  /** A problem of the mail, not a bug */
+  isUserError = true;
 }
 
 /** For now, only Parse is supported */

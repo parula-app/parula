@@ -7,7 +7,7 @@ import { DeleteStrategy, type MailAccountStorage } from "./MailAccount";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../Abstract/PersonUID";
 import type { MailIdentity } from "./MailIdentity";
 import { RawFilesAttachment } from "./Store/RawFilesAttachment";
-import { EMailProcessorList, ProcessingStartOn } from "./EMailProcessor";
+import { EMailProcessorList, ProcessingStartOn, CannotReadMail } from "./EMailProcessor";
 import type { ExtraData } from "./ExtraData";
 import type { SMLData } from "./SML/SMLData";
 import type { PublicKey } from "./Encryption/PublicKey";
@@ -360,7 +360,8 @@ export class EMail extends Message {
   }
 
   protected processorLoop: LoopGuard | null = null;
-  async parseMIME(): Promise<MIME> {
+  /** @param throwCannotRead Throws `CannotReadMail`, instead of passing it to `errorCallback()` */
+  async parseMIME(throwCannotRead = false): Promise<MIME> {
     assert(this.mime?.length, "MIME source not yet downloaded");
     assert(this.mime instanceof Uint8Array, "MIME source should be a byte array");
     //console.log("MIME source", this.mime, new TextDecoder("utf-8").decode(this.mime));
@@ -438,7 +439,7 @@ export class EMail extends Message {
     const kMaxLayers = 10;
     let isOutermost = !this.processorLoop;
     this.processorLoop ??= new LoopGuard(kMaxLayers, () => {
-      throw new Error("Too many nested encryption or signature layers");
+      throw new CannotReadMail(null, "Too many nested encryption or signature layers");
     });
     try {
       this.processorLoop.nextRound();
@@ -449,6 +450,10 @@ export class EMail extends Message {
         try {
           await processor.process(this, mail);
         } catch (ex) {
+          // An inner layer that we can't read makes the whole mail unreadable
+          if (ex instanceof CannotReadMail && (throwCannotRead || !isOutermost)) {
+            throw ex;
+          }
           this.folder.account.errorCallback(ex);
         }
       }
@@ -605,6 +610,9 @@ export class EMail extends Message {
         }
         if (!this._rawHTML && !this._text) {
           await this.download();
+        }
+        if (!this._rawHTML && !this._text && this.mime) {
+          await this.parseMIME(true); // throws why it's empty, if we can't read it
         }
       }
 
