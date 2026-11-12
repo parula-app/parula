@@ -51,6 +51,7 @@ class SleepyServer {
 }
 
 // desktop/backend/backend.ts can't be loaded here (Electron), so this is the same function
+// <copied from="../../../../desktop/backend/backend.ts">
 /** The server closed our idle keep-alive connections while the computer slept, but we
  * don't know that yet, and the next request on one of them would fail with "fetch failed".
  * Chromium closes them when the computer wakes up, Node's `fetch()` doesn't.
@@ -64,6 +65,7 @@ function closeIdleHTTPConnections(): void {
   (globalThis as any)[kGlobalDispatcher] = new dispatcher.constructor();
   dispatcher.close().catch(console.error);
 }
+// </copied>
 
 let server = new SleepyServer();
 
