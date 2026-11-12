@@ -109,13 +109,16 @@
    * `allow-popups` keeps the `target="_blank"` links working that `sanitizeHTML()` creates.
    * Android: The WebView has no second window, so Chromium opens such a link in the top frame
    * instead, and Capacitor then gives it to the system browser. That needs a top navigation.
-   * Only a page that a web server gave us is not jailed, e.g. a web app or the payment page:
-   * That page gets the origin of its server. A `blob:` URL would get *ours*. */
+   * A page that a web server gave us, e.g. a web app or the payment page, may run scripts
+   * and keeps the origin of its server, so that login pages work.
+   * A `blob:` URL would get *our* origin. No other top navigation: The page must not replace the app. */
   let jail = "allow-popups allow-popups-to-escape-sandbox";
+  let webPageJail = "allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-storage-access-by-user-activation";
   // #if [MOBILE]
   jail += " allow-top-navigation-by-user-activation";
+  webPageJail += " allow-top-navigation-by-user-activation";
   // #endif
-  $: sandbox = url?.startsWith("https:") ? undefined : jail;
+  $: sandbox = url?.startsWith("https:") ? webPageJail : jail;
 
   onMount(() =>{
     if (autoSize) {
