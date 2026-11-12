@@ -3,6 +3,7 @@
 import "../../../../../logic/app";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
+import { CertificationRequest, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { expect, test, describe } from "vitest";
 
 // `setCertificate()` digests using `window.crypto`,
@@ -71,6 +72,23 @@ describe("Newly created private key", () => {
     let csr = await key.generateCSRFile({ CN: "Ben Bucksch", E: "ben@example.com" });
     expect(csr.name).toBe(`CertificateRequest-ben@example.com-${key.name}.csr`);
   }, 60000); // generating an RSA 4096 key takes a while
+
+  test("certificate request asks for the email address, signing, encryption and email protection", async () => {
+    let key = await SMIMEPrivateKey.createNewPrivateKey("ben@example.com");
+    let csr = await key.generateCSRFile({ CN: "Ben Bucksch", E: "ben@example.com" });
+    let request = CertificationRequest.decodePEM(await csr.text(), { label: "CERTIFICATE REQUEST" });
+    let extensionRequest = request.certificationRequestInfo.attributes.find(attr => attr.attrType == "extensionRequest");
+    let extensions = Extensions.decode(extensionRequest.attrValue[0]);
+    function extension(id: string): Uint8Array {
+      return extensions.find(ext => ext.extnID == id).extnValue;
+    }
+    expect(SubjectAlternativeName.decode(extension("subjectAlternativeName"))).toContainEqual({ type: "rfc822Name", value: "ben@example.com" });
+    // Bit 0 of a BIT STRING is the most significant bit of the first byte
+    let keyUsage = KeyUsage.decode(extension("keyUsage")).data[0];
+    expect(keyUsage & 0b10000000).toBeTruthy(); // digitalSignature
+    expect(keyUsage & 0b00100000).toBeTruthy(); // keyEncipherment
+    expect(ExtKeyUsage.decode(extension("extKeyUsage"))).toContain("emailProtection");
+  }, 60000);
 });
 
 describe("Certificate", () => {

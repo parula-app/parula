@@ -7,8 +7,9 @@ import { type TGraphFolder, type TGraphEMail, TGraphEMailHeaderProperties } from
 import { Semaphore } from "../../util/flow/Semaphore";
 import { PromiseAllDone } from "../../util/flow/PromiseAllDone";
 import { Lock } from "../../util/flow/Lock";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { NotImplemented, type URLString } from "../../util/util";
+import type { URLString } from "../../util/util";
 import { ArrayColl, Collection } from "svelte-collections";
 import { gt } from "../../../l10n/l10n";
 
@@ -63,23 +64,24 @@ export class GraphFolder extends Folder {
    * But doesn't download their contents. @see downloadMessages() */
   protected async listAllMessages(): Promise<ArrayColl<GraphEMail>> {
     const batchSize = kMaxFetchCount;
+    const kMaxRounds = 10000; // 1,000,000 emails, even if the server sends only 100 per page
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
     let nextURL: URLString;
-    let hadNext = false;
     let allNewMessages = new ArrayColl<GraphEMail>();
-    for (let i = 0; i < this.countTotal; ) {
+    while (loop.nextRound()) {
       let newMessagesJSON: TGraphEMail[];
-      if (hadNext && !nextURL) {
-        break;
-      } else if (nextURL) {
-        hadNext = true;
+      if (nextURL) {
         // nextURL already includes the $select. And ky searchParams would overwrite the skip token.
         newMessagesJSON = await this.account.graphGet<TGraphEMail>(nextURL);
       } else {
         newMessagesJSON = await this.account.graphGet<TGraphEMail>(`${this.path}/messages`, {
-          top: batchSize,
-          "$skip": i || undefined,
+          $top: batchSize,
           "$select": TGraphEMailHeaderProperties.join(","),
         });
+      }
+      if (loop.isSameAsLastRound(newMessagesJSON.map(json => json.id).join(" "))) {
+        break;
       }
       let extra = newMessagesJSON as any;
       nextURL = extra.nextURL;
@@ -89,10 +91,9 @@ export class GraphFolder extends Folder {
       await this.saveNewMsgs(newMessages);
       allNewMessages.addAll(newMessages);
 
-      if (!newMessagesJSON.length) {
+      if (!nextURL) {
         break;
       }
-      i += newMessagesJSON.length;
     }
     await this.storage.saveFolderProperties(this);
     return allNewMessages;
@@ -234,7 +235,7 @@ export class GraphFolder extends Folder {
   async downloadMessages(emails: Collection<GraphEMail>): Promise<Collection<GraphEMail>> {
     let needMsgs = new ArrayColl(emails);
     let downloadedMsgs = new ArrayColl<GraphEMail>();
-    const kMaxParallelCount = 5;
+    const kMaxParallelCount = 3;
     let semaphore = new Semaphore(kMaxParallelCount);
     let downloads = new PromiseAllDone();
     while (needMsgs.hasItems) {
@@ -367,9 +368,27 @@ export class GraphFolder extends Folder {
     console.log("Graph folder deleted", this.name, this.path);
   }
 
+  /** Graph has no call for all emails of a folder, so we mark each unread email */
   async markAllRead(): Promise<void> {
     await super.markAllRead();
-    throw new NotImplemented("Microsoft Graph does not support Mark All Read");
+    const kMaxEMails = 1000000;
+    let loop = new LoopGuard(Math.ceil(kMaxEMails / kMaxFetchCount), () =>
+      this.account.errorCallback(new Error(`${this.name}: Mark all as read: The server keeps returning unread emails. Stopped.`)));
+    while (loop.nextRound()) {
+      let unread = await this.account.graphGet<TGraphEMail>(
+        `${this.path}/messages?$filter=${encodeURIComponent("isRead eq false")}&$select=id`,
+        { $top: kMaxFetchCount });
+      if (!unread.length) {
+        return;
+      }
+      let ids = unread.map(json => sanitize.nonemptystring(json.id));
+      if (loop.isSameAsLastRound(ids.join(" "))) {
+        break;
+      }
+      for (let id of ids) {
+        await this.account.graphPatch(`messages/${id}`, { isRead: true });
+      }
+    }
   }
 
   setSpecialUse(wellKnownName: string): void {

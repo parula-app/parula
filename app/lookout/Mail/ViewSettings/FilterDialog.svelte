@@ -3,7 +3,7 @@
     bind:selected={tab} />
   <vbox class="tab-page">
     {#if tab == "messages"}
-      <FormGrid columns="190px minmax(0, 1fr)">
+      <FormGrid columns="minmax(190px, max-content) minmax(0, 1fr)">
         <span class="lo-form-label">{$t`Search for the word(s)`}</span>
         <TextField label={$t`Search for the word(s)`} bind:value={words} />
         <span class="lo-form-label">{$t`In *=> as in: Search for the words in the subject field and message body`}</span>
@@ -11,7 +11,7 @@
           disabled={$t`The words are searched in the subject and the message text`} width="100%" />
       </FormGrid>
     {:else}
-      <FormGrid columns="190px minmax(0, 1fr)">
+      <FormGrid columns="minmax(190px, max-content) minmax(0, 1fr)">
         <Checkbox label={$t`Only items that are *=> as in: Only items that are unread`} bind:checked={isReadFiltered} />
         <ComboBox label={$t`Only items that are *=> as in: Only items that are unread`} options={readOptions} bind:value={readValue}
           disabled={!isReadFiltered} width="100%" />

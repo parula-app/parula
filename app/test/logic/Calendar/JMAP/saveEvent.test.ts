@@ -117,6 +117,15 @@ test("An absolute alert time is read as the reminder", async () => {
   expect(event.alarm.toISOString()).toBe("2026-01-05T08:00:00.000Z");
 });
 
+test("An alert whose trigger has no @type is an offset from the start", async () => {
+  // draft-ietf-calext-jscalendarbis 3.5.1: "trigger: OffsetTrigger|AbsoluteTrigger|UnknownTrigger (mandatory; defaultType: OffsetTrigger)"
+  let json = serverEvent();
+  json.alerts = { "1": { trigger: { offset: "-PT20M" } } } as any;
+  let { event } = await listEvents([json]);
+
+  expect(event.startTime.getTime() - event.alarm.getTime()).toBe(20 * 60 * 1000);
+});
+
 test("An alert relative to the end is read as the reminder", async () => {
   let json = serverEvent();
   json.alerts = {

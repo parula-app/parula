@@ -11,8 +11,13 @@ export function getDomainForEmailAddress(emailAddress: string): string {
  * Returns the base domain of hostname.
  * E.g. for "www2.static.amazon.com" returns "amazon.com"
  * and for "www2.static.amazon.co.uk" returns "amazon.co.uk"
+ * and for an IP address like "192.168.1.5" or "[::1]" returns the IP address.
  */
 export function getBaseDomainFromHost(hostname: string): string {
+  // Has a ":" -> IPv6 address; ends in a number -> IPv4 address
+  if (hostname?.includes(":") || /^[0-9]+$/.test(hostname?.split(".").pop())) {
+    return hostname; // IP address
+  }
   return psl.get(hostname);
 }
 
@@ -26,6 +31,29 @@ export function getBaseDomainFromHost(hostname: string): string {
 export function getBaseDomainFromURL(url: string): string {
   let hostname = new URL(url).hostname;
   return getBaseDomainFromHost(hostname);
+}
+
+/**
+ * Links in mails often go to a tracker, which records the click,
+ * and then forwards to the real page, which is in a URL parameter.
+ * E.g. for "https://click.tracker.com/c?id=5&u=https%3A%2F%2Fshop.com%2Fshoes"
+ * returns "https://shop.com/shoes", i.e. the first URL parameter that is an https: URL.
+ * @returns `url`, if there is no such URL parameter
+ */
+export function removeTrackingURL(url: string): string {
+  let parsed = URL.parse(url);
+  if (!parsed || !["https:", "http:"].includes(parsed.protocol)) {
+    return url; // e.g. `mailto:fred@foo.com?body=https://...`
+  }
+  for (let value of parsed.searchParams.values()) {
+    if (value.startsWith("https:")) {
+      let target = URL.parse(value);
+      if (target) {
+        return target.href;
+      }
+    }
+  }
+  return url;
 }
 
 /** Resolves once the network is online: at once if it already is, else when
@@ -64,8 +92,8 @@ export function isNetworkError(ex: any): boolean {
     "ETIMEOUT", "CONNECT_TIMEOUT", "GREETING_TIMEOUT", "UPGRADE_TIMEOUT", "NoConnection"];
   // Error class `instanceof` doesn't survive JPC
   return kNetworkErrorCodes.includes(ex?.code) ||
-    // Chromium `net` module, e.g. `net::ERR_CONNECTION_RESET`
-    /net::ERR_(CONNECTION_|EMPTY_RESPONSE|NETWORK_CHANGED|INTERNET_DISCONNECTED|INCOMPLETE_CHUNKED_ENCODING|CONTENT_LENGTH_MISMATCH)/.test(ex?.message) ||
+    // Chromium `net` module, e.g. `net::ERR_CONNECTION_RESET`, or `net::ERR_NAME_NOT_RESOLVED` while the VPN is down
+    /net::ERR_(CONNECTION_|EMPTY_RESPONSE|NETWORK_CHANGED|INTERNET_DISCONNECTED|INCOMPLETE_CHUNKED_ENCODING|CONTENT_LENGTH_MISMATCH|NAME_NOT_RESOLVED|NAME_RESOLUTION_FAILED|ADDRESS_UNREACHABLE|TIMED_OUT|NETWORK_IO_SUSPENDED)/.test(ex?.message) ||
     // browser fetch
     ex?.name == "TypeError" &&
     /network ?error|failed to fetch|fetch failed|load failed/i.test(ex.message);
