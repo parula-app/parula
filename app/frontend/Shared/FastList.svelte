@@ -114,7 +114,7 @@
   /** The `items` that the `init` event was dispatched for */
   let initDoneForItems: Collection<T> = null;
 
-  $: headerHeight = headerE?.firstChild?.offsetHeight ?? 10;
+  $: headerHeight = (headerE?.firstElementChild as HTMLElement)?.offsetHeight ?? 0;
 
   /**
    * Height of the DOM elements for a single row.
@@ -280,6 +280,9 @@
 
   const onScrollThrottled = throttle(onScroll, 10);
   function onScroll() {
+    if (!rowHeight) { // e.g. rows with `display: contents` measure 0
+      return;
+    }
     let topY = listE.scrollTop - headerHeight;
     let startPosCalc = Math.floor(topY / rowHeight);
     showStartPos = Math.max(Math.min(startPosCalc, items.length - showRows), 0);
