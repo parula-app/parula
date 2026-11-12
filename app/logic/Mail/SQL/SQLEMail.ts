@@ -145,7 +145,7 @@ export class SQLEMail {
         FROM emailPerson
         WHERE
           emailAddress = ${puid.emailAddress} AND
-          name = ${puid.name}
+          name IS ${puid.name} -- unlike "=", also finds a person without name (NULL)
       `;
     let exists = await (await getDatabase()).get(findPerson) as any;
     let personID = exists?.id;
