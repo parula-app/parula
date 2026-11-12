@@ -85,6 +85,18 @@ test("Listing pages until a short page, not by the outdated folder count", async
   expect(inbox.countTotal).toBe(300); // Listing doesn't change it: `countTotal` comes from `Mailbox/get`
 });
 
+test("The listed emails are saved a page at a time, not one by one", async () => {
+  let { account, inbox } = newAccount(450);
+  let saves: number[] = [];
+  account.storage.saveMessage = async () => { saves.push(1) };
+  account.storage.saveMessages = async emails => { saves.push(emails.length) };
+
+  await inbox.listMessages();
+
+  expect(saves.reduce((sum, count) => sum + count)).toBe(450);
+  expect(saves.length).toBeLessThanOrEqual(3); // one per page
+});
+
 test("A server with a lower limit than we asked for still gets all emails listed", async () => {
   let { inbox, queries } = newAccount(250, 100);
 
