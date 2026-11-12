@@ -1,5 +1,5 @@
 import { OAuth2UI } from "./OAuth2UI";
-import { UserCancelled, type URLString, assert } from "../../util/util";
+import { UserCancelled, type URLString } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
 /**
@@ -16,9 +16,8 @@ export class OAuth2Window extends OAuth2UI {
    */
   async login(): Promise<string> {
     let url = await this.oAuth2.getAuthURL();
-    // Ends up in desktop/src/main/index.ts setWindowOpenHandler(). Features are overridden there.
-    let popup = window.open(url, "_blank", "center,oauth2popup") as Window;
-    assert(popup, "Failed to open OAuth2 window");
+    // Ends up in desktop/src/main/index.ts setWindowOpenHandler(), which opens the login window
+    window.open(url, "_blank", "oauth2popup,oauth2session=" + (this.oAuth2.account?.webSessionID ?? ""));
     return await new Promise((resolve, reject) => {
       let ipcRenderer = (window as any).electron.ipcRenderer; // TODO use JPC, or remove window
       let weClosed = false;
@@ -40,9 +39,6 @@ export class OAuth2Window extends OAuth2UI {
         }
       }
       let onClose = (event, value) => {
-        if (!popup.closed) {
-          return;
-        }
         ipcRenderer.removeListener('oauth2-navigate', onNavigation);
         ipcRenderer.removeListener('oauth2-close', onClose);
         if (!weClosed) {

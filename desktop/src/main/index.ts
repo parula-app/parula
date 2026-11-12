@@ -57,13 +57,12 @@ async function createWindow(): Promise<void> {
       if (!details.url?.startsWith("https://")) {
         return { action: 'deny' };
       }
-      // Allow windows opened by us for OAuth2
+      // Windows opened by us for OAuth2
       // Must match OAuth2Window.ts login()
       if (details?.features?.includes("oauth2popup")) {
-        return {
-          action: 'allow',
-          overrideBrowserWindowOptions: "center,noopener,noreferrer,sandbox=true",
-        };
+        let sessionID = details.features.split(",").find(feature => feature.startsWith("oauth2session="))?.substring("oauth2session=".length);
+        openLoginWindow(mainWindow, details.url, sessionID);
+        return { action: 'deny' };
       }
       // Open the URL in the system web browser
       shell.openExternal(details.url)
@@ -71,19 +70,6 @@ async function createWindow(): Promise<void> {
       // ... and do not open a new Electron window
       return { action: 'deny' }
     })
-
-    mainWindow.webContents.on('did-create-window', (child, _details) => {
-      child.on('closed', () => {
-        mainWindow.webContents.send('oauth2-close');
-      });
-      child.webContents.on('did-navigate', (_event, url) => {
-        mainWindow.webContents.send('oauth2-navigate', url);
-      });
-      // Workaround for window.close() not closing in some cases
-      ipcMain.on('oauth2-close', () => {
-        child.close();
-      });
-    });
 
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
@@ -102,6 +88,33 @@ async function createWindow(): Promise<void> {
   } catch (ex) {
     console.error(ex);
   }
+}
+
+/** The OAuth2 login window of `OAuth2Window.ts`.
+ * Not the window of `window.open()`: Electron gives that the cookies of our app,
+ * and its login page an `opener`, through which it could navigate our app window.
+ * Instead, a window with the cookies of the account, like `<webview partition>` in `Browser.svelte`.
+ * @param sessionID `Account.webSessionID` */
+function openLoginWindow(mainWindow: BrowserWindow, url: string, sessionID: string | undefined) {
+  let loginWindow = new BrowserWindow({
+    center: true,
+    webPreferences: {
+      partition: sessionID ? "persist:" + sessionID : undefined,
+      sandbox: true,
+    },
+  });
+  // Workaround for window.close() not closing in some cases
+  let onCloseRequest = () => loginWindow.close();
+  ipcMain.on('oauth2-close', onCloseRequest);
+  loginWindow.on('closed', () => {
+    ipcMain.removeListener('oauth2-close', onCloseRequest);
+    mainWindow.webContents.send('oauth2-close');
+  });
+  loginWindow.webContents.on('did-navigate', (_event, url) => {
+    mainWindow.webContents.send('oauth2-navigate', url);
+  });
+  loginWindow.loadURL(url)
+    .catch(console.error);
 }
 
 function createMenu() {
