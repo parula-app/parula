@@ -83,6 +83,42 @@ export function sanitizeHTMLWithoutStyleTag(html: string): string {
   });
 }
 
+/** For HTML that the editor loads, or that the user pastes.
+ *
+ * Most HTML in the editor is the user's own. HTML from others mostly comes as the quote
+ * in a reply or forward, which is already the output of `sanitizeHTML()`.
+ * Only a draft from the server and pasted HTML
+ * come from others without that, so the editor sanitizes all HTML that it gets.
+ *
+ * Like `sanitizeHTMLWithoutStyleTag()`, with the same hooks below. But the editor saves
+ * and sends what it gets, so this keeps what the author wrote, see `forEditor`:
+ * - links without our `target`, `source` and `title`
+ * - the `blob:` images of a forwarded mail
+ * - the size of resized images, in `containerstyle` and `wrapperstyle`
+ * And it drops all `style` attributes. The editor has no styles.
+ * @returns HTML snipplet, not whole document */
+export function sanitizeHTMLForEditor(html: string): string {
+  if (!html) {
+    return "";
+  }
+  includeExternal = false;
+  forEditor = true;
+  try {
+    return DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      FORBID_TAGS: ["svg", "mathml", "style", "form"],
+      FORBID_ATTR: ["style"],
+      // `tiptap-extension-resize-image` keeps the image size in these
+      ADD_ATTR: ["containerstyle", "wrapperstyle"],
+      ADD_URI_SAFE_ATTR: ["containerstyle", "wrapperstyle"],
+      // DOMPurify's default, plus `blob:`
+      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    });
+  } finally {
+    forEditor = false;
+  }
+}
+
 /** Allow to load images from Internet */
 export function sanitizeHTMLExternal(html: string): string {
   if (!html) {
@@ -108,6 +144,7 @@ function urlAttribute(url: URLString, includeExternal = false) {
     return "";
   }
   if (url.startsWith("data:image/") || url.startsWith("cid:") ||
+    forEditor && url.startsWith("blob:") || // the images of a forwarded mail, see `sanitizeHTMLForEditor()`
     includeExternal && (url.startsWith("https://") || url.startsWith("http://"))) {
     return url; // or `${proxy}${escape(url)}`;
   }
@@ -189,10 +226,15 @@ DOMPurify.addHook('uponSanitizeElement', (node, data) => {
 });
 
 let includeExternal = false;
+/** The exceptions of `sanitizeHTMLForEditor()` */
+let forEditor = false;
 DOMPurify.addHook('afterSanitizeAttributes', node => {
   for (let attribute of urlAttributes) {
     if (node.hasAttribute(attribute)) {
       if (node.tagName.toLowerCase() == "a" && attribute == "href") {
+        if (forEditor) {
+          continue; // The editor would save and send what we add here
+        }
         try {
           // New window requests are caught by e2 index.ts setWindowOpenHandler()
           node.setAttribute("target", "_blank");
@@ -211,7 +253,11 @@ DOMPurify.addHook('afterSanitizeAttributes', node => {
           (node.tagName.toLocaleLowerCase() == "link" && node.getAttribute("rel") == "stylesheet" && attribute == "href")) {
         let orgURL = node.getAttribute(attribute);
         let newURL = urlAttribute(orgURL, includeExternal);
-        node.setAttribute(attribute, newURL);
+        if (newURL) {
+          node.setAttribute(attribute, newURL);
+        } else {
+          node.removeAttribute(attribute); // Else, the editor shows an empty image
+        }
       } else if (attribute == "srcset") {
         node.setAttribute(attribute, srcsetAttribute(node.getAttribute(attribute)));
       } else {
@@ -219,6 +265,14 @@ DOMPurify.addHook('afterSanitizeAttributes', node => {
         let newURL = urlAttribute(orgURL);
         node.setAttribute(attribute, newURL);
       }
+    }
+  }
+
+  // Only `sanitizeHTMLForEditor()` allows these. No `url()` or other functions, and no escapes.
+  // `tiptap-extension-resize-image` also allows only some properties and values in them.
+  for (let attribute of ["containerstyle", "wrapperstyle"]) {
+    if (["(", "\\"].some(char => node.getAttribute(attribute)?.includes(char))) {
+      node.removeAttribute(attribute);
     }
   }
 
