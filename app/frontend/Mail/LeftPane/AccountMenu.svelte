@@ -40,6 +40,7 @@
   }
 
   async function logOut() {
+    account.stayLoggedOut = true; // don't log in again by itself, e.g. after sleep
     await account.logout();
   }
 </script>

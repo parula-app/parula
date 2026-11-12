@@ -14,7 +14,6 @@ import { type Account, getAllAccounts, setMainAccounts } from './Abstract/Accoun
 import { getComputerOn } from './util/backend-wrapper';
 import JPCWebSocket from '../../lib/jpc-ws';
 import { production, webMail } from './build';
-import { retryOnTransientError } from './util/netUtil';
 import { catchErrors, logErrorToServer, showError } from './util/error';
 import { assert, sleep } from './util/util';
 
@@ -104,7 +103,8 @@ export function loginOnStartup(startupErrorCallback: (ex: Error) => void): void 
     (async () => {
       await account.readFromDB();
       if (account.loginOnStartup && !account.isDependentAccount) {
-        await account.loginAndStartup(false);
+        // Keeps trying, if the app started before the network was up
+        await account.reconnectInBackground();
       }
     })().catch(errorWithAccountName(account, startupErrorCallback));
   }
@@ -131,9 +131,12 @@ export function checkWakeUp(): void {
 /** On wake up */
 function checkAccounts(): void {
   for (let account of getAllAccounts()) {
-    if (!account.isLoggedIn && account.loginOnStartup && !account.isDependentAccount) {
-      // VPN tunnel needs several seconds after the computer network woke up
-      retryOnTransientError(() => account.loginAndStartup(false), 2, 4)
+    if (!account.isLoggedIn && account.loginOnStartup && !account.isDependentAccount &&
+        !account.stayLoggedOut) {
+      // The network, DNS or VPN tunnel may need a while after the computer woke up,
+      // and `navigator.onLine` is already true while the Wi-Fi is up without internet,
+      // so no `online` event would follow. So keep trying until the server answers.
+      account.reconnectInBackground()
         .catch(account.errorCallback);
     }
   }

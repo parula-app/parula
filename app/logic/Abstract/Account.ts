@@ -5,8 +5,13 @@ import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { Observable, notifyChangedProperty } from "../util/Observable";
 import { RunOnce } from "../util/flow/RunOnce";
 import { logErrorToServer, internalError } from "../util/error";
-import { SpecificError, assert } from "../util/util";
+import { isTransientError } from "../util/netUtil";
+import { SpecificError, assert, waitTime } from "../util/util";
 import { ArrayColl, Collection } from "svelte-collections";
+
+/** Pauses between the tries of `reconnectInBackground()`, in seconds.
+ * The last one repeats until the server can be reached. */
+const kReconnectDelays = [5, 10, 20, 40, 60];
 
 export class Account extends Observable {
   id: string;
@@ -46,6 +51,13 @@ export class Account extends Observable {
   acceptBrokenTLSCerts = false;
   @notifyChangedProperty
   loginOnStartup = true;
+  /** The user logged out on purpose. Not saved.
+   * `reconnectInBackground()` leaves the account alone, until the user logs in again. */
+  stayLoggedOut = false;
+  /** The running loop of `reconnectInBackground()` */
+  protected reconnecting: Promise<void> | null = null;
+  /** Ends the current pause of `reconnectInBackground()`, so that it tries again now */
+  protected reconnectNow: (() => void) | null = null;
   /** Error that broke the server connection, unrecoverable, including login failures. */
   fatalError: Error | null = null;
   /** Non-fatal errors that are not about a single email or data item. */
@@ -141,6 +153,9 @@ export class Account extends Observable {
    */
   async login(interactive: boolean): Promise<void> {
     this.errors.clear();
+    if (interactive) {
+      this.stayLoggedOut = false;
+    }
 
     if (this.isDependentAccount && !this.isLoggedIn) {
       await this.mainAccount.login(interactive);
@@ -150,12 +165,67 @@ export class Account extends Observable {
   /** Logs in and runs the initial sync, like the app start does.
    * For the Login and Get Mail buttons and the account setup. */
   async loginAndStartup(interactive: boolean): Promise<void> {
+    if (interactive) {
+      this.stayLoggedOut = false; // the user wants to be logged in again
+    }
     if (this.isDependentAccount) {
       await this.mainAccount.loginAndStartup(interactive); // it starts us up
       return;
     }
     await this.login(interactive);
     await this.syncOnStartup();
+  }
+
+  /**
+   * Logs in and starts up, like `loginAndStartup(false)`.
+   * When the server cannot be reached, e.g. after the computer woke up and
+   * the network or VPN is not up yet, keeps trying in the background,
+   * with growing pauses (`kReconnectDelays`), until it works.
+   * Gives up on other errors, e.g. a wrong password or an expired login.
+   *
+   * Runs once per account at a time. Calling it again while it waits
+   * makes it try again at once, e.g. when the network just came back.
+   *
+   * @throws the first error that is not about reaching the server
+   */
+  async reconnectInBackground(): Promise<void> {
+    if (this.reconnecting) {
+      this.reconnectNow?.();
+      return await this.reconnecting;
+    }
+    this.reconnecting = this.reconnectLoop()
+      .finally(() => this.reconnecting = null);
+    return await this.reconnecting;
+  }
+
+  protected async reconnectLoop(): Promise<void> {
+    let delays = kReconnectDelays;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await this.loginAndStartup(false);
+        return;
+      } catch (ex) {
+        if (!(isTransientError(ex) || ex instanceof ConnectError)) {
+          throw ex;
+        }
+        let delay = delays[Math.min(attempt, delays.length - 1)];
+        console.log(`${this.name}: Server not reachable: ${ex?.message ?? ex}. Trying again in ${delay}s`);
+        await new Promise<void>(resolve => {
+          this.reconnectNow = resolve;
+          setTimeout(resolve, delay * 1000 * waitTime.factor); // tests wait less
+        });
+        this.reconnectNow = null;
+      }
+      if (this.isLoggedIn || !this.mayReconnect()) {
+        return; // e.g. the user clicked Login meanwhile, or logged out, or deleted the account
+      }
+    }
+  }
+
+  /** Whether the background reconnect may log this account in */
+  protected mayReconnect(): boolean {
+    return this.loginOnStartup && !this.stayLoggedOut && !this.isDependentAccount &&
+      getAllAccounts().contains(this);
   }
 
   /** For setup only. Test that the login works. */
