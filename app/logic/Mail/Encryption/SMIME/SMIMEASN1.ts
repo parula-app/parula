@@ -39,6 +39,7 @@ const oids = {
   "1.2.840.113549.1.1.7": "rsaESOAEP",
   "1.2.840.113549.1.1.8": "mgf1",
   "1.2.840.113549.1.1.9": "pSpecified",
+  "1.2.840.113549.1.1.10": "rsassaPss",
   "1.2.840.113549.1.1.11": "sha256WithRSAEncryption",
   "1.2.840.113549.1.1.12": "sha384WithRSAEncryption",
   "1.2.840.113549.1.1.13": "sha512WithRSAEncryption",
@@ -337,6 +338,22 @@ export const Certificate = define<Certificate>("Certificate", function() {
     this.key("tbsCertificate").use(TBSCertificate),
     this.key("signatureAlgorithm").use(AlgorithmIdentifier),
     this.key("signatureValue").bitstr(),
+  );
+});
+
+/** The parameters of an RSASSA-PSS signature, e.g. of a certificate. RFC 4055 section 3.1 */
+export interface RSASSAPSSParams {
+  hashAlgorithm: AlgorithmIdentifier;
+  maskGenAlgorithm: AlgorithmIdentifier;
+  saltLength: bigint;
+  trailerField: bigint;
+}
+export const RSASSAPSSParams = define<RSASSAPSSParams>("RSASSAPSSParams", function() {
+  this.seq().obj(
+    this.key("hashAlgorithm").explicit(0).use(AlgorithmIdentifier).def({ algorithm: "sha1" }),
+    this.key("maskGenAlgorithm").explicit(1).use(AlgorithmIdentifier).def({ algorithm: "mgf1" }),
+    this.key("saltLength").explicit(2).int().def(20n),
+    this.key("trailerField").explicit(3).int().def(1n),
   );
 });
 
