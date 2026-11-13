@@ -6,7 +6,9 @@ import { gt } from "../../l10n/l10n";
 
 export class MeetMustangApp extends MustangApp {
   id = "meet";
-  name = gt`Meet`;
+  get name() {
+    return gt`Meet`;
+  }
   icon = meetIcon;
   appURL = "/meet";
   sidebar = MeetSidebar;

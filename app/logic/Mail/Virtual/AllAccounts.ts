@@ -5,7 +5,7 @@ import type { EMail } from "../EMail";
 import { appGlobal } from "../../app";
 import { assert } from "../../util/util";
 import { ArrayColl, Collection, mergeColl, mergeColls } from "svelte-collections";
-import { gt } from "../../../l10n/l10n";
+import { gt, locale } from "../../../l10n/l10n";
 
 /** Unified view of all other active mail accounts */
 export class AllAccounts extends MailAccount {
@@ -21,7 +21,7 @@ export class AllAccounts extends MailAccount {
   /** @param accounts typically `appGlobal.emailAccounts` */
   constructor(accounts: Collection<MailAccount>) {
     super();
-    this.name = gt`All accounts`;
+    locale.subscribe(() => this.name = gt`All accounts`);
     this.accounts = accounts;
     this.allRootFolders = mergeColls(this.accounts.map(account => account.rootFolders));
 

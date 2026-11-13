@@ -7,17 +7,19 @@ import mailIcon from '../asset/icon/appBar/mail.svg?raw';
 import EditIcon from "lucide-svelte/icons/pencil";
 import AuthIcon from "lucide-svelte/icons/key-round";
 import { derived } from "svelte/store";
-import { gt } from "../../l10n/l10n";
+import { gt, locale } from "../../l10n/l10n";
 
 export class MailMustangApp extends MustangApp {
   id = "mail";
-  name = gt`Mail`;
+  get name() {
+    return gt`Mail`;
+  }
   icon = mailIcon;
   appURL = "/mail";
 
   writeMail(mail: EMail) {
     let composerApp = new WriteMailMustangApp();
-    composerApp.title = derived(mail, () => mail.subject ?? composerApp.name);
+    composerApp.title = derived([mail, locale], () => mail.subject ?? composerApp.name);
     composerApp.windowParams = { mail: mail };
     mailMustangApp.subApps.add(composerApp);
     openApp(composerApp, composerApp.windowParams);
@@ -26,7 +28,7 @@ export class MailMustangApp extends MustangApp {
   login(tab: OAuth2Tab): LoginDialogMustangApp {
     let loginApp = new LoginDialogMustangApp();
     let account = tab.oAuth2.account;
-    loginApp.title = derived(account, () => gt`Login to ${account.name}`);
+    loginApp.title = derived([account, locale], () => gt`Login to ${account.name}`);
     loginApp.windowParams = { dialog: tab };
     mailMustangApp.subApps.add(loginApp);
     openApp(loginApp, loginApp.windowParams);
@@ -38,14 +40,18 @@ export const mailMustangApp = new MailMustangApp();
 
 export class WriteMailMustangApp extends MustangApp {
   id = "mail-write";
-  name = gt`Compose`;
+  get name() {
+    return gt`Compose`;
+  }
   icon = EditIcon;
   appURL = "/mail/compose";
 }
 
 export class LoginDialogMustangApp extends MustangApp {
   id = "auth-login";
-  name = gt`Login`;
+  get name() {
+    return gt`Login`;
+  }
   icon = AuthIcon;
   appURL = "/login";
 }

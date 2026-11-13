@@ -59,24 +59,24 @@ import SIP from "./Meet/SIP.svelte";
 import { gt } from "../../l10n/l10n";
 import { WebDAVAccount } from "../../logic/Files/WebDAV/WebDAVAccount";
 
-accountSettings.add(new AccSetting(Account, "acc-general", gt`General`, AccountGeneral, true));
-accountSettings.add(new AccSetting(Account, "acc-sub", gt`Sub-Accounts`, AccountSubAccounts, true));
+accountSettings.add(new AccSetting(Account, "acc-general", () => gt`General`, AccountGeneral, true));
+accountSettings.add(new AccSetting(Account, "acc-sub", () => gt`Sub-Accounts`, AccountSubAccounts, true));
 
-const globalSettings = new SettingsCategory("global", gt`General`, null, true);
+const globalSettings = new SettingsCategory("global", () => gt`General`, null, true);
 globalSettings.subCategories.addAll([
-  new SettingsCategory("global-appearance", gt`Appearance`, GlobalAppearance),
-  new SettingsCategory("global-workspaces", gt`Workspaces`, GlobalWorkspaces),
-  new SettingsCategory("global-system-integration", gt`System integration`, GlobalSystemIntegration)
+  new SettingsCategory("global-appearance", () => gt`Appearance`, GlobalAppearance),
+  new SettingsCategory("global-workspaces", () => gt`Workspaces`, GlobalWorkspaces),
+  new SettingsCategory("global-system-integration", () => gt`System integration`, GlobalSystemIntegration)
 ]);
 settingsCategories.add(globalSettings);
 
-const mailSettings = new SettingsCategory("mail", gt`Mail`, null, true);
+const mailSettings = new SettingsCategory("mail", () => gt`Mail`, null, true);
 mailSettings.subCategories.addAll([
-  new SettingsCategory("mail-appearance", gt`Appearance`, MailAppearance),
-  new SettingsCategory("mail-notifications", gt`Notifications`, MailNotifications),
-  new SettingsCategory("mail-read", gt`Read *=> in the sense of to read emails`, MailRead),
-  new SettingsCategory("mail-send", gt`Send *=> send emails`, MailSend),
-  new SettingsCategory("mail-tags", gt`Tags`, MailTags),
+  new SettingsCategory("mail-appearance", () => gt`Appearance`, MailAppearance),
+  new SettingsCategory("mail-notifications", () => gt`Notifications`, MailNotifications),
+  new SettingsCategory("mail-read", () => gt`Read *=> in the sense of to read emails`, MailRead),
+  new SettingsCategory("mail-send", () => gt`Send *=> send emails`, MailSend),
+  new SettingsCategory("mail-tags", () => gt`Tags`, MailTags),
 ]);
 mailSettings.accounts = appGlobal.emailAccounts;
 // #if [!WEBMAIL]
@@ -85,36 +85,36 @@ mailSettings.newAccountURL = "/setup/mail";
 mailSettings.forApp = mailMustangApp;
 settingsCategories.add(mailSettings);
 
-accountSettings.add(new AccSetting(MailAccount, "mail-connected", gt`Connected accounts`, MailConnectedAccounts, true));
+accountSettings.add(new AccSetting(MailAccount, "mail-connected", () => gt`Connected accounts`, MailConnectedAccounts, true));
 // #if [!WEBMAIL]
-accountSettings.add(new AccSetting(MailAccount, "mail-server", gt`Server`, AccountMailServer));
+accountSettings.add(new AccSetting(MailAccount, "mail-server", () => gt`Server`, AccountMailServer));
 // #endif
-accountSettings.add(new AccSetting(MailAccount, "mail-folders", gt`Folders`, AccountFolders));
-accountSettings.add(new AccSetting(MailAccount, "mail-identity", gt`Identity`, AccountIdentity));
-accountSettings.add(new AccSetting(MailAccount, "mail-rules", gt`Rules *=> Criteria after which emails should be sorted`, MailRules));
-accountSettings.add(new AccSetting(MailAccount, "mail-sharing", gt`Sharing *=> Accessing mail account of team mates`, MailSharing));
+accountSettings.add(new AccSetting(MailAccount, "mail-folders", () => gt`Folders`, AccountFolders));
+accountSettings.add(new AccSetting(MailAccount, "mail-identity", () => gt`Identity`, AccountIdentity));
+accountSettings.add(new AccSetting(MailAccount, "mail-rules", () => gt`Rules *=> Criteria after which emails should be sorted`, MailRules));
+accountSettings.add(new AccSetting(MailAccount, "mail-sharing", () => gt`Sharing *=> Accessing mail account of team mates`, MailSharing));
 
 // #if [DEV]
-const chatSettings = new SettingsCategory("chat", gt`Chat`, null, true);
+const chatSettings = new SettingsCategory("chat", () => gt`Chat`, null, true);
 chatSettings.subCategories.addAll([
-  new SettingsCategory("chat-appearance", gt`Appearance`),
-  new SettingsCategory("chat-notifications", gt`Notifications`, ChatNotifications),
+  new SettingsCategory("chat-appearance", () => gt`Appearance`),
+  new SettingsCategory("chat-notifications", () => gt`Notifications`, ChatNotifications),
 ]);
 chatSettings.accounts = appGlobal.chatAccounts;
 chatSettings.newAccountURL = "/setup/chat";
 chatSettings.forApp = chatMustangApp;
 settingsCategories.add(chatSettings);
 
-accountSettings.add(new AccSetting(XMPPAccount, "xmpp-server", gt`Server`, AccountXMPPServer));
-accountSettings.add(new AccSetting(MatrixAccount, "matrix-server", gt`Server`, AccountURLServer));
-accountSettings.add(new AccSetting(WhatsAppAccount, "whatsapp-import", gt`Import backup`, WhatsAppImportBackup, true));
-accountSettings.add(new AccSetting(ChatAccount, "chat-send", gt`Send`, null));
-accountSettings.add(new AccSetting(ChatAccount, "chat-identity", gt`Identity`, null));
+accountSettings.add(new AccSetting(XMPPAccount, "xmpp-server", () => gt`Server`, AccountXMPPServer));
+accountSettings.add(new AccSetting(MatrixAccount, "matrix-server", () => gt`Server`, AccountURLServer));
+accountSettings.add(new AccSetting(WhatsAppAccount, "whatsapp-import", () => gt`Import backup`, WhatsAppImportBackup, true));
+accountSettings.add(new AccSetting(ChatAccount, "chat-send", () => gt`Send`, null));
+accountSettings.add(new AccSetting(ChatAccount, "chat-identity", () => gt`Identity`, null));
 // #endif
 
-const calendarSettings = new SettingsCategory("calendar", gt`Calendar`, null, true);
+const calendarSettings = new SettingsCategory("calendar", () => gt`Calendar`, null, true);
 calendarSettings.subCategories.addAll([
-  new SettingsCategory("calendar-notifications", gt`Notifications`, CalendarNotifications),
+  new SettingsCategory("calendar-notifications", () => gt`Notifications`, CalendarNotifications),
 ]);
 calendarSettings.accounts = appGlobal.calendars;
 // #if [!WEBMAIL]
@@ -123,11 +123,11 @@ calendarSettings.newAccountURL = "/setup/calendar";
 calendarSettings.forApp = calendarMustangApp;
 settingsCategories.add(calendarSettings);
 
-accountSettings.add(new AccSetting(Calendar, "calendar-connected", gt`Connected accounts`, CalendarConnectedAccounts, true));
-accountSettings.add(new AccSetting(Calendar, "calendar-import", gt`Import/Export`, CalendarImportExport, true));
-accountSettings.add(new AccSetting(CalDAVCalendar, "calendar-server", gt`Server`, AccountURLServer));
+accountSettings.add(new AccSetting(Calendar, "calendar-connected", () => gt`Connected accounts`, CalendarConnectedAccounts, true));
+accountSettings.add(new AccSetting(Calendar, "calendar-import", () => gt`Import/Export`, CalendarImportExport, true));
+accountSettings.add(new AccSetting(CalDAVCalendar, "calendar-server", () => gt`Server`, AccountURLServer));
 
-const contactsSettings = new SettingsCategory("contacts", gt`Contacts`, null, true);
+const contactsSettings = new SettingsCategory("contacts", () => gt`Contacts`, null, true);
 contactsSettings.subCategories.addAll([
 ]);
 contactsSettings.accounts = appGlobal.addressbooks;
@@ -136,14 +136,14 @@ contactsSettings.newAccountURL = "/setup/contacts";
 // #endif
 contactsSettings.forApp = contactsMustangApp;
 settingsCategories.add(contactsSettings);
-accountSettings.add(new AccSetting(Addressbook, "contacts-import", gt`Import/Export`, ContactsImportExport, true));
-accountSettings.add(new AccSetting(CardDAVAddressbook, "contacts-server", gt`Server`, AccountURLServer));
+accountSettings.add(new AccSetting(Addressbook, "contacts-import", () => gt`Import/Export`, ContactsImportExport, true));
+accountSettings.add(new AccSetting(CardDAVAddressbook, "contacts-server", () => gt`Server`, AccountURLServer));
 
 // #if [PROPRIETARY]
-const meetSettings = new SettingsCategory("meet", gt`Meet`, null, true);
+const meetSettings = new SettingsCategory("meet", () => gt`Meet`, null, true);
 meetSettings.subCategories.addAll([
-  // new SettingsCategory("meet-appearance", gt`Appearance`),
-  new SettingsCategory("meet-devices", gt`Devices`, Devices),
+  // new SettingsCategory("meet-appearance", () => gt`Appearance`),
+  new SettingsCategory("meet-devices", () => gt`Devices`, Devices),
 ]);
 meetSettings.accounts = appGlobal.meetAccounts;
 // #endif
@@ -155,37 +155,37 @@ meetSettings.forApp = meetMustangApp;
 settingsCategories.add(meetSettings);
 // #endif
 
-accountSettings.add(new AccSetting(M3Account, "m3-server", gt`Server`, AccountURLServer, true));
-accountSettings.add(new AccSetting(SIPAccount, "sip", gt`Details`, SIP, true));
+accountSettings.add(new AccSetting(M3Account, "m3-server", () => gt`Server`, AccountURLServer, true));
+accountSettings.add(new AccSetting(SIPAccount, "sip", () => gt`Details`, SIP, true));
 
-const filesSettings = new SettingsCategory("files", gt`Files`, null, true);
+const filesSettings = new SettingsCategory("files", () => gt`Files`, null, true);
 filesSettings.subCategories.addAll([
 ]);
 filesSettings.accounts = appGlobal.fileSharingAccounts.filterObservable(acc => acc != myHarddrive);
 filesSettings.newAccountURL = "/setup/files";
 filesSettings.forApp = filesMustangApp;
-accountSettings.add(new AccSetting(WebDAVAccount, "webdav-server", gt`Server`, AccountURLServer));
+accountSettings.add(new AccSetting(WebDAVAccount, "webdav-server", () => gt`Server`, AccountURLServer));
 settingsCategories.add(filesSettings);
 
 // #if [!WEBMAIL]
-const appSettings = new SettingsCategory("app", gt`App integration`, null, true);
+const appSettings = new SettingsCategory("app", () => gt`App integration`, null, true);
 appSettings.subCategories.addAll([
 ]);
 appSettings.forApp = webAppsMustangApp;
 // settingsCategories.add(appSettings);
 // #endif
 
-const about = new SettingsCategory("about", gt`About`, About, true);
+const about = new SettingsCategory("about", () => gt`About`, About, true);
 about.subCategories.addAll([
   // #if [PROPRIETARY]
-  new SettingsCategory("license", gt`Billing`, License),
+  new SettingsCategory("license", () => gt`Billing`, License),
   // #endif
-  new SettingsCategory("opensource", gt`Open-Source`, OpenSource),
+  new SettingsCategory("opensource", () => gt`Open-Source`, OpenSource),
 ]);
 settingsCategories.add(about);
 
 // #if [MOBILE || !PRODUCTION]
-about.subCategories.add(new SettingsCategory("debug", gt`Debug`, Debug));
+about.subCategories.add(new SettingsCategory("debug", () => gt`Debug`, Debug));
 // #endif
 
 export const categoriesLoaded = true; /* dummy */

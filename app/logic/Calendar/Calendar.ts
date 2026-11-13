@@ -232,8 +232,8 @@ export enum CalendarShareCombinedPermissions {
   Modify = "modify",
 }
 export const calendarShareCombinedPermissionsLabels: Record<string, string> = {
-  [CalendarShareCombinedPermissions.ReadAvailability]: gt`See availability only`,
-  [CalendarShareCombinedPermissions.ReadTitle]: gt`See titles only`,
-  [CalendarShareCombinedPermissions.ReadAll]: gt`See all meetings with details`,
-  [CalendarShareCombinedPermissions.Modify]: gt`Modify, add and delete meetings`,
+  get [CalendarShareCombinedPermissions.ReadAvailability]() { return gt`See availability only`; },
+  get [CalendarShareCombinedPermissions.ReadTitle]() { return gt`See titles only`; },
+  get [CalendarShareCombinedPermissions.ReadAll]() { return gt`See all meetings with details`; },
+  get [CalendarShareCombinedPermissions.Modify]() { return gt`Modify, add and delete meetings`; },
 };

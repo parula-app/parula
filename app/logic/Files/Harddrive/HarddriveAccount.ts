@@ -1,11 +1,15 @@
 import { FileSharingAccount } from "../FileSharingAccount";
 import { HarddriveDirectory } from "./HarddriveDirectory";
 import { appGlobal } from "../../app";
-import { gt } from "../../../l10n/l10n";
+import { gt, locale } from "../../../l10n/l10n";
 
 export class HarddriveAccount extends FileSharingAccount {
   readonly protocol: string = "harddrive";
-  name = gt`My computer *=> My local harddrives`;
+
+  constructor() {
+    super();
+    locale.subscribe(() => this.name = gt`My computer *=> My local harddrives`);
+  }
 
   get isLoggedIn(): boolean {
     return true;

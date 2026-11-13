@@ -55,7 +55,7 @@
   import MessageBoxHost from "../Shared/Dialog/MessageBoxHost.svelte";
   import NotificationBar from "../../frontend/MainWindow/NotificationBar.svelte";
   import Splitter from "../../frontend/Shared/Splitter.svelte";
-  import { getUILocale } from "../../l10n/l10n";
+  import { locale } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
   import { Router } from "svelte-navigator";
   import type { RouterProps } from "svelte-navigator/types/Router";
@@ -67,7 +67,7 @@
   /* <copied from="../../frontend/MainWindow/MainWindow.svelte"> */
   $: $sidebarApp = $meetMustangApp.showSidebar ? meetMustangApp : null;
   $: sidebar = $sidebarApp?.sidebar;
-  $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
+  $: rtl = rtlLocales.includes($locale) ? 'rtl' : null;
   /* </copied> */
 
   // Not a plain CSS import: the global CSS must go away when the user switches to the classic frontend at runtime
