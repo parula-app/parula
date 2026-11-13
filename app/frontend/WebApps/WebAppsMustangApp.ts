@@ -6,7 +6,9 @@ import { gt } from "../../l10n/l10n";
 
 export class WebAppsMustangApp extends MustangApp {
   id = "webapps";
-  name = gt`Apps`;
+  get name() {
+    return gt`Apps`;
+  }
   icon = appsLauncherIcon;
   appURL = "/webapp";
   //subApps = appGlobal.webApps.myApps.map(app => new WebAppSubMustangApp(app));
@@ -15,12 +17,17 @@ export class WebAppsMustangApp extends MustangApp {
 export const webAppsMustangApp = new WebAppsMustangApp();
 
 export class WebAppSubMustangApp extends MustangApp {
+  webApp: WebAppListed;
   constructor(webApp: WebAppListed) {
     super();
+    this.webApp = webApp;
     this.id = webApp.id;
     this.appURL = "/webapp/app/" + this.id;
-    this.name = webApp.nameTranslated;
     this.icon = wrapPNGinSVG(webApp.icon);
+  }
+
+  get name() {
+    return this.webApp.nameTranslated;
   }
 }
 

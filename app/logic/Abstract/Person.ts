@@ -342,16 +342,16 @@ export class ContactEntry extends Observable {
 
   /** The purpose values that we want to show to the user for him to select from */
   static readonly purposeLabels = {
-    "work": gt`Work *=> Business address or phone number`,
-    "home": gt`Home *=> Private address or phone number`,
-    "mobile": gt`Mobile *=> Cell phone number`,
-    "other": gt`Other *=> Email address or phone number that is not home or work`,
+    get work() { return gt`Work *=> Business address or phone number`; },
+    get home() { return gt`Home *=> Private address or phone number`; },
+    get mobile() { return gt`Mobile *=> Cell phone number`; },
+    get other() { return gt`Other *=> Email address or phone number that is not home or work`; },
   }
 
   /** The purpose values that the application might set, but we don't want the user to select these */
   static readonly hiddenPurposeLabels = {
-    "primary": gt`Primary *=> Most important email address for that person`,
-    "collected": gt`Collected *=> Email address that was automatically added to the contacts`,
-    null: gt`Select *=> Select what this email address is for`,
+    get primary() { return gt`Primary *=> Most important email address for that person`; },
+    get collected() { return gt`Collected *=> Email address that was automatically added to the contacts`; },
+    get null() { return gt`Select *=> Select what this email address is for`; },
   }
 }

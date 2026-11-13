@@ -4,7 +4,9 @@ import { gt } from "../../../l10n/l10n";
 
 export class SettingsMustangApp extends MustangApp {
   id = "settings";
-  name = gt`Settings`;
+  get name() {
+    return gt`Settings`;
+  }
   icon = SettingsIcon;
   appURL = "/settings";
 }

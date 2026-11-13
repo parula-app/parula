@@ -426,17 +426,18 @@ export const specialFolderOrder = [
   SpecialFolder.Normal,
 ];
 
-export const specialFolderNames: Record<string, string> = {};
-specialFolderNames[SpecialFolder.Inbox] = gt`Inbox`;
-specialFolderNames[SpecialFolder.Sent] = gt`Sent`;
-specialFolderNames[SpecialFolder.Drafts] = gt`Drafts`;
-specialFolderNames[SpecialFolder.Trash] = gt`Trash`;
-specialFolderNames[SpecialFolder.Spam] = gt`Spam`;
-specialFolderNames[SpecialFolder.Archive] = gt`Archive`;
-specialFolderNames[SpecialFolder.Outbox] = gt`Outbox`;
-specialFolderNames[SpecialFolder.Search] = gt`Saved Search`;
-specialFolderNames[SpecialFolder.Normal] = gt`Normal folder`;
-specialFolderNames[SpecialFolder.All] = gt`All messages`;
+export const specialFolderNames: Record<string, string> = {
+  get [SpecialFolder.Inbox]() { return gt`Inbox`; },
+  get [SpecialFolder.Sent]() { return gt`Sent`; },
+  get [SpecialFolder.Drafts]() { return gt`Drafts`; },
+  get [SpecialFolder.Trash]() { return gt`Trash`; },
+  get [SpecialFolder.Spam]() { return gt`Spam`; },
+  get [SpecialFolder.Archive]() { return gt`Archive`; },
+  get [SpecialFolder.Outbox]() { return gt`Outbox`; },
+  get [SpecialFolder.Search]() { return gt`Saved Search`; },
+  get [SpecialFolder.Normal]() { return gt`Normal folder`; },
+  get [SpecialFolder.All]() { return gt`All messages`; },
+};
 
 export enum MailShareCombinedPermissions {
   Read = "read",
@@ -457,16 +458,16 @@ export enum MailShareIndividualPermissions {
   CreateSubfolders = "create-subfolders",
 }
 export const mailShareCombinedPermissionsLabels: Record<string, string> = {
-  [MailShareCombinedPermissions.Read]: gt`Read`,
-  [MailShareCombinedPermissions.FlagChange]: gt`Tag, star, mark as read`,
-  [MailShareCombinedPermissions.Modify]: gt`Delete, move and add mails`,
-  [MailShareCombinedPermissions.Custom]: gt`Custom`,
+  get [MailShareCombinedPermissions.Read]() { return gt`Read`; },
+  get [MailShareCombinedPermissions.FlagChange]() { return gt`Tag, star, mark as read`; },
+  get [MailShareCombinedPermissions.Modify]() { return gt`Delete, move and add mails`; },
+  get [MailShareCombinedPermissions.Custom]() { return gt`Custom`; },
 };
 export const mailShareIndividualPermissionsLabels: Record<string, string> = {
-  [MailShareIndividualPermissions.Read]: gt`Read mail`,
-  [MailShareIndividualPermissions.FlagChange]: gt`Change mail flags`,
-  [MailShareIndividualPermissions.Delete]: gt`Delete mails`,
-  [MailShareIndividualPermissions.Create]: gt`Add new mails`,
-  [MailShareIndividualPermissions.DeleteFolder]: gt`Delete this folder`,
-  [MailShareIndividualPermissions.CreateSubfolders]: gt`Add new folders`,
+  get [MailShareIndividualPermissions.Read]() { return gt`Read mail`; },
+  get [MailShareIndividualPermissions.FlagChange]() { return gt`Change mail flags`; },
+  get [MailShareIndividualPermissions.Delete]() { return gt`Delete mails`; },
+  get [MailShareIndividualPermissions.Create]() { return gt`Add new mails`; },
+  get [MailShareIndividualPermissions.DeleteFolder]() { return gt`Delete this folder`; },
+  get [MailShareIndividualPermissions.CreateSubfolders]() { return gt`Add new folders`; },
 };
