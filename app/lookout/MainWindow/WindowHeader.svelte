@@ -1,17 +1,18 @@
-<grid class="title-bar" class:mac class:os-rtl={osRTL}>
-  <hbox class="identity">
-    <hbox class="app-logo">
-      <AppIcon icon={logo} size="18px" />
-    </hbox>
-    <hbox class="app-name">{appName}</hbox>
-    <QuickAccessToolbar placement="above" />
+<hbox class="title-bar" class:mac class:os-rtl={osRTL}>
+  <hbox class="app-logo">
+    <AppIcon icon={logo} size="18px" />
   </hbox>
-  <hbox class="search-box">
-    {#if isMail}
-      <MailSearchBox />
-    {:else}
-      <SearchField bind:searchTerm={$globalSearchTerm} placeholder={$t`Search`} bind:this={searchField} />
-    {/if}
+  <hbox class="app-name">{appName}</hbox>
+  <QuickAccessToolbar placement="above" />
+  <hbox class="ribbon-tabs" bind:this={$titleBarTabs} />
+  <hbox class="search-area" class:mail={isMail}>
+    <hbox class="search-box" class:has-search={!!$globalSearchTerm}>
+      {#if isMail}
+        <MailSearchBox />
+      {:else}
+        <SearchField bind:searchTerm={$globalSearchTerm} placeholder={$t`Search`} bind:this={searchField} />
+      {/if}
+    </hbox>
   </hbox>
   <hbox class="window-buttons">
     {#if !webMail}
@@ -31,7 +32,7 @@
       </button>
     {/if}
   </hbox>
-</grid>
+</hbox>
 
 <script lang="ts">
   import { globalSearchTerm } from "../../frontend/AppsBar/selectedApp";
@@ -42,6 +43,7 @@
   import SearchField from "../../frontend/Shared/SearchField.svelte";
   import MailSearchBox, { mailSearchInput } from "../Mail/Search/MailSearchBox.svelte";
   import QuickAccessToolbar, { quickAccessCommands } from "./QuickAccessToolbar.svelte";
+  import { titleBarTabs } from "../Shared/Ribbon/Ribbon.svelte";
   import type { QuickAccessCommand } from "../Shared/QuickAccess/QuickAccess";
   import type { EMail } from "../../logic/Mail/EMail";
   import { selectedMessages } from "../../frontend/Mail/Selected";
@@ -132,35 +134,78 @@
 
 <style>
   .title-bar {
-    grid-template-columns: minmax(min-content, 1fr) minmax(200px, 680px) minmax(min-content, 1fr);
+    flex: 0 0 auto;
     align-items: stretch;
     height: var(--lo-titlebar-height);
     background-color: var(--lo-titlebar-bg);
     color: var(--lo-fg);
     app-region: drag;
   }
-  .identity {
-    align-items: center;
-    gap: 8px;
-    padding-inline-start: 14px;
-    min-width: 0;
-  }
   .app-logo {
     align-items: center;
+    padding-inline: 14px 8px;
   }
   .app-logo :global(.horse),
   .app-logo :global(.circle-bars) {
     fill: var(--lo-accent);
     stroke: var(--lo-accent);
   }
+  /* Gets the free space before the search field, so it shrinks after the search field */
   .app-name {
+    display: block;
+    flex: 1000 1 0;
+    max-width: max-content;
+    min-width: 0;
+    align-self: center;
+    margin-inline-end: 16px;
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Shrinks only if even the smallest search field doesn't fit */
+  .ribbon-tabs {
+    min-width: 0;
+    app-region: no-drag;
+  }
+  .search-area {
+    flex: 1 1 0;
+    min-width: calc(50px + 10ch);
+    align-items: center;
+    justify-content: center;
+    /* Leaves space to drag the window */
+    padding-inline: 64px 8px;
+    container: search-area / inline-size;
+  }
+  .search-area.mail {
+    min-width: calc(155px + 10ch);
   }
   .search-box {
-    align-items: center;
-    padding: 0 8px;
+    flex: 0 1 680px;
+    min-width: 0;
+  }
+  /* If there is not enough space, the search field shrinks to about 25 characters.
+   * Then, the mail search scope shows only an icon.
+   * Then, the search field shrinks to 10 characters, and expands when it's used.
+   * 245px, 155px and 50px are roughly the icons and buttons around the text field. */
+  @container search-area (width < calc(245px + 25ch)) {
+    .mail :global(.scope-label) {
+      display: none;
+    }
+    .mail :global(.scope-icon) {
+      display: block;
+    }
+  }
+  @container search-area (width < calc(155px + 25ch)) {
+    .mail .search-box:not(:has(input:focus), .has-search) {
+      flex: 0 0 calc(155px + 10ch);
+    }
+  }
+  @container search-area (width < calc(50px + 25ch)) {
+    .search-area:not(.mail) .search-box:not(:has(input:focus), .has-search) {
+      flex: 0 0 calc(50px + 10ch);
+    }
   }
   .search-box :global(.search) {
     flex: 1 1 0;
@@ -195,6 +240,7 @@
     border: none;
   }
   .window-buttons {
+    flex: 0 0 auto;
     justify-content: flex-end;
     align-items: stretch;
   }
@@ -220,11 +266,11 @@
   .mac .window-buttons {
     display: none;
   }
-  .mac .identity {
+  .mac .app-logo {
     padding-inline-start: 80px;
   }
-  :global([dir="rtl"]) .mac:not(.os-rtl) .identity,
-  .mac.os-rtl .identity {
+  :global([dir="rtl"]) .mac:not(.os-rtl) .app-logo,
+  .mac.os-rtl .app-logo {
     padding-inline-start: 14px;
   }
 </style>

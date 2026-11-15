@@ -3,9 +3,14 @@
   class:temp-open={isCollapsed && isTempOpen}
   on:contextmenu={onContextMenu}
   bind:this={ribbonEl}>
-  <hbox class="tab-row">
+  <hbox class="tab-row"
+    class:collapsed={isCollapsed}
+    class:temp-open={isCollapsed && isTempOpen}
+    on:contextmenu={onContextMenu}
+    bind:this={tabRowEl}
+    use:moveInto={$titleBarTabs}>
     <button class="tab file-tab" on:click={onFile} title={$t`File`}>
-      {$t`File`}
+      <span class="tab-label">{$t`File`}</span>
     </button>
     <hbox class="tabs" role="tablist" tabindex="-1" on:keydown={onTabRowKeyDown}>
       {#each shownTabs as tab}
@@ -16,13 +21,13 @@
           tabindex={tab == $selectedTab ? 0 : -1}
           on:click={() => onSelectTab(tab)}
           on:dblclick={onToggleCollapsed}>
-          {tab.label}
+          <span class="tab-label">{tab.label}</span>
         </button>
       {/each}
     </hbox>
     <hbox flex class="spacer" />
     <slot name="tab-row-end" />
-    <TellMe {ribbonEl} bind:isSurveying={isTellMeSurveying} />
+    <TellMe {ribbonEl} {tabRowEl} bind:isSurveying={isTellMeSurveying} />
     <ContextMenu bind:this={contextMenu}>
       {#if $qatShown.value}
         <MenuItem label={$qatPosition.value == "below" ? $t`Show Quick Access Toolbar Above the Ribbon` : $t`Show Quick Access Toolbar Below the Ribbon`}
@@ -39,7 +44,7 @@
     <slot />
   </hbox>
   <QuickAccessToolbarView placement="below" />
-  <KeyTipsLayer {ribbonEl} />
+  <KeyTipsLayer {ribbonEl} {tabRowEl} />
   {#if $isCustomizing}
     <CustomizeRibbonDialog tabs={$tabs} {ribbonID} on:close={() => $isCustomizing = false} />
   {/if}
@@ -59,6 +64,13 @@
 </vbox>
 <svelte:window on:click={onClickOutside} on:keydown={onKeyDown} />
 
+<script lang="ts" context="module">
+  import { writable } from "svelte/store";
+
+  /** Where the window title bar shows the ribbon tabs */
+  export const titleBarTabs = writable<HTMLElement | null>(null);
+</script>
+
 <script lang="ts">
   import type { RibbonTabInfo, RibbonLayout, RibbonMetrics } from "./RibbonGroup";
   import { backstagePage, isBackstageOpen } from "../../Settings/Backstage/selected";
@@ -71,7 +83,7 @@
   import ContextMenu from "../Menu/ContextMenu.svelte";
   import type { RibbonHiddenParts } from "./RibbonCustomization";
   import { selectedApp } from "../../../frontend/AppsBar/selectedApp";
-  import { get, writable } from "svelte/store";
+  import { get } from "svelte/store";
   import type { QuickAccessPosition } from "../QuickAccess/QuickAccess";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { setContext, onMount, onDestroy, tick } from "svelte";
@@ -125,7 +137,17 @@
   $: isCollapsed = !!$collapsedSetting.value;
 
   let ribbonEl: HTMLElement;
+  let tabRowEl: HTMLElement;
   let probeEl: HTMLElement;
+
+  /** Moves the tab row into the window title bar */
+  function moveInto(el: HTMLElement, target: HTMLElement | null) {
+    target?.append(el);
+    return {
+      update: (newTarget: HTMLElement | null) => newTarget?.append(el),
+      destroy: () => el.remove(),
+    };
+  }
 
   let probeObserver: ResizeObserver;
   onMount(() => {
@@ -188,7 +210,7 @@
   }
 
   function onClickOutside(event: MouseEvent) {
-    if (!isTempOpen || ribbonEl?.contains(event.target as Node)) {
+    if (!isTempOpen || ribbonEl?.contains(event.target as Node) || tabRowEl?.contains(event.target as Node)) {
       return;
     }
     isTempOpen = false;
@@ -202,7 +224,7 @@
 
   function onContextMenu(event: MouseEvent) {
     let target = event.target as HTMLElement;
-    if (target.closest("input, textarea, .lo-menu")) {
+    if (event.defaultPrevented || target.closest("input, textarea, .lo-menu")) {
       return;
     }
     event.preventDefault();
@@ -213,7 +235,7 @@
     if (event.key != "ArrowLeft" && event.key != "ArrowRight") {
       return;
     }
-    let tabButtons = Array.from(ribbonEl.querySelectorAll<HTMLElement>(".tab-row .tabs .tab"));
+    let tabButtons = Array.from(tabRowEl.querySelectorAll<HTMLElement>(".tabs .tab"));
     let pos = tabButtons.indexOf(document.activeElement as HTMLElement);
     if (pos < 0) {
       return;
@@ -265,11 +287,11 @@
 
   .tab-row {
     align-items: stretch;
-    height: var(--lo-ribbon-tab-row-height);
-    padding: 0 8px;
+    min-width: 0;
   }
   .tabs {
     align-items: stretch;
+    min-width: 0;
   }
   .tabs:focus {
     outline: none;
@@ -278,7 +300,8 @@
     position: relative;
     display: flex;
     align-items: center;
-    padding: 0 12px;
+    min-width: 0;
+    padding: 0;
     margin: 2px 1px;
     border: none;
     border-radius: var(--lo-radius-small);
@@ -287,6 +310,18 @@
     font-family: inherit;
     font-size: var(--lo-font-size);
     white-space: nowrap;
+  }
+  /* The padding. If the tabs don't fit, the padding shrinks first, then the label. */
+  .tab::before,
+  .tab::after {
+    content: "";
+    width: 12px;
+  }
+  .tab-label {
+    flex-shrink: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .tab:hover {
     background-color: var(--lo-hover-bg);
@@ -297,7 +332,7 @@
   .tab.contextual {
     color: var(--lo-accent-text);
   }
-  .tab.selected::after {
+  .tab.selected .tab-label::after {
     content: "";
     position: absolute;
     left: 12px;
@@ -310,7 +345,7 @@
   .collapsed:not(.temp-open) .tab.selected {
     font-weight: normal;
   }
-  .collapsed:not(.temp-open) .tab.selected::after {
+  .collapsed:not(.temp-open) .tab.selected .tab-label::after {
     display: none;
   }
 
@@ -327,12 +362,9 @@
   .collapsed.temp-open .ribbon-content {
     display: flex;
     position: absolute;
-    top: var(--lo-ribbon-tab-row-height);
+    top: 0;
     left: 0;
     right: 0;
     box-shadow: var(--lo-shadow-popup);
-  }
-  .collapsed:not(.temp-open) .tab-row {
-    margin-block-end: 4px;
   }
 </style>

@@ -53,7 +53,7 @@
   import { t } from "../../../l10n/l10n";
 
   export let ribbonEl: HTMLElement;
-
+  export let tabRowEl: HTMLElement;
 
   let fieldEl: HTMLElement;
   let inputEl: HTMLInputElement;
@@ -152,7 +152,7 @@
   async function run(entry: RibbonCommandEntry) {
     isMenuOpen = false;
     searchTerm = "";
-    let tabEl = Array.from(ribbonEl.querySelectorAll<HTMLElement>(".tabs [role=tab]"))
+    let tabEl = Array.from(tabRowEl.querySelectorAll<HTMLElement>(".tabs [role=tab]"))
       .find(candidate => candidate.textContent.trim() == entry.tabLabel);
     if (tabEl && tabEl.getAttribute("aria-selected") != "true") {
       tabEl.click();
