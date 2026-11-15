@@ -152,6 +152,15 @@ export function getWeekStart(date: Date): Date {
   return startTime;
 }
 
+/** @returns The same day of the month and time as `date`, but in the month of `month`.
+ * If that month is shorter, its last day, e.g. Feb 28 for Jan 31. */
+export function changeMonth(date: Date, month: Date): Date {
+  let lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  let result = new Date(date);
+  result.setFullYear(month.getFullYear(), month.getMonth(), Math.min(date.getDate(), lastDay));
+  return result;
+}
+
 /** @returns Mon-Sun around `start` */
 export function getWeekDays(start: Date): Date[] {
   let startTime = getWeekStart(start);

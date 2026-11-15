@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { getDayStart, getFormattedDateString, getTimeString, getTimeStringWithoutAMPM, getWeekStart } from "../../../logic/util/date";
+import { changeMonth, getDayStart, getFormattedDateString, getTimeString, getTimeStringWithoutAMPM, getWeekStart } from "../../../logic/util/date";
 import { saveDateTimeLocale } from "../../../l10n/l10n";
 import { afterEach, expect, test } from "vitest";
 
@@ -38,6 +38,16 @@ test("Day start is midnight of the same day, and the week starts on Monday", () 
   expect(time.getTime()).toBe(new Date(2026, 9, 29, 15, 5).getTime());
   // Sunday belongs to the week before
   expect(getWeekStart(new Date(2026, 10, 1, 12, 0))).toEqual(new Date(2026, 9, 26));
+});
+
+test("Changing the month keeps the day and the time, or takes the last day of a shorter month", () => {
+  expect(changeMonth(time, new Date(2028, 2, 1))).toEqual(new Date(2028, 2, 29, 15, 5));
+  expect(changeMonth(time, new Date(2025, 11, 1))).toEqual(new Date(2025, 11, 29, 15, 5));
+  let lastOfJanuary = new Date(2027, 0, 31, 9, 30);
+  expect(changeMonth(lastOfJanuary, new Date(2027, 1, 1))).toEqual(new Date(2027, 1, 28, 9, 30));
+  expect(changeMonth(lastOfJanuary, new Date(2028, 1, 1))).toEqual(new Date(2028, 1, 29, 9, 30));
+  expect(changeMonth(lastOfJanuary, new Date(2027, 3, 1))).toEqual(new Date(2027, 3, 30, 9, 30));
+  expect(lastOfJanuary).toEqual(new Date(2027, 0, 31, 9, 30));
 });
 
 test("Latin dates have Latin month and weekday names", () => {
