@@ -91,10 +91,13 @@
     scrollTop = (scrollEvent.target as HTMLElement).scrollTop;
   }
 
-  $: rowHeight = pxPerHour / kRowsPerHour;
-  // An event that shows only 1px counts as scrolled out
-  $: visibleFromRow = (scrollTop + 1) / rowHeight;
-  $: visibleToRow = (scrollTop + visibleHeight - headHeight - 1) / rowHeight;
+  // The browser rounds each grid row height down to its layout unit of 1/64 device px.
+  // With e.g. 5.45px rows, the last rows are then 3.6px higher than computed.
+  // 1/16px is a whole number of layout units, also at zoom 125%, 150% and 200%.
+  $: rowHeight = Math.floor(pxPerHour / kRowsPerHour * 16) / 16;
+  // An event that shows less than 10px counts as scrolled out
+  $: visibleFromRow = (scrollTop + 10) / rowHeight;
+  $: visibleToRow = (scrollTop + visibleHeight - headHeight - 10) / rowHeight;
 
   function scrollToRow(row: number) {
     scrollE.scrollTo(row * rowHeight - pxPerHour / 2);
