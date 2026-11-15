@@ -70,3 +70,20 @@ test("Klingon dates have Klingon month and weekday names", () => {
   saveDateTimeLocale("tlh-Piqd");
   expect(getFormattedDateString(time, { weekday: "long" })).toBe("\uF8D9\uF8DD\uF8D5\uF8D8\uF8D0\uF8D8"); // loghjaj
 });
+
+test("Klingon numeric dates are ISO 8601", () => {
+  for (let locale of ["tlh", "tlh-Piqd"]) {
+    saveDateTimeLocale(locale);
+    expect(time.toLocaleDateString(locale)).toContain("2026-10-29");
+    expect(getFormattedDateString(time, { month: "2-digit", day: "2-digit" })).toContain("10-29");
+    expect(getFormattedDateString(time, { year: "numeric", month: "numeric" })).toContain("2026-10");
+    let dateTime = time.toLocaleString(locale, { weekday: "long", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "numeric" });
+    expect(dateTime).toContain("2026-10-29");
+    expect(dateTime).toContain("15:05");
+    expect(dateTime).not.toContain("/");
+    let range = new Intl.DateTimeFormat(locale, { year: "numeric", month: "numeric", day: "numeric" })
+      .formatRange(time, new Date(2026, 10, 2));
+    expect(range).toContain("2026-10-29");
+    expect(range).toContain("2026-11-02");
+  }
+});
