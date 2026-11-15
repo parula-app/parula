@@ -56,9 +56,8 @@
   import type { CalendarRange } from "../CalendarRange";
   import { WeekRowLayout } from "./WeekRow";
   import { CalendarActions } from "../CalendarActions";
-  import { selectedSlots, eventPeek, type SlotSelection } from "../selected";
+  import { now, selectedSlots, eventPeek, type SlotSelection } from "../selected";
   import { selectedEvent, selectedDate } from "../../../frontend/Calendar/selected";
-  import { now } from "../../../frontend/Util/now";
   import { catchErrors } from "../../../frontend/Util/error";
   import EventContainer from "./EventContainer.svelte";
   import InlineEventTitle from "../InlineEventTitle.svelte";
