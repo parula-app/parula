@@ -196,10 +196,12 @@
     overflow-wrap: break-word;
   }
   .weekday {
+    display: block; /* for the ellipsis */
     margin-block-start: -4px;
     margin-block-end: 4px;
-    max-height: 1.3em;
     overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   :where(.compact) .day-header .date-day {
     flex-direction: row;
@@ -210,7 +212,7 @@
   }
   :where(.compact) .day-header .weekday {
     font-size: 90%;
-    align-items: center;
+    align-self: center;
     flex: 1 0 0;
     margin-block-start: 1px;
     margin-inline-start: 8px;
