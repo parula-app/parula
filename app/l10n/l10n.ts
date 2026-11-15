@@ -115,14 +115,13 @@ export function saveDateTimeLocale(language: string) {
   addDateNames(getDateTimeLocale());
 }
 
-// Before the first date
-if ("localStorage" in global && localStorage) {
-  addDateNames(getDateTimeLocale());
-}
-
 let loadedLocale = false;
 function initLocale() {
   setUILocale(getUILocale());
+  // Node has no `localStorage`
+  if ("localStorage" in global && localStorage) {
+    addDateNames(getDateTimeLocale());
+  }
 }
 
 /** In strings, this is the separator between the actual string and the comment for translators or machine translation.
