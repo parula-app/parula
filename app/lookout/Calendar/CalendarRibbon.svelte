@@ -164,7 +164,7 @@
   import { CalendarActions } from "./CalendarActions";
   import { globalSearchTerm, openApp } from "../../frontend/AppsBar/selectedApp";
   import { contactsMustangApp } from "../../frontend/Contacts/ContactsMustangApp";
-  import { CalendarGroups } from "./CalendarGroups";
+  import { CalendarGroups } from "../../frontend/Calendar/CalendarGroups";
   import { calendarColors } from "./CalendarColors";
   import { MailAccount } from "../../logic/Mail/MailAccount";
   import { openSettingsDialog, openOptions } from "../Settings/SettingsDialogs";

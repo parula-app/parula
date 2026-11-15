@@ -41,8 +41,8 @@
   import type { CalendarColumnGroup } from "../DayView/DayViewGrid.svelte";
   import type { CalendarRange } from "../CalendarRange";
   import { ScheduleLayout } from "./ScheduleLayout";
-  import { now, eventPeek, timeZoneRulers } from "../selected";
-  import { selectedCalendar } from "../../../frontend/Calendar/selected";
+  import { eventPeek, timeZoneRulers } from "../selected";
+  import { now, selectedCalendar } from "../../../frontend/Calendar/selected";
   import ScheduleRow from "./ScheduleRow.svelte";
   import { t } from "../../../l10n/l10n";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";

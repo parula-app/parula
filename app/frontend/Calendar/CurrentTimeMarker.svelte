@@ -2,24 +2,9 @@
   <hbox class="current-time-marker" style="top: clamp(5px, {position * 100}%, 100% - 5px)" />
 {/if}
 
-<script lang="ts" context="module">
-  import { k1MinuteMS } from "../../logic/util/date";
-  import { readable } from "svelte/store";
-
-  const now = readable(new Date(), set => {
-    let timeout: ReturnType<typeof setTimeout>;
-    function update() {
-      let time = new Date();
-      timeout = setTimeout(update, k1MinuteMS - time.getSeconds() * 1000 - time.getMilliseconds());
-      time.setSeconds(0, 0);
-      set(time);
-    }
-    update();
-    return () => clearTimeout(timeout);
-  });
-</script>
-
 <script lang="ts">
+  import { now } from "./selected";
+
   export let day: Date;
   export let startHour = 0;
   export let endHour = 24;

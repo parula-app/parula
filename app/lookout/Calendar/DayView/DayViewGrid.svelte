@@ -68,8 +68,8 @@
 <script lang="ts">
   import type { CalendarRange } from "../CalendarRange";
   import { TimeColumnLayout } from "./DayColumn";
-  import { now, eventPeek, timeZoneRulers } from "../selected";
-  import { selectedDate } from "../../../frontend/Calendar/selected";
+  import { eventPeek, timeZoneRulers } from "../selected";
+  import { now, selectedDate } from "../../../frontend/Calendar/selected";
   import DayHeader from "./DayHeader.svelte";
   import AllDayEvents from "./AllDayEvents.svelte";
   import DayColumn from "./DayColumn.svelte";

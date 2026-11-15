@@ -60,19 +60,17 @@
 
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
-  import type { CalendarRange } from "./CalendarRange";
   import { DateNavigatorMonth } from "./DateNavigatorMonth";
-  import { now } from "./selected";
-  import { getWeekNumber } from "../Util/date";
-  import { changeMonth } from "../../logic/util/date";
-  import { shownCalendarEvents } from "../../frontend/Calendar/selected";
-  import MonthYearPicker from "../../frontend/Calendar/MonthYearPicker.svelte";
+  import { now, shownCalendarEvents } from "./selected";
+  import { changeMonth, getWeekNumber } from "../../logic/util/date";
+  import MonthYearPicker from "./MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";
   import NextIcon from "lucide-svelte/icons/chevron-right";
   import { createEventDispatcher } from "svelte";
   import { getDateTimeLocale, t } from "../../l10n/l10n";
 
-  export let range: CalendarRange;
+  /** The days that the calendar shows */
+  export let range: { contains(day: Date): boolean };
   export let date: Date;
   export let showWeekNumbers = false;
   export let monthCount = 1;

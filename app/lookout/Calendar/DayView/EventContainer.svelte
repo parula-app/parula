@@ -58,10 +58,10 @@
   import { openEvent } from "../../../frontend/Calendar/open";
   import { catchErrors } from "../../../frontend/Util/error";
   import { EventDrag, type EventDragMode } from "../EventDrag";
-  import { now, CalendarCurrentView, eventPeek, selectedSlots } from "../selected";
+  import { CalendarCurrentView, eventPeek, selectedSlots } from "../selected";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { k1MinuteMS } from "../../../logic/util/date";
-  import { selectedEvent } from "../../../frontend/Calendar/selected";
+  import { now, selectedEvent } from "../../../frontend/Calendar/selected";
   import EventContent from "../DisplayEvent/EventContent.svelte";
   import EventIcons from "../DisplayEvent/EventIcons.svelte";
   import ContextMenu from "../../Shared/Menu/ContextMenu.svelte";

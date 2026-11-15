@@ -15,7 +15,7 @@
 
 <script lang="ts">
   import { RecurrenceCase, type Event } from "../../../logic/Calendar/Event";
-  import { now } from "../selected";
+  import { now } from "../../../frontend/Calendar/selected";
   import { k1MinuteMS } from "../../../logic/util/date";
   import RecurringIcon from "lucide-svelte/icons/repeat";
   import OnlineMeetingIcon from "lucide-svelte/icons/video";

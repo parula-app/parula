@@ -31,7 +31,7 @@
 <CalendarMenu bind:this={contextMenu} />
 
 <script lang="ts">
-  import { CalendarGroups, type CalendarGroup } from "./CalendarGroups";
+  import { CalendarGroups, type CalendarGroup } from "../../frontend/Calendar/CalendarGroups";
   import { selectedCalendar, shownCalendars } from "../../frontend/Calendar/selected";
   import { appGlobal } from "../../logic/app";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
