@@ -5,13 +5,13 @@ import { afterEach, expect, test } from "vitest";
 
 const time = new Date(2026, 9, 29, 15, 5);
 
-afterEach(async () => {
-  await saveDateTimeLocale("");
+afterEach(() => {
+  saveDateTimeLocale("");
 });
 
-test("Time without AM/PM leaves out only the AM/PM part", async () => {
+test("Time without AM/PM leaves out only the AM/PM part", () => {
   for (let locale of ["en-US", "es-US", "ko-KR"]) {
-    await saveDateTimeLocale(locale);
+    saveDateTimeLocale(locale);
     let ampm = new Intl.DateTimeFormat(locale, { hour: "numeric", hour12: true })
       .formatToParts(time)
       .find(part => part.type == "dayPeriod")
@@ -25,9 +25,9 @@ test("Time without AM/PM leaves out only the AM/PM part", async () => {
   }
 });
 
-test("Time without AM/PM is the normal time in 24-hour locales", async () => {
+test("Time without AM/PM is the normal time in 24-hour locales", () => {
   for (let locale of ["de-DE", "en-GB"]) {
-    await saveDateTimeLocale(locale);
+    saveDateTimeLocale(locale);
     expect(getTimeStringWithoutAMPM(time)).toBe(getTimeString(time));
   }
 });
@@ -40,8 +40,8 @@ test("Day start is midnight of the same day, and the week starts on Monday", () 
   expect(getWeekStart(new Date(2026, 10, 1, 12, 0))).toEqual(new Date(2026, 9, 26));
 });
 
-test("Latin dates have Latin month and weekday names", async () => {
-  await saveDateTimeLocale("la");
+test("Latin dates have Latin month and weekday names", () => {
+  saveDateTimeLocale("la");
   let date = getFormattedDateString(time, { weekday: "long", day: "numeric", month: "long" });
   expect(date).toContain("Iovis");
   expect(date).toContain("Octobris");
@@ -59,14 +59,14 @@ test("Latin dates have Latin month and weekday names", async () => {
   expect(range).not.toContain(" at ");
 });
 
-test("Klingon dates have Klingon month and weekday names", async () => {
-  await saveDateTimeLocale("tlh");
+test("Klingon dates have Klingon month and weekday names", () => {
+  saveDateTimeLocale("tlh");
   let date = getFormattedDateString(time, { weekday: "long", day: "numeric", month: "long" });
   expect(date).toContain("loghjaj");
   expect(date).toContain("jar wa'maH");
   expect(date).not.toContain("Thursday");
   expect(date).not.toContain("October");
 
-  await saveDateTimeLocale("tlh-Piqd");
+  saveDateTimeLocale("tlh-Piqd");
   expect(getFormattedDateString(time, { weekday: "long" })).toBe("\uF8D9\uF8DD\uF8D5\uF8D8\uF8D0\uF8D8"); // loghjaj
 });

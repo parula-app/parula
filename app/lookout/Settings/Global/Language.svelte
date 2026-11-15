@@ -16,7 +16,7 @@
       <hbox class="field-row">
         <label for="options-date-format" class="field-label">{$t`Format *=> Format of dates and times, by language and region`}</label>
         <ComboBox options={[ { value: "", label: $t`Same as the display language` }, ...languages.map(code => ({ value: code, label: localeNames[code] })) ]}
-          bind:value={dateTimeFormat} on:change={() => catchErrors(onSaveDateTimeFormat)} label={$t`Format *=> Format of dates and times, by language and region`} width="240px" />
+          bind:value={dateTimeFormat} on:change={onSaveDateTimeFormat} label={$t`Format *=> Format of dates and times, by language and region`} width="240px" />
       </hbox>
       <grid class="samples">
         <span class="lo-secondary">{$t`Short date *=> Example of the short date format`}</span>
@@ -44,7 +44,6 @@
   import DateFormatIcon from "lucide-svelte/icons/calendar-clock";
   import RestartIcon from "lucide-svelte/icons/rotate-ccw";
   import { getUILocale, getUILocalePref, getDateTimeLocale, getDateTimeLocalePref, saveDateTimeLocale, saveUILocale, setUILocale, t } from "../../../l10n/l10n";
-  import { catchErrors } from "../../../frontend/Util/error";
 
   const languages = Object.keys(localeNames);
 
@@ -58,12 +57,12 @@
   async function onSaveLanguage() {
     saveUILocale(language);
     setUILocale(getUILocale());
-    await onSaveDateTimeFormat();
+    onSaveDateTimeFormat();
     await appGlobal.remoteApp.restartApp(); // unfortunately needed for the strings in ts modules
   }
 
-  async function onSaveDateTimeFormat() {
-    await saveDateTimeLocale(dateTimeFormat);
+  function onSaveDateTimeFormat() {
+    saveDateTimeLocale(dateTimeFormat);
     dateTimeFormatDisplayed = getDateTimeLocale();
   }
   // </copied>

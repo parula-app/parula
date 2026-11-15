@@ -4,6 +4,7 @@ import { generateMessageID } from "./generateMessageID";
 import { sanitize } from '../../lib/util/sanitizeDatatypes';
 
 import { languageMessages, sourceLocale, localeMapping } from './list';
+import { addDateNames } from './dateNames';
 
 /** @lang Either 2-letter ISO lang code, or 5-letter ISO locale code
  * Must match list.ts */
@@ -108,23 +109,15 @@ export function getDateTimeLocalePref(): string {
   return sanitize.nonemptystring(localStorage.getItem("ui.dateTime"), "");
 }
 
-export async function saveDateTimeLocale(language: string) {
+export function saveDateTimeLocale(language: string) {
   cachedDateTimeLocale = null;
   localStorage.setItem("ui.dateTime", language);
-  await loadDateNames();
+  addDateNames(getDateTimeLocale());
 }
 
-/** Browsers have no month and weekday names for Latin and Klingon.
- * Must match `dateTimeFormatClass()` in `dateNames.ts`. */
-async function loadDateNames() {
-  if (["la", "tlh", "tlh-Piqd"].includes(getDateTimeLocale())) {
-    let { addDateNames } = await import("./dateNames");
-    addDateNames();
-  }
-}
 // Before the first date
 if ("localStorage" in global && localStorage) {
-  await loadDateNames();
+  addDateNames(getDateTimeLocale());
 }
 
 let loadedLocale = false;

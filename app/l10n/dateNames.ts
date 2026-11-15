@@ -6,9 +6,12 @@
  * They format like British English (day before month, 24 hours),
  * and we replace the month and weekday names with ours.
  *
- * `l10n.ts` loads this only when the user chose one of these languages for dates. */
-export function addDateNames() {
-  if (Intl.DateTimeFormat != BrowserDateTimeFormat) { // Already added
+ * Only when the user chose one of these languages for dates.
+ * For all other languages, the browser's functions stay unchanged.
+ *
+ * @param locale The language for dates */
+export function addDateNames(locale: string) {
+  if (!dateTimeFormatClass(locale) || Intl.DateTimeFormat != BrowserDateTimeFormat) { // Already added
     return;
   }
   function DateTimeFormat(locales?: Intl.LocalesArgument, options?: Intl.DateTimeFormatOptions) {
@@ -46,8 +49,7 @@ export function addDateNames() {
 
 const BrowserDateTimeFormat = Intl.DateTimeFormat;
 
-/** @returns Our class for this language, or null for the browser's.
- * Must match `loadDateNames()` in `l10n.ts`. */
+/** @returns Our class for this language, or null for the browser's */
 function dateTimeFormatClass(locales: Intl.LocalesArgument) {
   return locales == "la" ? LatinDateTimeFormat
     : locales == "tlh" ? KlingonDateTimeFormat
