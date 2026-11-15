@@ -100,8 +100,8 @@ export function saveUILocale(language: string) {
 let cachedDateTimeLocale: string;
 
 export function getDateTimeLocale(): string {
-  cachedDateTimeLocale ??=
-    sanitize.nonemptystring(localStorage.getItem("ui.dateTime"), getUILocale());
+  cachedDateTimeLocale ??= // Node has no `localStorage`
+    sanitize.nonemptystring(global.localStorage?.getItem("ui.dateTime"), getUILocale());
   return cachedDateTimeLocale;
 }
 
@@ -118,10 +118,7 @@ export function saveDateTimeLocale(language: string) {
 let loadedLocale = false;
 function initLocale() {
   setUILocale(getUILocale());
-  // Node has no `localStorage`
-  if ("localStorage" in global && localStorage) {
-    addDateNames(getDateTimeLocale());
-  }
+  addDateNames(getDateTimeLocale());
 }
 
 /** In strings, this is the separator between the actual string and the comment for translators or machine translation.
