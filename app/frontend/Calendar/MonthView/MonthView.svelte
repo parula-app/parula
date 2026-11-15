@@ -51,6 +51,7 @@
   function setDays() {
     weekDays = getWeekDays(start);
     if (showDays == 35) {
+      // ShownDays.ts does the same for the mini month
       while (weekDays[6].getDate() > 7) {
         start.setDate(start.getDate() - 7);
         weekDays = getWeekDays(start);
