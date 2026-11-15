@@ -1,11 +1,12 @@
 <span class="recipient-names">
   {#each shown as recipient, index (recipient)}
+    {@const name = displayName(recipient)}
     <span class="entry" class:with-address={withAddress}><button type="button" class="name" title={recipient.emailAddress}
-      class:address-only={withAddress && !recipient.name && recipient.emailAddress}
+      class:address-only={withAddress && recipient.emailAddress && name == recipient.emailAddress}
       on:click|stopPropagation={event => openMenu(recipient, event)}
       on:contextmenu|preventDefault|stopPropagation={event => openMenu(recipient, event)}
-      >{#if withAddress && !recipient.name && recipient.emailAddress}<EMailAddress emailAddress={recipient.emailAddress} isUnknown={!recipient.findPerson()} />{:else}{displayName(recipient)}{/if}</button
-      >{#if withAddress && recipient.name && recipient.emailAddress}<span class="address"><EMailAddress emailAddress={recipient.emailAddress} isUnknown={!recipient.findPerson()} withBrackets /></span>{/if}{#if index < shown.length - 1 || hiddenCount};{/if}</span>{" "}
+      >{#if withAddress && recipient.emailAddress && name == recipient.emailAddress}<EMailAddress emailAddress={recipient.emailAddress} isUnknown={!recipient.findPerson()} />{:else}{name}{/if}</button
+      >{#if withAddress && recipient.emailAddress && name != recipient.emailAddress}<span class="address"><EMailAddress emailAddress={recipient.emailAddress} isUnknown={!recipient.findPerson()} withBrackets /></span>{/if}{#if index < shown.length - 1 || hiddenCount};{/if}</span>{" "}
   {/each}
   {#if hiddenCount}
     <button type="button" class="more" on:click={() => { isExpanded = true; }}>{$t`+${hiddenCount} more`}</button>
@@ -20,7 +21,7 @@
 </Menu>
 
 <script lang="ts">
-  import type { PersonUID } from "../../../logic/Abstract/PersonUID";
+  import { type PersonUID, personDisplayName } from "../../../logic/Abstract/PersonUID";
   import { MessageActions } from "../MessageActions";
   import EMailAddress from "./EMailAddress.svelte";
   import Menu from "../../Shared/Menu/Menu.svelte";
@@ -51,11 +52,14 @@
     isMenuOpen = true;
   }
 
-  /* <copied to="../Composer/MailAutocomplete.svelte"> */
   function displayName(recipient: PersonUID): string {
+    if (!recipient.findPerson()) {
+      return personDisplayName(recipient);
+    }
     return recipient.name || recipient.emailAddress;
   }
 
+  /* <copied to="../Composer/MailAutocomplete.svelte"> */
   function clipboardText(recipient: PersonUID): string {
     return recipient.name && recipient.name != recipient.emailAddress
       ? `${recipient.name} <${recipient.emailAddress}>`
