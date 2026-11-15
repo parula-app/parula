@@ -200,7 +200,6 @@
     margin-block-start: -4px;
     margin-block-end: 4px;
     overflow: hidden;
-    /* Not broken within the word, which `Scroll` allows */
     white-space: nowrap;
     text-overflow: ellipsis;
   }
