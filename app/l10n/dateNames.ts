@@ -5,6 +5,7 @@
  * `Date.toLocale*String()` in many places, so we wrap these for these languages:
  * They format like British English (day before month, 24 hours),
  * and we replace the month and weekday names with ours.
+ * Klingon writes numeric dates as in ISO 8601, e.g. 2026-11-15.
  *
  * Only when the user chose one of these languages for dates.
  * For all other languages, the browser's functions stay unchanged.
@@ -135,7 +136,8 @@ class LatinDateTimeFormat extends NamedDateTimeFormat {
 /** Earth dates in Klingon, as on the invitation to "Star Trek: The Exhibition":
  * "jaj wa', jar wa'" for "Sunday, January". The Klingon week has 6 days,
  * and further days are numbered, so Sunday is "day one".
- * Klingon has no short forms. */
+ * Klingon has no short forms.
+ * There is no Klingon date order, so numeric dates fall back to ISO 8601. */
 class KlingonHolDateTimeFormat extends NamedDateTimeFormat {
   protected months = {
     long: ["jar wa'", "jar cha'", "jar wej", "jar loS", "jar vagh", "jar jav", "jar Soch", "jar chorgh", "jar Hut", "jar wa'maH", "jar wa'maH wa'", "jar wa'maH cha'"],
@@ -143,10 +145,34 @@ class KlingonHolDateTimeFormat extends NamedDateTimeFormat {
   protected weekdays = {
     long: ["jaj wa'", "DaSjaj", "povjaj", "ghItlhjaj", "loghjaj", "buqjaj", "ghInjaj"],
   };
+
+  formatToParts(date?: Date | number): Intl.DateTimeFormatPart[] {
+    return isoDates(super.formatToParts(date));
+  }
+
+  formatRangeToParts(start: Date | number, end: Date | number): Intl.DateTimeRangeFormatPart[] {
+    return isoDates(super.formatRangeToParts(start, end));
+  }
+}
+
+/** British English writes numeric dates as day/month/year, e.g. 15/11/2026, 15/11 or 11/2026.
+ * Turns them around into ISO 8601: 2026-11-15, 11-15 or 2026-11.
+ * In a range, each side has its whole date. */
+function isoDates<Part extends Intl.DateTimeFormatPart>(parts: Part[]): Part[] {
+  let result: Part[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    let date = [parts[i]];
+    while (parts[i + 1]?.value == "/") {
+      date.unshift(parts[i + 2], { ...parts[i + 1], value: "-" });
+      i += 2;
+    }
+    result.push(...date);
+  }
+  return result;
 }
 
 /** `KlingonHolDateTimeFormat` in the pIqaD script, see `transliteratePIqaD.ts` */
-class KlingonPIqaDDateTimeFormat extends NamedDateTimeFormat {
+class KlingonPIqaDDateTimeFormat extends KlingonHolDateTimeFormat {
   protected months = {
     long: ["\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D0\uF8E9", "\uF8D8\uF8D0\uF8E1 \uF8D2\uF8D0\uF8E9", "\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D4\uF8D8", "\uF8D8\uF8D0\uF8E1 \uF8D9\uF8DD\uF8E2", "\uF8D8\uF8D0\uF8E1 \uF8E6\uF8D0\uF8D5", "\uF8D8\uF8D0\uF8E1 \uF8D8\uF8D0\uF8E6", "\uF8D8\uF8D0\uF8E1 \uF8E2\uF8DD\uF8D2", "\uF8D8\uF8D0\uF8E1 \uF8D2\uF8DD\uF8E1\uF8D5", "\uF8D8\uF8D0\uF8E1 \uF8D6\uF8E5\uF8E3", "\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D0\uF8E9\uF8DA\uF8D0\uF8D6", "\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D0\uF8E9\uF8DA\uF8D0\uF8D6 \uF8E7\uF8D0\uF8E9", "\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D0\uF8E9\uF8DA\uF8D0\uF8D6 \uF8D2\uF8D0\uF8E9"],
   };
