@@ -2,6 +2,9 @@
   <hbox class="header">
     <ShowCalendarsButton />
   </hbox>
+  <DateNavigator range={shownDays} date={shownDays.date}
+    on:selectday={event => selectDay(event.detail)}
+    on:selectdays={event => selectDay(event.detail.first)} />
   <vbox class="calendars" flex>
     {#each groups as group (group.id)}
       <hbox class="group-label">{group.label}</hbox>
@@ -28,18 +31,29 @@
 </vbox>
 
 <script lang="ts">
-  import { selectedDate, shownCalendars } from "./selected";
+  import { selectedDate, shownCalendars, startDate, type DateInterval } from "./selected";
   import { CalendarGroups } from "./CalendarGroups";
+  import { ShownDays } from "./ShownDays";
   import { createNewEvent } from "./event";
   import { appGlobal } from "../../logic/app";
   import ShowCalendarsButton from "./ShowCalendarsButton.svelte";
+  import DateNavigator from "./DateNavigator.svelte";
   import RoundButton from "../Shared/RoundButton.svelte";
   import Checkbox from "../Shared/Checkbox.svelte";
   import AddIcon from "lucide-svelte/icons/plus";
   import { t } from "../../l10n/l10n";
 
+  export let dateInterval: DateInterval;
+
   let calendars = appGlobal.calendars;
   $: groups = new CalendarGroups($calendars.contents).groups;
+  $: shownDays = new ShownDays(dateInterval, $startDate, $selectedDate);
+
+  function selectDay(day: Date) {
+    // Copies, because the views change the date in place
+    $startDate = new Date(day);
+    $selectedDate = new Date(day);
+  }
 </script>
 
 <style>

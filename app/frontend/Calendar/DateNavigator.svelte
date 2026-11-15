@@ -170,6 +170,10 @@
 
 <style>
   .date-navigator {
+    --radius: 1000px;
+    --secondary-fg: color-mix(in srgb, var(--fg) 60%, transparent);
+    --range-bg: color-mix(in srgb, var(--selected-bg) 30%, transparent);
+    --range-hover-bg: var(--selected-bg);
     padding: 4px 8px 8px 8px;
     user-select: none;
   }
@@ -186,15 +190,15 @@
   .title {
     padding: 2px 8px;
     border: none;
-    border-radius: var(--lo-radius-small);
+    border-radius: var(--radius);
     background: none;
-    color: var(--lo-fg);
+    color: var(--fg);
     font: inherit;
     font-weight: 600;
     cursor: pointer;
   }
   .title:hover {
-    background-color: var(--lo-hover-bg);
+    background-color: var(--hover-bg);
   }
   .arrow {
     display: flex;
@@ -204,14 +208,14 @@
     height: 28px;
     padding: 0;
     border: none;
-    border-radius: var(--lo-radius-small);
+    border-radius: var(--radius);
     background: none;
-    color: var(--lo-fg-secondary);
+    color: var(--secondary-fg);
     cursor: pointer;
   }
   .arrow:hover {
-    background-color: var(--lo-hover-bg);
-    color: var(--lo-fg);
+    background-color: var(--hover-bg);
+    color: var(--fg);
   }
   .grid {
     display: grid;
@@ -226,32 +230,32 @@
     line-height: 24px;
     text-align: center;
     font-size: 11px;
-    color: var(--lo-fg-secondary);
+    color: var(--secondary-fg);
   }
   .week-number {
     min-width: 20px;
     padding: 0 4px 0 0;
     border: none;
-    border-inline-end: 1px solid var(--lo-divider);
+    border-inline-end: 1px solid var(--border);
     background: none;
     font: inherit;
     font-size: 11px;
     line-height: 28px;
     text-align: center;
-    color: var(--lo-fg-secondary);
+    color: var(--secondary-fg);
   }
   button.week-number {
     cursor: pointer;
   }
   button.week-number:hover {
-    background-color: var(--lo-hover-bg);
-    color: var(--lo-fg);
+    background-color: var(--hover-bg);
+    color: var(--fg);
   }
   .day.dragged {
-    background-color: var(--lo-selected-hover-bg);
+    background-color: var(--range-hover-bg);
   }
   .day:global(.drop-target) {
-    outline: 2px solid var(--lo-accent);
+    outline: 2px solid var(--inverted-bg);
     outline-offset: -2px;
   }
   .day {
@@ -262,21 +266,21 @@
     padding: 0;
     border: none;
     background: none;
-    color: var(--lo-fg);
+    color: var(--fg);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
   }
   .day.in-range {
-    background-color: var(--lo-selected-bg);
+    background-color: var(--range-bg);
   }
   .day.range-start {
-    border-start-start-radius: var(--lo-radius-small);
-    border-end-start-radius: var(--lo-radius-small);
+    border-start-start-radius: var(--radius);
+    border-end-start-radius: var(--radius);
   }
   .day.range-end {
-    border-start-end-radius: var(--lo-radius-small);
-    border-end-end-radius: var(--lo-radius-small);
+    border-start-end-radius: var(--radius);
+    border-end-end-radius: var(--radius);
   }
   .number {
     display: flex;
@@ -287,21 +291,31 @@
     border-radius: 50%;
   }
   .day:hover .number {
-    background-color: var(--lo-hover-bg);
+    background-color: var(--hover-bg);
   }
   .day.in-range:hover .number {
-    background-color: var(--lo-selected-hover-bg);
+    background-color: var(--range-hover-bg);
   }
   .day.other-month {
-    color: var(--lo-fg-secondary);
+    color: var(--secondary-fg);
   }
   .day.has-events {
     font-weight: 700;
   }
   .day.today .number,
   .day.today:hover .number {
-    background-color: var(--lo-accent);
-    color: var(--lo-accent-fg);
+    background-color: var(--inverted-bg);
+    color: var(--inverted-fg);
     font-weight: 700;
+  }
+
+  :global(.lookout-window) .date-navigator {
+    --radius: var(--lo-radius-small);
+    --secondary-fg: var(--lo-fg-secondary);
+    --range-bg: var(--lo-selected-bg);
+    --range-hover-bg: var(--lo-selected-hover-bg);
+  }
+  :global(.lookout-window) .week-number {
+    border-inline-end-color: var(--lo-divider);
   }
 </style>

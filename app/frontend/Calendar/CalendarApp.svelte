@@ -1,7 +1,7 @@
 <vbox flex class="calendar-app">
   <hbox flex>
     {#if $isCalendarListOpen}
-      <CalendarList />
+      <CalendarList dateInterval={$dateIntervalSetting.value} />
     {/if}
     <Splitter
       initialRightRatio={0.25}
