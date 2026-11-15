@@ -118,7 +118,7 @@ export class WeekRowLayout {
     let dayStart = date.getTime();
     let dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
     // At the start or the end of this day
-    let isOverMidnight = (event: Event) => {
+    const isOverMidnight = (event: Event) => {
       let start = event.startTime.getTime();
       let end = event.endTime.getTime();
       return start < dayStart && dayStart < end || start < dayEnd && dayEnd < end;
