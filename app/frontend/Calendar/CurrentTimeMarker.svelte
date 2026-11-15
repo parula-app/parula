@@ -3,7 +3,7 @@
 {/if}
 
 <script lang="ts">
-  import { now } from "./selected";
+  import { now } from "../Util/now";
 
   export let day: Date;
   export let startHour = 0;

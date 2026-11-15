@@ -61,7 +61,8 @@
   import { CalendarCurrentView, eventPeek, selectedSlots } from "../selected";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { k1MinuteMS } from "../../../logic/util/date";
-  import { now, selectedEvent } from "../../../frontend/Calendar/selected";
+  import { selectedEvent } from "../../../frontend/Calendar/selected";
+  import { now } from "../../../frontend/Util/now";
   import EventContent from "../DisplayEvent/EventContent.svelte";
   import EventIcons from "../DisplayEvent/EventIcons.svelte";
   import ContextMenu from "../../Shared/Menu/ContextMenu.svelte";

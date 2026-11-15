@@ -61,7 +61,8 @@
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
   import { DateNavigatorMonth } from "./DateNavigatorMonth";
-  import { now, shownCalendarEvents } from "./selected";
+  import { shownCalendarEvents } from "./selected";
+  import { now } from "../Util/now";
   import { changeMonth, getWeekNumber } from "../../logic/util/date";
   import MonthYearPicker from "./MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";
