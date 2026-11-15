@@ -110,7 +110,7 @@
   }
 
   async function onSaveDateTimeFormat() {
-    saveDateTimeLocale(dateTimeFormat);
+    await saveDateTimeLocale(dateTimeFormat);
     dateTimeFormatDisplayed = getDateTimeLocale();
   }
 </script>
