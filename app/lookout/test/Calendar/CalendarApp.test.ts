@@ -193,7 +193,7 @@ test("Month and year dropdown: A year keeps it open, a month closes it, and both
   expect(isPickerOpen()).toBe(false);
 });
 
-test("Month and year dropdown on the mini month: Changes only the mini month", () => {
+test("Month and year dropdown on the mini month: Changes the mini month and the calendar, and keeps the day", () => {
   let isPickerOpen = () => !!document.querySelector(".month-year-picker");
   let miniMonthTitle = () => document.querySelector(".date-navigator .title").textContent;
   let click = (button: Element) => {
@@ -205,14 +205,36 @@ test("Month and year dropdown on the mini month: Changes only the mini month", (
 
   click([...document.querySelectorAll("button.year")].find(button => button.textContent.includes("1999")));
   expect(miniMonthTitle()).toContain("1999");
+  expect(day(get(startDate))).toBe(day(new Date(1999, 9, 14)));
+  expect(day(get(selectedDate))).toBe(day(new Date(1999, 9, 14)));
   expect(isPickerOpen()).toBe(true);
 
   let march = document.querySelectorAll("button.month")[2];
   click(march);
   expect(miniMonthTitle()).toContain("1999");
   expect(miniMonthTitle()).not.toContain("October");
+  expect(day(get(startDate))).toBe(day(new Date(1999, 2, 14)));
   expect(isPickerOpen()).toBe(false);
-  expect(day(get(startDate))).toBe(day(kWednesday));
+});
+
+test("Month and year dropdown on the 2nd mini month: The chosen month stays 2nd", () => {
+  unmount(app);
+  document.body.innerHTML = "";
+  // Tall enough for 2 mini months
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(800);
+  mountApp();
+  let miniMonthTitles = () => [...document.querySelectorAll(".date-navigator .title")].map(title => title.textContent);
+  let click = (button: Element) => {
+    (button as HTMLElement).click();
+    flushSync();
+  };
+  expect(miniMonthTitles().length).toBe(2);
+  click(document.querySelectorAll(".date-navigator .title")[1]);
+  let march = document.querySelectorAll("button.month")[2];
+  click(march);
+  expect(miniMonthTitles()[0]).toContain("February");
+  expect(miniMonthTitles()[1]).toContain("March");
+  expect(day(get(startDate))).toBe(day(new Date(2026, 2, 14)));
 });
 
 test("Item commands", async () => {

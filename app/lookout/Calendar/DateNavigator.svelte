@@ -64,6 +64,7 @@
   import { DateNavigatorMonth } from "./DateNavigatorMonth";
   import { now } from "./selected";
   import { getWeekNumber } from "../Util/date";
+  import { changeMonth } from "../../logic/util/date";
   import { shownCalendarEvents } from "../../frontend/Calendar/selected";
   import MonthYearPicker from "../../frontend/Calendar/MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";
@@ -79,14 +80,15 @@
   const dispatch = createEventDispatcher<{ selectday: Date, selectweek: Date, selectdays: { first: Date, last: Date } }>();
 
   let month = new DateNavigatorMonth(date);
+  $: months = Array.from({ length: Math.max(monthCount, 1) }, (_, i) => month.next(i));
+  // After `months`, so that it sees the month chosen in the month picker, e.g. as 2nd month
   $: followDate(date);
   function followDate(date: Date) {
-    if (!months?.some(shownMonth => shownMonth.isInMonth(date))) {
+    if (!months.some(shownMonth => shownMonth.isInMonth(date))) {
       month = new DateNavigatorMonth(date);
     }
   }
 
-  $: months = Array.from({ length: Math.max(monthCount, 1) }, (_, i) => month.next(i));
   $: monthsEvents = shownCalendarEvents.filterObservable(isInMonths);
   $: months, filterMonths();
   function filterMonths() {
@@ -110,9 +112,11 @@
     monthPickerIndex = index;
   }
 
-  /** Shows the chosen month where the user clicked, e.g. as 2nd month */
+  /** Shows the chosen month where the user clicked, e.g. as 2nd month,
+   * and the same day in the chosen month in the calendar */
   function chooseMonth(chosen: Date) {
     month = new DateNavigatorMonth(chosen).next(-monthPickerIndex);
+    dispatch("selectday", changeMonth(date, chosen));
   }
 
   let dragStart: Date = null;
