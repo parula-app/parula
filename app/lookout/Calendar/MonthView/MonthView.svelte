@@ -58,6 +58,7 @@
 <style>
   .month-grid {
     min-height: 0;
+    container-type: size;
   }
   .weekdays {
     display: grid;

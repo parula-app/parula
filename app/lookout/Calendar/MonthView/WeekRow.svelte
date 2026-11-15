@@ -10,6 +10,11 @@
         on:click|stopPropagation={event => onAdd(event.currentTarget, day)} on:dblclick|stopPropagation>
         <AddIcon size="14" />
       </button>
+      {#if day.getDate() == 1 || day.getDay() == 1}
+        <div class="month-name">
+          {day.toLocaleDateString(getDateTimeLocale(), { month: "long" })}
+        </div>
+      {/if}
       {#if isSelected(day, $selectedSlots) && day.getTime() == $selectedSlots.start.getTime()}
         <div class="inline-title-area">
           <InlineEventTitle />
@@ -194,6 +199,29 @@
   }
   .add-button:hover {
     background-color: var(--lo-hover-bg);
+  }
+  .month-name {
+    position: absolute;
+    /* No inset-inline-start: With the vertical writing mode, it would mean top.
+     * The static position already puts it at the start side, also in RTL. */
+    top: 24px; /* below the day number */
+    bottom: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    color: #8B8B8B;
+    opacity: 50%;
+    font-size: var(--lo-font-size);
+    font-weight: 300;
+    letter-spacing: 0.378px;
+    text-transform: uppercase;
+  }
+  @container (max-height: 400px) {
+    .month-name {
+      display: none;
+    }
   }
   .inline-title-area {
     position: absolute;
