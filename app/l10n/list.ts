@@ -41,6 +41,7 @@ import th from './locales/th/messages.json';
 import tr from './locales/tr/messages.json';
 import la from './locales/la/messages.json';
 import tlh from './locales/tlh/messages.json';
+import tlhPiqd from './locales/tlh-Piqd/messages.json';
 
 import bn from './locales/bn/messages.json';
 import paArab from './locales/pa-Arab/messages.json';
@@ -92,6 +93,7 @@ export const languageMessages: Record<string, Record<string, string>> = {
   tr: tr,
   la: la,
   tlh: tlh,
+  "tlh-Piqd": tlhPiqd,
   bn: bn,
   "pa-Arab": paArab,
   ta: ta,
@@ -131,7 +133,8 @@ export const localeNames = {
   'ga': "Irish / Gaeilge",
   'it': "Italian / Italiano",
   'ja': "Japanese / 日本語",
-  'tlh': "Klingon / tlhIngan Hol",
+  'tlh': "Klingon (Hol) / tlhIngan Hol",
+  'tlh-Piqd': "Klingon (pIqaD) / \uF8E4\uF8D7\uF8DC\uF8D0\uF8DB \uF8D6\uF8DD\uF8D9",
   'ko': "Korean / 한국어",
   'la': "Latin / Latina",
   'lv': "Latvian / Latviski",
