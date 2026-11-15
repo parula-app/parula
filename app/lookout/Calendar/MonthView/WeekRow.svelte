@@ -34,7 +34,7 @@
     </button>
   {/each}
   {#each days as _, i}
-    {#each $layout.events.filter(item => item.startDay == i) as item (item.event)} <!-- An event over midnight has an item on each day -->
+    {#each $layout.events.filter(item => item.startDay == i) as item (item.event)} <!-- An event over midnight can have an item on several days -->
       <div class="item"
         style="grid-column: {item.startDay + 1} / {item.endDay + 1}; grid-row: {item.startRow + 2} / {item.endRow + 2}; --lane: {item.lane}; --lanes: {item.lanes}">
         <EventContainer event={item.event} variant="month"
