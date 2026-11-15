@@ -98,7 +98,7 @@
 
   let visibleEvents: Collection<Event>;
   let allDayEvents: Collection<Event>;
-  $: range, filterEvents();
+  $: events, range, filterEvents();
   function filterEvents() {
     let { start, end } = range;
     let filtered = events.filterObservable(ev => ev.startTime && ev.startTime < end && start < ev.endTime);

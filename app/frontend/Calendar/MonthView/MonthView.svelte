@@ -46,7 +46,7 @@
 
   let newEventMenu: NewEventMenu;
   let filteredEvents: Collection<Event>;
-  $: range, filterEvents();
+  $: events, range, filterEvents();
   function filterEvents() {
     let rangeStart = range.start;
     let rangeEnd = range.end;
