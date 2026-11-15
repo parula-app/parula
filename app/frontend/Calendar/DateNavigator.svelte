@@ -275,9 +275,9 @@
   .day.in-range {
     background-color: var(--range-bg);
   }
-  /* More than a week: Several rows, with the same corners all around */
+  /* More than a week: Several rows, with small corners instead of round ends */
   .date-navigator.several-weeks {
-    --range-radius: 0;
+    --range-radius: 4px;
   }
   .day.range-start {
     border-start-start-radius: var(--range-radius);
