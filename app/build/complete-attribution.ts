@@ -61,7 +61,7 @@ let sorted = [...completed.values()].sort((a, b) =>
   a.text.split("\n")[0].localeCompare(b.text.split("\n")[0], undefined, { sensitivity: "accent", ignorePunctuation: true }));
 
 // List the license text only once for all packages with the same license text, apart from the copyright lines
-const creditLine = /^[#*_\s]*(Copyright\s*(\([cC]\)|©|\d|[A-Z])|\([cC]\)\s*\d|©\s*\w|All rights reserved)/;
+const creditLine = /^[^\p{L}\p{N}]*(Copyright\s*(\([cC]\)|©|\d|[A-Z])|\([cC]\)\s*\d|©\s*\w|All rights reserved)/u;
 // Order in the credits: MIT, BSD, ISC, Apache 2, public domain, others
 const categories = [
   /permission is hereby granted free of charge/,
@@ -75,8 +75,15 @@ let groups = new Map<string, { category: number, text: string, packages: string[
 for (let { text, license } of sorted) {
   let [name, versionURL, ...lines] = text.replaceAll("\r", "").split("\n");
   let licenseText = lines.filter(line => !creditLine.test(line.trim())).join("\n").replace(/\n(\s*\n){2,}/g, "\n\n").trim();
-  // Ignore only whitespace, quotes and other punctuation, and case, so that no text gets lost
-  let key = licenseText.toLowerCase().split(/[^\p{L}\p{N}]+/u).join(" ").trim();
+  // Titles which only name the license, e.g. "The MIT License (MIT)", are formatting,
+  // because each package shows its license ID
+  let textLines = licenseText.split("\n");
+  while (textLines.length > 1 && words(textLines[0]).every(word => ["the", "license", "licence", "version"].includes(word) || words(license).includes(word))) {
+    textLines.shift();
+  }
+  licenseText = textLines.join("\n").trim();
+  // Compare only letters and digits, so that no text gets lost
+  let key = words(licenseText).join(" ");
   let group = groups.get(key) ?? { category: categories.findIndex(category => category.test(key)), text: licenseText, packages: [] };
   group.packages.push([name, versionURL, ...new Set(lines.map(line => line.trim()).filter(line => creditLine.test(line))), license].join("\n"));
   groups.set(key, group);
@@ -84,7 +91,11 @@ for (let { text, license } of sorted) {
 let credits = [...groups.values()]
   .sort((a, b) => a.category - b.category || b.packages.length - a.packages.length)
   .map(group => group.packages.join("\n\n") + "\n\n" + group.text);
-writeFileSync(outputFile, credits.join("\n\n---\n\n"));
+writeFileSync(outputFile, credits.join("\n\n--------------------------------------------------\n\n"));
+
+function words(text: string): string[] {
+  return text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(word => word);
+}
 
 function findPackages(nodeModules: string) {
   if (!existsSync(nodeModules)) {
