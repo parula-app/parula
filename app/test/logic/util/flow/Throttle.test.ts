@@ -23,7 +23,7 @@ test("Throttle", async () => {
   await a.run();
   await a.run();
   await a.run();
-  expect(Date.now()).toBeGreaterThanOrEqual(startTime + 100);
+  expect(Date.now()).toBeGreaterThanOrEqual(startTime + 99); // timers count whole ms on another clock, so they can wake up 1 ms before `Date.now()` reaches their time
 });
 
 test("Wait for", async () => {
@@ -33,7 +33,7 @@ test("Wait for", async () => {
   expect(Date.now()).toBeLessThanOrEqual(startTime + 10);
   a.throttle.waitForSecond(0.1);
   await a.run();
-  expect(Date.now()).toBeGreaterThanOrEqual(startTime + 100);
+  expect(Date.now()).toBeGreaterThanOrEqual(startTime + 99); // 1 ms early, like above
 });
 
 test("A task that had to wait counts from when it ran, not from when it asked", async () => {
