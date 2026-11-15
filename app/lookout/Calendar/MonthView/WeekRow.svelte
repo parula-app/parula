@@ -53,7 +53,7 @@
 
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
-  import type { CalendarRange } from "../CalendarRange";
+  import type { CalendarRange } from "../../../frontend/Calendar/CalendarRange";
   import { WeekRowLayout } from "./WeekRow";
   import { CalendarActions } from "../CalendarActions";
   import { now, selectedSlots, eventPeek, type SlotSelection } from "../selected";

@@ -169,7 +169,8 @@
   import { MailAccount } from "../../logic/Mail/MailAccount";
   import { openSettingsDialog, openOptions } from "../Settings/SettingsDialogs";
   import { selectedCalendar, selectedDate, startDate } from "../../frontend/Calendar/selected";
-  import { calendarSearchOptions, CalendarCurrentView, CalendarFolderPane, type CalendarViewType } from "./selected";
+  import { calendarSearchOptions, CalendarCurrentView, CalendarFolderPane } from "./selected";
+  import type { CalendarViewType } from "../../frontend/Calendar/CalendarRange";
   import { EventTable, EventTableColumn, EventTableGrouping } from "./ListView/EventTable";
   import { getToday } from "../../logic/util/date";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
