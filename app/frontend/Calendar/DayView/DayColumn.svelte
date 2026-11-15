@@ -14,9 +14,9 @@
     </EventContainer>
   {/each}
   <CurrentTimeMarker {day} {startHour} {endHour} />
-  <HiddenEventsBadges above={hiddenAbove.length} below={hiddenBelow.length}
-    on:scrollup={() => dispatch("scrolltorow", Math.max(...hiddenAbove.map(item => item.startRow)))}
-    on:scrolldown={() => dispatch("scrolltorow", Math.min(...hiddenBelow.map(item => item.startRow)))} />
+  <HiddenEventsBadges above={hiddenAbove.map(item => item.event)} below={hiddenBelow.map(item => item.event)}
+    on:scrollup={() => dispatch("scrolltorow", hiddenAbove[0].startRow)}
+    on:scrolldown={() => dispatch("scrolltorow", hiddenBelow.at(-1).startRow)} />
 </grid>
 
 <script lang="ts">
@@ -66,6 +66,7 @@
     [...$dayEvents.contents, ...$dayOverlayEvents.contents],
     eventsInDay => layoutTimeColumn(eventsInDay, day, startHour, endHour));
 
+  // Sorted by start, like the layout
   $: hiddenAbove = $layout.filter(item => item.endRow <= visibleFromRow);
   $: hiddenBelow = $layout.filter(item => item.startRow >= visibleToRow);
 

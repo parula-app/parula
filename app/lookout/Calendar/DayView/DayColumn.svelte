@@ -11,9 +11,9 @@
   on:dblclick={onDoubleClick}
   on:contextmenu={onContextMenu}
   bind:this={columnEl}>
-  <HiddenEventsBadges above={hiddenAbove.length} below={hiddenBelow.length}
-    on:scrollup={() => dispatch("scrolltominute", Math.max(...hiddenAbove.map(item => item.startMinute)))}
-    on:scrolldown={() => dispatch("scrolltominute", Math.min(...hiddenBelow.map(item => item.startMinute)))} />
+  <HiddenEventsBadges above={hiddenAbove.map(item => item.event)} below={hiddenBelow.map(item => item.event)}
+    on:scrollup={() => dispatch("scrolltominute", hiddenAbove[0].startMinute)}
+    on:scrolldown={() => dispatch("scrolltominute", hiddenBelow.at(-1).startMinute)} />
   <!-- {#each offWork as offWorkRange}
     <div class="off-hours" style="top: {offWorkRange.from * pxPerMinute}px; height: {(offWorkRange.to - offWorkRange.from) * pxPerMinute}px" />
   {/each} -->
@@ -93,6 +93,7 @@
   $: layout = derived([...$dayEvents.contents], eventsInDay =>
     new TimeColumnLayout(eventsInDay, day, timeScale).items);
 
+  // Sorted by start, like the layout
   $: hiddenAbove = $layout.filter(item => item.endMinute <= visibleFromMinute);
   $: hiddenBelow = $layout.filter(item => item.startMinute >= visibleToMinute);
 
