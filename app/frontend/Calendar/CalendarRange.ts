@@ -1,5 +1,7 @@
-import type { CalendarViewType } from "./selected";
 import { getWeekStart, k1DayMS } from "../../logic/util/date";
+
+/** "schedule" is only in Lookout, "4weeks" only in classic */
+export type CalendarViewType = "day" | "workweek" | "week" | "4weeks" | "month" | "schedule" | "dual";
 
 export class CalendarRange {
   readonly view: CalendarViewType;
@@ -24,6 +26,9 @@ export class CalendarRange {
     } else if (view == "week") {
       first = getWeekStart(date);
       count = 7;
+    } else if (view == "4weeks") {
+      first = getWeekStart(date);
+      count = 28;
     } else {
       first = getWeekStart(this.month);
       let lastOfMonth = new Date(this.month.getFullYear(), this.month.getMonth() + 1, 0);
@@ -91,6 +96,7 @@ export class CalendarRange {
     }
     let days = view == "day" || view == "schedule" ? new CalendarRange(view, date, dayCount).days.length
       : view == "dual" ? 1
+      : view == "4weeks" ? 28
       : 7;
     return new Date(date.getFullYear(), date.getMonth(), date.getDate() + direction * days);
   }

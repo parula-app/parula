@@ -9,7 +9,8 @@ import { InvitationResponse } from "../../../logic/Calendar/Invitation/Invitatio
 import { Frequency } from "../../../logic/Calendar/RecurrenceRule";
 import CalendarApp from "../../Calendar/CalendarApp.svelte";
 import { CalendarActions } from "../../Calendar/CalendarActions";
-import { eventPeek, inlineTitle, selectedSlots, type CalendarViewType } from "../../Calendar/selected";
+import { eventPeek, inlineTitle, selectedSlots } from "../../Calendar/selected";
+import type { CalendarViewType } from "../../../frontend/Calendar/CalendarRange";
 import { isGoToDateOpen } from "../../Calendar/GoToDateDialog.svelte";
 import { selectedCalendar, selectedDate, selectedEvent, shownCalendars, startDate } from "../../../frontend/Calendar/selected";
 import { statusBarContent } from "../../MainWindow/StatusBar.svelte";

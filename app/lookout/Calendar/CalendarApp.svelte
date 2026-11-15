@@ -104,12 +104,12 @@
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
   import { InvitationResponse } from "../../logic/Calendar/Invitation/InvitationStatus";
-  import { CalendarRange } from "./CalendarRange";
+  import { CalendarRange, type CalendarViewType } from "../../frontend/Calendar/CalendarRange";
   import { CalendarActions } from "./CalendarActions";
   import { openEvent } from "../../frontend/Calendar/open";
   import { openComposer } from "../../frontend/Mail/open";
   import { IncomingInvitation } from "../../logic/Calendar/Invitation/IncomingInvitation";
-  import { eventPeek, inlineTitle, selectedSlots, updatingCount, CalendarCurrentView, CalendarFolderPane, calendarSearchOptions, listedEvents, allListedEvents, CalendarSearchScope, type CalendarViewType, type SlotSelection } from "./selected";
+  import { eventPeek, inlineTitle, selectedSlots, updatingCount, CalendarCurrentView, CalendarFolderPane, calendarSearchOptions, listedEvents, allListedEvents, CalendarSearchScope, type SlotSelection } from "./selected";
   import { selectedCalendar, selectedDate, selectedEvent, shownCalendars, shownCalendarEvents, startDate } from "../../frontend/Calendar/selected";
   import { appGlobal } from "../../logic/app";
   import { getToday } from "../../logic/util/date";

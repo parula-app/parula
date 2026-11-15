@@ -1,7 +1,7 @@
 <vbox flex class="calendar-app">
   <hbox flex>
     {#if $isCalendarListOpen}
-      <CalendarList dateInterval={$dateIntervalSetting.value} />
+      <CalendarList {range} />
     {/if}
     <Splitter
       initialRightRatio={0.25}
@@ -9,7 +9,7 @@
       hasRight={!appGlobal.isMobile}
       >
       <vbox flex class="main" slot="left" class:mobile={$appGlobal.isMobile}>
-        <MainView events={shownCalendarEvents} bind:start={$startDate} dateInterval={$dateIntervalSetting.value}>
+        <MainView events={shownCalendarEvents} bind:start={$startDate} dateInterval={$dateIntervalSetting.value} {range}>
           <hbox slot="top-left">
             {#if !$appGlobal.isMobile}
               <TitleBarLeft />
@@ -33,7 +33,8 @@
 </vbox>
 
 <script lang="ts">
-  import { isCalendarListOpen, selectedCalendar, selectedEvent, shownCalendarEvents, startDate, type DateInterval } from "./selected";
+  import { isCalendarListOpen, kDateIntervalViews, selectedCalendar, selectedDate, selectedEvent, shownCalendarEvents, startDate, type DateInterval } from "./selected";
+  import { CalendarRange } from "./CalendarRange";
   import { appGlobal } from "../../logic/app";
   import CalendarList from "./CalendarList.svelte";
   import MainView from "./MainView.svelte";
@@ -47,6 +48,8 @@
   $: if (!$selectedCalendar) { $selectedCalendar = appGlobal.calendars.first; }
 
   let dateIntervalSetting = getLocalStorage("calendar.view", 2 as DateInterval);
+  $: view = kDateIntervalViews[$dateIntervalSetting.value];
+  $: range = new CalendarRange(view, view == "dual" ? $selectedDate : $startDate);
 </script>
 
 <style>

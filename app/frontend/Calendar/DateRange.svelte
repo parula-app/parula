@@ -1,68 +1,60 @@
 <hbox class="date-range-header">
   <button class="date-range" title={$t`Choose month and year`} bind:this={dateRangeEl}
     on:click|stopPropagation={() => isPickerOpen = !isPickerOpen}>
-    {@html htmlMonthYear(date, showDays)}
+    {@html htmlMonthYear(range)}
   </button>
-  <Button classes="previous-button" label={$t`Previous ${dateInterval} days`} icon={ChevronLeftIcon} onClick={pagePrevious} iconSize="16px" plain iconOnly />
-  <Button classes="next-button" label={$t`Next ${dateInterval} days`} icon={ChevronRightIcon} onClick={pageNext} iconSize="16px" plain iconOnly />
+  <Button classes="previous-button" label={previousLabel} icon={ChevronLeftIcon} onClick={() => page(-1)} iconSize="16px" plain iconOnly />
+  <Button classes="next-button" label={nextLabel} icon={ChevronRightIcon} onClick={() => page(1)} iconSize="16px" plain iconOnly />
 </hbox>
-<MonthYearPicker bind:isOpen={isPickerOpen} anchor={dateRangeEl} month={middleOfRange(date)}
+<MonthYearPicker bind:isOpen={isPickerOpen} anchor={dateRangeEl} month={middleOf(range)}
   on:change={event => goToMonth(event.detail)} />
 
 <script lang="ts">
+  import { CalendarRange } from "./CalendarRange";
   import MonthYearPicker from "./MonthYearPicker.svelte";
   import Button from "../Shared/Button.svelte";
   import ChevronLeftIcon from "lucide-svelte/icons/chevron-left";
   import ChevronRightIcon from "lucide-svelte/icons/chevron-right";
-  import { changeMonth, getWeekStart } from "../../logic/util/date";
+  import { changeMonth } from "../../logic/util/date";
   import { getDateTimeLocale, t } from "../../l10n/l10n";
 
   export let date = new Date(); /* in/out */
-  /** Days to page forward and back */
-  export let dateInterval: number; /* in */
-  /** Days visible in the view. Week views start on Monday, not on `date`. */
-  export let showDays = dateInterval; /* in */
+  /** The days that the view shows, from `date`. in */
+  export let range: CalendarRange;
 
-  // <copied to="MonthView.svelte">
-  function pageNext() {
-    // Advance months by 42 days just to be sure, e.g. for March 2025
-    // MonthView.setDays will then rewind as necessary.
-    date.setDate(date.getDate() + (dateInterval == 35 ? 42 : dateInterval));
-    date = date;
-  }
-  function pagePrevious() {
-    // Rewind by 28 days at most, e.g. for February 2025
-    // MonthView.setDays will rewind further if necessary.
-    date.setDate(date.getDate() - (dateInterval == 35 ? 28 : dateInterval));
-    date = date;
-  }
+  // <copied from="../../lookout/Calendar/DateRange.svelte">
+  $: isMonth = range.view == "month";
+  $: stepsByDay = (range.view == "day" || range.view == "schedule") && range.days.length == 1 || range.view == "dual";
+  $: previousLabel = isMonth ? $t`Previous month` : stepsByDay ? $t`Previous day` : $t`Previous *=> Show the previous week or days in the calendar`;
+  $: nextLabel = isMonth ? $t`Next month` : stepsByDay ? $t`Next day` : $t`Next`;
   // </copied>
+
+  function page(direction: number) {
+    date = CalendarRange.step(range.view, date, range.days.length, direction);
+  }
 
   let dateRangeEl: HTMLButtonElement;
   let isPickerOpen = false;
 
   /** Shows the chosen month, at the same place in the month as now, e.g. the 3rd week */
   function goToMonth(month: Date) {
-    if (dateInterval >= 28) { // Month view
-      date = new Date(month); // Copy, because the views change `date` in place
+    if (range.days.length >= 28) { // Month and 4 weeks
+      date = month;
       return;
     }
     let newDate = changeMonth(date, month);
     // The header shows the month of the middle day, which may be in the month before or after
-    let middle = middleOfRange(newDate);
+    let middle = middleOf(new CalendarRange(range.view, newDate, range.days.length));
     if (middle.getMonth() != month.getMonth()) {
-      newDate.setDate(newDate.getDate() + (middle < newDate ? dateInterval : -dateInterval));
+      newDate = CalendarRange.step(range.view, newDate, range.days.length, middle < newDate ? 1 : -1);
     }
     date = newDate;
   }
 
   /** @returns The middle of the visible days, i.e. the month
    * that covers most of the current date range. */
-  function middleOfRange(date: Date): Date {
-    // Week views start on the Monday of the week, not on `date`
-    let middle = showDays > 3 ? getWeekStart(date) : new Date(date);
-    middle.setDate(middle.getDate() + (showDays >> 1));
-    return middle;
+  function middleOf(range: CalendarRange): Date {
+    return range.days[range.days.length >> 1];
   }
 
   function monthYear(date: Date): string {
@@ -73,8 +65,8 @@
     });
   }
 
-  function htmlMonthYear(date: Date, _showDays: number): string {
-    let middle = middleOfRange(date);
+  function htmlMonthYear(range: CalendarRange): string {
+    let middle = middleOf(range);
     let str = monthYear(middle);
     let year = middle.getFullYear();
     return str.replace(String(year), `&nbsp;<span class="year">${year}</span>&nbsp;`);

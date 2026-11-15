@@ -66,7 +66,7 @@
 </script>
 
 <script lang="ts">
-  import type { CalendarRange } from "../CalendarRange";
+  import type { CalendarRange } from "../../../frontend/Calendar/CalendarRange";
   import { TimeColumnLayout } from "./DayColumn";
   import { now, eventPeek, timeZoneRulers } from "../selected";
   import { selectedDate } from "../../../frontend/Calendar/selected";

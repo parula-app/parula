@@ -1,4 +1,4 @@
-import { CalendarRange } from "../../Calendar/CalendarRange";
+import { CalendarRange } from "../../../frontend/Calendar/CalendarRange";
 import { expect, test } from "vitest";
 
 // Thursday, 2026-10-15
@@ -38,6 +38,14 @@ test("Week is Monday to Sunday", () => {
   let range = new CalendarRange("week", kThursday);
   expect(days(range)).toEqual(["10/12", "10/13", "10/14", "10/15", "10/16", "10/17", "10/18"]);
   expect(range.end).toEqual(new Date(2026, 9, 19));
+});
+
+test("4 weeks from the Monday of the week", () => {
+  let range = new CalendarRange("4weeks", kThursday);
+  expect(range.days.length).toBe(28);
+  expect(range.start).toEqual(new Date(2026, 9, 12));
+  expect(range.end).toEqual(new Date(2026, 10, 9));
+  expect(CalendarRange.step("4weeks", kThursday, 1, 1)).toEqual(new Date(2026, 10, 12));
 });
 
 test("Month view shows whole weeks around the month", () => {

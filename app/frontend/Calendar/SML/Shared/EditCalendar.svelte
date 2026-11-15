@@ -1,13 +1,12 @@
 <!-- <copied to="PollCalendar.svelte"> -->
  <vbox class="calendar">
   <hbox class="range-header">
-    <DateRange bind:date={dateStart} dateInterval={7} />
+    <DateRange bind:date={dateStart} {range} />
   </hbox>
   <DayViewGrid
     events={appGlobal.calendarEvents}
     overlayEvents={optionsAsEvents}
-    start={dateStart}
-    showDays={7}
+    {range}
     showHours={6}
     defaultFocusHour={focusHour}
     >
@@ -56,6 +55,7 @@
   import DayViewGrid from "../../DayView/DayViewGrid.svelte";
   import EventProposal from "./EventProposal.svelte";
   import DateRange from "../../DateRange.svelte";
+  import { CalendarRange } from "../../CalendarRange";
   import Button from "../../../Shared/Button.svelte";
   import PlusIcon from "lucide-svelte/icons/plus";
   import AcceptedIcon from "lucide-svelte/icons/check";
@@ -69,6 +69,7 @@
 
   /** The week to show first */
   export let dateStart = getToday();
+  $: range = new CalendarRange("week", dateStart);
   export let focusHour = new Date().getHours() - 2;
 
   function addOption(time: Date) {
