@@ -100,7 +100,8 @@ export function saveUILocale(language: string) {
 let cachedDateTimeLocale: string;
 
 export function getDateTimeLocale(): string {
-  cachedDateTimeLocale ??= // Node has no `localStorage`
+  cachedDateTimeLocale ??=
+    // Node has no `localStorage`
     sanitize.nonemptystring(global.localStorage?.getItem("ui.dateTime"), getUILocale());
   return cachedDateTimeLocale;
 }

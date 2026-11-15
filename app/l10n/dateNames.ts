@@ -30,19 +30,19 @@ export function addDateNames(locale: string) {
   Date.prototype.toLocaleString = function (locales?: Intl.LocalesArgument, options?: Intl.DateTimeFormatOptions) {
     let NamedFormat = dateTimeFormatClass(locales);
     return NamedFormat
-      ? new NamedFormat(withDefaults(options, kDate.concat(kTime))).format(this)
+      ? new NamedFormat(options, kDate.concat(kTime)).format(this)
       : toLocaleString.call(this, locales, options);
   };
   Date.prototype.toLocaleDateString = function (locales?: Intl.LocalesArgument, options?: Intl.DateTimeFormatOptions) {
     let NamedFormat = dateTimeFormatClass(locales);
     return NamedFormat
-      ? new NamedFormat(withDefaults(options, kDate)).format(this)
+      ? new NamedFormat(options, kDate).format(this)
       : toLocaleDateString.call(this, locales, options);
   };
   Date.prototype.toLocaleTimeString = function (locales?: Intl.LocalesArgument, options?: Intl.DateTimeFormatOptions) {
     let NamedFormat = dateTimeFormatClass(locales);
     return NamedFormat
-      ? new NamedFormat(withDefaults(options, kTime)).format(this)
+      ? new NamedFormat(options, kTime).format(this)
       : toLocaleTimeString.call(this, locales, options);
   };
 }
@@ -52,19 +52,9 @@ const BrowserDateTimeFormat = Intl.DateTimeFormat;
 /** @returns Our class for this language, or null for the browser's */
 function dateTimeFormatClass(locales: Intl.LocalesArgument) {
   return locales == "la" ? LatinDateTimeFormat
-    : locales == "tlh" ? KlingonDateTimeFormat
-    : locales == "tlh-Piqd" ? PIqaDDateTimeFormat
+    : locales == "tlh" ? KlingonHolDateTimeFormat
+    : locales == "tlh-Piqd" ? KlingonPIqaDDateTimeFormat
     : null;
-}
-
-/** Like `Date.toLocale*String()`: If `options` asks for none of the `fields`,
- * show them all as numbers, except the weekday. */
-function withDefaults(options: Intl.DateTimeFormatOptions = {}, fields: string[]): Intl.DateTimeFormatOptions {
-  if (options.dateStyle || options.timeStyle || fields.some(field => options[field])) {
-    return options;
-  }
-  let defaults = fields.filter(field => field != "weekday").map(field => [field, "numeric"]);
-  return { ...Object.fromEntries(defaults), ...options };
 }
 
 /** Formats like British English, with our month and weekday names */
@@ -78,7 +68,12 @@ abstract class NamedDateTimeFormat extends Intl.DateTimeFormat {
   /** For the day in our time zone */
   protected readonly numeric: Intl.DateTimeFormat;
 
-  constructor(options?: Intl.DateTimeFormatOptions) {
+  /** @param defaults Like `Date.toLocale*String()`: If `options` asks for none of these fields,
+   * show them all as numbers, except the weekday. */
+  constructor(options: Intl.DateTimeFormatOptions = {}, defaults: string[] = []) {
+    if (!options.dateStyle && !options.timeStyle && !defaults.some(field => options[field])) {
+      options = { ...Object.fromEntries(defaults.filter(field => field != "weekday").map(field => [field, "numeric"])), ...options };
+    }
     super("en-GB", options);
     this.numeric = new BrowserDateTimeFormat("en-GB", { timeZone: this.resolvedOptions().timeZone, year: "numeric", month: "numeric", day: "numeric" });
     // Bound, like the browser's, so that `dates.map(formatter.format)` works
@@ -141,7 +136,7 @@ class LatinDateTimeFormat extends NamedDateTimeFormat {
  * "jaj wa', jar wa'" for "Sunday, January". The Klingon week has 6 days,
  * and further days are numbered, so Sunday is "day one".
  * Klingon has no short forms. */
-class KlingonDateTimeFormat extends NamedDateTimeFormat {
+class KlingonHolDateTimeFormat extends NamedDateTimeFormat {
   protected months = {
     long: ["jar wa'", "jar cha'", "jar wej", "jar loS", "jar vagh", "jar jav", "jar Soch", "jar chorgh", "jar Hut", "jar wa'maH", "jar wa'maH wa'", "jar wa'maH cha'"],
   };
@@ -150,8 +145,8 @@ class KlingonDateTimeFormat extends NamedDateTimeFormat {
   };
 }
 
-/** `KlingonDateTimeFormat` in the pIqaD script, see `transliteratePIqaD.ts` */
-class PIqaDDateTimeFormat extends NamedDateTimeFormat {
+/** `KlingonHolDateTimeFormat` in the pIqaD script, see `transliteratePIqaD.ts` */
+class KlingonPIqaDDateTimeFormat extends NamedDateTimeFormat {
   protected months = {
     long: ["\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D0\uF8E9", "\uF8D8\uF8D0\uF8E1 \uF8D2\uF8D0\uF8E9", "\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D4\uF8D8", "\uF8D8\uF8D0\uF8E1 \uF8D9\uF8DD\uF8E2", "\uF8D8\uF8D0\uF8E1 \uF8E6\uF8D0\uF8D5", "\uF8D8\uF8D0\uF8E1 \uF8D8\uF8D0\uF8E6", "\uF8D8\uF8D0\uF8E1 \uF8E2\uF8DD\uF8D2", "\uF8D8\uF8D0\uF8E1 \uF8D2\uF8DD\uF8E1\uF8D5", "\uF8D8\uF8D0\uF8E1 \uF8D6\uF8E5\uF8E3", "\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D0\uF8E9\uF8DA\uF8D0\uF8D6", "\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D0\uF8E9\uF8DA\uF8D0\uF8D6 \uF8E7\uF8D0\uF8E9", "\uF8D8\uF8D0\uF8E1 \uF8E7\uF8D0\uF8E9\uF8DA\uF8D0\uF8D6 \uF8D2\uF8D0\uF8E9"],
   };
