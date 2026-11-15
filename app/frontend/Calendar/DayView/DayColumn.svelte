@@ -14,6 +14,9 @@
     </EventContainer>
   {/each}
   <CurrentTimeMarker {day} {startHour} {endHour} />
+  <HiddenEventsBadges above={hiddenAbove.length} below={hiddenBelow.length}
+    on:scrollup={() => dispatch("scrolltorow", Math.max(...hiddenAbove.map(item => item.startRow)))}
+    on:scrolldown={() => dispatch("scrolltorow", Math.min(...hiddenBelow.map(item => item.startRow)))} />
 </grid>
 
 <script lang="ts">
@@ -23,8 +26,10 @@
   import EventContainer from "./EventContainer.svelte";
   import EventContent from "./EventContent.svelte";
   import CurrentTimeMarker from "../CurrentTimeMarker.svelte";
+  import HiddenEventsBadges from "./HiddenEventsBadges.svelte";
   import { ArrayColl, type Collection } from "svelte-collections";
   import { derived } from "svelte/store";
+  import { createEventDispatcher } from "svelte";
 
   export let day: Date;
   export let column: number;
@@ -32,6 +37,11 @@
   export let overlayEvents: Collection<Event> | null = null;
   export let startHour = 0;
   export let endHour = 24;
+  /** The rows that are scrolled into view */
+  export let visibleFromRow = 0;
+  export let visibleToRow = (endHour - startHour) * kRowsPerHour;
+
+  const dispatch = createEventDispatcher<{ scrolltorow: number }>();
 
   let hourStarts: Date[] = [];
   let dayEvents: Collection<Event>;
@@ -55,6 +65,9 @@
   $: layout = derived(
     [...$dayEvents.contents, ...$dayOverlayEvents.contents],
     eventsInDay => layoutTimeColumn(eventsInDay, day, startHour, endHour));
+
+  $: hiddenAbove = $layout.filter(item => item.endRow <= visibleFromRow);
+  $: hiddenBelow = $layout.filter(item => item.startRow >= visibleToRow);
 
   function isEmpty(layout: EventInTimeColumn[], row: number): boolean {
     return !layout.some(item => item.startRow < row + kRowsPerHour && item.endRow > row);

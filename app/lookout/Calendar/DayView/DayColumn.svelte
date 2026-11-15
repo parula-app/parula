@@ -11,24 +11,9 @@
   on:dblclick={onDoubleClick}
   on:contextmenu={onContextMenu}
   bind:this={columnEl}>
-  <div class="hidden-badge-anchor top">
-    {#if hiddenAbove.length}
-      <button class="hidden-badge" title={$t`${hiddenAbove.length} more items above`}
-        on:pointerdown|stopPropagation on:dblclick|stopPropagation
-        on:click|stopPropagation={() => dispatch("scrolltominute", Math.max(...hiddenAbove.map(item => item.startMinute)))}>
-        +{hiddenAbove.length} <UpIcon size="12" />
-      </button>
-    {/if}
-  </div>
-  <div class="hidden-badge-anchor bottom">
-    {#if hiddenBelow.length}
-      <button class="hidden-badge" title={$t`${hiddenBelow.length} more items below`}
-        on:pointerdown|stopPropagation on:dblclick|stopPropagation
-        on:click|stopPropagation={() => dispatch("scrolltominute", Math.min(...hiddenBelow.map(item => item.startMinute)))}>
-        +{hiddenBelow.length} <DownIcon size="12" />
-      </button>
-    {/if}
-  </div>
+  <HiddenEventsBadges above={hiddenAbove.length} below={hiddenBelow.length}
+    on:scrollup={() => dispatch("scrolltominute", Math.max(...hiddenAbove.map(item => item.startMinute)))}
+    on:scrolldown={() => dispatch("scrolltominute", Math.min(...hiddenBelow.map(item => item.startMinute)))} />
   <!-- {#each offWork as offWorkRange}
     <div class="off-hours" style="top: {offWorkRange.from * pxPerMinute}px; height: {(offWorkRange.to - offWorkRange.from) * pxPerMinute}px" />
   {/each} -->
@@ -59,9 +44,7 @@
   import EventContainer from "./EventContainer.svelte";
   import InlineEventTitle from "../InlineEventTitle.svelte";
   import NewEventCalendarMenu from "../NewEventCalendarMenu.svelte";
-  import UpIcon from "lucide-svelte/icons/chevron-up";
-  import DownIcon from "lucide-svelte/icons/chevron-down";
-  import { t } from "../../../l10n/l10n";
+  import HiddenEventsBadges from "../../../frontend/Calendar/DayView/HiddenEventsBadges.svelte";
   import type { Collection } from "svelte-collections";
   import { derived } from "svelte/store";
   import { createEventDispatcher } from "svelte";
@@ -199,9 +182,6 @@
 <style>
   .day-column {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
     grid-row: 1;
     border-inline-start: 1px solid var(--lo-divider);
     touch-action: none;
@@ -213,42 +193,6 @@
     inset: 0;
     background-color: color-mix(in srgb, var(--lo-accent) 5%, transparent);
     pointer-events: none;
-  }
-  .hidden-badge-anchor {
-    position: sticky;
-    display: flex;
-    justify-content: flex-end;
-    padding-inline-end: 4px;
-    height: 0;
-    z-index: 5;
-    pointer-events: none;
-  }
-  .hidden-badge-anchor.top {
-    top: calc(var(--head-height) + 4px);
-  }
-  .hidden-badge-anchor.bottom {
-    bottom: 22px;
-  }
-  .hidden-badge {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    height: 18px;
-    padding: 0 6px;
-    border: 1px solid var(--lo-border-strong);
-    border-radius: 9px;
-    background-color: var(--lo-pane-bg);
-    box-shadow: var(--lo-shadow-card);
-    color: var(--lo-fg-secondary);
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    pointer-events: auto;
-  }
-  .hidden-badge:hover {
-    background-color: var(--lo-hover-bg);
-    color: var(--lo-fg);
   }
   /* .off-hours {
     position: absolute;

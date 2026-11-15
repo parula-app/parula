@@ -1,14 +1,14 @@
 <vbox class="day-view-grid" flex bind:offsetHeight={visibleHeight}>
-  <Scroll bind:this={scrollE}>
+  <Scroll bind:this={scrollE} on:scroll={onScroll}>
     <grid flex class="week"
       columns={showDays}
-      style="--rows: {(endHour - startHour) * kRowsPerHour}; --row-height: {pxPerHour / kRowsPerHour}px; --selected-calendar-color: {$selectedCalendar?.color ?? "black"}; {columnWidths}"
+      style="--rows: {(endHour - startHour) * kRowsPerHour}; --row-height: {rowHeight}px; --head-height: {headHeight}px; --selected-calendar-color: {$selectedCalendar?.color ?? "black"}; {columnWidths}"
       class:enlargeSelectedDay
       class:compact={scrollHeight <= 1000}
       on:swipeleft={onNextDay}
       on:swiperight={onPreviousDay}
       >
-      <grid class="headers">
+      <grid class="headers" bind:offsetHeight={headHeight}>
         <hbox class="top-left header" /><!-- needed for grid -->
         {#each days as day, i}
           <vbox class="day-header header" style="grid-column: {i + 2}">
@@ -30,7 +30,8 @@
         </hbox>
       {/each}
       {#each days as day, i}
-        <DayColumn {day} column={i + 2} {startHour} {endHour} events={visibleEvents} {overlayEvents} on:celldblclick>
+        <DayColumn {day} column={i + 2} {startHour} {endHour} events={visibleEvents} {overlayEvents}
+          {visibleFromRow} {visibleToRow} on:scrolltorow={event => scrollToRow(event.detail)} on:celldblclick>
           <slot name="event-overlay" slot="event-overlay" let:start {start} let:end {end} let:event {event} />
           <slot name="event-hover" slot="event-hover" let:start {start} let:end {end} let:empty {empty} />
         </DayColumn>
@@ -82,6 +83,21 @@
     scrollE?.scrollTo((focusHour - 0.5) * pxPerHour);
   }
   // </copied>
+
+  let headHeight = 0;
+  let scrollTop = 0;
+  function onScroll(scrollEvent: UIEvent) {
+    scrollTop = (scrollEvent.target as HTMLElement).scrollTop;
+  }
+
+  $: rowHeight = pxPerHour / kRowsPerHour;
+  // An event that shows only 1px counts as scrolled out
+  $: visibleFromRow = (scrollTop + 1) / rowHeight;
+  $: visibleToRow = (scrollTop + visibleHeight - headHeight - 1) / rowHeight;
+
+  function scrollToRow(row: number) {
+    scrollE.scrollTo(row * rowHeight - pxPerHour / 2);
+  }
 
   let startTimes: Date[] = [];
   $: start, setStartTimes();
