@@ -60,6 +60,7 @@
 
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
+  import type { CalendarRange } from "./CalendarRange";
   import { DateNavigatorMonth } from "./DateNavigatorMonth";
   import { shownCalendarEvents } from "./selected";
   import { now } from "./CurrentTimeMarker.svelte";
@@ -70,8 +71,7 @@
   import { createEventDispatcher } from "svelte";
   import { getDateTimeLocale, t } from "../../l10n/l10n";
 
-  /** The days that the calendar shows */
-  export let range: { contains(day: Date): boolean };
+  export let range: CalendarRange;
   export let date: Date;
   export let showWeekNumbers = false;
   export let monthCount = 1;

@@ -24,7 +24,7 @@
   on:change={event => goToMonth(event.detail)} />
 
 <script lang="ts">
-  import { CalendarRange } from "./CalendarRange";
+  import type { CalendarRange } from "../../frontend/Calendar/CalendarRange";
   import { eventPeek } from "./selected";
   import { selectedDate, startDate } from "../../frontend/Calendar/selected";
   import { changeMonth, getToday } from "../../logic/util/date";
@@ -38,10 +38,12 @@
   export let range: CalendarRange;
   export let showToday = true;
 
+  // <copied to="../../frontend/Calendar/DateRange.svelte">
   $: isMonth = range.view == "month";
   $: stepsByDay = (range.view == "day" || range.view == "schedule") && range.days.length == 1 || range.view == "dual";
   $: previousLabel = isMonth ? $t`Previous month` : stepsByDay ? $t`Previous day` : $t`Previous *=> Show the previous week or days in the calendar`;
-  $: nextLabel = isMonth ? $t`Next month` : stepsByDay ? $t`Next day` : $t`Next`;
+  $: nextLabel = isMonth ? $t`Next month` : stepsByDay ? $t`Next day` : $t`Next *=> Show the next week or days in the calendar`;
+  // </copied>
 
   function goToToday() {
     $eventPeek = null;
@@ -52,7 +54,7 @@
 
   function page(direction: number) {
     $eventPeek = null;
-    date = CalendarRange.step(range.view, date, range.days.length, direction);
+    date = range.step(date, direction);
   }
 
   let titleButtonEl: HTMLButtonElement;
