@@ -21,6 +21,9 @@ async function createWindow(): Promise<void> {
       show: false,
       autoHideMenuBar: true,
       titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
+      // macOS: Parula has the traffic lights above its app bar, which is only 64px wide.
+      // `hiddenInset` alone puts them at x 12, y 11.
+      trafficLightPosition: { x: 8, y: 11 },
       titleBarOverlay: true,
       frame: false,
       ...(process.platform === 'linux' ? { icon } : {}),
