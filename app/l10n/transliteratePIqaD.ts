@@ -11,8 +11,8 @@ import { readFile, writeFile } from "fs/promises";
 function isKlingonWord(word: string): boolean {
   /** Klingon syllables are a consonant, a vowel, and optionally 1 consonant, or w', y' or rgh */
   const kWord = /^((tlh|ch|gh|ng|[bDHjlmnpqQrStvwy'])[aeIou](w'|y'|rgh|tlh|ch|gh|ng|[bDHjlmnpqQrStvwy'])?)+$/;
-  /** English words in the Klingon translation that are spelled like Klingon words */
-  const kEnglish = ["Del", "bar", "menu", "tab", "tel", "to", "web"];
+  /** English words in the Klingon translation that are spelled like Klingon words: the Del key and the URL scheme tel: */
+  const kEnglish = ["Del", "tel"];
   return kWord.test(word) && !kEnglish.includes(word);
 }
 
@@ -30,7 +30,7 @@ function wordToPIqaD(word: string): string {
   return pIqaD;
 }
 
-/** Klingon suffixes that the translation adds to English words, e.g. accountmeylIj */
+/** Klingon suffixes that the translation adds to names, e.g. NextcloudvaD */
 function isSuffixes(text: string): boolean {
   const kSuffixes = ["pu'", "Du'", "mey", "qoq", "Hey", "na'", "wIj", "wI'", "maj", "ma'", "lIj", "lI'", "raj", "ra'", "Daj", "chaj", "vam", "vetlh", "Daq", "vo'", "mo'", "vaD", "'e'", "Ha'"];
   while (text) {
@@ -44,66 +44,20 @@ function isSuffixes(text: string): boolean {
 }
 
 /**
- * English words and names stay in Latin, like in the Latin translation.
- * With Klingon affixes, only the affixes are in pIqaD, e.g. yItag, accountDaq.
+ * Names stay in Latin, like in the Latin translation.
+ * With Klingon suffixes, only the suffixes are in pIqaD, e.g. NextcloudvaD.
  * @returns pIqaD, or `word` unchanged, if it's not Klingon
  */
 function tokenToPIqaD(word: string): string {
-  /** Misspellings in the Latin translation. pIqaD has no letter case
-   * and can't write them, e.g. a lowercase h, which only exists in ch, gh and tlh. */
-  const kCorrections = {
-    "'anghta'be'qa'": "'angta'be'qa'",
-    "DaChIlchugh": "DachIlchugh",
-    "Dabuvlah": "DabuvlaH",
-    "Dachelmeh": "DachelmeH",
-    "Dachenmoh": "DachenmoH",
-    "Dachenmohmeh": "DachenmoHmeH",
-    "Daghajnis": "DaghajnIS",
-    "Dalaadbe'": "DalaDbe'",
-    "Dalaadlah": "DalaDlaH",
-    "Damuvmoh": "DamuvmoH",
-    "DamuvmohlaH": "DamuvmoHlaH",
-    "DanItlhmohlaH": "DanItlhmoHlaH",
-    "Dangehpu'": "DangeHpu'",
-    "Danudchugh": "DanuDchugh",
-    "DapongqA'laHbe'": "Dapongqa'laHbe'",
-    "Dateqmeh": "DateqmeH",
-    "Davellah": "DavellaH",
-    "Davelmeh": "DavelmeH",
-    "Davergmeh": "DaverghmeH",
-    "Davoqnis": "DavoqnIS",
-    "Hevmeh": "HevmeH",
-    "Hochvad": "HochvaD",
-    "Nextcloudvad": "NextcloudvaD",
-    "Sammeh": "SammeH",
-    "SibI'": "SIbI'",
-    "Vergh": "vergh",
-    "chenmohmeH": "chenmoHmeH",
-    "ghItlmey": "ghItlhmey",
-    "nobpu'nis": "nobpu'nIS",
-    "nud": "nuD",
-    "nudlu'be'": "nuDlu'be'",
-    "nudlu'meH": "nuDlu'meH",
-    "nudlu'vo'": "nuDlu'vo'",
-    "nudmeH": "nuDmeH",
-    "nudtaH": "nuDtaH",
-    "nudwI'Daq": "nuDwI'Daq",
-    "yIchILmoH": "yIchIlmoH",
-    "yIchILqa'moH": "yIchIlqa'moH",
-    "yInud": "yInuD",
-    "yInudQo'": "yInuDQo'",
-  };
-  word = kCorrections[word] ?? word;
   if (isKlingonWord(word)) {
     return wordToPIqaD(word);
   }
-  let prefix = word.startsWith("yI") ? "yI" : "";
-  for (let i = prefix.length + 1; i < word.length; i++) {
-    if (isSuffixes(word.slice(i)) && !isKlingonWord(word.slice(prefix.length, i))) {
-      return (prefix && wordToPIqaD(prefix)) + word.slice(prefix.length, i) + wordToPIqaD(word.slice(i));
+  for (let i = 1; i < word.length; i++) {
+    if (isSuffixes(word.slice(i)) && !isKlingonWord(word.slice(0, i))) {
+      return word.slice(0, i) + wordToPIqaD(word.slice(i));
     }
   }
-  return prefix ? wordToPIqaD(prefix) + word.slice(prefix.length) : word;
+  return word;
 }
 
 function isPIqaD(char: string): boolean {
