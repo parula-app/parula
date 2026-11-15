@@ -98,7 +98,7 @@ export class WeekRowLayout {
       }
       this.placeByTime(shownSegments, firstRow, lastRows[day]);
       for (let segment of shownSegments) {
-        // An event over midnight is one bar over the days where it's at the same place
+        // An event over midnight is one bar over the days, and on all days positioned at its start time of the first day
         let dayBefore = segment.continuesBefore && this.events.find(other =>
           other.event == segment.event && other.endDay == day && other.startRow == segment.startRow && other.endRow == segment.endRow);
         if (dayBefore) {
