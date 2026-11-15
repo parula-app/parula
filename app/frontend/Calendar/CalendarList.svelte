@@ -3,29 +3,33 @@
     <ShowCalendarsButton />
   </hbox>
   <vbox class="calendars" flex>
-    {#each $calendars.each as calendar (calendar.id)}
-      <hbox class="calendar" style="--calendar-color: {calendar.color}">
-        <Checkbox
-          toggle={true}
-          checked={$shownCalendars.contains(calendar)}
-          tooltip={$t`Show this calendar`}
-          on:change={event => shownCalendars.show(calendar, event.detail)}
-          />
-        <hbox class="name" flex>{calendar.name}</hbox>
-        <RoundButton
-          label={$t`New event in ${calendar.name}`}
-          icon={AddIcon}
-          classes="small"
-          border={false}
-          onClick={() => createNewEvent(calendar, $selectedDate, false)}
-          />
-      </hbox>
+    {#each groups as group (group.id)}
+      <hbox class="group-label">{group.label}</hbox>
+      {#each group.calendars as calendar (calendar.id)}
+        <hbox class="calendar" style="--calendar-color: {calendar.color}">
+          <Checkbox
+            toggle={true}
+            checked={$shownCalendars.contains(calendar)}
+            tooltip={$t`Show this calendar`}
+            on:change={event => shownCalendars.show(calendar, event.detail)}
+            />
+          <hbox class="name" flex>{calendar.name}</hbox>
+          <RoundButton
+            label={$t`New event in ${calendar.name}`}
+            icon={AddIcon}
+            classes="small"
+            border={false}
+            onClick={() => createNewEvent(calendar, $selectedDate, false)}
+            />
+        </hbox>
+      {/each}
     {/each}
   </vbox>
 </vbox>
 
 <script lang="ts">
   import { selectedDate, shownCalendars } from "./selected";
+  import { CalendarGroups } from "./CalendarGroups";
   import { createNewEvent } from "./event";
   import { appGlobal } from "../../logic/app";
   import ShowCalendarsButton from "./ShowCalendarsButton.svelte";
@@ -35,6 +39,7 @@
   import { t } from "../../l10n/l10n";
 
   let calendars = appGlobal.calendars;
+  $: groups = new CalendarGroups($calendars.contents).groups;
 </script>
 
 <style>
@@ -51,6 +56,11 @@
   }
   .calendars {
     overflow-y: auto;
+  }
+  .group-label {
+    margin-block-start: 12px;
+    padding: 0px 8px 4px 8px;
+    font-weight: bold;
   }
   .calendar {
     align-items: center;
