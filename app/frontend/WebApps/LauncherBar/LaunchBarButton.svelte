@@ -1,19 +1,23 @@
-<vbox class="app-button" class:running class:selected
+<hbox class="web-app" class:running class:showing
   on:contextmenu={contextMenu.onContextMenu}>
+  <hbox class="dot" />
   <Button
     label={app.nameTranslated}
     onClick={startApp}
-    {selected}
     {disabled}
     iconOnly plain>
-    <hbox class="icon" slot="icon">
-      <vbox class="dot">
-        <DotIcon size={32} />
-      </vbox>
-      <img src={app.icon} width="32" height="32" alt="" />
-    </hbox>
+    <img slot="icon" src={app.icon} width="24" height="24" alt="" />
   </Button>
-</vbox>
+  <Button
+    onClick={closeApp}
+    icon={CloseIcon}
+    iconSize="12px"
+    iconOnly
+    plain
+    label={$t`Close` + " " + app.nameTranslated}
+    classes="close"
+    />
+</hbox>
 
 <ContextMenu bind:this={contextMenu}>
   {#if running}
@@ -29,15 +33,14 @@
   import { showingWebApp, selectedWebApp, webAppsRunning } from "../Runner/WebAppsRunning";
   import ContextMenu from "../../Shared/Menu/ContextMenu.svelte";
   import Button from "../../Shared/Button.svelte";
-  import DotIcon from "lucide-svelte/icons/dot";
-  import CloseIcon from "lucide-svelte/icons/square-x";
+  import CloseIcon from "lucide-svelte/icons/x";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import { t } from "../../../l10n/l10n";
 
   export let app: WebAppListed;
   export let disabled = false;
 
-  $: selected = $showingWebApp == app;
+  $: showing = $showingWebApp == app;
   $: running = $webAppsRunning.contains(app);
   let contextMenu: ContextMenu;
 
@@ -58,39 +61,43 @@
 </script>
 
 <style>
-  .app-button :global(button.plain) {
-    border-radius: 0px;
+  .web-app {
+    align-items: center;
+    height: 28px;
+    min-height: 28px;
+    border-radius: 6px;
+    color: var(--appbar-fg);
   }
-  .app-button :global(button:not(.selected):hover) {
+  .web-app:hover {
     background-color: rgba(255, 255, 255, 25%);
   }
-  .app-button :global(button:not(.selected):hover .label) {
-    color: black;
-  }
-  .app-button :global(button.selected:not(.disabled)) {
+  .web-app.showing {
     background-color: rgba(255, 255, 255, 95%);
+    color: #494558 /* var(--appbar-bg) */;
   }
-  .app-button :global(button.selected:not(.disabled) .label > .label) {
-    color: black;
+  .web-app :global(button),
+  .web-app :global(button:hover:not(.disabled)) {
+    height: 100%;
+    padding: 0px;
+    background-color: transparent;
+    color: inherit;
   }
-  /*.app-button :global(button.disabled) {
-    opacity: unset;
-  }*/
-  .icon {
-    padding: 8px 8px 8px 0px;
+  .dot,
+  .web-app :global(button.close) {
+    width: 12px;
+    min-width: 12px;
   }
-  .dot {
-    justify-content: center;
-    align-items: center;
-    width: 8px;
-    color: var(--appbar-fg);
-    margin-inline-start: 2px;
-    margin-inline-end: 3px;
+  .running .dot::before {
+    content: "";
+    width: 4px;
+    height: 4px;
+    margin: auto;
+    border-radius: 50%;
+    background-color: currentColor;
   }
-  .selected .dot {
-    color: var(--appbar-bg);
-  }
-  .app-button:not(.running) .dot :global(> *) {
-    display: none;
+  /* Close only the app that the user sees, or points to */
+  .web-app:not(.running) :global(button.close),
+  .web-app:not(.showing):not(:hover) :global(button.close) {
+    visibility: hidden;
   }
 </style>

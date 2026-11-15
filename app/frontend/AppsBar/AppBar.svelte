@@ -8,9 +8,12 @@
       </hbox>
     </AppButton>
     <SubAppsList mainApp={app} bind:selectedApp />
+    {#if app == selectedApp && app == webAppsMustangApp}
+      <LaunchBar freeHeight={middleHeight} />
+    {/if}
   {/each}
 
-  <vbox flex class="middle">
+  <vbox flex class="middle" bind:clientHeight={middleHeight}>
     <DemoBarMiddle />
   </vbox>
   {#if $showDemoToggle}
@@ -30,6 +33,8 @@
   import SubAppsList from "./SubAppsList.svelte";
   import DemoToggle from "./DemoToggle.svelte";
   import DemoBarMiddle from "./DemoBarMiddle.svelte";
+  import LaunchBar from "../WebApps/LauncherBar/LaunchBar.svelte";
+  import { webAppsMustangApp } from "../WebApps/WebAppsMustangApp";
   import { catchErrors } from "../Util/error";
   import type { Collection } from "svelte-collections";
 
@@ -38,6 +43,8 @@
   /* Which apps to show on the app bar
    * readonly */
   export let showApps: Collection<MustangApp>;
+
+  let middleHeight: number;
 
   function onSelectApp(app: MustangApp) {
     openApp(app, app.windowParams);
@@ -63,17 +70,15 @@
       border-right: 1px dotted grey;
     }
   }
+  .middle {
+    min-height: 0px;
+  }
   .above-setup {
-    position: fixed;
-    width: 63px;
-    bottom: 68px;
-    margin: 0 auto;
+    margin-block-end: 14px;
   }
   .app-bar :global(.app-button.settings) {
-    position: fixed;
-    width: 63px;
-    bottom: 10px;
-    margin: 0 auto;
+    order: 1; /* After the middle */
+    margin-block-end: 10px;
   }
   .app-bar :global(.app-button.settings:not(.selected) .label .label) {
     display: none;

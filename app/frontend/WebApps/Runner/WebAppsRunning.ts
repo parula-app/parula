@@ -8,3 +8,5 @@ export const showingWebApp = writable<WebAppListed | null>();
 /** If a webapp is visible: same as showingWebApp
  * If no webapp visible: last showingWebApp */
 export const selectedWebApp = writable<WebAppListed | null>();
+/** The app store is visible, where the user adds web apps */
+export const showWebAppStore = writable(false);
