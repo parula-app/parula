@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { getDayStart, getTimeString, getTimeStringWithoutAMPM, getWeekStart } from "../../../logic/util/date";
+import { getDayStart, getFormattedDateString, getTimeString, getTimeStringWithoutAMPM, getWeekStart } from "../../../logic/util/date";
 import { saveDateTimeLocale } from "../../../l10n/l10n";
 import { afterEach, expect, test } from "vitest";
 
@@ -38,4 +38,21 @@ test("Day start is midnight of the same day, and the week starts on Monday", () 
   expect(time.getTime()).toBe(new Date(2026, 9, 29, 15, 5).getTime());
   // Sunday belongs to the week before
   expect(getWeekStart(new Date(2026, 10, 1, 12, 0))).toEqual(new Date(2026, 9, 26));
+});
+
+test("Latin dates have Latin month and weekday names", () => {
+  saveDateTimeLocale("la");
+  let date = getFormattedDateString(time, { weekday: "long", day: "numeric", month: "long" });
+  expect(date).toContain("Iovis");
+  expect(date).toContain("Octobris");
+  expect(date).not.toContain("Thursday");
+  expect(getTimeString(time)).toContain("15");
+  expect(getTimeString(time)).not.toContain("PM");
+
+  let range = new Intl.DateTimeFormat("la", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })
+    .formatRange(time, new Date(2026, 10, 2, 9, 0));
+  expect(range).toContain("Iovis");
+  expect(range).toContain("Lunae");
+  expect(range).toContain("Novembris");
+  expect(range).not.toContain(" at ");
 });

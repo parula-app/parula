@@ -4,6 +4,9 @@ import { generateMessageID } from "./generateMessageID";
 import { sanitize } from '../../lib/util/sanitizeDatatypes';
 
 import { languageMessages, sourceLocale, localeMapping } from './list';
+import { addLatinDates } from './latinDates';
+
+addLatinDates();
 
 /** @lang Either 2-letter ISO lang code, or 5-letter ISO locale code
  * Must match list.ts */
