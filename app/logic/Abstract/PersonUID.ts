@@ -131,8 +131,7 @@ export function findOrCreatePersonUID(emailAddress: string, realname: string): P
     add the `Person` to the cached `PersonUID` entry.
     We currently search all address books on every call to `personUID.findPerson()` */
   let existing = findPerson(emailAddress);
-  // The sender can set any name, e.g. "service@paypal.com" <phishing@example.com>,
-  // so only the part before the @ is the name.
+  // Avoid names by sender with an @ that can deceive to be an email address
   let uid = new PersonUID(emailAddress, realname?.split("@")[0].trim() || existing?.name || emailAddress);
   if (existing) {
     uid.person = existing;
