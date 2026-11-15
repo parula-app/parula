@@ -339,7 +339,7 @@
 
   function step(direction: number) {
     $eventPeek = null;
-    setRangeDate(CalendarRange.step(view, rangeDate, dayCount, direction));
+    setRangeDate(range.step(rangeDate, direction));
   }
 
   function setRangeDate(date: Date) {

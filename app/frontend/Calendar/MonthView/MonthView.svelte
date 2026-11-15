@@ -34,7 +34,7 @@
   import DateRange from "../DateRange.svelte";
   import NewEventMenu from "../NewEventMenu.svelte";
   import { selectedCalendar } from "../selected";
-  import { CalendarRange } from "../CalendarRange";
+  import type { CalendarRange } from "../CalendarRange";
   import { catchErrors } from "../../Util/error";
   import { getDateTimeLocale } from "../../../l10n/l10n";
   import type { Collection } from "svelte-collections";
@@ -45,14 +45,20 @@
   export let events: Collection<Event>;
 
   let newEventMenu: NewEventMenu;
-  $: filteredEvents = events.filterObservable(ev => ev.startTime && ev.startTime < range.end && range.start < ev.endTime);
+  let filteredEvents: Collection<Event>;
+  $: range, filterEvents();
+  function filterEvents() {
+    let rangeStart = range.start;
+    let rangeEnd = range.end;
+    filteredEvents = events.filterObservable(ev => ev.startTime && ev.startTime < rangeEnd && rangeStart < ev.endTime);
+  }
 
   function onScrollWheel(event: WheelEvent) {
     page(event.deltaY > 0 ? 1 : -1);
   }
 
   function page(direction: number) {
-    start = CalendarRange.step(range.view, start, range.days.length, direction);
+    start = range.step(start, direction);
   }
 </script>
 

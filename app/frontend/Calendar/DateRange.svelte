@@ -6,7 +6,7 @@
   <Button classes="previous-button" label={previousLabel} icon={ChevronLeftIcon} onClick={() => page(-1)} iconSize="16px" plain iconOnly />
   <Button classes="next-button" label={nextLabel} icon={ChevronRightIcon} onClick={() => page(1)} iconSize="16px" plain iconOnly />
 </hbox>
-<MonthYearPicker bind:isOpen={isPickerOpen} anchor={dateRangeEl} month={middleOf(range)}
+<MonthYearPicker bind:isOpen={isPickerOpen} anchor={dateRangeEl} month={range.middle}
   on:change={event => goToMonth(event.detail)} />
 
 <script lang="ts">
@@ -26,11 +26,11 @@
   $: isMonth = range.view == "month";
   $: stepsByDay = (range.view == "day" || range.view == "schedule") && range.days.length == 1 || range.view == "dual";
   $: previousLabel = isMonth ? $t`Previous month` : stepsByDay ? $t`Previous day` : $t`Previous *=> Show the previous week or days in the calendar`;
-  $: nextLabel = isMonth ? $t`Next month` : stepsByDay ? $t`Next day` : $t`Next`;
+  $: nextLabel = isMonth ? $t`Next month` : stepsByDay ? $t`Next day` : $t`Next *=> Show the next week or days in the calendar`;
   // </copied>
 
   function page(direction: number) {
-    date = CalendarRange.step(range.view, date, range.days.length, direction);
+    date = range.step(date, direction);
   }
 
   let dateRangeEl: HTMLButtonElement;
@@ -44,17 +44,11 @@
     }
     let newDate = changeMonth(date, month);
     // The header shows the month of the middle day, which may be in the month before or after
-    let middle = middleOf(new CalendarRange(range.view, newDate, range.days.length));
-    if (middle.getMonth() != month.getMonth()) {
-      newDate = CalendarRange.step(range.view, newDate, range.days.length, middle < newDate ? 1 : -1);
+    let newRange = new CalendarRange(range.view, newDate, range.days.length);
+    if (newRange.middle.getMonth() != month.getMonth()) {
+      newDate = newRange.step(newDate, newRange.middle < newDate ? 1 : -1);
     }
     date = newDate;
-  }
-
-  /** @returns The middle of the visible days, i.e. the month
-   * that covers most of the current date range. */
-  function middleOf(range: CalendarRange): Date {
-    return range.days[range.days.length >> 1];
   }
 
   function monthYear(date: Date): string {
@@ -66,9 +60,8 @@
   }
 
   function htmlMonthYear(range: CalendarRange): string {
-    let middle = middleOf(range);
-    let str = monthYear(middle);
-    let year = middle.getFullYear();
+    let str = monthYear(range.middle);
+    let year = range.middle.getFullYear();
     return str.replace(String(year), `&nbsp;<span class="year">${year}</span>&nbsp;`);
   }
 </script>

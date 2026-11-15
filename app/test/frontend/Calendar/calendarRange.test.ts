@@ -45,7 +45,7 @@ test("4 weeks from the Monday of the week", () => {
   expect(range.days.length).toBe(28);
   expect(range.start).toEqual(new Date(2026, 9, 12));
   expect(range.end).toEqual(new Date(2026, 10, 9));
-  expect(CalendarRange.step("4weeks", kThursday, 1, 1)).toEqual(new Date(2026, 10, 12));
+  expect(new CalendarRange("4weeks", kThursday).step(kThursday, 1)).toEqual(new Date(2026, 10, 12));
 });
 
 test("Month view shows whole weeks around the month", () => {
@@ -88,6 +88,12 @@ test("Contains", () => {
   expect(range.contains(new Date(2026, 9, 11, 23, 59))).toBe(false);
 });
 
+test("The middle of the shown days is in the month that covers most of them", () => {
+  // The week of Sunday, Nov 1 is mostly in October
+  expect(new CalendarRange("week", new Date(2026, 10, 1)).middle).toEqual(new Date(2026, 9, 29));
+  expect(new CalendarRange("month", new Date(2026, 10, 18)).middle.getMonth()).toBe(10);
+});
+
 test("Titles like Outlook", () => {
   expect(new CalendarRange("day", kThursday).title("en-US")).toBe("Thursday, October 15, 2026");
   expect(new CalendarRange("workweek", kThursday).title("en-US")).toMatch(/^October 12\s–\s16, 2026$/);
@@ -98,12 +104,13 @@ test("Titles like Outlook", () => {
 });
 
 test("Step to the next and previous period", () => {
-  expect(CalendarRange.step("day", kThursday, 1, 1)).toEqual(new Date(2026, 9, 16));
-  expect(CalendarRange.step("day", kThursday, 3, -1)).toEqual(new Date(2026, 9, 12));
-  expect(CalendarRange.step("workweek", kThursday, 1, 1)).toEqual(new Date(2026, 9, 22));
-  expect(CalendarRange.step("week", kThursday, 1, -1)).toEqual(new Date(2026, 9, 8));
-  expect(CalendarRange.step("month", new Date(2026, 0, 31), 1, 1)).toEqual(new Date(2026, 1, 1));
-  expect(CalendarRange.step("month", new Date(2026, 0, 31), 1, -1)).toEqual(new Date(2025, 11, 1));
+  expect(new CalendarRange("day", kThursday).step(kThursday, 1)).toEqual(new Date(2026, 9, 16));
+  expect(new CalendarRange("day", kThursday, 3).step(kThursday, -1)).toEqual(new Date(2026, 9, 12));
+  expect(new CalendarRange("workweek", kThursday).step(kThursday, 1)).toEqual(new Date(2026, 9, 22));
+  expect(new CalendarRange("week", kThursday).step(kThursday, -1)).toEqual(new Date(2026, 9, 8));
+  let endOfJanuary = new Date(2026, 0, 31);
+  expect(new CalendarRange("month", endOfJanuary).step(endOfJanuary, 1)).toEqual(new Date(2026, 1, 1));
+  expect(new CalendarRange("month", endOfJanuary).step(endOfJanuary, -1)).toEqual(new Date(2025, 11, 1));
 });
 
 test("Start and end of the week, Monday to Sunday", () => {
@@ -124,6 +131,6 @@ test("Day/Month shows the selected day and the next day, also across the month e
 });
 
 test("Day/Month steps one day, like the classic dual view", () => {
-  expect(CalendarRange.step("dual", kThursday, 1, 1)).toEqual(new Date(2026, 9, 16));
-  expect(CalendarRange.step("dual", new Date(2026, 10, 1), 1, -1)).toEqual(new Date(2026, 9, 31));
+  expect(new CalendarRange("dual", kThursday).step(kThursday, 1)).toEqual(new Date(2026, 9, 16));
+  expect(new CalendarRange("dual", new Date(2026, 10, 1)).step(new Date(2026, 10, 1), -1)).toEqual(new Date(2026, 9, 31));
 });

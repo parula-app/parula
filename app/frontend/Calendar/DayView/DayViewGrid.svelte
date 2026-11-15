@@ -107,12 +107,13 @@
   }
 
   let today = getToday();
+  $: todayTime = today.getTime();
   // Update today at midnight
   $: setTimeout(() => today = getToday(), new Date(today).setDate(today.getDate() + 1) - Date.now());
 
   // Shows today wider. Sets e.g. `grid-template-columns: max-content 1fr 1fr 1.5fr 1fr 1fr` on the `<grid>`
-  $: columnWidths = range.days.length > 3 && range.days.some(day => day.getTime() == today.getTime())
-    ? "grid-template-columns: max-content " + range.days.map(day => day.getTime() == today.getTime() ? "1.5fr" : "1fr").join(" ")
+  $: columnWidths = range.days.length > 3 && range.contains(today)
+    ? "grid-template-columns: max-content " + range.days.map(day => day.getTime() == todayTime ? "1.5fr" : "1fr").join(" ")
     : "";
 </script>
 

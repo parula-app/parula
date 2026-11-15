@@ -20,7 +20,7 @@
 
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
-  import { CalendarRange } from "../CalendarRange";
+  import type { CalendarRange } from "../CalendarRange";
   import { getToday } from "../../../logic/util/date";
   import DayViewGrid from "./DayViewGrid.svelte";
   import NewEventMenu from "../NewEventMenu.svelte";
@@ -46,7 +46,7 @@
   }
 
   function page(direction: number) {
-    start = CalendarRange.step(range.view, start, range.days.length, direction);
+    start = range.step(start, direction);
   }
 </script>
 
