@@ -22,10 +22,11 @@
     </grid>
   </hbox>
 </Popup>
-<svelte:window on:keydown={onKeyDown} />
+<AppWindowEvents on:keydown={onKeyDown} />
 
 <script lang="ts">
   import Popup from "../Shared/Popup.svelte";
+  import AppWindowEvents from "../MainWindow/AppWindowEvents.svelte";
   import type { Placement } from "@popperjs/core";
   import { getDateTimeLocale } from "../../l10n/l10n";
   import { createEventDispatcher } from "svelte";

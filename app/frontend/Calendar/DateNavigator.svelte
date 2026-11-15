@@ -56,7 +56,7 @@
 </vbox>
 <MonthYearPicker bind:isOpen={isMonthPickerOpen} anchor={monthPickerAnchor} month={(months[monthPickerIndex] ?? month).month}
   on:change={event => chooseMonth(event.detail)} />
-<svelte:window on:mouseup={onDragEnd} />
+<AppWindowEvents on:mouseup={onDragEnd} />
 
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
@@ -66,6 +66,7 @@
   import { now } from "./CurrentTimeMarker.svelte";
   import { changeMonth, getWeekNumber } from "../../logic/util/date";
   import MonthYearPicker from "./MonthYearPicker.svelte";
+  import AppWindowEvents from "../MainWindow/AppWindowEvents.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";
   import NextIcon from "lucide-svelte/icons/chevron-right";
   import { createEventDispatcher } from "svelte";
