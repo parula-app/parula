@@ -18,7 +18,7 @@
 </Menu>
 
 <script lang="ts">
-  import { type PersonUID, unknownPersonName } from "../../../logic/Abstract/PersonUID";
+  import { type PersonUID, personDisplayName } from "../../../logic/Abstract/PersonUID";
   import { MessageActions } from "../MessageActions";
   import Menu from "../../Shared/Menu/Menu.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
@@ -50,7 +50,7 @@
 
   function displayName(recipient: PersonUID): string {
     if (!recipient.findPerson()) {
-      return unknownPersonName(recipient.name, recipient.emailAddress);
+      return personDisplayName(recipient);
     }
     return recipient.name || recipient.emailAddress;
   }
