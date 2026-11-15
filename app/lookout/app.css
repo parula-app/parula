@@ -1,4 +1,5 @@
 :root {
+  /* Constr-Klingon before system-ui. Otherwise, Chromium on Linux sometimes shows pIqaD as boxes in the system-ui font. */
   --lo-font: "Segoe UI Variable Text", "Segoe UI", Constr-Klingon, system-ui, sans-serif;
   --lo-font-size: 14px;
   --lo-font-size-small: 12px;

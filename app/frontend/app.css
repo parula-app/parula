@@ -18,7 +18,7 @@ License: SIL OPEN FONT LICENSE 1.1 @see asset/font/Constr-Klingon-OFL.txt
 :root {
   height: 100%;
 
-  font-family: Karla, Constr-Klingon, Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: Karla, Inter, system-ui, Avenir, Helvetica, Arial, Constr-Klingon, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 

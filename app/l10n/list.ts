@@ -133,7 +133,7 @@ export const localeNames = {
   'ga': "Irish / Gaeilge",
   'it': "Italian / Italiano",
   'ja': "Japanese / 日本語",
-  'tlh': "Klingon / tlhIngan Hol",
+  'tlh': "Klingon (Hol) / tlhIngan Hol",
   'tlh-Piqd': "Klingon (pIqaD) / \uF8E4\uF8D7\uF8DC\uF8D0\uF8DB \uF8D6\uF8DD\uF8D9",
   'ko': "Korean / 한국어",
   'la': "Latin / Latina",
