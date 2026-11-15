@@ -174,6 +174,25 @@ test("Alt+Home and Alt+End go to the start and end of the week", () => {
   expect(handled("Home")).toBe(false);
 });
 
+test("Month and year dropdown: A year keeps it open, a month closes it, and both keep the day", () => {
+  let isPickerOpen = () => !!document.querySelector(".month-year-picker");
+  let click = (button: Element) => {
+    (button as HTMLElement).click();
+    flushSync();
+  };
+  click(document.querySelector(".title-button"));
+  expect(isPickerOpen()).toBe(true);
+
+  click([...document.querySelectorAll("button.year")].find(button => button.textContent.includes("2027")));
+  expect(day(get(startDate))).toBe(day(new Date(2027, 9, 14)));
+  expect(isPickerOpen()).toBe(true);
+
+  let march = document.querySelectorAll("button.month")[2];
+  click(march);
+  expect(day(get(startDate))).toBe(day(new Date(2027, 2, 14)));
+  expect(isPickerOpen()).toBe(false);
+});
+
 test("Item commands", async () => {
   let event = new Event();
   event.title = "Meeting";

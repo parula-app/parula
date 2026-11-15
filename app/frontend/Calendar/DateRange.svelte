@@ -1,14 +1,20 @@
 <hbox class="date-range-header">
-  <hbox class="date-range">{@html htmlMonthYear(date, showDays)}</hbox>
+  <button class="date-range" title={$t`Choose month and year`} bind:this={dateRangeEl}
+    on:click|stopPropagation={() => isPickerOpen = !isPickerOpen}>
+    {@html htmlMonthYear(date, showDays)}
+  </button>
   <Button classes="previous-button" label={$t`Previous ${dateInterval} days`} icon={ChevronLeftIcon} onClick={pagePrevious} iconSize="16px" plain iconOnly />
   <Button classes="next-button" label={$t`Next ${dateInterval} days`} icon={ChevronRightIcon} onClick={pageNext} iconSize="16px" plain iconOnly />
 </hbox>
+<MonthYearPicker bind:isOpen={isPickerOpen} anchor={dateRangeEl} month={middleOfRange(date)}
+  on:change={event => goToMonth(event.detail)} />
 
 <script lang="ts">
+  import MonthYearPicker from "./MonthYearPicker.svelte";
   import Button from "../Shared/Button.svelte";
   import ChevronLeftIcon from "lucide-svelte/icons/chevron-left";
   import ChevronRightIcon from "lucide-svelte/icons/chevron-right";
-  import { getWeekStart } from "../../logic/util/date";
+  import { changeMonth, getWeekStart } from "../../logic/util/date";
   import { getDateTimeLocale, t } from "../../l10n/l10n";
 
   export let date = new Date(); /* in/out */
@@ -31,6 +37,24 @@
     date = date;
   }
   // </copied>
+
+  let dateRangeEl: HTMLButtonElement;
+  let isPickerOpen = false;
+
+  /** Shows the chosen month, at the same place in the month as now, e.g. the 3rd week */
+  function goToMonth(month: Date) {
+    if (dateInterval >= 28) { // Month view
+      date = new Date(month); // Copy, because the views change `date` in place
+      return;
+    }
+    let newDate = changeMonth(date, month);
+    // The header shows the month of the middle day, which may be in the month before or after
+    let middle = middleOfRange(newDate);
+    if (middle.getMonth() != month.getMonth()) {
+      newDate.setDate(newDate.getDate() + (middle < newDate ? dateInterval : -dateInterval));
+    }
+    date = newDate;
+  }
 
   /** @returns The middle of the visible days, i.e. the month
    * that covers most of the current date range. */
@@ -68,5 +92,16 @@
     margin-inline-start: 8px;
     margin-inline-end: 8px;
     min-width: 9em;
+    padding: 0 8px;
+    border: none;
+    border-radius: 1000px;
+    background: none;
+    color: inherit;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .date-range:hover {
+    background-color: var(--hover-bg);
+    color: var(--hover-fg);
   }
 </style>
