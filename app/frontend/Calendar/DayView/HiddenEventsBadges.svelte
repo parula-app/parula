@@ -50,9 +50,6 @@
 
 <style>
   .hidden-events {
-    --badge-border: var(--border);
-    --secondary-fg: color-mix(in srgb, var(--fg) 60%, transparent);
-    --shadow: 0 1px 2px color-mix(in srgb, var(--fg) 20%, transparent);
     position: absolute;
     inset: 0;
     justify-content: space-between;
@@ -79,11 +76,11 @@
     height: 18px;
     padding: 0 6px;
     overflow: hidden;
-    border: 1px solid var(--badge-border);
+    border: 1px solid var(--border);
     border-radius: 9px;
     background-color: var(--bg);
-    box-shadow: var(--shadow);
-    color: var(--secondary-fg);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 20%, transparent);
+    color: color-mix(in srgb, var(--fg) 60%, transparent);
     font: inherit;
     font-size: 11px;
     cursor: pointer;
@@ -112,9 +109,14 @@
     text-overflow: ellipsis;
   }
   :global(.lookout-window) .hidden-events {
-    --badge-border: var(--lo-border-strong);
-    --secondary-fg: var(--lo-fg-secondary);
-    --shadow: var(--lo-shadow-card);
     z-index: 5;
+  }
+  :global(.lookout-window) .badge {
+    border-color: var(--lo-border-strong);
+    box-shadow: var(--lo-shadow-card);
+    color: var(--lo-fg-secondary);
+  }
+  :global(.lookout-window) .badge:hover {
+    color: var(--lo-fg); /* The rule above outweighs .badge:hover */
   }
 </style>
