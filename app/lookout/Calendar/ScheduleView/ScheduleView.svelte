@@ -42,7 +42,8 @@
   import type { CalendarRange } from "../CalendarRange";
   import { ScheduleLayout } from "./ScheduleLayout";
   import { eventPeek, timeZoneRulers } from "../selected";
-  import { now, selectedCalendar } from "../../../frontend/Calendar/selected";
+  import { selectedCalendar } from "../../../frontend/Calendar/selected";
+  import { now } from "../../../frontend/Util/now";
   import ScheduleRow from "./ScheduleRow.svelte";
   import { t } from "../../../l10n/l10n";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";

@@ -67,7 +67,8 @@
   import type { Person } from "../../../logic/Abstract/Person";
   import type { Event } from "../../../logic/Calendar/Event";
   import { appGlobal } from "../../../logic/app";
-  import { now, shownCalendarEvents } from "../../../frontend/Calendar/selected";
+  import { shownCalendarEvents } from "../../../frontend/Calendar/selected";
+  import { now } from "../../../frontend/Util/now";
   import { openEvent } from "../../../frontend/Calendar/open";
   import { openPersonFromOtherApp } from "../../../frontend/Contacts/open";
   import { CalendarRange } from "../../Calendar/CalendarRange";

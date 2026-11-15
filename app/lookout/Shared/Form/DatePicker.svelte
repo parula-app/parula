@@ -38,7 +38,7 @@
 
 <script lang="ts">
   import { DateNavigatorMonth } from "../../../frontend/Calendar/DateNavigatorMonth";
-  import { now } from "../../../frontend/Calendar/selected";
+  import { now } from "../../../frontend/Util/now";
   import MonthYearPicker from "../../../frontend/Calendar/MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-up";
   import NextIcon from "lucide-svelte/icons/chevron-down";
