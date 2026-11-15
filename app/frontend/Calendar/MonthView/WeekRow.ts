@@ -114,13 +114,16 @@ export class WeekRowLayout {
   }
 
   protected segmentsOnDay(events: Event[], day: number): EventInWeekRow[] {
-    let items = layoutTimeColumn(events, this.days[day]);
-    let overMidnight = items.filter(item => item.continuesBefore || item.continuesAfter);
-    if (overMidnight.length) {
-      // The lanes of the other events without them
-      items = layoutTimeColumn(items.filter(item => !overMidnight.includes(item)).map(item => item.event), this.days[day]);
-    }
-    let segments = items.map(item => ({
+    let date = this.days[day];
+    let dayStart = date.getTime();
+    let dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
+    // At the start or the end of this day
+    let isOverMidnight = (event: Event) => {
+      let start = event.startTime.getTime();
+      let end = event.endTime.getTime();
+      return start < dayStart && dayStart < end || start < dayEnd && dayEnd < end;
+    };
+    let segments = layoutTimeColumn(events.filter(event => !isOverMidnight(event)), date).map(item => ({
       ...item,
       startDay: day,
       endDay: day + 1,
@@ -128,7 +131,7 @@ export class WeekRowLayout {
       endRow: Math.ceil(this.rowOf(item.endRow / kRowsPerHour)),
     }));
     // 1 line at its start time, on all its days
-    let bars = overMidnight.map(item => {
+    let bars = layoutTimeColumn(events.filter(isOverMidnight), date).map(item => {
       let startRow = Math.floor(this.rowOf(item.event.startTime.getHours() + item.event.startTime.getMinutes() / 60));
       return { ...item, startDay: day, endDay: day + 1, startRow, endRow: startRow + WeekRowLayout.kRowsPerLine, lane: 0, lanes: 1 };
     });
