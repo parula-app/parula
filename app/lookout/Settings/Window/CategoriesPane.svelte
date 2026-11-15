@@ -37,8 +37,8 @@
     flex-shrink: 0;
     gap: 8px;
     min-width: 0;
-    height: 32px;
-    padding-block: 0;
+    min-height: 32px;
+    padding-block: 4px;
     padding-inline-end: 12px;
     border: none;
     background: none;

@@ -1,5 +1,6 @@
 import type { Event } from "../../logic/Calendar/Event";
 import type { Calendar } from "../../logic/Calendar/Calendar";
+import type { CalendarViewType } from "./CalendarRange";
 import { ShownCalendars } from "./ShownCalendars";
 import { AppWindow } from "../MainWindow/AppWindow";
 import { appGlobal } from "../../logic/app";
@@ -13,6 +14,10 @@ export let selectedEvent: Writable<Event> = AppWindow.perWindow(() => writable(n
 export let selectedDate = AppWindow.perWindow(() => writable(new Date()));
 export let startDate = AppWindow.perWindow(() => writable(new Date()));
 export type DateInterval = 0 | 1 | 2 | 5 | 7 | 31 | 28;
+/** The view of each `DateInterval`. The list has none, and the mini month shows its start day. */
+export const kDateIntervalViews: Record<DateInterval, CalendarViewType> = {
+  0: "day", 1: "day", 2: "dual", 5: "workweek", 7: "week", 28: "4weeks", 31: "month",
+};
 
 export let shownCalendars = AppWindow.perWindow(appWindow => new ShownCalendars(appGlobal.calendars, appWindow.uiState(selectedCalendar)));
 export let shownCalendarEvents: Collection<Event> = AppWindow.perWindow(appWindow =>

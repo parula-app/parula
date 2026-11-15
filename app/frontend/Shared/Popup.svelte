@@ -14,15 +14,17 @@
   import { AppWindow } from '../MainWindow/AppWindow';
   import AppWindowEvents from '../MainWindow/AppWindowEvents.svelte';
   import { createPopperActions } from 'svelte-popperjs';
-  import type { Placement } from '@popperjs/core';
+  import type { Placement, VirtualElement } from '@popperjs/core';
   import { onDestroy } from 'svelte';
 
   /** in/out */
   export let popupOpen: boolean;
   /** Under/above which element the popup window should appear.
    * The popup will not cover this element, but be just above/below it.
+   * A `VirtualElement` is a place that is not an element in our document,
+   * e.g. a link inside a `<webview>`.
    * in */
-  export let popupAnchor: HTMLElement;
+  export let popupAnchor: HTMLElement | VirtualElement;
   /** Where the popup should appear in relation to the anchor.
    * above/below ("top"/"bottom") and left/right ("start"/"end")
    * in */

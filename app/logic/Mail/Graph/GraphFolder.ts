@@ -64,23 +64,24 @@ export class GraphFolder extends Folder {
    * But doesn't download their contents. @see downloadMessages() */
   protected async listAllMessages(): Promise<ArrayColl<GraphEMail>> {
     const batchSize = kMaxFetchCount;
+    const kMaxRounds = 10000; // 1,000,000 emails, even if the server sends only 100 per page
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
     let nextURL: URLString;
-    let hadNext = false;
     let allNewMessages = new ArrayColl<GraphEMail>();
-    for (let i = 0; i < this.countTotal; ) {
+    while (loop.nextRound()) {
       let newMessagesJSON: TGraphEMail[];
-      if (hadNext && !nextURL) {
-        break;
-      } else if (nextURL) {
-        hadNext = true;
+      if (nextURL) {
         // nextURL already includes the $select. And ky searchParams would overwrite the skip token.
         newMessagesJSON = await this.account.graphGet<TGraphEMail>(nextURL);
       } else {
         newMessagesJSON = await this.account.graphGet<TGraphEMail>(`${this.path}/messages`, {
-          top: batchSize,
-          "$skip": i || undefined,
+          $top: batchSize,
           "$select": TGraphEMailHeaderProperties.join(","),
         });
+      }
+      if (loop.isSameAsLastRound(newMessagesJSON.map(json => json.id).join(" "))) {
+        break;
       }
       let extra = newMessagesJSON as any;
       nextURL = extra.nextURL;
@@ -90,10 +91,9 @@ export class GraphFolder extends Folder {
       await this.saveNewMsgs(newMessages);
       allNewMessages.addAll(newMessages);
 
-      if (!newMessagesJSON.length) {
+      if (!nextURL) {
         break;
       }
-      i += newMessagesJSON.length;
     }
     await this.storage.saveFolderProperties(this);
     return allNewMessages;
@@ -377,7 +377,7 @@ export class GraphFolder extends Folder {
     while (loop.nextRound()) {
       let unread = await this.account.graphGet<TGraphEMail>(
         `${this.path}/messages?$filter=${encodeURIComponent("isRead eq false")}&$select=id`,
-        { top: kMaxFetchCount });
+        { $top: kMaxFetchCount });
       if (!unread.length) {
         return;
       }

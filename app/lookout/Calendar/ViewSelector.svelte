@@ -12,7 +12,8 @@
 </Menu>
 
 <script lang="ts">
-  import { eventPeek, type CalendarViewType } from "./selected";
+  import { eventPeek } from "./selected";
+  import type { CalendarViewType } from "../../frontend/Calendar/CalendarRange";
   import Menu from "../Shared/Menu/Menu.svelte";
   import MenuItem from "../Shared/Menu/MenuItem.svelte";
   import ChevronIcon from "lucide-svelte/icons/chevron-down";

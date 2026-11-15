@@ -3,23 +3,23 @@
   <hbox class="range-header">
     <slot name="top-left" />
     <hbox flex />
-    <DateRange bind:date={start} dateInterval={showDays} />
+    <DateRange bind:date={start} {range} />
     <hbox flex />
     <slot name="top-right" />
   </hbox>
   <grid flex class="month"
     style="--selected-calendar-color: {$selectedCalendar?.color ?? "black"}"
-    on:swipeleft={onNextMonth}
-    on:swiperight={onPreviousMonth}
-    on:swipeup={onNextMonth}
-    on:swipedown={onPreviousMonth}
+    on:swipeleft={() => page(1)}
+    on:swiperight={() => page(-1)}
+    on:swipeup={() => page(1)}
+    on:swipedown={() => page(-1)}
     >
-    {#each weekDays as day}
+    {#each range.weeks[0] as day}
       <hbox class="weekday">
         {day.toLocaleDateString(getDateTimeLocale(), { weekday: "short" })}
       </hbox>
     {/each}
-    {#each weeks as week}
+    {#each range.weeks as week}
       <WeekRow days={week} events={filteredEvents}
         on:celldblclick={(param) => newEventMenu.openMenu(param.detail.mouseEvent, param.detail.start)} />
     {/each}
@@ -34,58 +34,32 @@
   import DateRange from "../DateRange.svelte";
   import NewEventMenu from "../NewEventMenu.svelte";
   import { selectedCalendar } from "../selected";
-  import { getWeekDays } from "../../../logic/util/date";
+  import type { CalendarRange } from "../CalendarRange";
   import { catchErrors } from "../../Util/error";
   import { getDateTimeLocale } from "../../../l10n/l10n";
   import type { Collection } from "svelte-collections";
 
   export let start: Date;
+  /** Month or 4 weeks */
+  export let range: CalendarRange;
   export let events: Collection<Event>;
-  export let showDays = 35;
 
-  let weeks: Date[][] = [];
-  let weekDays: Date[] = [];
-  let filteredEvents: Collection<Event>;
   let newEventMenu: NewEventMenu;
-  $: start, showDays, setDays();
-  function setDays() {
-    weekDays = getWeekDays(start);
-    if (showDays == 35) {
-      while (weekDays[6].getDate() > 7) {
-        start.setDate(start.getDate() - 7);
-        weekDays = getWeekDays(start);
-      }
-    }
-    let startTime = weekDays[0]; // Always start with Monday
-    let filterStart = new Date(startTime);
-    weeks = [];
-    for (let i = 0; i < showDays; i++) {
-      if (i % 7 == 0) {
-        weeks.push([]);
-      }
-      weeks[weeks.length - 1].push(new Date(startTime));
-      startTime.setDate(startTime.getDate() + 1)
-    }
-    let filterEnd = startTime;
-    filteredEvents = events.filterObservable(ev => ev.startTime && ev.startTime < filterEnd && filterStart < ev.endTime);
+  let filteredEvents: Collection<Event>;
+  $: events, range, filterEvents();
+  function filterEvents() {
+    let rangeStart = range.start;
+    let rangeEnd = range.end;
+    filteredEvents = events.filterObservable(ev => ev.startTime && ev.startTime < rangeEnd && rangeStart < ev.endTime);
   }
 
   function onScrollWheel(event: WheelEvent) {
-    const upDown = event.deltaY > 0 ? 1 : -1;
-    start.setDate(start.getDate() + showDays * upDown);
-    start = start;
+    page(event.deltaY > 0 ? 1 : -1);
   }
 
-  // <copied from="DateRange.svelte">
-  function onNextMonth() {
-    start.setDate(start.getDate() + (showDays == 35 ? 42 : showDays));
-    start = start;
+  function page(direction: number) {
+    start = range.step(start, direction);
   }
-  function onPreviousMonth() {
-    start.setDate(start.getDate() - (showDays == 35 ? 28 : showDays));
-    start = start;
-  }
-  // </copied>
 </script>
 
 <style>

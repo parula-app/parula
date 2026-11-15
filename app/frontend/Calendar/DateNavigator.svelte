@@ -1,5 +1,5 @@
-<vbox class="date-navigator" class:week-numbers={showWeekNumbers}>
-  {#each months as shownMonth, i (shownMonth.month.getTime())}
+<vbox class="date-navigator" class:week-numbers={showWeekNumbers} class:several-weeks={range.days.length > 7}>
+  {#each months as shownMonth, i} <!-- Not keyed, so that the title stays where the month picker is anchored -->
     <hbox class="title-row">
       {#if i == 0}
         <button class="arrow" title={$t`Previous month`} on:click={() => month = month.next(-1)}>
@@ -7,8 +7,8 @@
         </button>
       {/if}
       <hbox flex class="title-box">
-        <button class="title" title={$t`Choose a month`}
-          on:click={event => openMonthList(event, shownMonth)}>{shownMonth.title(getDateTimeLocale())}</button>
+        <button class="title" title={$t`Choose month and year`}
+          on:click|stopPropagation={event => openMonthPicker(event, i)}>{shownMonth.title(getDateTimeLocale())}</button>
       </hbox>
       {#if i == 0}
         <button class="arrow" title={$t`Next month`} on:click={() => month = month.next(1)}>
@@ -54,23 +54,18 @@
     </div>
   {/each}
 </vbox>
-<Menu bind:isMenuOpen={isMonthListOpen} anchor={monthListAnchor} placement="bottom">
-  {#each monthChoices as choice (choice.month.getTime())}
-    <MenuItem label={choice.title(getDateTimeLocale())} checked={choice.month.getTime() == monthListCenter?.month.getTime()}
-      onClick={() => chooseMonth(choice)} />
-  {/each}
-</Menu>
+<MonthYearPicker bind:isOpen={isMonthPickerOpen} anchor={monthPickerAnchor} month={(months[monthPickerIndex] ?? month).month}
+  on:change={event => chooseMonth(event.detail)} />
 <svelte:window on:mouseup={onDragEnd} />
 
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
   import type { CalendarRange } from "./CalendarRange";
   import { DateNavigatorMonth } from "./DateNavigatorMonth";
-  import { now } from "./selected";
-  import { getWeekNumber } from "../Util/date";
-  import { shownCalendarEvents } from "../../frontend/Calendar/selected";
-  import Menu from "../Shared/Menu/Menu.svelte";
-  import MenuItem from "../Shared/Menu/MenuItem.svelte";
+  import { shownCalendarEvents } from "./selected";
+  import { now } from "./CurrentTimeMarker.svelte";
+  import { changeMonth, getWeekNumber } from "../../logic/util/date";
+  import MonthYearPicker from "./MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";
   import NextIcon from "lucide-svelte/icons/chevron-right";
   import { createEventDispatcher } from "svelte";
@@ -84,14 +79,15 @@
   const dispatch = createEventDispatcher<{ selectday: Date, selectweek: Date, selectdays: { first: Date, last: Date } }>();
 
   let month = new DateNavigatorMonth(date);
+  $: months = Array.from({ length: Math.max(monthCount, 1) }, (_, i) => month.next(i));
+  // After `months`, so that it sees the month chosen in the month picker, e.g. as 2nd month
   $: followDate(date);
   function followDate(date: Date) {
-    if (!months?.some(shownMonth => shownMonth.isInMonth(date))) {
+    if (!months.some(shownMonth => shownMonth.isInMonth(date))) {
       month = new DateNavigatorMonth(date);
     }
   }
 
-  $: months = Array.from({ length: Math.max(monthCount, 1) }, (_, i) => month.next(i));
   $: monthsEvents = shownCalendarEvents.filterObservable(isInMonths);
   $: months, filterMonths();
   function filterMonths() {
@@ -104,20 +100,22 @@
 
   $: daysWithEvents = new Set(months.flatMap(shownMonth => [...shownMonth.daysWithEvents($monthsEvents.contents)]));
 
-  let isMonthListOpen = false;
-  let monthListAnchor: HTMLElement = null;
-  let monthListCenter: DateNavigatorMonth = null;
-  $: monthChoices = monthListCenter ? [-3, -2, -1, 0, 1, 2, 3].map(offset => monthListCenter.next(offset)) : [];
+  let isMonthPickerOpen = false;
+  let monthPickerAnchor: HTMLElement = null;
+  /** Which of the shown months the picker changes */
+  let monthPickerIndex = 0;
 
-  function openMonthList(event: MouseEvent, shownMonth: DateNavigatorMonth) {
-    monthListAnchor = event.currentTarget as HTMLElement;
-    monthListCenter = shownMonth;
-    isMonthListOpen = true;
+  function openMonthPicker(event: MouseEvent, index: number) {
+    monthPickerAnchor = event.currentTarget as HTMLElement;
+    isMonthPickerOpen = !(isMonthPickerOpen && monthPickerIndex == index);
+    monthPickerIndex = index;
   }
 
-  function chooseMonth(choice: DateNavigatorMonth) {
-    let index = months.findIndex(shownMonth => shownMonth.month.getTime() == monthListCenter.month.getTime());
-    month = choice.next(-Math.max(index, 0));
+  /** Shows the chosen month where the user clicked, e.g. as 2nd month,
+   * and the same day in the chosen month in the calendar */
+  function chooseMonth(chosen: Date) {
+    month = new DateNavigatorMonth(chosen).next(-monthPickerIndex);
+    dispatch("selectday", changeMonth(date, chosen));
   }
 
   let dragStart: Date = null;
@@ -172,6 +170,11 @@
 
 <style>
   .date-navigator {
+    --radius: 1000px;
+    --range-radius: var(--radius);
+    --secondary-fg: color-mix(in srgb, var(--fg) 60%, transparent);
+    --range-bg: color-mix(in srgb, var(--selected-bg) 30%, transparent);
+    --range-hover-bg: var(--selected-bg);
     padding: 4px 8px 8px 8px;
     user-select: none;
   }
@@ -188,15 +191,15 @@
   .title {
     padding: 2px 8px;
     border: none;
-    border-radius: var(--lo-radius-small);
+    border-radius: var(--radius);
     background: none;
-    color: var(--lo-fg);
+    color: var(--fg);
     font: inherit;
     font-weight: 600;
     cursor: pointer;
   }
   .title:hover {
-    background-color: var(--lo-hover-bg);
+    background-color: var(--hover-bg);
   }
   .arrow {
     display: flex;
@@ -206,14 +209,14 @@
     height: 28px;
     padding: 0;
     border: none;
-    border-radius: var(--lo-radius-small);
+    border-radius: var(--radius);
     background: none;
-    color: var(--lo-fg-secondary);
+    color: var(--secondary-fg);
     cursor: pointer;
   }
   .arrow:hover {
-    background-color: var(--lo-hover-bg);
-    color: var(--lo-fg);
+    background-color: var(--hover-bg);
+    color: var(--fg);
   }
   .grid {
     display: grid;
@@ -228,32 +231,32 @@
     line-height: 24px;
     text-align: center;
     font-size: 11px;
-    color: var(--lo-fg-secondary);
+    color: var(--secondary-fg);
   }
   .week-number {
     min-width: 20px;
     padding: 0 4px 0 0;
     border: none;
-    border-inline-end: 1px solid var(--lo-divider);
+    border-inline-end: 1px solid var(--border);
     background: none;
     font: inherit;
     font-size: 11px;
     line-height: 28px;
     text-align: center;
-    color: var(--lo-fg-secondary);
+    color: var(--secondary-fg);
   }
   button.week-number {
     cursor: pointer;
   }
   button.week-number:hover {
-    background-color: var(--lo-hover-bg);
-    color: var(--lo-fg);
+    background-color: var(--hover-bg);
+    color: var(--fg);
   }
   .day.dragged {
-    background-color: var(--lo-selected-hover-bg);
+    background-color: var(--range-hover-bg);
   }
   .day:global(.drop-target) {
-    outline: 2px solid var(--lo-accent);
+    outline: 2px solid var(--inverted-bg);
     outline-offset: -2px;
   }
   .day {
@@ -264,21 +267,25 @@
     padding: 0;
     border: none;
     background: none;
-    color: var(--lo-fg);
+    color: var(--fg);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
   }
   .day.in-range {
-    background-color: var(--lo-selected-bg);
+    background-color: var(--range-bg);
+  }
+  /* More than a week: Several rows, with small corners instead of round ends */
+  .date-navigator.several-weeks {
+    --range-radius: 0px;
   }
   .day.range-start {
-    border-start-start-radius: var(--lo-radius-small);
-    border-end-start-radius: var(--lo-radius-small);
+    border-start-start-radius: var(--range-radius);
+    border-end-start-radius: var(--range-radius);
   }
   .day.range-end {
-    border-start-end-radius: var(--lo-radius-small);
-    border-end-end-radius: var(--lo-radius-small);
+    border-start-end-radius: var(--range-radius);
+    border-end-end-radius: var(--range-radius);
   }
   .number {
     display: flex;
@@ -289,21 +296,32 @@
     border-radius: 50%;
   }
   .day:hover .number {
-    background-color: var(--lo-hover-bg);
+    background-color: var(--hover-bg);
   }
   .day.in-range:hover .number {
-    background-color: var(--lo-selected-hover-bg);
+    background-color: var(--range-hover-bg);
   }
   .day.other-month {
-    color: var(--lo-fg-secondary);
+    color: var(--secondary-fg);
   }
   .day.has-events {
     font-weight: 700;
   }
   .day.today .number,
   .day.today:hover .number {
-    background-color: var(--lo-accent);
-    color: var(--lo-accent-fg);
+    background-color: var(--inverted-bg);
+    color: var(--inverted-fg);
     font-weight: 700;
+  }
+
+  :global(.lookout-window) .date-navigator {
+    --radius: var(--lo-radius-small);
+    --range-radius: var(--lo-radius-small);
+    --secondary-fg: var(--lo-fg-secondary);
+    --range-bg: var(--lo-selected-bg);
+    --range-hover-bg: var(--lo-selected-hover-bg);
+  }
+  :global(.lookout-window) .week-number {
+    border-inline-end-color: var(--lo-divider);
   }
 </style>
