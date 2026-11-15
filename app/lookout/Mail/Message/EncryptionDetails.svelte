@@ -48,7 +48,6 @@
 {/if}
 
 <script lang="ts">
-  import { personDisplayName } from "../../../logic/Abstract/PersonUID";
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { PublicKey } from "../../../logic/Mail/Encryption/PublicKey";
   import { findIdentityForEMailAddress } from "../../../logic/Mail/MailIdentity";
@@ -87,7 +86,7 @@
       : isSigned
         ? $t`Signed`
         : $t`End-to-end-encrypted, but not signed`;
-  $: fromName = personDisplayName($message.from);
+  $: fromName = $message.from?.findPerson()?.name ?? $message.from?.nameOrEMail;
   $: msg = mySigningKey
       ? $t`You sent this email`
       : isSigned && isEncrypted

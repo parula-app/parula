@@ -1,6 +1,6 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
 import "../../../logic/app";
-import { PersonUID, personDisplayName, unknownPersonName } from "../../../logic/Abstract/PersonUID";
+import { PersonUID, findOrCreatePersonUID, personDisplayName, unknownPersonName } from "../../../logic/Abstract/PersonUID";
 import { expect, test } from "vitest";
 
 test("Unknown persons: Only the part before the @ is the name", () => {
@@ -26,4 +26,15 @@ test("personDisplayName() of unknown persons", () => {
   expect(personDisplayName(new PersonUID("fred@example.com"))).toBe("fred");
   expect(personDisplayName(new PersonUID("fred@example.com", "Fred Flintstone"))).toBe("Fred Flintstone");
   expect(personDisplayName(null)).toBe("");
+});
+
+test("Names in emails: Only the part before the @", () => {
+  let sender = findOrCreatePersonUID("phishing@example.com", "service@paypal.com");
+  expect(sender.name).toBe("service");
+  expect(sender.emailAddress).toBe("phishing@example.com");
+  expect(findOrCreatePersonUID("fred@example.com", "Fred Flintstone").name).toBe("Fred Flintstone");
+  // Nothing left of the name
+  expect(findOrCreatePersonUID("fred@example.com", "@paypal").name).not.toBe("");
+  // Mailing lists are still recognized
+  expect(findOrCreatePersonUID("list@example.com", "Fred Flintstone via Bedrock List").isProxyAddress).toBe(true);
 });

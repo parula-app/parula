@@ -131,7 +131,9 @@ export function findOrCreatePersonUID(emailAddress: string, realname: string): P
     add the `Person` to the cached `PersonUID` entry.
     We currently search all address books on every call to `personUID.findPerson()` */
   let existing = findPerson(emailAddress);
-  let uid = new PersonUID(emailAddress, realname ?? existing?.name ?? emailAddress);
+  // The sender can set any name, e.g. "service@paypal.com" <phishing@example.com>,
+  // so only the part before the @ is the name. See `unknownPersonName()`.
+  let uid = new PersonUID(emailAddress, realname?.split("@")[0].trim() || existing?.name || emailAddress);
   if (existing) {
     uid.person = existing;
   }
@@ -205,18 +207,16 @@ export function personDisplayName(person: Person | Group | PersonUID) {
  * that the sender set, and when there's no name and we fall back to the email address.
  * The sender can set any name, e.g. "service@paypal.com" <phishing@example.com>,
  * so we must not show something that looks like an email address as name.
+ * `findOrCreatePersonUID()` already cuts the names in emails,
+ * but not the email address that it uses as name, if there's none.
  *
  * @param name As set by the sender of the email. Optional.
  * @param emailAddress Used if there is no name.
  * @returns e.g. "Fred Flintstone" or "fred"
  */
 export function unknownPersonName(name: string | null | undefined, emailAddress: string | null | undefined): string {
-  let shortName = name?.
-    replace(/@.*/s, "").
-    replace(/ via .*/s, "").
-    trim().
-    substring(0, 30);
-  return shortName || emailAddress?.replace(/@.*/s, "").trim() || "";
+  let shortName = name?.split("@")[0].split(" via ")[0].trim().substring(0, 30);
+  return shortName || emailAddress?.split("@")[0].trim() || "";
 }
 
 export function nameFromEmailAddress(emailAddress: string): string {

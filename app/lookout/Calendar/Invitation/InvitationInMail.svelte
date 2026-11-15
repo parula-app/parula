@@ -175,7 +175,8 @@
 
   function replyText(message: EMail): string {
     let participant = message.event?.participants.find(participant => participant.matches(message.from)) ?? null;
-    let name = personDisplayName(participant) || personDisplayName(message.from);
+    // The participant's name is from the invitation, so it's not cut like `message.from.name`
+    let name = personDisplayName(participant) || message.from?.name || message.from?.emailAddress || "";
     if (message.outgoing) {
       return myResponseText(participant?.response);
     }
