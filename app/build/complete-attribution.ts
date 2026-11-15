@@ -8,6 +8,7 @@ import path from "node:path";
  *   but e.g. LICENCE or COPYING, or only the license name in package.json.
  *   For these, the generator writes only "license: MIT".
  * - NOTICE files, which the Apache license requires us to pass on.
+ * Then groups the packages by license text.
  *
  * Called by generate-attribution.sh with:
  * spdx-full.json output.txt projectDir attribution.txt [projectDir attribution.txt ...]
@@ -53,7 +54,36 @@ for (let i = 1; i < inputs.length; i += 2) {
 }
 let sorted = [...completed.values()].sort((a, b) =>
   a.split("\n")[0].localeCompare(b.split("\n")[0], undefined, { sensitivity: "accent", ignorePunctuation: true }));
-writeFileSync(outputFile, sorted.join(separator));
+
+// List the license text only once for all packages with the same license text, apart from the copyright lines
+const creditLine = /^(Copyright\s*(\([cC]\)|©|\d|[A-Z])|\([cC]\)\s*\d|©\s*\w|All rights reserved)/;
+// Order in the credits: MIT, BSD, X, Apache 2, public domain, others
+const categories = [
+  /^(?!.*except as contained in this notice the name).*permission is hereby granted free of charge/, // MIT without the clause of X
+  /redistribution and use in source and binary forms/,
+  /permission is hereby granted free of charge/, // X
+  /apache license version 2 0|version 2 0 january 2004/,
+  /released into the public domain|cc0 1 0 universal/,
+  /^/,
+];
+let groups = new Map<string, { category: number, license: string, credits: string[] }>();
+for (let entry of sorted) {
+  let [name, versionURL, ...lines] = entry.replaceAll("\r", "").split("\n");
+  let license = lines.filter(line => !creditLine.test(line.trim())).join("\n").replace(/\n(\s*\n){2,}/g, "\n\n").trim();
+  // Ignore the title (e.g. "MIT License" or "The MIT License (MIT)"), whitespace, quotes and other formatting,
+  // list labels like "(a)", and the appendix of the Apache license, which explains how to apply it
+  let key = license.split("\n")
+    .filter((line, i) => !(i == 0 && line.length <= 40 && /licen[cs]e|^\W*MIT\W*$/i.test(line)))
+    .join(" ").toLowerCase().replace(/end\s+of\s+terms\s+and\s+conditions.*/, "")
+    .split(/[^a-z0-9]+/).filter(word => word.length > 1 || /\d/.test(word)).join(" ");
+  let group = groups.get(key) ?? { category: categories.findIndex(category => category.test(key)), license, credits: [] };
+  group.credits.push([name, versionURL, ...new Set(lines.map(line => line.trim()).filter(line => creditLine.test(line)))].join("\n"));
+  groups.set(key, group);
+}
+let credits = [...groups.values()]
+  .sort((a, b) => a.category - b.category || b.credits.length - a.credits.length)
+  .map(group => group.credits.join("\n\n") + "\n\n------------------------------\n\n" + group.license);
+writeFileSync(outputFile, credits.join(separator));
 
 function findPackages(nodeModules: string) {
   if (!existsSync(nodeModules)) {
