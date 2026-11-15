@@ -57,11 +57,11 @@ let sorted = [...completed.values()].sort((a, b) =>
 
 // List the license text only once for all packages with the same license text, apart from the copyright lines
 const creditLine = /^(Copyright\s*(\([cC]\)|©|\d|[A-Z])|\([cC]\)\s*\d|©\s*\w|All rights reserved)/;
-// Order in the credits: MIT, BSD, X, Apache 2, public domain, others
+// Order in the credits: MIT, BSD, ISC, Apache 2, public domain, others
 const categories = [
-  /^(?!.*except as contained in this notice the name).*permission is hereby granted free of charge/, // MIT without the clause of X
+  /permission is hereby granted free of charge/,
   /redistribution and use in source and binary forms/,
-  /permission is hereby granted free of charge/, // X
+  /permission to use copy modify and (or )?distribute this software for any purpose with or without fee is hereby granted provided/,
   /apache license version 2 0|version 2 0 january 2004/,
   /released into the public domain|cc0 1 0 universal/,
   /^/,
@@ -70,12 +70,8 @@ let groups = new Map<string, { category: number, license: string, credits: strin
 for (let entry of sorted) {
   let [name, versionURL, ...lines] = entry.replaceAll("\r", "").split("\n");
   let license = lines.filter(line => !creditLine.test(line.trim())).join("\n").replace(/\n(\s*\n){2,}/g, "\n\n").trim();
-  // Ignore the title (e.g. "MIT License" or "The MIT License (MIT)"), whitespace, quotes and other formatting,
-  // list labels like "(a)", and the appendix of the Apache license, which explains how to apply it
-  let key = license.split("\n")
-    .filter((line, i) => !(i == 0 && line.length <= 40 && /licen[cs]e|^\W*MIT\W*$/i.test(line)))
-    .join(" ").toLowerCase().replace(/end\s+of\s+terms\s+and\s+conditions.*/, "")
-    .split(/[^a-z0-9]+/).filter(word => word.length > 1 || /\d/.test(word)).join(" ");
+  // Ignore only whitespace, quotes and other punctuation, and case, so that no text gets lost
+  let key = license.toLowerCase().split(/[^\p{L}\p{N}]+/u).join(" ").trim();
   let group = groups.get(key) ?? { category: categories.findIndex(category => category.test(key)), license, credits: [] };
   group.credits.push([name, versionURL, ...new Set(lines.map(line => line.trim()).filter(line => creditLine.test(line)))].join("\n"));
   groups.set(key, group);
