@@ -62,7 +62,7 @@
   import type { Event } from "../../logic/Calendar/Event";
   import { DateNavigatorMonth } from "./DateNavigatorMonth";
   import { shownCalendarEvents } from "./selected";
-  import { now } from "../Util/now";
+  import { now } from "./CurrentTimeMarker.svelte";
   import { changeMonth, getWeekNumber } from "../../logic/util/date";
   import MonthYearPicker from "./MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";
