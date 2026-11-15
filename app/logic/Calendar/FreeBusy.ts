@@ -69,7 +69,7 @@ export class FreeBusy {
     }
     let appointments = myEvents.filterOnce(event =>
       event != meeting && !event.allDay && event.busyStatus != FreeBusyStatus.Free &&
-      event.startTime < to && event.endTime > from
+      event.startTime.getTime() < to.getTime() && event.endTime.getTime() > from.getTime()
     ).contents.map(event => {
       let appointment = new FreeBusyEvent(event.startTime, event.endTime, event.busyStatus);
       appointment.title = event.title;
@@ -98,7 +98,7 @@ export class FreeBusy {
     if (!busy) {
       return "unknown";
     }
-    return busy.some(interval => interval.startTime < end && interval.endTime > start) ? "busy" : "free";
+    return busy.some(interval => interval.startTime.getTime() < end.getTime() && interval.endTime.getTime() > start.getTime()) ? "busy" : "free";
   }
 
   /**
@@ -113,7 +113,7 @@ export class FreeBusy {
       start.setHours(startHour, 0, 0, 0);
       let dayEnd = new Date(day);
       dayEnd.setHours(endHour, 0, 0, 0);
-      while (start < dayEnd) {
+      while (start.getTime() < dayEnd.getTime()) {
         let end = new Date(start);
         end.setMinutes(end.getMinutes() + minutes);
         let slot = new FreeBusySlot(start, end);
@@ -131,13 +131,13 @@ export class FreeBusy {
 
   static merge(intervals: TimeInterval[]): TimeInterval[] {
     let sorted = intervals
-      .filter(interval => interval.endTime > interval.startTime)
+      .filter(interval => interval.endTime.getTime() > interval.startTime.getTime())
       .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
     let merged: TimeInterval[] = [];
     for (let interval of sorted) {
       let last = merged.at(-1);
-      if (last && interval.startTime <= last.endTime) {
-        if (interval.endTime > last.endTime) {
+      if (last && interval.startTime.getTime() <= last.endTime.getTime()) {
+        if (interval.endTime.getTime() > last.endTime.getTime()) {
           last.endTime = new Date(interval.endTime);
         }
       } else {

@@ -35,7 +35,7 @@
   export let selectedTime: Date;
   export let isOrganizer = false;
 
-  $: options = syncArrayColl(bookMe.options, date => date);
+  $: options = syncArrayColl(bookMe.options, date => date.getTime());
 
   $: focusOption = $options.first;
 </script>

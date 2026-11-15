@@ -361,7 +361,7 @@ export class WhatsAppBackupImport {
     room.messages.addAll(newMessages);
     let last = room.messages.contents
       .filter((msg): msg is ChatMessage => msg instanceof ChatMessage)
-      .reduce((last, msg) => !last || msg.sent > last.sent ? msg : last, null);
+      .reduce((last, msg) => !last || msg.sent.getTime() > last.sent.getTime() ? msg : last, null);
     if (last) {
       room.lastMessage = last;
     }

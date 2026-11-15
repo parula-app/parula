@@ -104,7 +104,7 @@ export abstract class AmazonPurchaseProcessor extends HTMLDataProcessor {
           purchase.shopName = "Amazon";
         }
 
-        if (!purchase.updated || purchase.updated < email.sent) {
+        if (!purchase.updated || purchase.updated.getTime() < email.sent.getTime()) {
           // Delivery status
           // rio numbers are 1 higher when active vs. in-active
           if (doc.querySelector(".rio-text-418, .rio-text-314")) {

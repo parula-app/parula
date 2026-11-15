@@ -215,7 +215,7 @@ export class XMPPChat extends ChatRoom {
     target.deliveryStatus = status;
     if (alsoEarlier) {
       for (let msg of this.messages) {
-        if (msg instanceof ChatMessage && msg.outgoing && msg.sent <= target.sent &&
+        if (msg instanceof ChatMessage && msg.outgoing && msg.sent.getTime() <= target.sent.getTime() &&
             msg.deliveryStatus != DeliveryStatus.Seen) {
           msg.deliveryStatus = status;
         }
@@ -405,7 +405,7 @@ export class XMPPChat extends ChatRoom {
     await SQLChatMessage.readAll(this);
     this.lastMessage = this.messages.contents
       .filter((msg): msg is ChatMessage => msg instanceof ChatMessage)
-      .reduce((last, msg) => !last || msg.sent > last.sent ? msg : last, null);
+      .reduce((last, msg) => !last || msg.sent.getTime() > last.sent.getTime() ? msg : last, null);
   }
 
   /** First sync: Gets all messages of this chat from the server archive,

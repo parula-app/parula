@@ -85,7 +85,7 @@
   }
 
   function isInRange(event: Event): boolean {
-    return event.startTime < rangeEnd && event.endTime > rangeStart;
+    return event.startTime.getTime() < rangeEnd.getTime() && event.endTime.getTime() > rangeStart.getTime();
   }
 
   function slotAt(clientX: number): number {

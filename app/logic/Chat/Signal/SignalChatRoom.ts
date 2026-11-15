@@ -105,6 +105,6 @@ export class SignalChatRoom extends ChatRoom {
     await SQLChatMessage.readAll(this);
     this.lastMessage = this.messages.contents
       .filter((m): m is ChatMessage => m instanceof ChatMessage)
-      .reduce((last, m) => !last || m.sent > last.sent ? m : last, null as ChatMessage | null);
+      .reduce((last, m) => !last || m.sent.getTime() > last.sent.getTime() ? m : last, null as ChatMessage | null);
   }
 }

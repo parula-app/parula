@@ -28,7 +28,7 @@
 
   export let sml: SMLData;
   $: timePoll = $sml.sml as any as TSMLTimePoll;
-  $: options = syncArrayColl(timePoll.options, date => date);
+  $: options = syncArrayColl(timePoll.options, date => date.getTime());
 </script>
 
 <style>

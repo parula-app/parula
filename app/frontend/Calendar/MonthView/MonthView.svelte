@@ -50,7 +50,7 @@
   function filterEvents() {
     let rangeStart = range.start;
     let rangeEnd = range.end;
-    filteredEvents = events.filterObservable(ev => ev.startTime && ev.startTime < rangeEnd && rangeStart < ev.endTime);
+    filteredEvents = events.filterObservable(ev => ev.startTime && ev.startTime.getTime() < rangeEnd.getTime() && rangeStart.getTime() < ev.endTime.getTime());
   }
 
   function onScrollWheel(event: WheelEvent) {

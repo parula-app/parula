@@ -104,7 +104,7 @@ export class WhatsAppChatRoom extends ChatRoom {
       return false; // a type we cannot display (call, poll, system event, …)
     }
     this.messages.add(message);
-    if (!this.lastMessage || message.sent > this.lastMessage.sent) {
+    if (!this.lastMessage || message.sent.getTime() > this.lastMessage.sent.getTime()) {
       this.lastMessage = message;
     }
     await message.save();
@@ -171,7 +171,7 @@ export class WhatsAppChatRoom extends ChatRoom {
   protected updateLastMessage() {
     this.lastMessage = this.messages.contents
       .filter((msg): msg is WhatsAppMessage => msg instanceof WhatsAppMessage)
-      .reduce((last, msg) => !last || msg.sent > last.sent ? msg : last, null);
+      .reduce((last, msg) => !last || msg.sent.getTime() > last.sent.getTime() ? msg : last, null);
   }
 
   /** Sends our user's message to this chat: encrypts it per recipient device and

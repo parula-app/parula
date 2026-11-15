@@ -39,11 +39,11 @@ export class ICalTimezone {
     let first: ICalTimezoneObservance | null = null;
     for (let observance of this.observances) {
       let start = observance.lastStartNotAfter(local);
-      if (start && !(currentStart && currentStart >= start)) {
+      if (start && !(currentStart && currentStart.getTime() >= start.getTime())) {
         current = observance;
         currentStart = start;
       }
-      if (!first || observance.start < first.start) {
+      if (!first || observance.start.getTime() < first.start.getTime()) {
         first = observance;
       }
     }
@@ -91,7 +91,7 @@ class ICalTimezoneObservance {
   lastStartNotAfter(local: Date): Date | null {
     let last: Date | null = null;
     for (let start of [this.start, ...this.additionalStarts, ...this.rule?.startsNear(local) ?? []]) {
-      if (start <= local && !(last && last >= start)) {
+      if (start.getTime() <= local.getTime() && !(last && last.getTime() >= start.getTime())) {
         last = start;
       }
     }
@@ -150,7 +150,7 @@ class ICalTimezoneRule {
     let year = Math.min(local.getUTCFullYear(), this.until?.getUTCFullYear() ?? Infinity);
     return [year - 1, year]
       .map(year => this.startIn(year))
-      .filter((start): start is Date => !!start && start >= this.start && !(this.until && start > this.until));
+      .filter((start): start is Date => !!start && start.getTime() >= this.start.getTime() && !(this.until && start.getTime() > this.until.getTime()));
   }
 
   protected startIn(year: number): Date | null {

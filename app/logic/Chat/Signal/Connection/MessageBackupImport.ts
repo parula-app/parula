@@ -138,7 +138,7 @@ export class MessageBackupImport {
       if (!messages.length) {
         continue;
       }
-      room.lastMessage = messages.reduce((a, b) => a.sent > b.sent ? a : b);
+      room.lastMessage = messages.reduce((a, b) => a.sent.getTime() > b.sent.getTime() ? a : b);
       await room.saveNewMessages(messages);
     }
     signalLog(`Signal: imported ${stats.messages} message(s) into ${perRoom.size} chat(s); ${stats.attachments} attachment(s) downloading; skipped ${stats.systemSkipped} system item(s), ${stats.unresolved} unresolved`);

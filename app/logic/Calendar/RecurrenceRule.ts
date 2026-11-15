@@ -291,22 +291,22 @@ export class RecurrenceRule implements Readonly<Omit<RecurrenceInit, "seriesStar
 
   getOccurrenceAfter(date: Date): Date | undefined {
     this.fillOccurrences(this.count, date);
-    return this.occurrences.find(occurrence => occurrence > date);
+    return this.occurrences.find(occurrence => occurrence.getTime() > date.getTime());
   }
 
   getOccurrenceBefore(date: Date): Date | undefined {
     this.fillOccurrences(this.count, date);
-    return this.occurrences.findLast(occurrence => occurrence < date);
+    return this.occurrences.findLast(occurrence => occurrence.getTime() < date.getTime());
   }
 
   getOccurrenceNotAfter(date: Date): Date | undefined {
     this.fillOccurrences(this.count, date);
-    return this.occurrences.findLast(occurrence => occurrence <= date);
+    return this.occurrences.findLast(occurrence => occurrence.getTime() <= date.getTime());
   }
 
   getOccurrenceNotBefore(date: Date): Date | undefined {
     this.fillOccurrences(this.count, date);
-    return this.occurrences.find(occurrence => occurrence >= date);
+    return this.occurrences.find(occurrence => occurrence.getTime() >= date.getTime());
   }
 
   getOccurrencesByDate(seriesEndTime: Date/*, seriesStartTime: Date = this.seriesStartTime*/): Date[] {
@@ -322,7 +322,7 @@ export class RecurrenceRule implements Readonly<Omit<RecurrenceInit, "seriesStar
   }
 
   getIndexOfOccurrence(date: Date): number {
-    if (this.seriesEndTime && this.seriesEndTime < date) {
+    if (this.seriesEndTime && this.seriesEndTime.getTime() < date.getTime()) {
       return -1;
     }
     this.fillOccurrences(this.count, date);
@@ -330,7 +330,7 @@ export class RecurrenceRule implements Readonly<Omit<RecurrenceInit, "seriesStar
   }
 
   fillOccurrences(count: number, date?: Date) {
-    while (this.occurrences.length < count && (!date || this.occurrences.at(-1)! <= date)) {
+    while (this.occurrences.length < count && (!date || this.occurrences.at(-1)!.getTime() <= date.getTime())) {
       switch (this.frequency) {
       case Frequency.Daily:
         this.day += this.interval;
@@ -401,7 +401,7 @@ export class RecurrenceRule implements Readonly<Omit<RecurrenceInit, "seriesStar
         occurrence = new Date(occurrence.getTime() - offset);
       }
       // Don't allow more occurrences than the series wants
-      if (this.seriesEndTime && occurrence > this.seriesEndTime) {
+      if (this.seriesEndTime && occurrence.getTime() > this.seriesEndTime.getTime()) {
         break;
       }
       this.occurrences.push(occurrence);

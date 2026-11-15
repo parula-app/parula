@@ -40,7 +40,7 @@ export class DayPreviewLayout {
     let dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
     let events: Event[] = [];
     for (let dayEvent of calendarEvents) {
-      if (dayEvent.startTime < dayEnd && dayEvent.endTime > day && !dayEvent.recurrenceRule) {
+      if (dayEvent.startTime.getTime() < dayEnd.getTime() && dayEvent.endTime.getTime() > day.getTime() && !dayEvent.recurrenceRule) {
         events.push(dayEvent);
       }
     }

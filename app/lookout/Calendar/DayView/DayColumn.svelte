@@ -68,8 +68,8 @@
   let columnEl: HTMLDivElement;
   let newEventMenu: NewEventCalendarMenu;
 
-  let dayStart: Date;
-  let dayEnd: Date;
+  $: dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+  $: dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
   let dayEvents: Collection<Event>;
   let dayEventsFrom: Collection<Event>;
   $: filterEvents(events);
@@ -79,15 +79,13 @@
       dayEvents = source.filterObservable(isInDay);
     }
   }
-  $: day, filterDay();
+  $: dayStart, dayEnd, filterDay();
   function filterDay() {
-    dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-    dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
     dayEvents.replaceAll(events.contents.filter(isInDay));
   }
 
   function isInDay(event: Event): boolean {
-    return event.startTime < dayEnd && event.endTime > dayStart;
+    return event.startTime.getTime() < dayEnd.getTime() && event.endTime.getTime() > dayStart.getTime();
   }
   // $: offWork = workingHours?.offWorkMinutes(day) ?? [];
   $: layout = derived([...$dayEvents.contents], eventsInDay =>

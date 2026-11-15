@@ -19,11 +19,11 @@ export class TimeColumnLayout {
     let dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
     let minuteOf = (time: Date) => time.getHours() * 60 + time.getMinutes();
     for (let event of events) {
-      if (!(event.startTime < dayEnd && event.endTime > dayStart)) {
+      if (!(event.startTime.getTime() < dayEnd.getTime() && event.endTime.getTime() > dayStart.getTime())) {
         continue;
       }
-      let continuesBefore = event.startTime < dayStart;
-      let continuesAfter = event.endTime > dayEnd;
+      let continuesBefore = event.startTime.getTime() < dayStart.getTime();
+      let continuesAfter = event.endTime.getTime() > dayEnd.getTime();
       let startMinute = continuesBefore ? 0 : minuteOf(event.startTime);
       let endMinute = continuesAfter || event.endTime.getTime() == dayEnd.getTime()
         ? TimeColumnLayout.kMinutesPerDay

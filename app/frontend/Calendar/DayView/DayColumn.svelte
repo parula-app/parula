@@ -57,7 +57,7 @@
     let dayStart = hourStarts[0];
     let dayEnd = new Date(day);
     dayEnd.setHours(endHour, 0, 0, 0);
-    let isInDay = (ev: Event) => ev.startTime < dayEnd && ev.endTime > dayStart && !ev.allDay;
+    let isInDay = (ev: Event) => ev.startTime.getTime() < dayEnd.getTime() && ev.endTime.getTime() > dayStart.getTime() && !ev.allDay;
     dayEvents = events.filterObservable(isInDay);
     dayOverlayEvents = overlayEvents?.filterObservable(isInDay) ?? new ArrayColl<Event>();
   }

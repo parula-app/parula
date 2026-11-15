@@ -21,7 +21,7 @@ export function layoutDayRow(events: Event[], days: Date[]): DayRowLayout {
     dayEnd.setDate(dayEnd.getDate() + 1);
     return dayEnd;
   });
-  let isOnDay = (event: Event, i: number) => event.startTime < dayEnds[i] && event.endTime > days[i];
+  let isOnDay = (event: Event, i: number) => event.startTime.getTime() < dayEnds[i].getTime() && event.endTime.getTime() > days[i].getTime();
 
   let items: EventInDayRow[] = [];
   for (let event of events) {
@@ -35,8 +35,8 @@ export function layoutDayRow(events: Event[], days: Date[]): DayRowLayout {
     }
     items.push({
       event, startDay, endDay, lane: 0,
-      continuesBefore: event.startTime < days[startDay],
-      continuesAfter: event.endTime > dayEnds[endDay - 1],
+      continuesBefore: event.startTime.getTime() < days[startDay].getTime(),
+      continuesAfter: event.endTime.getTime() > dayEnds[endDay - 1].getTime(),
     });
   }
 

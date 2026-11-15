@@ -153,8 +153,8 @@
   maxUpcoming.setMinutes(59);
   const maxPrevious = new Date();
   maxPrevious.setDate(maxPrevious.getDate() - 14); // last 14 days
-  const upcomingMeetings = appGlobal.calendarEvents.filterObservable(event => event.startTime > now && event.startTime < maxUpcoming);
-  const previousMeetings = appGlobal.calendarEvents.filterObservable(event => event.startTime < now && event.startTime > maxPrevious).reverse();
+  const upcomingMeetings = appGlobal.calendarEvents.filterObservable(event => event.startTime.getTime() > now.getTime() && event.startTime.getTime() < maxUpcoming.getTime());
+  const previousMeetings = appGlobal.calendarEvents.filterObservable(event => event.startTime.getTime() < now.getTime() && event.startTime.getTime() > maxPrevious.getTime()).reverse();
 
   let selectedAccount = appGlobal.meetAccounts.first;
   let conferenceURL: string;

@@ -51,7 +51,7 @@ function waitForNextReminder() {
   clearTimeout(timeout);
   let nextAlarm: Date | null = null;
   for (let event of eventsWithAlarms) {
-    if (event.alarm.getTime() > lastRemindTime && (!nextAlarm || event.alarm < nextAlarm)) {
+    if (event.alarm.getTime() > lastRemindTime && (!nextAlarm || event.alarm.getTime() < nextAlarm.getTime())) {
       nextAlarm = event.alarm;
     }
   }

@@ -121,7 +121,7 @@ export class Folder extends Observable {
     const kDaysPast = 14;
     let oldest = new Date();
     oldest.setDate(oldest.getDate() - kDaysPast);
-    return await this.downloadSmallMessagesFirst(emails.filterOnce(msg => msg.received > oldest));
+    return await this.downloadSmallMessagesFirst(emails.filterOnce(msg => msg.received.getTime() > oldest.getTime()));
   }
 
   /** Downloads the entire MIME of the given emails.

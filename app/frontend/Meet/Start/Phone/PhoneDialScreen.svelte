@@ -155,7 +155,7 @@
   maxUpcoming.setMinutes(59);
   const maxPrevious = new Date();
   maxPrevious.setDate(maxPrevious.getDate() - 14); // last 14 days
-  const upcomingMeetings = appGlobal.calendarEvents.filterObservable(event => event.startTime > now && event.startTime < maxUpcoming);
+  const upcomingMeetings = appGlobal.calendarEvents.filterObservable(event => event.startTime.getTime() > now.getTime() && event.startTime.getTime() < maxUpcoming.getTime());
   const previousCalls = new ArrayColl<PersonUID>(); // appGlobal.calendarEvents.filterObservable(event => event.startTime < now && event.startTime > maxPrevious).reverse();
 
   let phoneNumber = "";

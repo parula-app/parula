@@ -130,7 +130,7 @@
   }
 
   function isInRange(event: Event): boolean {
-    return event.startTime < range.end && event.endTime > range.start;
+    return event.startTime.getTime() < range.end.getTime() && event.endTime.getTime() > range.start.getTime();
   }
 
   // <copied to="../DisplayEvent/EventInDayView.ts">

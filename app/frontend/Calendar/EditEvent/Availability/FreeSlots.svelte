@@ -34,7 +34,7 @@
                   <Clickable onClick={() => expandedSlot = expandedSlot == slot ? null : slot}>
                     <vbox class="slot font-small availability-{slot.availability}"
                       style="grid-row: {r + 2}; grid-column: {i + 2}"
-                      class:meeting={slot.startTime < $event.endTime && slot.endTime > $event.startTime}
+                      class:meeting={slot.startTime.getTime() < $event.endTime.getTime() && slot.endTime.getTime() > $event.startTime.getTime()}
                       class:expanded={expandedSlot == slot}
                       title={slotDetails(slot)}>
                       <hbox class="time">

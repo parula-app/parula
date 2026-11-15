@@ -40,7 +40,7 @@
     let weekStart = days[0];
     let weekEnd = new Date(days[days.length - 1]);
     weekEnd.setDate(weekEnd.getDate() + 1);
-    weekEvents = events.filterObservable(ev => ev.startTime && ev.startTime < weekEnd && ev.endTime > weekStart);
+    weekEvents = events.filterObservable(ev => ev.startTime && ev.startTime.getTime() < weekEnd.getTime() && ev.endTime.getTime() > weekStart.getTime());
   }
 
   let lanesE: HTMLElement;

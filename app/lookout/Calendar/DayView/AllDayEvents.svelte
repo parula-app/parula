@@ -82,7 +82,7 @@
 
   function isSelected(day: Date, selection: SlotSelection | null): boolean {
     return !!selection && selection.allDay && selection.calendar == calendar &&
-      selection.start <= day && day < selection.end;
+      selection.start.getTime() <= day.getTime() && day.getTime() < selection.end.getTime();
   }
 
   function onClick(mouseEvent: MouseEvent) {

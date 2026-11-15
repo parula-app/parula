@@ -269,7 +269,7 @@ export class Event extends Observable {
       let nowStart = new Date(Date.now() - this.duration * 1000);
       return !!this.recurrenceRule.getOccurrenceAfter(nowStart);
     }
-    return this.endTime > new Date();
+    return this.endTime.getTime() > Date.now();
   }
 
   /** in seconds */
@@ -990,9 +990,10 @@ export class Event extends Observable {
     await this.trimExceptionsAndExclusions(seriesEndTime);
   }
 
+  /** @param seriesEndTime undefined, if `setRecurrenceCount()` has no occurrence at the count. Then this trims nothing. */
   protected async trimExceptionsAndExclusions(seriesEndTime: Date) {
-    this.exclusions.removeAll(this.exclusions.filterOnce(exclusion => exclusion > seriesEndTime));
-    let exceptions = this.exceptions.filterOnce(exception => exception.recurrenceStartTime > seriesEndTime);
+    this.exclusions.removeAll(this.exclusions.filterOnce(exclusion => exclusion.getTime() > seriesEndTime?.getTime()));
+    let exceptions = this.exceptions.filterOnce(exception => exception.recurrenceStartTime.getTime() > seriesEndTime?.getTime());
     this.exceptions.removeAll(exceptions);
     for (let exception of exceptions) {
       // not using delete because that creates exclusions
@@ -1015,12 +1016,13 @@ export class Event extends Observable {
     master.startEditing();
     let lastException = this.recurrenceStartTime;
     for (let exception of master.exceptions) {
-      if (exception.recurrenceStartTime > lastException) {
+      if (exception.recurrenceStartTime.getTime() > lastException.getTime()) {
         lastException = exception.recurrenceStartTime;
       }
     }
     master.generateRecurringInstances(lastException);
-    let exclusions = master.instances.contents.filter(event => event.recurrenceStartTime> this.recurrenceStartTime && event.recurrenceStartTime < lastException);
+    // `instances` includes the master, which has no `recurrenceStartTime`
+    let exclusions = master.instances.contents.filter(event => event.recurrenceStartTime?.getTime() > this.recurrenceStartTime.getTime() && event.recurrenceStartTime?.getTime() < lastException.getTime());
     if (lastException > this.recurrenceStartTime) {
       // Isn't cache invalidation fun!
       exclusions.push(master.getOccurrenceByDate(this.recurrenceStartTime));

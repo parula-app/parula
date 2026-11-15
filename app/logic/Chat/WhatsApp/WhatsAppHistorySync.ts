@@ -245,7 +245,7 @@ export class WhatsAppHistorySync {
  * before. Picks the earliest by sent time; null for an empty room. */
 function oldestMessage(room: WhatsAppChatRoom): { id: string, sent: Date, outgoing: boolean } | null {
   let oldest = room.messages.contents.reduce(
-    (earliest, msg) => !earliest || msg.sent < earliest.sent ? msg : earliest,
+    (earliest, msg) => !earliest || msg.sent.getTime() < earliest.sent.getTime() ? msg : earliest,
     null as { id: string, sent: Date, outgoing: boolean } | null);
   return oldest?.id ? oldest : null;
 }

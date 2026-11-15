@@ -29,8 +29,8 @@
   export let isRangeEmpty: boolean;
   export let startOffset = 0;
 
-  $: previousEvent = isRangeEmpty ? $events.contents.findLast(event => event.endTime <= range.start) ?? null : null;
-  $: nextEvent = isRangeEmpty ? $events.contents.find(event => event.startTime >= range.end) ?? null : null;
+  $: previousEvent = isRangeEmpty ? $events.contents.findLast(event => event.endTime.getTime() <= range.start.getTime()) ?? null : null;
+  $: nextEvent = isRangeEmpty ? $events.contents.find(event => event.startTime.getTime() >= range.end.getTime()) ?? null : null;
 
   function goTo(event: Event) {
     $startDate = event.startTime;

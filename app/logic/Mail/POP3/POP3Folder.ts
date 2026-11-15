@@ -81,7 +81,7 @@ export class POP3Folder extends Folder {
     const kListAllBelow = 1000;
     const kListAllAfterHours = 24;
     let deleteBefore = this.account.deleteFromServerBefore();
-    let haveExpired = deleteBefore && this.downloaded.contents.some(date => date <= deleteBefore);
+    let haveExpired = deleteBefore && this.downloaded.contents.some(date => date.getTime() <= deleteBefore.getTime());
     let listAll = !this.anchor || count < this.anchor.number || count < kListAllBelow || haveExpired ||
       count - this.anchor.number > (conn.pipelining ? 2000 : 20) ||
       Date.now() - (this.lastFullListing?.getTime() ?? 0) > kListAllAfterHours * 60 * 60 * 1000;
@@ -176,7 +176,7 @@ export class POP3Folder extends Folder {
       return;
     }
     let numbers = [...listing.entries()]
-      .filter(([number, uidl]) => this.downloaded.get(uidl) <= deleteBefore)
+      .filter(([number, uidl]) => this.downloaded.get(uidl)?.getTime() <= deleteBefore.getTime()) // not downloaded: false
       .map(([number]) => number);
     const kBatchSize = 100;
     for (let i = 0; i < numbers.length; i += kBatchSize) {

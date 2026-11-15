@@ -85,19 +85,16 @@
   let height = 0;
   $: rows = Math.max(Math.floor((height - kHeaderHeight - 2) / kLineHeight * WeekRowLayout.kRowsPerLine), WeekRowLayout.kRowsPerLine);
 
-  let weekStart: Date;
-  let weekEnd: Date;
+  $: weekStart = days[0];
+  $: weekEnd = new Date(days[days.length - 1].getFullYear(), days[days.length - 1].getMonth(), days[days.length - 1].getDate() + 1);
   $: weekEvents = events.filterObservable(isInWeek);
-  $: days, filterWeek();
+  $: weekStart, weekEnd, filterWeek();
   function filterWeek() {
-    weekStart = days[0];
-    let lastDay = days[days.length - 1];
-    weekEnd = new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate() + 1);
     weekEvents.replaceAll(events.contents.filter(isInWeek));
   }
 
   function isInWeek(event: Event): boolean {
-    return event.startTime < weekEnd && event.endTime > weekStart;
+    return event.startTime.getTime() < weekEnd.getTime() && event.endTime.getTime() > weekStart.getTime();
   }
   $: layout = derived([...$weekEvents.contents], eventsInWeek => new WeekRowLayout(eventsInWeek, days, rows));
 
@@ -133,7 +130,7 @@
   }
 
   function isSelected(day: Date, selection: SlotSelection | null): boolean {
-    return !!selection && selection.allDay && selection.start <= day && day < selection.end;
+    return !!selection && selection.allDay && selection.start.getTime() <= day.getTime() && day.getTime() < selection.end.getTime();
   }
 
   function onClick(mouseEvent: MouseEvent) {

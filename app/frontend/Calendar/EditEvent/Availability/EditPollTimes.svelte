@@ -25,7 +25,7 @@
   export let event: Event;
   export let sml: SMLData;
 
-  $: options = syncArrayColl((sml.sml as TSMLMeetingTimePoll).options, date => date);
+  $: options = syncArrayColl((sml.sml as TSMLMeetingTimePoll).options, date => date.getTime());
 </script>
 
 <style>

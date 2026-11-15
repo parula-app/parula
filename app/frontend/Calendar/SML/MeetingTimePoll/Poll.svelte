@@ -64,7 +64,7 @@
   export let myReaction: TSMLAction;
 
   $: timePoll = $sml.sml as any as TSMLTimePoll;
-  $: options = syncArrayColl(timePoll.options, date => date);
+  $: options = syncArrayColl(timePoll.options, date => date.getTime());
   $: myVotes = syncArrayColl(myReaction.object as TSMLMeetingTimeVote[] ?? []);
 
   let showCalendar = false;

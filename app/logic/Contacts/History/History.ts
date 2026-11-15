@@ -77,7 +77,7 @@ async function getCalendarEvents(person: Person, limit: number): Promise<Collect
   for (let event of appGlobal.calendarEvents) {
     if (event.participants.hasItems &&
         event.participants.find(puid => puid.matchesPerson(person))) {
-      if (event.recurrenceCase == RecurrenceCase.Instance && event.startTime > future1Week) {
+      if (event.recurrenceCase == RecurrenceCase.Instance && event.startTime.getTime() > future1Week.getTime()) {
         continue; // Don't show recurring events more than 1 week in the future
       }
       events.add(event);

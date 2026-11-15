@@ -33,7 +33,7 @@
     search.threadID = message.threadID;
     threadMessages.clear();
     let msgs = await search.startSearch();
-    msgs = msgs.sortBy(email => email.sent);
+    msgs = msgs.sortBy(email => email.sent.getTime());
     threadMessages.addAll(msgs);
     for (let msg of threadMessages) {
       msg.html;

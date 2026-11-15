@@ -78,7 +78,7 @@ export class CalendarRange {
   }
 
   contains(time: Date): boolean {
-    return this.start <= time && time < this.end;
+    return this.start.getTime() <= time.getTime() && time.getTime() < this.end.getTime();
   }
 
   isInMonth(day: Date): boolean {

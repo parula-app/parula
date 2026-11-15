@@ -59,7 +59,7 @@
   }
 
   function isBefore(day: Date, limit: Date): boolean {
-    return !!limit && new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1) <= limit;
+    return !!limit && new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime() <= limit.getTime();
   }
 </script>
 

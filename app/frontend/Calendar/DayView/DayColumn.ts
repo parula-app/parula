@@ -23,13 +23,13 @@ export function layoutTimeColumn(events: Event[], day: Date, startHour = 0, endH
 
   let items: EventInTimeColumn[] = [];
   for (let event of events) {
-    if (!(event.startTime < columnEnd && event.endTime > columnStart)) {
+    if (!(event.startTime.getTime() < columnEnd.getTime() && event.endTime.getTime() > columnStart.getTime())) {
       continue;
     }
-    let continuesBefore = event.startTime < columnStart;
-    let continuesAfter = event.endTime > columnEnd;
+    let continuesBefore = event.startTime.getTime() < columnStart.getTime();
+    let continuesAfter = event.endTime.getTime() > columnEnd.getTime();
     let startRow = continuesBefore ? 0 : Math.min(Math.floor(rowOf(event.startTime)), rows - 1);
-    let endRow = event.endTime >= columnEnd ? rows : Math.ceil(rowOf(event.endTime));
+    let endRow = event.endTime.getTime() >= columnEnd.getTime() ? rows : Math.ceil(rowOf(event.endTime));
     endRow = Math.max(endRow, startRow + 1);
     items.push({ event, startRow, endRow, lane: 0, lanes: 1, continuesBefore, continuesAfter });
   }

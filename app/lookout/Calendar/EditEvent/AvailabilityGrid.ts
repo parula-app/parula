@@ -38,10 +38,10 @@ export class Timeline {
   }
 
   x(time: Date): number {
-    if (time <= this.day) {
+    if (time.getTime() <= this.day.getTime()) {
       return 0;
     }
-    if (time >= this.dayEnd) {
+    if (time.getTime() >= this.dayEnd.getTime()) {
       return this.width;
     }
     const kDayMS = 24 * 60 * 60 * 1000;
@@ -51,7 +51,7 @@ export class Timeline {
   }
 
   span(from: Date, to: Date): { left: number, width: number } | null {
-    if (to <= this.day || from >= this.dayEnd || to < from) {
+    if (to.getTime() <= this.day.getTime() || from.getTime() >= this.dayEnd.getTime() || to.getTime() < from.getTime()) {
       return null;
     }
     let left = this.x(from);

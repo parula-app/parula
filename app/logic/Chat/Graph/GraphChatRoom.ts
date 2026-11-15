@@ -78,7 +78,7 @@ export class GraphChatRoom extends ChatRoom {
       }
       let msg = this.newMessage();
       await msg.fromGraph(messageJSON);
-      msg.isRead = this.lastReadTime && msg.received && this.lastReadTime > msg.received;
+      msg.isRead = this.lastReadTime && msg.received && this.lastReadTime.getTime() > msg.received.getTime();
       this.messages.add(msg);
       await msg.save();
     }
@@ -87,7 +87,7 @@ export class GraphChatRoom extends ChatRoom {
   protected updatedLastRead() {
     for (let msg of this.messages) {
       if (!msg.isRead) {
-        msg.isRead = this.lastReadTime && msg.received && this.lastReadTime > msg.received;
+        msg.isRead = this.lastReadTime && msg.received && this.lastReadTime.getTime() > msg.received.getTime();
       }
     }
   }

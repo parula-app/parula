@@ -267,7 +267,7 @@ class FakeFolder extends Folder {
         messages.add(msg);
       }
     }
-    this.messages.addAll(messages.sortBy(msg => msg.received));
+    this.messages.addAll(messages.sortBy(msg => msg.received.getTime()));
     return this.messages;
   }
   async getNewMessages(): Promise<Collection<EMail>> {
@@ -302,7 +302,7 @@ class FakeEMail extends EMail {
     this.sent = faker.date.recent({ days: 30 });
     this.received = new Date(this.sent.getTime() + 500);
     this.size = Math.ceil(Math.random() * 2048 + 200);
-    this.isRead = this.received < lastReadTime;
+    this.isRead = this.received.getTime() < lastReadTime.getTime();
     this.subject = faker.hacker.phrase().replace("!", "").replace(/,.*/, "");
     this.outgoing = Math.random() < 0.4;
     this.contact = person;
@@ -417,7 +417,7 @@ class FakeChat extends ChatRoom {
       this.messages.add(msg);
       lastTime = msg.sent;
     }
-    this.lastMessage = this.messages.sortBy(msg => msg.sent).last as ChatMessage;
+    this.lastMessage = this.messages.sortBy(msg => msg.sent.getTime()).last as ChatMessage;
   }
   newMessage(): FakeChatMessage {
     return new FakeChatMessage(this);

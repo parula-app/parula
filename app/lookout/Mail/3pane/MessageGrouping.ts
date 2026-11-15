@@ -60,26 +60,26 @@ export class DateGroups {
   groupOf(date: Date): GroupKey {
     if (!date) {
       return { id: "none", label: gt`No date` };
-    } else if (date >= this.tomorrowStart) {
+    } else if (date.getTime() >= this.tomorrowStart.getTime()) {
       return { id: "future", label: gt`Future *=> Group of emails with a date in the future` };
-    } else if (date >= this.todayStart) {
+    } else if (date.getTime() >= this.todayStart.getTime()) {
       return { id: "today", label: gt`Today` };
-    } else if (date >= this.yesterdayStart) {
+    } else if (date.getTime() >= this.yesterdayStart.getTime()) {
       return { id: "yesterday", label: gt`Yesterday *=> The day before today` };
-    } else if (date >= this.weekStart) {
+    } else if (date.getTime() >= this.weekStart.getTime()) {
       return {
         id: "weekday-" + date.getDay(),
         label: date.toLocaleDateString(getDateTimeLocale(), { weekday: "long" }),
       };
-    } else if (date >= this.lastWeekStart) {
+    } else if (date.getTime() >= this.lastWeekStart.getTime()) {
       return { id: "last-week", label: gt`Last Week` };
-    } else if (date >= this.twoWeeksAgoStart) {
+    } else if (date.getTime() >= this.twoWeeksAgoStart.getTime()) {
       return { id: "two-weeks-ago", label: gt`Two Weeks Ago` };
-    } else if (date >= this.threeWeeksAgoStart) {
+    } else if (date.getTime() >= this.threeWeeksAgoStart.getTime()) {
       return { id: "three-weeks-ago", label: gt`Three Weeks Ago` };
-    } else if (date >= this.monthStart) {
+    } else if (date.getTime() >= this.monthStart.getTime()) {
       return { id: "earlier-this-month", label: gt`Earlier this Month` };
-    } else if (date >= this.lastMonthStart) {
+    } else if (date.getTime() >= this.lastMonthStart.getTime()) {
       return { id: "last-month", label: gt`Last Month` };
     } else {
       return { id: "older", label: gt`Older *=> Group of emails older than last month` };

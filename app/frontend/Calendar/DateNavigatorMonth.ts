@@ -20,7 +20,7 @@ export class DateNavigatorMonth {
 
   shownWeeks(showDaysBefore: boolean, showDaysAfter: boolean): (Date | null)[][] {
     let weeks = this.weeks.map(week => week.map(day =>
-      this.isInMonth(day) || showDaysBefore && day < this.month || showDaysAfter && day > this.month ? day : null));
+      this.isInMonth(day) || showDaysBefore && day.getTime() < this.month.getTime() || showDaysAfter && day.getTime() > this.month.getTime() ? day : null));
     return weeks.filter(week => week.some(day => day && this.isInMonth(day)) || showDaysAfter && week.some(Boolean));
   }
 
@@ -55,15 +55,15 @@ export class DateNavigatorMonth {
     let end = this.end;
     let keys = new Set<string>();
     for (let event of events) {
-      if (!(event.startTime < end && event.endTime > first)) {
+      if (!(event.startTime.getTime() < end.getTime() && event.endTime.getTime() > first.getTime())) {
         continue;
       }
-      let start = event.startTime > first ? event.startTime : first;
+      let start = event.startTime.getTime() > first.getTime() ? event.startTime : first;
       let day = new Date(start.getFullYear(), start.getMonth(), start.getDate());
       do {
         keys.add(DateNavigatorMonth.dayKey(day));
         day.setDate(day.getDate() + 1);
-      } while (day < event.endTime && day < end);
+      } while (day.getTime() < event.endTime.getTime() && day.getTime() < end.getTime());
     }
     return keys;
   }

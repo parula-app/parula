@@ -192,7 +192,7 @@
   const now = new Date();
   const maxUpcoming = new Date(); // TODO now + 15 min
   maxUpcoming.setMinutes(maxUpcoming.getMinutes() + 15);
-  const upcomingMeetings = appGlobal.calendarEvents.filterObservable(event => event.startTime > now && event.startTime < maxUpcoming);
+  const upcomingMeetings = appGlobal.calendarEvents.filterObservable(event => event.startTime.getTime() > now.getTime() && event.startTime.getTime() < maxUpcoming.getTime());
   $: upcomingMeeting = $upcomingMeetings.first;
   $: upcomingMeetingInMin = upcomingMeeting?.startTime ? Math.floor((upcomingMeeting.startTime.getTime() - new Date().getTime()) / 1000 / 60) : 0;
 

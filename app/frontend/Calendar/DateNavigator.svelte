@@ -95,7 +95,7 @@
   }
 
   function isInMonths(event: Event): boolean {
-    return event.startTime < months[months.length - 1].end && event.endTime > months[0].start;
+    return event.startTime.getTime() < months[months.length - 1].end.getTime() && event.endTime.getTime() > months[0].start.getTime();
   }
 
   $: daysWithEvents = new Set(months.flatMap(shownMonth => [...shownMonth.daysWithEvents($monthsEvents.contents)]));
@@ -150,9 +150,9 @@
     if (!start || !end || start.getTime() == end.getTime()) {
       return false;
     }
-    let first = start < end ? start : end;
-    let last = start < end ? end : start;
-    return day >= first && day <= last;
+    let first = start.getTime() < end.getTime() ? start : end;
+    let last = start.getTime() < end.getTime() ? end : start;
+    return day.getTime() >= first.getTime() && day.getTime() <= last.getTime();
   }
 
   function firstDay(week: (Date | null)[]): Date {

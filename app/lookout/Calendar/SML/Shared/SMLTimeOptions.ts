@@ -37,7 +37,7 @@ export function pollOptionConflicts(start: Date, durationMinutes: number, events
     if (event.allDay || event.isCancelled || !event.startTime || !event.endTime) {
       continue;
     }
-    if (event.startTime < end && event.endTime > start) {
+    if (event.startTime.getTime() < end.getTime() && event.endTime.getTime() > start.getTime()) {
       found.push(event);
     }
   }
@@ -77,7 +77,7 @@ export function removePollOption(options: Date[], time: Date): void {
 
 export function nextPollOption(options: Date[], durationMinutes: number, now = new Date()): Date {
   if (options.length) {
-    let last = options.reduce((latest, option) => option > latest ? option : latest);
+    let last = options.reduce((latest, option) => option.getTime() > latest.getTime() ? option : latest);
     return pollOptionEnd(last, durationMinutes);
   }
   let next = new Date(now);

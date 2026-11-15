@@ -117,7 +117,7 @@
   $: events, range, filterEvents();
   function filterEvents() {
     let { start, end } = range;
-    let filtered = events.filterObservable(ev => ev.startTime && ev.startTime < end && start < ev.endTime);
+    let filtered = events.filterObservable(ev => ev.startTime && ev.startTime.getTime() < end.getTime() && start.getTime() < ev.endTime.getTime());
     visibleEvents = filtered.filterObservable(ev => !ev.allDay);
     allDayEvents = filtered.filterObservable(ev => ev.allDay);
   }

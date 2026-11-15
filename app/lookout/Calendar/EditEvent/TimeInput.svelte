@@ -98,7 +98,7 @@
       isOpen = false;
     } else if (event.key == "ArrowDown" || event.key == "ArrowUp") {
       event.preventDefault();
-      let index = options.findIndex(option => option.time >= time);
+      let index = options.findIndex(option => option.time.getTime() >= time.getTime());
       if (event.key == "ArrowDown") {
         index = options[index]?.time.getTime() == time.getTime() ? index + 1 : index;
       } else {

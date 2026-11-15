@@ -42,7 +42,7 @@
   export let duration: number;
   export let showEndTime = true;
 
-  $: sortedOptions = options.sortBy(date => date);
+  $: sortedOptions = options.sortBy(date => date.getTime());
   let end: Date;
 </script>
 

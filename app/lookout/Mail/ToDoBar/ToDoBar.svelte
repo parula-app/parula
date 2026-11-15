@@ -99,7 +99,7 @@
   function isInAgenda(event: Event): boolean {
     let start = new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate());
     let end = new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate() + kAgendaDays);
-    return event.startTime < end && event.endTime > start;
+    return event.startTime.getTime() < end.getTime() && event.endTime.getTime() > start.getTime();
   }
 
   $: agenda = derived([...$agendaEvents.contents], events => agendaDays(events, selectedDay, kAgendaDays));
