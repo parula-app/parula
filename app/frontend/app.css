@@ -1,9 +1,24 @@
 @import url('./asset/font/Karla.css');
 
+/**
+Constr-Klingon: The Klingon pIqaD glyphs of Constructium
+(c) Kreative Software
+License: SIL OPEN FONT LICENSE 1.1 @see asset/font/Constr-Klingon-OFL.txt
+@see https://www.kreativekorp.com/software/fonts/constructium/
+*/
+@font-face {
+  font-family: 'Constr-Klingon';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./asset/font/Constr-Klingon.woff2) format('woff2');
+  unicode-range: U+F8D0-F8E9, U+F8F0-F8F9, U+F8FC-F8FE;
+}
+
 :root {
   height: 100%;
 
-  font-family: Karla, Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: Karla, Inter, system-ui, Avenir, Helvetica, Arial, Constr-Klingon, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -178,7 +193,8 @@ body {
 }
 
 input,
-button {
+button,
+select {
   font-family: inherit;
 }
 
