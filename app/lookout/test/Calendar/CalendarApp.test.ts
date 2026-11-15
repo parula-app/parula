@@ -193,6 +193,28 @@ test("Month and year dropdown: A year keeps it open, a month closes it, and both
   expect(isPickerOpen()).toBe(false);
 });
 
+test("Month and year dropdown on the mini month: Changes only the mini month", () => {
+  let isPickerOpen = () => !!document.querySelector(".month-year-picker");
+  let miniMonthTitle = () => document.querySelector(".date-navigator .title").textContent;
+  let click = (button: Element) => {
+    (button as HTMLElement).click();
+    flushSync();
+  };
+  click(document.querySelector(".date-navigator .title"));
+  expect(isPickerOpen()).toBe(true);
+
+  click([...document.querySelectorAll("button.year")].find(button => button.textContent.includes("1999")));
+  expect(miniMonthTitle()).toContain("1999");
+  expect(isPickerOpen()).toBe(true);
+
+  let march = document.querySelectorAll("button.month")[2];
+  click(march);
+  expect(miniMonthTitle()).toContain("1999");
+  expect(miniMonthTitle()).not.toContain("October");
+  expect(isPickerOpen()).toBe(false);
+  expect(day(get(startDate))).toBe(day(kWednesday));
+});
+
 test("Item commands", async () => {
   let event = new Event();
   event.title = "Meeting";

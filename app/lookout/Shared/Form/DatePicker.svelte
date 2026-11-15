@@ -1,6 +1,7 @@
 <vbox class="date-picker lo-card" role="dialog" aria-label={label}>
   <hbox class="title-row">
-    <span class="title">{month.title(getDateTimeLocale())}</span>
+    <button class="title" title={$t`Choose month and year`} bind:this={titleEl}
+      on:click|stopPropagation={() => isMonthPickerOpen = !isMonthPickerOpen}>{month.title(getDateTimeLocale())}</button>
     <hbox flex />
     <button class="arrow" title={$t`Previous month`} on:click={() => month = month.next(-1)}>
       <PreviousIcon size="16" />
@@ -32,9 +33,13 @@
   </hbox>
 </vbox>
 
+<MonthYearPicker bind:isOpen={isMonthPickerOpen} anchor={titleEl} placement="bottom-start" month={month.month}
+  on:change={event => month = new DateNavigatorMonth(event.detail)} />
+
 <script lang="ts">
   import { DateNavigatorMonth } from "../../Calendar/DateNavigatorMonth";
   import { now } from "../../Calendar/selected";
+  import MonthYearPicker from "../../../frontend/Calendar/MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-up";
   import NextIcon from "lucide-svelte/icons/chevron-down";
   import { getDateTimeLocale, t } from "../../../l10n/l10n";
@@ -46,6 +51,8 @@
   export let label: string;
 
   let month = new DateNavigatorMonth(date ?? new Date());
+  let titleEl: HTMLButtonElement;
+  let isMonthPickerOpen = false;
 
   function isSameDay(day: Date, selected: Date): boolean {
     return !!selected && day.toDateString() == selected.toDateString();
@@ -66,10 +73,19 @@
   .title-row {
     align-items: center;
     height: 30px;
-    padding-inline-start: 4px;
   }
   .title {
+    padding: 2px 4px;
+    border: none;
+    border-radius: var(--lo-radius-small);
+    background: none;
+    color: var(--lo-fg);
+    font: inherit;
     font-weight: 600;
+    cursor: pointer;
+  }
+  .title:hover {
+    background-color: var(--lo-hover-bg);
   }
   .arrow {
     display: flex;

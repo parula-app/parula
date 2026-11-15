@@ -1,7 +1,6 @@
 <Popup bind:popupOpen={isOpen} popupAnchor={anchor} {placement} boundaryElSel="body">
   <hbox class="month-year-picker">
-    <vbox class="years" on:wheel={event => firstYear += Math.sign(event.deltaY)}>
-      <Button classes="year-arrow" label={$t`Earlier years`} icon={EarlierIcon} onClick={() => firstYear -= kYearCount} iconSize="16px" plain iconOnly />
+    <vbox class="years" use:scrollToShownYear>
       {#each years as year}
         <button class="year"
           class:selected={year.getFullYear() == month.getFullYear()}
@@ -10,7 +9,6 @@
           {year.toLocaleDateString(getDateTimeLocale(), { year: "numeric" })}
         </button>
       {/each}
-      <Button classes="year-arrow" label={$t`Later years`} icon={LaterIcon} onClick={() => firstYear += kYearCount} iconSize="16px" plain iconOnly />
     </vbox>
     <grid class="months">
       {#each months as shownMonth}
@@ -29,10 +27,7 @@
 <script lang="ts">
   import Popup from "../Shared/Popup.svelte";
   import type { Placement } from "@popperjs/core";
-  import Button from "../Shared/Button.svelte";
-  import EarlierIcon from "lucide-svelte/icons/chevron-up";
-  import LaterIcon from "lucide-svelte/icons/chevron-down";
-  import { getDateTimeLocale, t } from "../../l10n/l10n";
+  import { getDateTimeLocale } from "../../l10n/l10n";
   import { createEventDispatcher } from "svelte";
   /** The 1st of the chosen month. A year click keeps the month and the dropdown open. */
   const dispatch = createEventDispatcher<{ change: Date }>();
@@ -45,20 +40,23 @@
   /** A day in the shown month. in */
   export let month: Date;
 
-  const kYearCount = 6;
-  let now: Date;
-  /** Stays when the user picks a year, so that the years don't move under the mouse */
-  let firstYear: number;
-  $: isOpen, centerYears();
-  /** 2 years before the shown year, 3 after */
-  function centerYears() {
+  const kFirstYear = 1970;
+  const kLastYear = 2050;
+  let now = new Date();
+  $: if (isOpen) {
     now = new Date();
-    firstYear = month.getFullYear() - 2;
   }
   /** The shown month in each year */
-  $: years = Array.from({ length: kYearCount }, (_, i) => new Date(firstYear + i, month.getMonth(), 1));
+  $: years = Array.from({ length: kLastYear - kFirstYear + 1 }, (_, i) => new Date(kFirstYear + i, month.getMonth(), 1));
   /** The months of the shown year */
   $: months = Array.from({ length: 12 }, (_, i) => new Date(month.getFullYear(), i, 1));
+
+  /** When the dropdown opens, the shown year is the 4th visible year: 3 years before it and 2 after are visible.
+   * The years don't scroll when the user picks one, so that they don't move under the mouse. */
+  function scrollToShownYear(yearsEl: HTMLElement) {
+    let firstVisible = yearsEl.children[month.getFullYear() - kFirstYear - 3] as HTMLElement;
+    yearsEl.scrollTop = firstVisible?.offsetTop ?? 0;
+  }
 
   function chooseMonth(chosen: Date) {
     dispatch("change", chosen);
@@ -78,30 +76,29 @@
     color: var(--fg);
     border: 1px solid var(--border);
     border-radius: 5px; /* like the shadow of the popup */
-    padding: 4px 8px;
+    padding: 8px;
     user-select: none;
   }
+  /* 6 years visible, in the same rows as the months */
   .years {
+    position: relative; /* for `offsetTop` */
+    height: calc(6 * 32px + 5 * 2px);
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
     gap: 2px;
-    padding-inline-end: 8px;
+    padding-inline-end: 4px;
     margin-inline-end: 8px;
     border-inline-end: 1px solid var(--border);
   }
-  .years :global(.year-arrow) {
-    justify-content: center;
-    height: 24px;
-    opacity: 60%;
+  .years button {
+    flex-shrink: 0;
+    scroll-snap-align: start;
   }
-  .years :global(.year-arrow:hover) {
-    opacity: 100%;
-  }
-  /* Same rows as the years */
   .months {
     display: grid;
     grid-template-rows: repeat(6, 32px);
     grid-auto-flow: column;
     gap: 2px 4px;
-    padding-block: 26px;
   }
   button.year,
   button.month {

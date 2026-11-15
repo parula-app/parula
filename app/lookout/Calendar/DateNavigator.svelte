@@ -1,5 +1,5 @@
 <vbox class="date-navigator" class:week-numbers={showWeekNumbers}>
-  {#each months as shownMonth, i (shownMonth.month.getTime())}
+  {#each months as shownMonth, i} <!-- Not keyed, so that the title stays where the month picker is anchored -->
     <hbox class="title-row">
       {#if i == 0}
         <button class="arrow" title={$t`Previous month`} on:click={() => month = month.next(-1)}>
@@ -7,8 +7,8 @@
         </button>
       {/if}
       <hbox flex class="title-box">
-        <button class="title" title={$t`Choose a month`}
-          on:click={event => openMonthList(event, shownMonth)}>{shownMonth.title(getDateTimeLocale())}</button>
+        <button class="title" title={$t`Choose month and year`}
+          on:click|stopPropagation={event => openMonthPicker(event, i)}>{shownMonth.title(getDateTimeLocale())}</button>
       </hbox>
       {#if i == 0}
         <button class="arrow" title={$t`Next month`} on:click={() => month = month.next(1)}>
@@ -54,12 +54,8 @@
     </div>
   {/each}
 </vbox>
-<Menu bind:isMenuOpen={isMonthListOpen} anchor={monthListAnchor} placement="bottom">
-  {#each monthChoices as choice (choice.month.getTime())}
-    <MenuItem label={choice.title(getDateTimeLocale())} checked={choice.month.getTime() == monthListCenter?.month.getTime()}
-      onClick={() => chooseMonth(choice)} />
-  {/each}
-</Menu>
+<MonthYearPicker bind:isOpen={isMonthPickerOpen} anchor={monthPickerAnchor} month={(months[monthPickerIndex] ?? month).month}
+  on:change={event => chooseMonth(event.detail)} />
 <svelte:window on:mouseup={onDragEnd} />
 
 <script lang="ts">
@@ -69,8 +65,7 @@
   import { now } from "./selected";
   import { getWeekNumber } from "../Util/date";
   import { shownCalendarEvents } from "../../frontend/Calendar/selected";
-  import Menu from "../Shared/Menu/Menu.svelte";
-  import MenuItem from "../Shared/Menu/MenuItem.svelte";
+  import MonthYearPicker from "../../frontend/Calendar/MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";
   import NextIcon from "lucide-svelte/icons/chevron-right";
   import { createEventDispatcher } from "svelte";
@@ -104,20 +99,20 @@
 
   $: daysWithEvents = new Set(months.flatMap(shownMonth => [...shownMonth.daysWithEvents($monthsEvents.contents)]));
 
-  let isMonthListOpen = false;
-  let monthListAnchor: HTMLElement = null;
-  let monthListCenter: DateNavigatorMonth = null;
-  $: monthChoices = monthListCenter ? [-3, -2, -1, 0, 1, 2, 3].map(offset => monthListCenter.next(offset)) : [];
+  let isMonthPickerOpen = false;
+  let monthPickerAnchor: HTMLElement = null;
+  /** Which of the shown months the picker changes */
+  let monthPickerIndex = 0;
 
-  function openMonthList(event: MouseEvent, shownMonth: DateNavigatorMonth) {
-    monthListAnchor = event.currentTarget as HTMLElement;
-    monthListCenter = shownMonth;
-    isMonthListOpen = true;
+  function openMonthPicker(event: MouseEvent, index: number) {
+    monthPickerAnchor = event.currentTarget as HTMLElement;
+    isMonthPickerOpen = !(isMonthPickerOpen && monthPickerIndex == index);
+    monthPickerIndex = index;
   }
 
-  function chooseMonth(choice: DateNavigatorMonth) {
-    let index = months.findIndex(shownMonth => shownMonth.month.getTime() == monthListCenter.month.getTime());
-    month = choice.next(-Math.max(index, 0));
+  /** Shows the chosen month where the user clicked, e.g. as 2nd month */
+  function chooseMonth(chosen: Date) {
+    month = new DateNavigatorMonth(chosen).next(-monthPickerIndex);
   }
 
   let dragStart: Date = null;
