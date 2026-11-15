@@ -53,9 +53,8 @@
   import type { Calendar } from "../../../logic/Calendar/Calendar";
   import { TimeColumnLayout } from "./DayColumn";
   import { CalendarActions } from "../CalendarActions";
-  import { selectedSlots, eventPeek, type SlotSelection } from "../selected";
+  import { now, selectedSlots, eventPeek, type SlotSelection } from "../selected";
   import { selectedEvent } from "../../../frontend/Calendar/selected";
-  import { now } from "../../../frontend/Util/now";
   import { catchErrors } from "../../../frontend/Util/error";
   import EventContainer from "./EventContainer.svelte";
   import InlineEventTitle from "../InlineEventTitle.svelte";

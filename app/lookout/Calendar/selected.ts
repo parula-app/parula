@@ -1,12 +1,13 @@
 import type { Event } from "../../logic/Calendar/Event";
 import type { Calendar } from "../../logic/Calendar/Calendar";
 import { shownCalendars } from "../../frontend/Calendar/selected";
+import { k1MinuteMS } from "../../logic/util/date";
 import { EventTable } from "./ListView/EventTable";
 import { appGlobal } from "../../logic/app";
 import { mergeColls, type Collection } from "svelte-collections";
 import { TimeZoneRuler } from "./TimeZones";
 import { getLocalStorage } from "../../frontend/Util/LocalStorage";
-import { derived, writable, type Readable } from "svelte/store";
+import { derived, readable, writable, type Readable } from "svelte/store";
 
 export type CalendarViewType = "day" | "workweek" | "week" | "month" | "schedule" | "dual";
 
@@ -63,6 +64,19 @@ export const selectedSlots = writable<SlotSelection | null>(null);
 export const updatingCount = writable(0);
 export const eventPeek = writable<EventPeek | null>(null);
 export const inlineTitle = writable<string | null>(null);
+// <copied from="../../frontend/Calendar/CurrentTimeMarker.svelte">
+export const now = readable(new Date(), set => {
+  let timeout: ReturnType<typeof setTimeout>;
+  function update() {
+    let time = new Date();
+    timeout = setTimeout(update, k1MinuteMS - time.getSeconds() * 1000 - time.getMilliseconds());
+    time.setSeconds(0, 0);
+    set(time);
+  }
+  update();
+  return () => clearTimeout(timeout);
+});
+// </copied>
 // export const workWeekHours = WorkingHours.ofAll(new ShownWorkHours(
 //   shownCalendars.filterObservable(calendar => !calendar.isOtherPersonsCalendar)));
 

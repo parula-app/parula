@@ -83,7 +83,7 @@
   import { MessageRows, type MessageRow } from "./MessageRows";
   import { MessageActions } from "../MessageActions";
   import { Column, ColumnInfo, shownViewType, defaultColumns, viewSettingsStore, columnWidthOf, ViewType, type ViewSettings } from "../ViewSettings/ViewSettings";
-  import { now } from "../../../frontend/Util/now";
+  import { now } from "../../Calendar/selected";
   import { MessageGrouping } from "./MessageGrouping";
   import VerticalMessageListItem from "../Vertical/VerticalMessageListItem.svelte";
   import TableMessageListItem from "./TableMessageListItem.svelte";
