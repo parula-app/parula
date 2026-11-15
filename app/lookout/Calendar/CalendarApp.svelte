@@ -119,7 +119,7 @@
   import { catchErrors } from "../../frontend/Util/error";
   import { statusBarContent, type StatusBarContent } from "../MainWindow/StatusBar.svelte";
   import CalendarRibbon from "./CalendarRibbon.svelte";
-  import DateNavigator from "./DateNavigator.svelte";
+  import DateNavigator from "../../frontend/Calendar/DateNavigator.svelte";
   import CalendarList from "./CalendarList.svelte";
   import FolderPaneMinimized from "../Shared/FolderPaneMinimized.svelte";
   import DateRange from "./DateRange.svelte";

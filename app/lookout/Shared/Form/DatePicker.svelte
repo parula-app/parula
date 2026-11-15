@@ -37,7 +37,7 @@
   on:change={event => month = new DateNavigatorMonth(event.detail)} />
 
 <script lang="ts">
-  import { DateNavigatorMonth } from "../../Calendar/DateNavigatorMonth";
+  import { DateNavigatorMonth } from "../../../frontend/Calendar/DateNavigatorMonth";
   import { now } from "../../Calendar/selected";
   import MonthYearPicker from "../../../frontend/Calendar/MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-up";

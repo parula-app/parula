@@ -22,7 +22,7 @@
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
   import type { CalendarRange } from "../CalendarRange";
-  import { getWeekNumber } from "../../Util/date";
+  import { getWeekNumber } from "../../../logic/util/date";
   import WeekRow from "./WeekRow.svelte";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import type { Collection } from "svelte-collections";
