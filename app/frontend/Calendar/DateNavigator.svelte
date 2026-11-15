@@ -1,4 +1,4 @@
-<vbox class="date-navigator" class:week-numbers={showWeekNumbers}>
+<vbox class="date-navigator" class:week-numbers={showWeekNumbers} class:several-weeks={range.days.length > 7}>
   {#each months as shownMonth, i} <!-- Not keyed, so that the title stays where the month picker is anchored -->
     <hbox class="title-row">
       {#if i == 0}
@@ -171,6 +171,7 @@
 <style>
   .date-navigator {
     --radius: 1000px;
+    --range-radius: var(--radius);
     --secondary-fg: color-mix(in srgb, var(--fg) 60%, transparent);
     --range-bg: color-mix(in srgb, var(--selected-bg) 30%, transparent);
     --range-hover-bg: var(--selected-bg);
@@ -274,13 +275,17 @@
   .day.in-range {
     background-color: var(--range-bg);
   }
+  /* More than a week: Several rows, with small corners instead of round ends */
+  .date-navigator.several-weeks {
+    --range-radius: 0px;
+  }
   .day.range-start {
-    border-start-start-radius: var(--radius);
-    border-end-start-radius: var(--radius);
+    border-start-start-radius: var(--range-radius);
+    border-end-start-radius: var(--range-radius);
   }
   .day.range-end {
-    border-start-end-radius: var(--radius);
-    border-end-end-radius: var(--radius);
+    border-start-end-radius: var(--range-radius);
+    border-end-end-radius: var(--range-radius);
   }
   .number {
     display: flex;
@@ -311,6 +316,7 @@
 
   :global(.lookout-window) .date-navigator {
     --radius: var(--lo-radius-small);
+    --range-radius: var(--lo-radius-small);
     --secondary-fg: var(--lo-fg-secondary);
     --range-bg: var(--lo-selected-bg);
     --range-hover-bg: var(--lo-selected-hover-bg);
