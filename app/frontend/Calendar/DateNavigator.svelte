@@ -277,7 +277,7 @@
   }
   /* More than a week: Several rows, with small corners instead of round ends */
   .date-navigator.several-weeks {
-    --range-radius: 4px;
+    --range-radius: 0px;
   }
   .day.range-start {
     border-start-start-radius: var(--range-radius);
