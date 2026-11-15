@@ -111,9 +111,7 @@
   <SubMenu label={$t`Categorize *=> Assign a category to the selected emails`} icon={CategorizeIcon}>
     <CategorizeMenuItems messages={[message]} />
   </SubMenu>
-  <SubMenu label={$t`Junk *=> Menu to mark the selected emails as junk or not junk`} icon={JunkIcon}>
-    <JunkMenuItems messages={[message]} />
-  </SubMenu>
+  <JunkMenuItem messages={[$message]} />
   <MenuDivider />
   <MenuItem label={$t`Print`} icon={PrintIcon} onClick={() => { $printMessage = message; }} />
   <MenuItem label={$t`Save As…`} icon={SaveIcon} onClick={() => MessageActions.saveAs(message)} />
@@ -137,7 +135,7 @@
   import PersonCircle from "../../Contacts/Person/PersonCircle.svelte";
   import SubMenu from "../../Shared/Menu/SubMenu.svelte";
   import FollowUpMenuItems from "./FollowUpMenuItems.svelte";
-  import JunkMenuItems from "./JunkMenuItems.svelte";
+  import JunkMenuItem from "./JunkMenuItem.svelte";
   import CategorizeMenuItems from "./CategorizeMenuItems.svelte";
   import DisplayModeSwitcher from "./DisplayModeSwitcher.svelte";
   import RecipientsList from "./RecipientsList.svelte";
@@ -158,7 +156,6 @@
   import ReadIcon from "lucide-svelte/icons/mail-open";
   import UnreadIcon from "lucide-svelte/icons/mail";
   import FlagIcon from "lucide-svelte/icons/flag";
-  import JunkIcon from "lucide-svelte/icons/shield-x";
   import CategorizeIcon from "lucide-svelte/icons/tag";
   import PrintIcon from "lucide-svelte/icons/printer";
   import { printMessage } from "./MessagePrint.svelte";
