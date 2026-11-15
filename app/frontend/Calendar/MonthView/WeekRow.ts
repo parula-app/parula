@@ -80,27 +80,59 @@ export class WeekRowLayout {
     let lineRows = WeekRowLayout.kRowsPerLine;
     let bars = layoutDayRow(events.filter(event => event.allDay), days).events;
     let timedEvents = events.filter(event => !event.allDay);
-    let segments = days.map((_, day) => this.segmentsOnDay(timedEvents, day));
-    let barsOnDay = (barItems: EventInDayRow[], day: number) => barItems.filter(bar => bar.startDay <= day && day < bar.endDay);
-    let barsEndRow = (barItems: EventInDayRow[]) => Math.max(0, ...barItems.map(bar => (bar.lane + 1) * lineRows));
+    let segments = this.segmentsInWeek(timedEvents);
+    let isOnDay = (item: EventInDayRow, day: number) => item.startDay <= day && day < item.endDay;
+    let barsEndRows = (barItems: EventInDayRow[]) => days.map((_, day) =>
+      Math.max(0, ...barItems.filter(bar => isOnDay(bar, day)).map(bar => (bar.lane + 1) * lineRows)));
+    let allBarsEndRows = barsEndRows(bars);
+    let ends = this.stackedEnds(segments, allBarsEndRows);
     let lastRows = days.map((_, day) =>
-      barsEndRow(barsOnDay(bars, day)) + this.linesNeeded(segments[day]) * lineRows > rows ? rows - lineRows : rows);
+      allBarsEndRows[day] > rows || segments.some((segment, i) => isOnDay(segment, day) && ends[i] > rows) ? rows - lineRows : rows);
     let shownBars = bars.filter(bar => lastRows.slice(bar.startDay, bar.endDay).every(lastRow => (bar.lane + 1) * lineRows <= lastRow));
     this.events.push(...shownBars.map(({ lane, ...bar }) =>
       ({ ...bar, startRow: lane * lineRows, endRow: (lane + 1) * lineRows, lane: 0, lanes: 1 })));
-    this.hiddenEvents = days.map((_, day) => {
-      let firstRow = barsEndRow(barsOnDay(shownBars, day));
-      let shownCount = segments[day].length;
-      let shownSegments = segments[day];
-      while (firstRow + this.linesNeeded(shownSegments) * lineRows > lastRows[day]) {
-        shownCount--;
-        shownSegments = this.segmentsOnDay(segments[day].slice(0, shownCount).map(segment => segment.event), day);
+    let firstRows = barsEndRows(shownBars);
+    let shownEvents = timedEvents;
+    let shownSegments = segments;
+    ends = this.stackedEnds(shownSegments, firstRows);
+    let firstOverflow = (day: number) => shownSegments.findIndex((segment, i) => isOnDay(segment, day) && ends[i] > lastRows[day]);
+    for (let day of days.keys()) {
+      // The first event that doesn't fit and the events after it on this day are hidden.
+      // That makes the boxes of the others wider, so check again.
+      let overflow = firstOverflow(day);
+      while (overflow >= 0) {
+        let hidden = shownSegments.slice(overflow).filter(segment => isOnDay(segment, day)).map(segment => segment.event);
+        shownEvents = shownEvents.filter(event => !hidden.includes(event));
+        shownSegments = this.segmentsInWeek(shownEvents);
+        ends = this.stackedEnds(shownSegments, firstRows);
+        overflow = firstOverflow(day);
       }
-      this.placeByTime(shownSegments, firstRow, lastRows[day]);
-      this.events.push(...shownSegments);
-      let hiddenBars = barsOnDay(bars, day).filter(bar => !shownBars.includes(bar));
-      return [...hiddenBars, ...segments[day].slice(shownCount)].map(item => item.event);
+    }
+    this.placeByTime(shownSegments, firstRows, lastRows);
+    this.events.push(...shownSegments);
+    this.hiddenEvents = days.map((_, day) => [
+      ...bars.filter(bar => isOnDay(bar, day) && !shownBars.includes(bar)),
+      ...segments.filter(segment => isOnDay(segment, day) && !shownEvents.includes(segment.event)),
+    ].map(item => item.event));
+  }
+
+  /**
+   * The timed events of all days.
+   * An event over midnight is one bar over its days, 1 line high, at its start time on all its days.
+   *
+   * Sorted by row, which is the order from top to bottom on each day,
+   * also for the bars, which are on several days.
+   */
+  protected segmentsInWeek(events: Event[]): EventInWeekRow[] {
+    let isOverMidnight = (event: Event) => event.endTime >
+      new Date(event.startTime.getFullYear(), event.startTime.getMonth(), event.startTime.getDate() + 1);
+    let oneDayEvents = events.filter(event => !isOverMidnight(event));
+    let bars = layoutDayRow(events.filter(isOverMidnight), this.days).events.map(bar => {
+      let startRow = Math.floor(this.rowOf(bar.event.startTime.getHours() + bar.event.startTime.getMinutes() / 60));
+      return { ...bar, startRow, endRow: startRow + WeekRowLayout.kRowsPerLine, lane: 0, lanes: 1 };
     });
+    return [...this.days.flatMap((_, day) => this.segmentsOnDay(oneDayEvents, day)), ...bars]
+      .sort((a, b) => a.startRow - b.startRow || a.event.startTime.getTime() - b.event.startTime.getTime());
   }
 
   protected segmentsOnDay(events: Event[], day: number): EventInWeekRow[] {
@@ -118,30 +150,41 @@ export class WeekRowLayout {
     return Math.min(Math.max(fraction, 0), 1) * this.rows;
   }
 
+  /** On different days, or in different lanes of the same day */
   protected isSideBySide(a: EventInWeekRow, b: EventInWeekRow): boolean {
-    return a.lane * b.lanes >= (b.lane + 1) * a.lanes || b.lane * a.lanes >= (a.lane + 1) * b.lanes;
+    return a.endDay <= b.startDay || b.endDay <= a.startDay ||
+      a.lane * b.lanes >= (b.lane + 1) * a.lanes || b.lane * a.lanes >= (a.lane + 1) * b.lanes;
   }
 
-  protected linesNeeded(segments: EventInWeekRow[]): number {
-    let lines: number[] = [];
+  /**
+   * The row where each event ends, if each is 1 line high, one below the other.
+   * A bar starts below the events above it on all its days.
+   */
+  protected stackedEnds(segments: EventInWeekRow[], firstRows: number[]): number[] {
+    let ends: number[] = [];
     for (let [i, segment] of segments.entries()) {
-      let above = segments.slice(0, i).map((other, j) => this.isSideBySide(other, segment) ? 0 : lines[j]);
-      lines.push(1 + Math.max(0, ...above));
+      let end = Math.max(...firstRows.slice(segment.startDay, segment.endDay));
+      for (let j = 0; j < i; j++) {
+        if (!this.isSideBySide(segments[j], segment)) {
+          end = Math.max(end, ends[j]);
+        }
+      }
+      ends.push(end + WeekRowLayout.kRowsPerLine);
     }
-    return Math.max(0, ...lines);
+    return ends;
   }
 
-  protected placeByTime(segments: EventInWeekRow[], firstRow: number, lastRow: number) {
+  protected placeByTime(segments: EventInWeekRow[], firstRows: number[], lastRows: number[]) {
     let lineRows = WeekRowLayout.kRowsPerLine;
     for (let [i, segment] of segments.entries()) {
       let above = segments.slice(0, i).filter(other => !this.isSideBySide(other, segment));
-      segment.startRow = Math.max(segment.startRow, firstRow, ...above.map(other => other.endRow));
+      segment.startRow = Math.max(segment.startRow, ...firstRows.slice(segment.startDay, segment.endDay), ...above.map(other => other.endRow));
       segment.endRow = Math.max(segment.endRow, segment.startRow + lineRows);
     }
     for (let i = segments.length - 1; i >= 0; i--) {
       let segment = segments[i];
       let below = segments.slice(i + 1).filter(other => !this.isSideBySide(other, segment));
-      segment.endRow = Math.min(segment.endRow, lastRow, ...below.map(other => other.startRow));
+      segment.endRow = Math.min(segment.endRow, ...lastRows.slice(segment.startDay, segment.endDay), ...below.map(other => other.startRow));
       segment.startRow = Math.min(segment.startRow, segment.endRow - lineRows);
     }
   }
