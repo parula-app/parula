@@ -189,19 +189,34 @@ export function personDisplayName(person: Person | Group | PersonUID) {
     if (person.person?.name) {
       return person.person.name;
     }
-    if (!person.name) {
-      return person.emailAddress?.replace(/@.*/, "") ?? "";
-    }
-    return person.name?.
-      replace(/@.*/, "").
-      replace(/ via .*/, "").
-      substring(0, 30);
+    return unknownPersonName(person.name, person.emailAddress);
     /* Show domain - but too cluttered
     let domain = getBaseDomainFromHost(getDomainForEmailAddress(person.emailAddress));
     return person.name.substring(0, 20) + " @" + domain; */
   } else {
     return "Unknown contact type";
   }
+}
+
+/**
+ * The name to show for a person who is not in the address book.
+ *
+ * Only the part before the @ is the name. That's true both for the name
+ * that the sender set, and when there's no name and we fall back to the email address.
+ * The sender can set any name, e.g. "service@paypal.com" <phishing@example.com>,
+ * so we must not show something that looks like an email address as name.
+ *
+ * @param name As set by the sender of the email. Optional.
+ * @param emailAddress Used if there is no name.
+ * @returns e.g. "Fred Flintstone" or "fred"
+ */
+export function unknownPersonName(name: string | null | undefined, emailAddress: string | null | undefined): string {
+  let shortName = name?.
+    replace(/@.*/s, "").
+    replace(/ via .*/s, "").
+    trim().
+    substring(0, 30);
+  return shortName || emailAddress?.replace(/@.*/s, "").trim() || "";
 }
 
 export function nameFromEmailAddress(emailAddress: string): string {

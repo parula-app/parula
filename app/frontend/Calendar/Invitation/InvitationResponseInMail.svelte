@@ -4,7 +4,7 @@
       {#if $message.outgoing}
         {$t`You responded to the invitation:`}
       {:else}
-        {$t`${$message.from.name} has responded to your invitation:`}
+        {$t`${personDisplayName($message.from)} has responded to your invitation:`}
       {/if}
       <hbox class="status font-large">
         {#if participant}
@@ -21,6 +21,7 @@
 </hbox>
 
 <script lang="ts">
+  import { personDisplayName } from "../../../logic/Abstract/PersonUID";
   import type { EMail } from "../../../logic/Mail/EMail";
   import { InvitationMessage } from "../../../logic/Calendar/Invitation/InvitationStatus";
   import ParticipantConfirmIcon from "../EditEvent/ParticipantConfirmIcon.svelte";

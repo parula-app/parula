@@ -12,6 +12,7 @@
 {/if}
 
 <script lang="ts">
+  import { personDisplayName } from "../../../logic/Abstract/PersonUID";
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { PublicKey } from "../../../logic/Mail/Encryption/PublicKey";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
@@ -38,7 +39,7 @@
   $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : expired ? TrustLevel.Sender : $signingKey?.trustLevel ?? "none";
   $: keyName = $signingKey?.name ?? $message.signedByKeyID?.substring(2, 6);
   $: msg = signed && encrypted
-      ? $t`This message was end-to-end-encrypted to you, and signed by ${$message.from?.name ?? $t`somebody`} with ${signingKey?.system} key ${keyName}`
+      ? $t`This message was end-to-end-encrypted to you, and signed by ${personDisplayName($message.from) || $t`somebody`} with ${signingKey?.system} key ${keyName}`
       : signed
         ? $t`This message was signed with ${signingKey?.system} key ${keyName}`
         : $t`This message was end-to-end-encrypted, but not signed`;

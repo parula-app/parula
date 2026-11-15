@@ -3,7 +3,7 @@
     <span class="entry"><button type="button" class="name" title={recipient.emailAddress}
       on:click|stopPropagation={event => openMenu(recipient, event)}
       on:contextmenu|preventDefault|stopPropagation={event => openMenu(recipient, event)}
-      >{displayName(recipient)}</button>{#if withAddress && recipient.name && recipient.emailAddress}<span class="address">&lt;{recipient.emailAddress}&gt;</span>{/if}{#if index < shown.length - 1 || hiddenCount};{/if}</span>{" "}
+      >{displayName(recipient)}</button>{#if withAddress && recipient.emailAddress && displayName(recipient) != recipient.emailAddress}<span class="address">&lt;{recipient.emailAddress}&gt;</span>{/if}{#if index < shown.length - 1 || hiddenCount};{/if}</span>{" "}
   {/each}
   {#if hiddenCount}
     <button type="button" class="more" on:click={() => { isExpanded = true; }}>{$t`+${hiddenCount} more`}</button>
@@ -18,7 +18,7 @@
 </Menu>
 
 <script lang="ts">
-  import type { PersonUID } from "../../../logic/Abstract/PersonUID";
+  import { type PersonUID, unknownPersonName } from "../../../logic/Abstract/PersonUID";
   import { MessageActions } from "../MessageActions";
   import Menu from "../../Shared/Menu/Menu.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
@@ -48,11 +48,14 @@
     isMenuOpen = true;
   }
 
-  /* <copied to="../Composer/MailAutocomplete.svelte"> */
   function displayName(recipient: PersonUID): string {
+    if (!recipient.findPerson()) {
+      return unknownPersonName(recipient.name, recipient.emailAddress);
+    }
     return recipient.name || recipient.emailAddress;
   }
 
+  /* <copied to="../Composer/MailAutocomplete.svelte"> */
   function clipboardText(recipient: PersonUID): string {
     return recipient.name && recipient.name != recipient.emailAddress
       ? `${recipient.name} <${recipient.emailAddress}>`
