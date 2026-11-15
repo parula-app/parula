@@ -92,9 +92,9 @@
   }
 
   $: rowHeight = pxPerHour / kRowsPerHour;
-  // An event that shows only 1px counts as scrolled out
-  $: visibleFromRow = (scrollTop + 1) / rowHeight;
-  $: visibleToRow = (scrollTop + visibleHeight - headHeight - 1) / rowHeight;
+  // An event that shows less than 10px counts as scrolled out
+  $: visibleFromRow = (scrollTop + 10) / rowHeight;
+  $: visibleToRow = (scrollTop + visibleHeight - headHeight - 10) / rowHeight;
 
   function scrollToRow(row: number) {
     scrollE.scrollTo(row * rowHeight - pxPerHour / 2);

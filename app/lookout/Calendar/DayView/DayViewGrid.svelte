@@ -168,8 +168,9 @@
     $eventPeek = null;
   }
 
-  $: visibleFromMinute = (topMinute ?? 0) + 1;
-  $: visibleToMinute = (topMinute ?? 0) + Math.max(viewHeight - headHeight, 0) / pxPerMinute - 1;
+  // An event that shows less than 10px counts as scrolled out
+  $: visibleFromMinute = (topMinute ?? 0) + 10 / pxPerMinute;
+  $: visibleToMinute = (topMinute ?? 0) + Math.max(viewHeight - headHeight - 10, 0) / pxPerMinute;
 
   function scrollToMinute(minute: number) {
     scrollEl.scrollTo({ top: Math.max(minute - timeScale, 0) * pxPerMinute, behavior: "smooth" });
