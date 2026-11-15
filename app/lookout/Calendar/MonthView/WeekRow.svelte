@@ -1,5 +1,5 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="month-week" style="--lines: {maxLines}" bind:clientHeight={height} bind:this={weekEl}
+<div class="month-week" style="--rows: {rows}; --rows-per-line: {WeekRowLayout.kRowsPerLine}" bind:clientHeight={height} bind:this={weekEl}
   on:click={onClick} on:dblclick={onDoubleClick} on:contextmenu={onContextMenu}>
   {#each days as day, i}
     <div class="cell drop-day" style="grid-column: {i + 1}" data-day-index={weekIndex * 7 + i}
@@ -33,18 +33,21 @@
         : day.toLocaleDateString(getDateTimeLocale(), { day: "numeric" })}
     </button>
   {/each}
-  {#each $layout.shown as item (item.event)}
-    <div class="item" style="grid-column: {item.startDay + 1} / {item.endDay + 1}; grid-row: {item.lane + 2}">
-      <EventContainer event={item.event} variant="month"
-        continuesBefore={item.continuesBefore} continuesAfter={item.continuesAfter} />
-    </div>
+  {#each days as _, i}
+    {#each $layout.events.filter(item => item.startDay == i) as item (item.event)} <!-- An event over midnight has an item on each day -->
+      <div class="item"
+        style="grid-column: {item.startDay + 1} / {item.endDay + 1}; grid-row: {item.startRow + 2} / {item.endRow + 2}; --lane: {item.lane}; --lanes: {item.lanes}">
+        <EventContainer event={item.event} variant="month"
+          continuesBefore={item.continuesBefore} continuesAfter={item.continuesAfter} />
+      </div>
+    {/each}
   {/each}
-  {#each $layout.hiddenCounts as hiddenCount, i}
-    {#if hiddenCount}
-      <button class="more" style="grid-column: {i + 1}; grid-row: {maxLines + 1}"
+  {#each $layout.hiddenEvents as hiddenEvents, i}
+    {#if hiddenEvents.length}
+      <button class="more" style="grid-column: {i + 1}; grid-row: {rows - WeekRowLayout.kRowsPerLine + 2} / {rows + 2}"
         on:click|stopPropagation={() => dispatch("openday", days[i])}
         on:dblclick|stopPropagation>
-        {$t`+${hiddenCount} more`}
+        {$t`+${hiddenEvents.length} more`}
       </button>
     {/if}
   {/each}
@@ -54,7 +57,7 @@
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
   import type { CalendarRange } from "../../../frontend/Calendar/CalendarRange";
-  import { WeekRowLayout } from "./WeekRow";
+  import { WeekRowLayout } from "../../../frontend/Calendar/MonthView/WeekRow";
   import { CalendarActions } from "../CalendarActions";
   import { now, selectedSlots, eventPeek, type SlotSelection } from "../selected";
   import { selectedEvent, selectedDate } from "../../../frontend/Calendar/selected";
@@ -80,7 +83,7 @@
   let weekEl: HTMLDivElement;
   let newEventMenu: NewEventCalendarMenu;
   let height = 0;
-  $: maxLines = Math.max(Math.floor((height - kHeaderHeight - 2) / kLineHeight), 1);
+  $: rows = Math.max(Math.floor((height - kHeaderHeight - 2) / kLineHeight * WeekRowLayout.kRowsPerLine), WeekRowLayout.kRowsPerLine);
 
   let weekStart: Date;
   let weekEnd: Date;
@@ -96,7 +99,7 @@
   function isInWeek(event: Event): boolean {
     return event.startTime < weekEnd && event.endTime > weekStart;
   }
-  $: layout = derived([...$weekEvents.contents], eventsInWeek => new WeekRowLayout(eventsInWeek, days, maxLines));
+  $: layout = derived([...$weekEvents.contents], eventsInWeek => new WeekRowLayout(eventsInWeek, days, rows));
 
   // <copied from="../DayView/AllDayEvents.svelte">
   function dayAt(clientX: number): Date {
@@ -163,7 +166,7 @@
   .month-week {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    grid-template-rows: 24px repeat(var(--lines), 22px) minmax(0, 1fr);
+    grid-template-rows: 24px repeat(var(--rows), calc(22px / var(--rows-per-line))) minmax(0, 1fr);
     flex: 1 1 0;
     min-height: 0;
     overflow: hidden;
@@ -281,7 +284,10 @@
   .item {
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
+    width: calc(100% / var(--lanes));
     min-width: 0;
+    margin-inline-start: calc(100% * var(--lane) / var(--lanes));
     padding: 1px 3px 1px 2px;
     z-index: 1;
   }
