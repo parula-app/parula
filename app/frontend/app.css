@@ -31,7 +31,8 @@ License: SIL OPEN FONT LICENSE 1.1 @see asset/font/Constr-Klingon-OFL.txt
 }
 
 :root {
-  --bg: white; /* #242424, rgba(255, 255, 255, 0.87) */
+  /* Must use hex colours for bg, main-bg, leftbar-bg, appbar-bg, selected-bg */
+  --bg: #FFFFFF; /* #242424, rgba(255, 255, 255, 0.87) */
   --fg: #160C27; /* #142862, #213547 */
   --inverted-bg: #160C27;
   --inverted-fg: white; /* #142862, #213547 */
