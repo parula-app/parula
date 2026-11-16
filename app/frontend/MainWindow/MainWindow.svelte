@@ -15,15 +15,16 @@
   {/await}
 {:else}
   <vbox flex class="main-window"
-    dir={rtl}
+    dir={rtl ? "rtl" : null}
     class:mobile={$appGlobal.isMobile}
-    class:desktop={!$appGlobal.isMobile}>
-    {#if !appGlobal.isMobile}
+    class:desktop={!$appGlobal.isMobile}
+    class:no-title-bar={$noTitleBar}>
+    {#if !appGlobal.isMobile && !$noTitleBar}
       <WindowHeader selectedApp={$selectedApp} />
     {/if}
     <hbox flex>
       {#if !appGlobal.isMobile}
-        <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} />
+        <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} noTitleBar={$noTitleBar} />
       {/if}
       <vbox flex>
         <NotificationBar notifications={$notifications} />
@@ -69,6 +70,7 @@
   // #endif
   import { notifications } from "../../logic/util/Notification";
   import { selectedAccount } from "../Mail/Selected";
+  import { noTitleBar } from "./Selected";
   import { getLocalStorage } from "../Util/LocalStorage";
   import { loadMustangApps, disableAppsBasedOnFeaturesXML } from "../AppsBar/loadMustangApps";
   import { mailMustangApp } from "../Mail/MailMustangApp";
@@ -87,10 +89,11 @@
   import MeetBackground from "../Meet/MeetBackground.svelte";
   import WebAppsInBackground from "../WebApps/Runner/WebAppsInBackground.svelte";
   import { catchErrors } from "../Util/error";
+  import { getOSName } from "../Util/util";
   import { assert } from "../../logic/util/util";
   import { getUILocale, t } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
-  import { appName, defaultFrontend } from "../../logic/build";
+  import { appName, defaultFrontend, webMail } from "../../logic/build";
   import { onMount } from "svelte";
   import debounce from "lodash/debounce";
   import { Router } from "svelte-navigator";
@@ -106,7 +109,11 @@
   // $: sidebarApp = $mustangApps.filter(app => app.showSidebar).first; // TODO watch `app` property changes
   $: $sidebarApp = $meetMustangApp.showSidebar ? meetMustangApp : null;
   $: sidebar = $sidebarApp?.sidebar;
-  $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
+  $: rtl = rtlLocales.includes(getUILocale());
+  /** macOS: The traffic lights are on top of the app bar, so we need no title bar.
+   * If the UI language and macOS have different writing directions,
+   * then the traffic lights are on the other side, above the app content. */
+  $: $noTitleBar = !webMail && getOSName() == "macintosh" && rtl == rtlLocales.includes(navigator.language);
   categoriesLoaded; /* make sure to import the file, so that that categories load */
 
   onMount(() => catchErrors(onLoad));

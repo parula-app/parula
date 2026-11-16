@@ -1,6 +1,6 @@
 <vbox class="month-view" flex
   on:mousewheel={event => catchErrors(() => onScrollWheel(event))}>
-  <hbox class="range-header">
+  <hbox class="range-header window-drag">
     <slot name="top-left" />
     <hbox flex />
     <DateRange bind:date={start} {range} />

@@ -4,9 +4,11 @@
       <CategoryItem {category} />
     {/each}
   </Scroll>
+  <GlobalSearchBar />
 </vbox>
 
 <script lang="ts">
+  import GlobalSearchBar from "../../MainWindow/GlobalSearchBar.svelte";
   import type { SettingsCategory } from "../SettingsCategory";
   import CategoryItem from "./CategoryItem.svelte";
   import Scroll from "../../Shared/Scroll.svelte";
