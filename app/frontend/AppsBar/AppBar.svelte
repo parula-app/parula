@@ -1,6 +1,9 @@
 <vbox class="app-bar">
+  {#if noTitleBar}
+    <hbox class="window-buttons window-drag" /> <!-- macOS shows its traffic lights here -->
+  {/if}
   {#each $showApps.each as app}
-    <AppButton selected={selectedApp == app} classes={app.id}
+    <AppButton selected={selectedApp == app && !(app == webAppsMustangApp && $showingWebApp)} classes={app.id}
       on:click={() => catchErrors(() => onSelectApp(app))} >
       <AppIcon slot="icon" icon={app.icon} size="24px" />
       <hbox slot="label" class="label">
@@ -10,7 +13,10 @@
     <SubAppsList mainApp={app} bind:selectedApp />
   {/each}
 
-  <vbox flex class="middle">
+  {#if selectedApp == webAppsMustangApp}
+    <LaunchBar freeHeight={middleHeight} bind:showMore={showMoreWebApps} />
+  {/if}
+  <vbox flex class="middle window-drag" bind:clientHeight={middleHeight}>
     <DemoBarMiddle />
   </vbox>
   {#if $showDemoToggle}
@@ -30,6 +36,9 @@
   import SubAppsList from "./SubAppsList.svelte";
   import DemoToggle from "./DemoToggle.svelte";
   import DemoBarMiddle from "./DemoBarMiddle.svelte";
+  import LaunchBar from "../WebApps/LauncherBar/LaunchBar.svelte";
+  import { webAppsMustangApp } from "../WebApps/WebAppsMustangApp";
+  import { showingWebApp } from "../WebApps/Runner/WebAppsRunning";
   import { catchErrors } from "../Util/error";
   import type { Collection } from "svelte-collections";
 
@@ -38,13 +47,33 @@
   /* Which apps to show on the app bar
    * readonly */
   export let showApps: Collection<MustangApp>;
+  /** macOS: The window has no title bar, and the traffic lights are on top of the app bar.
+   * in */
+  export let noTitleBar = false;
+
+  let middleHeight: number;
+  /** Clicking on Apps shows all web apps, if not all fit into the app bar */
+  let showMoreWebApps = false;
+  $: if (selectedApp != webAppsMustangApp) showMoreWebApps = false;
 
   function onSelectApp(app: MustangApp) {
+    if (app == webAppsMustangApp) {
+      showMoreWebApps = !showMoreWebApps;
+    }
     openApp(app, app.windowParams);
   }
 </script>
 
 <style>
+  .window-buttons {
+    /* Electron gives the height of the macOS traffic lights.
+     * 0 in fullscreen, where macOS hides them, and in a web browser. */
+    height: calc(env(titlebar-area-height, 0px) + 8px);
+    margin-block-start: -8px;
+    /* The macOS 26 traffic lights are wider than the app bar */
+    min-width: env(titlebar-area-x, 0px);
+    background-color: var(--appbar-bg);
+  }
   .app-bar {
     width: 64px;
     background-color: var(--appbar-bg);
@@ -52,6 +81,10 @@
     box-shadow: 1px 0px 3px 0px rgba(22, 12, 39, 20%); /* #160C27 */
     padding-block-start: 8px;
     z-index: 4;
+    position: relative; /* for the 2nd bar of `LaunchBar` */
+    /* The content must not make the app bar higher than the window,
+     * else `LaunchBar` would count that as space for more web apps */
+    contain: size;
   }
   .app-bar :global(.app-button),
   .middle {
@@ -63,17 +96,15 @@
       border-right: 1px dotted grey;
     }
   }
+  .middle {
+    min-height: 0px;
+  }
   .above-setup {
-    position: fixed;
-    width: 63px;
-    bottom: 68px;
-    margin: 0 auto;
+    margin-block-end: 14px;
   }
   .app-bar :global(.app-button.settings) {
-    position: fixed;
-    width: 63px;
-    bottom: 10px;
-    margin: 0 auto;
+    order: 1; /* After the middle */
+    margin-block-end: 10px;
   }
   .app-bar :global(.app-button.settings:not(.selected) .label .label) {
     display: none;

@@ -1,4 +1,4 @@
-<hbox class="person">
+<hbox class="person window-drag">
   <PersonPicture {person} />
   <vbox flex class="name-box">
     <hbox class="name">{$person.name}</hbox>

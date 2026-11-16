@@ -14,8 +14,8 @@
 <style>
   .webapps {
     position: fixed;
-    left: 120px; /* app bar width + webapp launcher bar width */
-    width: calc(100% - 121px);
+    left: 64px; /* app bar width */
+    width: calc(100% - 65px);
   }
   .webapps.running {
     top: 37px;

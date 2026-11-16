@@ -1,5 +1,5 @@
 <vbox class="week-view" flex>
-  <hbox class="range-header">
+  <hbox class="range-header window-drag">
     <slot name="top-left" />
     <hbox flex />
     <slot name="top-center">

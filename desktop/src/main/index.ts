@@ -10,6 +10,9 @@ import { appName, dataAppName } from '../../../app/logic/build'
 const windowFrame: BrowserWindowConstructorOptions = {
   autoHideMenuBar: true,
   titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
+  // macOS: Parula has the traffic lights on top of its app bar, which is 64px wide.
+  // macOS 15: 54px wide, so x 5 centers them. `hiddenInset` alone puts them at x 12, y 11.
+  trafficLightPosition: { x: 5, y: 11 },
   titleBarOverlay: true,
   frame: false,
   ...(process.platform === 'linux' ? { icon } : {}),
