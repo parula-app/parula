@@ -8,8 +8,8 @@
       </hbox>
     </AppButton>
     <SubAppsList mainApp={app} bind:selectedApp />
-    {#if app == selectedApp && app == webAppsMustangApp}
-      <LaunchBar freeHeight={middleHeight} />
+    {#if app == webAppsMustangApp}
+      <LaunchBar freeHeight={middleHeight} bind:showMore={showMoreWebApps} />
     {/if}
   {/each}
 
@@ -45,8 +45,14 @@
   export let showApps: Collection<MustangApp>;
 
   let middleHeight: number;
+  /** Clicking on Apps shows the web apps that don't fit into the app bar */
+  let showMoreWebApps = false;
+  $: if (selectedApp != webAppsMustangApp) showMoreWebApps = false;
 
   function onSelectApp(app: MustangApp) {
+    if (app == webAppsMustangApp) {
+      showMoreWebApps = !showMoreWebApps;
+    }
     openApp(app, app.windowParams);
   }
 </script>
@@ -59,6 +65,7 @@
     box-shadow: 1px 0px 3px 0px rgba(22, 12, 39, 20%); /* #160C27 */
     padding-block-start: 8px;
     z-index: 4;
+    position: relative; /* for the 2nd bar of `LaunchBar` */
   }
   .app-bar :global(.app-button),
   .middle {

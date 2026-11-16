@@ -87,6 +87,7 @@ export async function getStartObjects(): Promise<void> {
   appGlobal.personalAddressbook = appGlobal.addressbooks.first;
   appGlobal.collectedAddressbook = appGlobal.addressbooks.get(1);
   readSavedSearches();
+  await appGlobal.webApps.load(); // after the accounts, because the web apps reference them
 }
 
 /**
