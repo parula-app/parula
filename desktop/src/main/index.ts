@@ -1,10 +1,22 @@
 import { setMainWindow, startupBackend, shutdownBackend, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
-import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents, type Session } from 'electron'
+import { SecondaryBrowserWindow } from '../../backend/SecondaryBrowserWindow';
+import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents, type Session, type BrowserWindowConstructorOptions, type HandlerDetails, type WindowOpenHandlerResponse } from 'electron'
 import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
 import { appName, dataAppName } from '../../../app/logic/build'
+
+const windowFrame: BrowserWindowConstructorOptions = {
+  autoHideMenuBar: true,
+  titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
+  // macOS: Parula has the traffic lights on top of its app bar, which is 64px wide.
+  // macOS 15: 54px wide, so x 5 centers them. `hiddenInset` alone puts them at x 12, y 11.
+  trafficLightPosition: { x: 5, y: 11 },
+  titleBarOverlay: true,
+  frame: false,
+  ...(process.platform === 'linux' ? { icon } : {}),
+};
 
 async function createWindow(): Promise<void> {
   try {
@@ -17,14 +29,7 @@ async function createWindow(): Promise<void> {
       width: 1700,
       height: 950,
       show: false,
-      autoHideMenuBar: true,
-      titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
-      // macOS: Parula has the traffic lights on top of its app bar, which is 64px wide.
-      // macOS 15: 54px wide, so x 5 centers them. `hiddenInset` alone puts them at x 12, y 11.
-      trafficLightPosition: { x: 5, y: 11 },
-      titleBarOverlay: true,
-      frame: false,
-      ...(process.platform === 'linux' ? { icon } : {}),
+      ...windowFrame,
       webPreferences: {
         preload: join(import.meta.dirname, '../preload/index.mjs'),
         sandbox: false,
@@ -56,15 +61,9 @@ async function createWindow(): Promise<void> {
      * Thus, sanitizeHTML() adds a `target="_blank"` to such links,
      * which is considered a new web window and forces them to end up here. */
     mainWindow.webContents.setWindowOpenHandler((details): any => {
-      // Chrome special-cases "about:blank". Make *sure* that we don't get this here.
-      if (!details.url?.startsWith("https://")) {
-        return { action: 'deny' };
-      }
-      // Open the URL in the system web browser
-      shell.openExternal(details.url)
-        .catch(console.error); // must return the action synchronously
-      // ... and do not open a new Electron window
-      return { action: 'deny' }
+      // Secondary windows of our app, which only our frontend can open
+      return SecondaryBrowserWindow.allowWindowOpen(details, windowFrame, openInBrowser) ??
+        openInBrowser(details);
     })
 
     /** Keep the app in its window. A link without `target`, or a link or file that the user
@@ -106,6 +105,15 @@ async function createWindow(): Promise<void> {
   } catch (ex) {
     console.error(ex);
   }
+}
+
+/** Opens https URLs in the system web browser, and never a new Electron window */
+function openInBrowser(details: HandlerDetails): WindowOpenHandlerResponse {
+  if (details.url?.startsWith("https://")) {
+    shell.openExternal(details.url)
+      .catch(console.error); // must return the action synchronously
+  }
+  return { action: 'deny' };
 }
 
 function createMenu() {

@@ -3,16 +3,26 @@
   <vbox class="app-logo">
     <Icon data={logo} size="20px" />
   </vbox>
-  <hbox class="workspace">
-    <WorkspaceHeader {selectedApp} />
-  </hbox>
+  {#if appWindow.isMainWindow}
+    <hbox class="workspace">
+      <WorkspaceHeader {selectedApp} />
+    </hbox>
+  {/if}
   <hbox class="app-title value">
-    {$titleStore ?? selectedApp?.name ?? appName}
+    {title ?? $titleStore ?? selectedApp?.name ?? appName}
   </hbox>
   <vbox flex class="free" />
-  <hbox class="search-box">
-    <SearchField bind:searchTerm={$globalSearchTerm} />
-  </hbox>
+  {#if appWindow.isMainWindow}
+    <hbox class="search-box">
+      <SearchField bind:searchTerm={$globalSearchTerm} />
+    </hbox>
+    <hbox class="new-window">
+      <Button label={$t`Open a new window`}
+        icon={NewWindowIcon} iconSize="16px" plain iconOnly
+        onClick={onNewWindow}
+        />
+    </hbox>
+  {/if}
   {#if !webMail}
     <hbox class="right">
       <Button label={$t`Minimize`}
@@ -24,9 +34,9 @@
         iconSize="12px" plain iconOnly classes="restore-window"
         onClick={onMaximizeOrRestore}
         />
-      <Button label={$t`Close entire app`}
+      <Button label={isFirstWindow ? $t`Close entire app` : $t`Close window`}
         icon={XIcon} iconSize="16px" plain iconOnly classes="close"
-        onClick={onCloseApp}
+        onClick={onClose}
         />
     </hbox>
   {/if}
@@ -35,7 +45,6 @@
 <script lang="ts">
   import type { MustangApp } from "../AppsBar/MustangApp";
   import { globalSearchTerm } from "../AppsBar/selectedApp";
-  import { appGlobal } from "../../logic/app";
   import { appName, webMail } from "../../logic/build";
   import WorkspaceHeader from "./WorkspaceHeader.svelte";
   import SearchField from "../Shared/SearchField.svelte";
@@ -50,30 +59,42 @@
   import { t } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
   import { selectedWorkspace } from "./Selected";
+  import { AppWindow } from "./AppWindow";
+  import MainWindow from "./MainWindow.svelte";
+  import NewWindowIcon from 'lucide-svelte/icons/app-window';
 
-  export let selectedApp: MustangApp;
+  export let selectedApp: MustangApp = null;
+  /** For windows that show only one thing, e.g. the composer */
+  export let title: string | null = null;
+
+  const appWindow = AppWindow.current();
+  const isFirstWindow = appWindow == AppWindow.main;
 
   // Enable Mac Styles
   const mac = (!webMail && getOSName() == "macintosh") ? true : false;
   // Check mac system text direction
   const osRTL = (rtlLocales.includes(navigator.language) && mac) ? true : false;
 
-  function onMinimize() {
-    appGlobal.remoteApp.minimizeMainWindow();
+  async function onMinimize() {
+    await appWindow.minimize();
   }
 
   let canMaximize = true;
-  function onMaximizeOrRestore() {
+  async function onMaximizeOrRestore() {
     if (canMaximize) {
-      appGlobal.remoteApp.maximizeMainWindow();
+      await appWindow.maximize();
     } else {
-      appGlobal.remoteApp.unminimizeMainWindow();
+      await appWindow.restore();
     }
     canMaximize = !canMaximize;
   }
 
-  function onCloseApp() {
-    window.close();
+  function onClose() {
+    appWindow.close();
+  }
+
+  async function onNewWindow() {
+    await AppWindow.openMainWindow(MainWindow, {}, appWindow.window.outerWidth, appWindow.window.outerHeight);
   }
 
   $: titleStore = selectedApp?.title;
@@ -101,7 +122,12 @@
   .right {
     padding-inline-end: 8px;
   }
-  .right :global(button) {
+  .new-window {
+    background-color: var(--workspace-color);
+    padding-inline-start: 4px;
+  }
+  .right :global(button),
+  .new-window :global(button) {
     color: white;
     padding-inline-start: 8px;
     padding-inline-end: 8px;

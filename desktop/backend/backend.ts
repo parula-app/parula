@@ -5,6 +5,7 @@ import JPCWebSocket from '../../lib/jpc-ws';
 import * as OWA from './owa';
 import { dataAppName, production } from '../../app/logic/build';
 import { WebContents } from './WebContents';
+import { SecondaryBrowserWindow } from './SecondaryBrowserWindow';
 import { Observable, notifyChangedProperty } from '../../lib/util/Observable';
 import { sanitize } from '../../lib/util/sanitizeDatatypes';
 import { ImapFlow } from 'imapflow';
@@ -67,6 +68,7 @@ async function createSharedAppObject() {
     unminimizeMainWindow,
     maximizeMainWindow,
     openBrowserWindow,
+    newSecondaryBrowserWindow,
     addEventListenerWebContents,
     getWebContents,
     writeTextToClipboard,
@@ -654,6 +656,17 @@ let mainWindow: BrowserWindow;
 
 export function setMainWindow(mainWin: BrowserWindow) {
   mainWindow = mainWin;
+  // The main window holds the JS context for all windows, so close all secondary windows as well
+  mainWindow.on("closed", () => {
+    for (let win of BrowserWindow.getAllWindows()) {
+      win.close();
+    }
+  });
+}
+
+/** The frontend calls this before it opens a secondary window. @see `SecondaryBrowserWindow` */
+function newSecondaryBrowserWindow(): SecondaryBrowserWindow {
+  return new SecondaryBrowserWindow();
 }
 
 function minimizeMainWindow() {
