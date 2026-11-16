@@ -20,13 +20,11 @@
             />
         {/if}
       </hbox>
-    </HeaderGroupBox>
-  {/if}
-
-  {#if !appGlobal.isMobile && !webMail}
-    <HeaderGroupBox>
-      <hbox slot="header">{$t`Window`}</hbox>
-      <Checkbox bind:checked={$titleBarSetting.value} label={$t`Show the title bar`} allowIndetermined={false} />
+      {#if !webMail}
+        <hbox class="title-bar">
+          <Checkbox bind:checked={$titleBarSetting.value} label={$t`Show the title bar`} allowIndetermined={false} />
+        </hbox>
+      {/if}
     </HeaderGroupBox>
   {/if}
 
@@ -153,6 +151,9 @@
   }
   .frontend label {
     margin-inline-end: 24px;
+  }
+  .title-bar {
+    margin-block-start: 12px;
   }
   .appearance :global(.theme svg) {
     width: 32px;
