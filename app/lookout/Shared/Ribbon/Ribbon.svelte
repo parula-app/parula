@@ -1,52 +1,28 @@
 <vbox class="ribbon {layout}"
   class:collapsed={isCollapsed}
-  class:temp-open={isCollapsed && isTempOpen}
+  class:temp-open={isCollapsed && $isTempOpen}
   on:contextmenu={onContextMenu}
   bind:this={ribbonEl}>
-  <hbox class="tab-row"
-    class:collapsed={isCollapsed}
-    class:temp-open={isCollapsed && isTempOpen}
-    on:contextmenu={onContextMenu}
-    bind:this={tabRowEl}
-    use:moveInto={$tabsInTitleBar.value ? $titleBarTabs : null}>
-    <button class="tab file-tab" on:click={onFile} title={$t`File`}>
-      <span class="tab-label">{$t`File`}</span>
-    </button>
-    <hbox class="tabs" role="tablist" tabindex="-1" on:keydown={onTabRowKeyDown}>
-      {#each shownTabs as tab}
-        <button class="tab" role="tab"
-          class:selected={tab == $selectedTab}
-          class:contextual={tab.isContextual}
-          aria-selected={tab == $selectedTab}
-          tabindex={tab == $selectedTab ? 0 : -1}
-          on:click={() => onSelectTab(tab)}
-          on:dblclick={onToggleCollapsed}>
-          <span class="tab-label">{tab.label}</span>
-        </button>
-      {/each}
-    </hbox>
-    <hbox flex class="spacer" />
-    <slot name="tab-row-end" />
-    <div class="tell-me-box" bind:this={tellMeEl} use:moveInto={$tabsInTitleBar.value ? $titleBarTellMe : null}>
-      <TellMe {ribbonEl} {tabRowEl} bind:isSurveying={isTellMeSurveying} />
-    </div>
-    <ContextMenu bind:this={contextMenu}>
-      {#if $qatShown.value}
-        <MenuItem label={$qatPosition.value == "below" ? $t`Show Quick Access Toolbar Above the Ribbon` : $t`Show Quick Access Toolbar Below the Ribbon`}
-          onClick={() => { $qatPosition.value = $qatPosition.value == "below" ? "above" : "below"; }} />
-      {:else}
-        <MenuItem label={$t`Show Quick Access Toolbar`} onClick={() => { $qatShown.value = true; }} />
-      {/if}
-      <MenuDivider />
-      <MenuItem label={$t`Customize the Ribbon…`} onClick={() => $isCustomizing = true} />
-      <MenuItem label={$t`Collapse the Ribbon`} checkable checked={isCollapsed} shortCutInfo={$t`Ctrl+F1 *=> Keyboard shortcut`} onClick={onToggleCollapsed} />
-    </ContextMenu>
-  </hbox>
+  {#if !$tabsInTitleBar.value}
+    <RibbonTabRow {ribbon}>
+      <TellMe {ribbon} />
+    </RibbonTabRow>
+  {/if}
+  <ContextMenu bind:this={contextMenu}>
+    {#if $qatShown.value}
+      <MenuItem label={$qatPosition.value == "below" ? $t`Show Quick Access Toolbar Above the Ribbon` : $t`Show Quick Access Toolbar Below the Ribbon`}
+        onClick={() => { $qatPosition.value = $qatPosition.value == "below" ? "above" : "below"; }} />
+    {:else}
+      <MenuItem label={$t`Show Quick Access Toolbar`} onClick={() => { $qatShown.value = true; }} />
+    {/if}
+    <MenuDivider />
+    <MenuItem label={$t`Customize the Ribbon…`} onClick={() => $isCustomizing = true} />
+    <MenuItem label={$t`Collapse the Ribbon`} checkable checked={isCollapsed} shortCutInfo={$t`Ctrl+F1 *=> Keyboard shortcut`} onClick={onToggleCollapsed} />
+  </ContextMenu>
   <hbox class="ribbon-content" on:click|capture={onClickContent}>
     <slot />
   </hbox>
   <QuickAccessToolbarView placement="below" />
-  <KeyTipsLayer {ribbonEl} {tabRowEl} {tellMeEl} />
   {#if $isCustomizing}
     <CustomizeRibbonDialog tabs={$tabs} {ribbonID} on:close={() => $isCustomizing = false} />
   {/if}
@@ -69,28 +45,28 @@
 <script lang="ts" context="module">
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { getOSName } from "../../../frontend/Util/util";
+  import type { RibbonState } from "./RibbonGroup";
   import { writable } from "svelte/store";
 
   /** Whether the tabs are in the window title bar, or in their own row below it */
   export const tabsInTitleBar = getLocalStorage<boolean>("lookout.ribbon.tabsInTitleBar", getOSName() != "windows");
-  /** Where the window title bar shows the ribbon tabs and Tell me, if `tabsInTitleBar` */
-  export const titleBarTabs = writable<HTMLElement | null>(null);
-  export const titleBarTellMe = writable<HTMLElement | null>(null);
+  /** The ribbon of the page, whose tabs and Tell me the window title bar shows, if `tabsInTitleBar` */
+  export const currentRibbon = writable<RibbonState | null>(null);
 </script>
 
 <script lang="ts">
   import type { RibbonTabInfo, RibbonLayout, RibbonMetrics } from "./RibbonGroup";
+  import RibbonTabRow from "./RibbonTabRow.svelte";
   import { backstagePage, isBackstageOpen } from "../../Settings/Backstage/selected";
   import MenuItem from "../Menu/MenuItem.svelte";
   import MenuDivider from "../Menu/MenuDivider.svelte";
   import QuickAccessToolbarView from "../../MainWindow/QuickAccessToolbar.svelte";
-  import KeyTipsLayer from "./KeyTipsLayer.svelte";
   import TellMe from "./TellMe.svelte";
   import CustomizeRibbonDialog from "./CustomizeRibbonDialog.svelte";
   import ContextMenu from "../Menu/ContextMenu.svelte";
   import type { RibbonHiddenParts } from "./RibbonCustomization";
   import { selectedApp } from "../../../frontend/AppsBar/selectedApp";
-  import { get } from "svelte/store";
+  import { derived, get } from "svelte/store";
   import type { QuickAccessPosition } from "../QuickAccess/QuickAccess";
   import { setContext, onMount, onDestroy, tick } from "svelte";
   import { t } from "../../../l10n/l10n";
@@ -103,8 +79,8 @@
   const metrics = writable<RibbonMetrics>(null);
   const isSurveying = writable(false);
   const isCustomizing = writable(false);
-  let isTellMeSurveying = false;
-  $: $isSurveying = isTellMeSurveying || $isCustomizing;
+  const isTellMeSurveying = writable(false);
+  $: $isSurveying = $isTellMeSurveying || $isCustomizing;
   setContext("ribbonID", ribbonID);
   setContext("ribbonTabs", tabs);
   setContext("ribbonSelectedTab", selectedTab);
@@ -133,9 +109,10 @@
   const customization = getLocalStorage<Record<string, RibbonHiddenParts>>("lookout.ribbon.customization", {});
   let contextMenu: ContextMenu;
 
-  $: shownTabs = $tabs.filter(tab => tab.isContextual || !($customization.value?.[ribbonID]?.tabs ?? []).includes(tab.label));
-  $: if ($selectedTab && shownTabs.length && !shownTabs.includes($selectedTab)) {
-    $selectedTab = shownTabs[0];
+  const shownTabs = derived([tabs, customization], ([tabs, customization]) =>
+    tabs.filter(tab => tab.isContextual || !(customization.value?.[ribbonID]?.tabs ?? []).includes(tab.label)));
+  $: if ($selectedTab && $shownTabs.length && !$shownTabs.includes($selectedTab)) {
+    $selectedTab = $shownTabs[0];
   }
   const collapsedSetting = getLocalStorage<boolean>("lookout.ribbon.collapsed", false);
 
@@ -143,27 +120,30 @@
   $: isCollapsed = !!$collapsedSetting.value;
 
   let ribbonEl: HTMLElement;
-  let tabRowEl: HTMLElement;
-  let tellMeEl: HTMLElement;
   let probeEl: HTMLElement;
+  const isTempOpen = writable(false);
 
-  /** Moves the tab row and Tell me into the window title bar, and back */
-  function moveInto(el: HTMLElement, target: HTMLElement | null) {
-    let home = el.parentElement;
-    let next = el.nextSibling;
-    function move(newTarget: HTMLElement | null) {
-      if (newTarget) {
-        newTarget.append(el);
-      } else if (el.parentElement != home) {
-        home.insertBefore(el, next);
-      }
+  const ribbon: RibbonState = {
+    get ribbonEl() {
+      return ribbonEl;
+    },
+    shownTabs,
+    selectedTab,
+    isTempOpen,
+    isTellMeSurveying,
+    onFile,
+    onSelectTab,
+    onToggleCollapsed,
+    onContextMenu,
+  };
+  onMount(() => {
+    $currentRibbon = ribbon;
+  });
+  onDestroy(() => {
+    if ($currentRibbon == ribbon) {
+      $currentRibbon = null;
     }
-    move(target);
-    return {
-      update: move,
-      destroy: () => el.remove(),
-    };
-  }
+  });
 
   let probeObserver: ResizeObserver;
   onMount(() => {
@@ -194,47 +174,46 @@
     }
     metrics.set(measured);
   }
-  let isTempOpen = false;
-
   function onFile() {
-    isTempOpen = false;
+    $isTempOpen = false;
     $backstagePage = "info";
     $isBackstageOpen = true;
   }
 
   function onSelectTab(tab: RibbonTabInfo) {
     if (isCollapsed) {
-      isTempOpen = !(isTempOpen && tab == $selectedTab);
+      $isTempOpen = !($isTempOpen && tab == $selectedTab);
     }
     $selectedTab = tab;
   }
 
   function onToggleCollapsed() {
-    isTempOpen = false;
+    $isTempOpen = false;
     $collapsedSetting.value = !isCollapsed;
   }
 
   function onClickContent(event: MouseEvent) {
-    if (!isCollapsed || !isTempOpen) {
+    if (!isCollapsed || !$isTempOpen) {
       return;
     }
     let target = event.target as HTMLElement;
     if (!target.closest("button") || target.closest(".menu-trigger")) {
       return;
     }
-    isTempOpen = false;
+    $isTempOpen = false;
   }
 
   function onClickOutside(event: MouseEvent) {
-    if (!isTempOpen || ribbonEl?.contains(event.target as Node) || tabRowEl?.contains(event.target as Node)) {
+    let target = event.target as HTMLElement;
+    if (!$isTempOpen || ribbonEl?.contains(target) || target.closest?.(".tab-row")) {
       return;
     }
-    isTempOpen = false;
+    $isTempOpen = false;
   }
 
   function onKeyDown(event: KeyboardEvent) {
-    if (isTempOpen && event.key == "Escape") {
-      isTempOpen = false;
+    if ($isTempOpen && event.key == "Escape") {
+      $isTempOpen = false;
     }
   }
 
@@ -245,21 +224,6 @@
     }
     event.preventDefault();
     contextMenu.onContextMenu(event);
-  }
-
-  function onTabRowKeyDown(event: KeyboardEvent) {
-    if (event.key != "ArrowLeft" && event.key != "ArrowRight") {
-      return;
-    }
-    let tabButtons = Array.from(tabRowEl.querySelectorAll<HTMLElement>(".tabs .tab"));
-    let pos = tabButtons.indexOf(document.activeElement as HTMLElement);
-    if (pos < 0) {
-      return;
-    }
-    let forward = (event.key == "ArrowRight") != (getComputedStyle(ribbonEl).direction == "rtl");
-    let next = tabButtons[(pos + (forward ? 1 : -1) + tabButtons.length) % tabButtons.length];
-    next.focus();
-    event.preventDefault();
   }
 </script>
 
@@ -301,77 +265,13 @@
     font-size: 13px;
   }
 
-  .tab-row {
-    align-items: stretch;
-    min-width: 0;
+  .ribbon > :global(.tab-row) {
     height: var(--lo-ribbon-tab-row-height);
     padding: 0 8px;
-    app-region: drag;
   }
-  .tabs {
-    align-items: stretch;
-    min-width: 0;
+  .ribbon.collapsed:not(.temp-open) > :global(.tab-row) {
+    margin-block-end: 4px;
   }
-  .tabs:focus {
-    outline: none;
-  }
-  .tell-me-box {
-    display: contents;
-  }
-  .tab {
-    position: relative;
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    padding: 0;
-    margin: 2px 1px;
-    border: none;
-    border-radius: var(--lo-radius-small);
-    background-color: transparent;
-    color: var(--lo-fg);
-    font-family: inherit;
-    font-size: var(--lo-font-size);
-    white-space: nowrap;
-    app-region: no-drag;
-  }
-  /* The padding. If the tabs don't fit, the padding shrinks first, then the label. */
-  .tab::before,
-  .tab::after {
-    content: "";
-    width: 12px;
-  }
-  .tab-label {
-    flex-shrink: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .tab:hover {
-    background-color: var(--lo-hover-bg);
-  }
-  .tab.selected {
-    font-weight: 600;
-  }
-  .tab.contextual {
-    color: var(--lo-accent-text);
-  }
-  .tab.selected .tab-label::after {
-    content: "";
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 3px;
-    height: 3px;
-    border-radius: 2px;
-    background-color: var(--lo-accent);
-  }
-  .collapsed:not(.temp-open) .tab.selected {
-    font-weight: normal;
-  }
-  .collapsed:not(.temp-open) .tab.selected .tab-label::after {
-    display: none;
-  }
-
   .ribbon-content {
     margin: 0 8px 8px 8px;
     padding: 4px;
@@ -389,8 +289,5 @@
     left: 0;
     right: 0;
     box-shadow: var(--lo-shadow-popup);
-  }
-  .collapsed:not(.temp-open) .tab-row {
-    margin-block-end: 4px;
   }
 </style>

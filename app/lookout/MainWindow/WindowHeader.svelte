@@ -4,7 +4,9 @@
   </hbox>
   <hbox class="app-name">{appName}</hbox>
   <QuickAccessToolbar placement="above" />
-  <hbox class="ribbon-tabs" bind:this={$titleBarTabs} />
+  {#if $tabsInTitleBar.value && $currentRibbon}
+    <RibbonTabRow ribbon={$currentRibbon} />
+  {/if}
   <hbox class="search-area" class:mail={isMail}>
     <hbox class="search-box" class:has-search={!!$globalSearchTerm}>
       {#if isMail}
@@ -13,7 +15,9 @@
         <SearchField bind:searchTerm={$globalSearchTerm} placeholder={$t`Search`} bind:this={searchField} />
       {/if}
     </hbox>
-    <hbox class="tell-me-slot" bind:this={$titleBarTellMe} />
+    {#if $tabsInTitleBar.value && $currentRibbon}
+      <TellMe ribbon={$currentRibbon} />
+    {/if}
   </hbox>
   <hbox class="window-buttons">
     {#if !webMail}
@@ -44,7 +48,9 @@
   import SearchField from "../../frontend/Shared/SearchField.svelte";
   import MailSearchBox, { mailSearchInput } from "../Mail/Search/MailSearchBox.svelte";
   import QuickAccessToolbar, { quickAccessCommands } from "./QuickAccessToolbar.svelte";
-  import { titleBarTabs, titleBarTellMe } from "../Shared/Ribbon/Ribbon.svelte";
+  import { tabsInTitleBar, currentRibbon } from "../Shared/Ribbon/Ribbon.svelte";
+  import RibbonTabRow from "../Shared/Ribbon/RibbonTabRow.svelte";
+  import TellMe from "../Shared/Ribbon/TellMe.svelte";
   import type { QuickAccessCommand } from "../Shared/QuickAccess/QuickAccess";
   import type { EMail } from "../../logic/Mail/EMail";
   import { selectedMessages } from "../../frontend/Mail/Selected";
@@ -165,14 +171,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  /* Shrinks only if even the smallest search field doesn't fit */
-  .ribbon-tabs {
-    min-width: 0;
-  }
-  .ribbon-tabs :global(.tab-row) {
-    height: auto;
-    padding: 0;
-  }
   .search-area {
     flex: 1 1 0;
     min-width: calc(85px + 10ch);
@@ -188,9 +186,6 @@
   .search-box {
     flex: 0 1 680px;
     min-width: 0;
-  }
-  .tell-me-slot {
-    display: contents;
   }
   /* Tell me replaces the search field while it's open, with the same width */
   .search-area:has(:global(.tell-me.expanded)) .search-box {

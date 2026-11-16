@@ -70,7 +70,7 @@ test("The setting moves the tabs and Tell me between the title bar and their own
   flushSync();
   expect(document.querySelector(".title-bar [role=tab]")).toBeNull();
   expect(document.querySelector(".title-bar .tell-me-button")).toBeNull();
-  expect(document.querySelector(".ribbon > .tab-row + .ribbon-content")).toBeTruthy();
+  expect(document.querySelector(".ribbon > .tab-row ~ .ribbon-content")).toBeTruthy();
   expect(document.querySelector(".ribbon .tab-row .tell-me-button")).toBeTruthy();
 
   tabsInTitleBar.value = true;

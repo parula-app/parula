@@ -21,11 +21,11 @@
 
 <script lang="ts">
   import { assignKeyTips, quickAccessKeyTip } from "./KeyTips";
+  import type { RibbonState } from "./RibbonGroup";
   import { tick } from "svelte";
 
-  export let ribbonEl: HTMLElement;
+  export let ribbon: RibbonState;
   export let tabRowEl: HTMLElement;
-  export let tellMeEl: HTMLElement;
 
   interface Badge {
     tip: string;
@@ -49,6 +49,7 @@
   let isAltPending = false;
 
   function isActiveRibbon(): boolean {
+    let ribbonEl = ribbon.ribbonEl;
     return !!ribbonEl?.isConnected && ribbonEl.getClientRects().length > 0;
   }
 
@@ -97,8 +98,9 @@
       disabled: false,
       activate: () => selectTab(tabEl),
     }));
-    let tellMe = tellMeEl.querySelector<HTMLElement>(".tell-me-button");
-    let tellMeTargets: Target[] = tellMe && isVisible(tellMe) ? [{
+    // In the tab row, or in the window title bar
+    let tellMe = Array.from(document.querySelectorAll<HTMLElement>(".tell-me-button")).find(isVisible);
+    let tellMeTargets: Target[] = tellMe ? [{
       el: tellMe, label: labelOf(tellMe), centered: true, disabled: false,
       activate: () => {
         exit();
@@ -124,7 +126,7 @@
   }
 
   function commandTargets(): Target[] {
-    let content = ribbonEl.querySelector<HTMLElement>(".ribbon-content");
+    let content = ribbon.ribbonEl.querySelector<HTMLElement>(".ribbon-content");
     if (!content) {
       return [];
     }
