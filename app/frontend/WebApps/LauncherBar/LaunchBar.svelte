@@ -8,7 +8,7 @@
       {/each}
     </vbox>
   {/if}
-  <hbox class="add" class:selected={$showWebAppStore} title={$t`Add apps`}
+  <hbox class="add" title={$t`Add apps`}
     on:click={() => catchErrors(startStore)}>
     <AddIcon size="24px" />
   </hbox>
@@ -46,8 +46,8 @@
   let recent = getLocalStorage<string[]>("webapps.recent", []);
   let height = 0;
 
-  // 40px per app. The Add button and the paddings take 48px. Must match the CSS.
-  $: rows = Math.max(Math.floor((height + freeHeight - 48) / 40), 1);
+  // 48px per app, and 28px for the Add button. Must match the CSS.
+  $: rows = Math.max(Math.floor((height + freeHeight - 28) / 48), 1);
   $: onBar = mostRecent($apps.contents, $recent.value, rows);
   $: more = $apps.contents.filter(app => !onBar.includes(app));
 
@@ -77,37 +77,21 @@
 
 <style>
   .launch-bar {
-    align-items: center;
-    padding-block: 4px 8px;
     min-height: 0px;
     overflow: hidden;
   }
   .tray {
-    width: 60px;
-    padding: 2px;
-    border-radius: 8px;
     background-color: rgba(0, 0, 0, 25%);
   }
-  .tray :global(.web-app) {
-    padding-block: 4px;
-    border-radius: 6px;
-  }
   .add {
-    width: 60px;
     height: 28px;
     min-height: 28px;
-    margin-block-start: 4px;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
     color: var(--appbar-fg);
   }
   .add:hover {
     background-color: rgba(255, 255, 255, 25%);
-  }
-  .add.selected {
-    background-color: rgba(255, 255, 255, 95%);
-    color: #494558 /* var(--appbar-bg) */;
   }
   .add :global(svg) {
     stroke-width: 1.5px;
