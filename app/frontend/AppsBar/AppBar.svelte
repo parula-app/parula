@@ -8,12 +8,12 @@
       </hbox>
     </AppButton>
     <SubAppsList mainApp={app} bind:selectedApp />
-    {#if app == webAppsMustangApp}
-      <LaunchBar freeHeight={middleHeight} bind:showMore={showMoreWebApps} />
-    {/if}
   {/each}
 
   <vbox flex class="middle" bind:clientHeight={middleHeight}>
+    {#if $showApps.includes(webAppsMustangApp)} <!-- right underneath Apps, because that's the last app -->
+      <LaunchBar height={middleHeight} bind:showMore={showMoreWebApps} />
+    {/if}
     <DemoBarMiddle />
   </vbox>
   {#if $showDemoToggle}
@@ -80,6 +80,9 @@
   }
   .middle {
     min-height: 0px;
+    /* The size must not depend on the content, because `LaunchBar` fits its content into this size */
+    contain: size;
+    overflow: hidden;
   }
   .above-setup {
     margin-block-end: 14px;
