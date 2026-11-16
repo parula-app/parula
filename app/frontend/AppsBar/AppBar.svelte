@@ -10,7 +10,7 @@
     <SubAppsList mainApp={app} bind:selectedApp />
   {/each}
 
-  {#if selectedApp == webAppsMustangApp} <!-- right underneath Apps, because that's the last app -->
+  {#if selectedApp == webAppsMustangApp}
     <LaunchBar freeHeight={middleHeight} bind:showMore={showMoreWebApps} />
   {/if}
   <vbox flex class="middle" bind:clientHeight={middleHeight}>
