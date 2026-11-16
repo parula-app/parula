@@ -52,4 +52,10 @@
     border-radius: var(--pane-radius);
     box-shadow: var(--pane-shadow, none);
   }
+  /* Up to the window edges, like the web apps */
+  :global(.lookout-window) .main-pane {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
 </style>

@@ -21,7 +21,7 @@
       <!-- Here, so that the 2nd bar of the web apps in the nav rail can be on top -->
       <WebAppsInBackground {noTitleBar} />
     </hbox>
-    {#if !$showingWebApp}
+    {#if !noTitleBar}
       <StatusBar />
     {/if}
     {#if $isBackstageOpen}
@@ -62,7 +62,7 @@
   import MessageBoxHost from "../Shared/Dialog/MessageBoxHost.svelte";
   import NotificationBar from "../../frontend/MainWindow/NotificationBar.svelte";
   import WebAppsInBackground from "../../frontend/WebApps/Runner/WebAppsInBackground.svelte";
-  import { showingWebApp } from "../../frontend/WebApps/Runner/WebAppsRunning";
+  import { webAppsMustangApp } from "../../frontend/WebApps/WebAppsMustangApp";
   import Splitter from "../../frontend/Shared/Splitter.svelte";
   import { getUILocale } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
@@ -78,9 +78,10 @@
   $: sidebar = $sidebarApp?.sidebar;
   $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
   /* </copied> */
-  /** A web app needs neither the title bar with the search and the ribbon tabs, nor the status bar.
-   * So the web app gets the whole height, and the window buttons are on the app bar. */
-  $: noTitleBar = !!$showingWebApp;
+  /** The web apps need neither the title bar with the search and the ribbon tabs, nor the status bar.
+   * So the Apps app gets the whole window, also while it shows no web app,
+   * and the window buttons are on the app bar. */
+  $: noTitleBar = $selectedApp == webAppsMustangApp;
 
   // Not a plain CSS import: the global CSS must go away when the user switches to the classic frontend at runtime
   const globalStyle = document.createElement("style");

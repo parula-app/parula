@@ -1,4 +1,4 @@
-<vbox class="nav-rail" role="navigation" aria-label={$t`Apps`}>
+<vbox class="nav-rail" class:no-title-bar={noTitleBar} role="navigation" aria-label={$t`Apps`}>
   {#if noTitleBar}
     <hbox class="window-buttons" class:mac> <!-- macOS shows its traffic lights here -->
       {#if !mac && !webMail}
@@ -90,6 +90,10 @@
      * else `LaunchBar` would count that as space for more web apps */
     contain: size;
   }
+  /* The window buttons at the top. There's no ribbon tab row next to them. */
+  .nav-rail.no-title-bar {
+    padding-top: 0;
+  }
   .window-buttons.mac {
     /* Electron gives the height of the macOS traffic lights.
      * 0 in fullscreen, where macOS hides them, and in a web browser. */
@@ -98,6 +102,11 @@
   .window-buttons :global(button) {
     color: var(--lo-fg);
     padding: 4px 2px;
+    app-region: no-drag;
+  }
+  /* The nav rail moves the window, but the web apps and the + button must get the clicks */
+  .nav-rail :global(.launch-bar),
+  .nav-rail :global(.more) {
     app-region: no-drag;
   }
 </style>
