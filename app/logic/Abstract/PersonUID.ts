@@ -147,7 +147,7 @@ export function findPerson(emailAddress: string): Person | undefined {
   }
   emailAddress = emailAddress.toLowerCase();
   for (let ab of appGlobal.addressbooks) {
-    let existing = ab.persons.find(p => p.emailAddresses.some(e => e.value?.toLowerCase() == emailAddress));
+    let existing = ab.personsByEMailAddress.get(emailAddress)?.person;
     if (existing) {
       return existing;
     }
