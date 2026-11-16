@@ -19,22 +19,24 @@ export class OAuth2Window extends OAuth2UI {
     let url = await this.oAuth2.getAuthURL();
     let { promise, resolve, reject } = Promise.withResolvers<string>();
     let closeWindow = await appGlobal.remoteApp.openBrowserWindow(url, this.oAuth2.account.webSessionID,
+      // onNavigate
       async (url: URLString) => {
         try {
-          if (!await this.oAuth2.isAuthDoneURL(url)) {
-            return;
+          if (await this.oAuth2.isAuthDoneURL(url)) {
+            resolve(this.oAuth2.getAuthCodeFromDoneURL(url));
+            await closeWindow();
           }
-          resolve(this.oAuth2.getAuthCodeFromDoneURL(url));
         } catch (ex) {
           reject(ex);
+          await closeWindow();
         }
-        await closeWindow();
       },
-      // After `resolve()`, `reject()` does nothing
+      // onClosed. After `resolve()`, `reject()` does nothing.
       async () => reject(new UserCancelled(gt`Login window was closed by user`)));
     this.onAbort = () => {
       reject(new UserCancelled(gt`Login aborted by user`));
-      closeWindow().catch(console.error);
+      closeWindow()
+        .catch(console.error);
     };
     return await promise;
   }

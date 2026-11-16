@@ -689,10 +689,12 @@ function openBrowserWindow(url: string, sessionID: string, onNavigate: (url: str
     },
   });
   browserWindow.on('closed', () => {
-    onClosed().catch(console.error);
+    onClosed()
+      .catch(console.error);
   });
   browserWindow.webContents.on('did-navigate', (_event, url) => {
-    onNavigate(url).catch(console.error);
+    onNavigate(url)
+      .catch(console.error);
   });
   browserWindow.loadURL(url)
     .catch(console.error);
