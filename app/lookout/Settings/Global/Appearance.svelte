@@ -9,9 +9,12 @@
           <DialogButton label={$t`Switch`} icon={SwitchIcon} onClick={onSaveFrontend} />
         {/if}
       </hbox>
-      <!-- Without title bar, the ribbon tabs are in the window title bar. Parula has the same checkbox, with its own setting. -->
-      <Checkbox label={$t`Show the title bar`} checked={!$tabsInTitleBar.value}
-        on:change={event => { $tabsInTitleBar.value = !event.detail; }} />
+    </OptionsRow>
+      <vbox class="titlebar">
+        <Checkbox label={$t`Show the title bar`} checked={!$tabsInTitleBar.value}
+          on:change={event => { $tabsInTitleBar.value = !event.detail; }} />
+      </vbox>
+    <OptionsRow>
     </OptionsRow>
     <OptionsRow icon={ThemeIcon}>
       <hbox class="field-row">
@@ -97,5 +100,10 @@
   }
   .default-app :global(svg) {
     color: var(--lo-success);
+  }
+  .titlebar {
+    margin-inline-start: 20px;
+    margin-block-start: 0px;
+    margin-block-end: -12px;
   }
 </style>
