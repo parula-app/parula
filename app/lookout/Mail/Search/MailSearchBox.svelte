@@ -211,7 +211,8 @@
   }
   .search:focus-within {
     border-color: var(--lo-border-strong);
-    border-bottom: 2px solid var(--lo-accent);
+    border-bottom-color: var(--lo-accent);
+    box-shadow: inset 0 -1px 0 var(--lo-accent);
   }
   .scope {
     display: flex;

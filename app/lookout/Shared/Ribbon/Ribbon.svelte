@@ -8,7 +8,7 @@
     class:temp-open={isCollapsed && isTempOpen}
     on:contextmenu={onContextMenu}
     bind:this={tabRowEl}
-    use:moveInto={$titleBarTabs}>
+    use:moveInto={$tabsInTitleBar.value ? $titleBarTabs : null}>
     <button class="tab file-tab" on:click={onFile} title={$t`File`}>
       <span class="tab-label">{$t`File`}</span>
     </button>
@@ -27,7 +27,9 @@
     </hbox>
     <hbox flex class="spacer" />
     <slot name="tab-row-end" />
-    <TellMe {ribbonEl} {tabRowEl} bind:isSurveying={isTellMeSurveying} />
+    <div class="tell-me-box" bind:this={tellMeEl} use:moveInto={$titleBarTellMe}>
+      <TellMe {ribbonEl} {tabRowEl} bind:isSurveying={isTellMeSurveying} />
+    </div>
     <ContextMenu bind:this={contextMenu}>
       {#if $qatShown.value}
         <MenuItem label={$qatPosition.value == "below" ? $t`Show Quick Access Toolbar Above the Ribbon` : $t`Show Quick Access Toolbar Below the Ribbon`}
@@ -44,7 +46,7 @@
     <slot />
   </hbox>
   <QuickAccessToolbarView placement="below" />
-  <KeyTipsLayer {ribbonEl} {tabRowEl} />
+  <KeyTipsLayer {ribbonEl} {tabRowEl} {tellMeEl} />
   {#if $isCustomizing}
     <CustomizeRibbonDialog tabs={$tabs} {ribbonID} on:close={() => $isCustomizing = false} />
   {/if}
@@ -65,10 +67,15 @@
 <svelte:window on:click={onClickOutside} on:keydown={onKeyDown} />
 
 <script lang="ts" context="module">
+  import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
+  import { getOSName } from "../../../frontend/Util/util";
   import { writable } from "svelte/store";
 
-  /** Where the window title bar shows the ribbon tabs */
+  /** Whether the tabs are in the window title bar, or in their own row below it */
+  export const tabsInTitleBar = getLocalStorage<boolean>("lookout.ribbon.tabsInTitleBar", getOSName() != "windows");
+  /** Where the window title bar shows the ribbon tabs and Tell me */
   export const titleBarTabs = writable<HTMLElement | null>(null);
+  export const titleBarTellMe = writable<HTMLElement | null>(null);
 </script>
 
 <script lang="ts">
@@ -85,7 +92,6 @@
   import { selectedApp } from "../../../frontend/AppsBar/selectedApp";
   import { get } from "svelte/store";
   import type { QuickAccessPosition } from "../QuickAccess/QuickAccess";
-  import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { setContext, onMount, onDestroy, tick } from "svelte";
   import { t } from "../../../l10n/l10n";
 
@@ -138,13 +144,23 @@
 
   let ribbonEl: HTMLElement;
   let tabRowEl: HTMLElement;
+  let tellMeEl: HTMLElement;
   let probeEl: HTMLElement;
 
-  /** Moves the tab row into the window title bar */
+  /** Moves the tab row and Tell me into the window title bar, and the tab row back */
   function moveInto(el: HTMLElement, target: HTMLElement | null) {
-    target?.append(el);
+    let home = el.parentElement;
+    let next = el.nextSibling;
+    function move(newTarget: HTMLElement | null) {
+      if (newTarget) {
+        newTarget.append(el);
+      } else if (el.parentElement != home) {
+        home.insertBefore(el, next);
+      }
+    }
+    move(target);
     return {
-      update: (newTarget: HTMLElement | null) => newTarget?.append(el),
+      update: move,
       destroy: () => el.remove(),
     };
   }
@@ -288,6 +304,8 @@
   .tab-row {
     align-items: stretch;
     min-width: 0;
+    height: var(--lo-ribbon-tab-row-height);
+    padding: 0 8px;
   }
   .tabs {
     align-items: stretch;
@@ -295,6 +313,9 @@
   }
   .tabs:focus {
     outline: none;
+  }
+  .tell-me-box {
+    display: contents;
   }
   .tab {
     position: relative;
@@ -362,9 +383,12 @@
   .collapsed.temp-open .ribbon-content {
     display: flex;
     position: absolute;
-    top: 0;
+    top: var(--lo-ribbon-tab-row-height);
     left: 0;
     right: 0;
     box-shadow: var(--lo-shadow-popup);
+  }
+  .collapsed:not(.temp-open) .tab-row {
+    margin-block-end: 4px;
   }
 </style>

@@ -25,6 +25,7 @@
 
   export let ribbonEl: HTMLElement;
   export let tabRowEl: HTMLElement;
+  export let tellMeEl: HTMLElement;
 
   interface Badge {
     tip: string;
@@ -96,7 +97,7 @@
       disabled: false,
       activate: () => selectTab(tabEl),
     }));
-    let tellMe = tabRowEl.querySelector<HTMLElement>(".tell-me-button");
+    let tellMe = tellMeEl.querySelector<HTMLElement>(".tell-me-button");
     let tellMeTargets: Target[] = tellMe && isVisible(tellMe) ? [{
       el: tellMe, label: labelOf(tellMe), centered: true, disabled: false,
       activate: () => {

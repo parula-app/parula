@@ -1,4 +1,4 @@
-<vbox flex class="main-window desktop lookout-window" dir={rtl}>
+<vbox flex class="main-window desktop lookout-window" class:tabs-in-title-bar={$tabsInTitleBar.value} dir={rtl}>
   <WindowHeader selectedApp={$selectedApp} bind:this={windowHeader} />
   <vbox flex class="below-title">
     <hbox flex class="window-body">
@@ -47,6 +47,7 @@
   import { contactsMustangApp } from "../../frontend/Contacts/ContactsMustangApp";
   import { catchErrors } from "../../frontend/Util/error";
   import WindowHeader from "./WindowHeader.svelte";
+  import { tabsInTitleBar } from "../Shared/Ribbon/Ribbon.svelte";
   import StatusBar from "./StatusBar.svelte";
   import AppBar from "../AppsBar/AppBar.svelte";
   import AppContentRoutes from "../AppsBar/AppContentRoutes.svelte";
@@ -210,6 +211,10 @@
     font-family: var(--lo-font);
     font-size: var(--lo-font-size);
     overflow: hidden;
+  }
+  /* There's no tab row below the title bar */
+  .lookout-window.tabs-in-title-bar {
+    --lo-ribbon-tab-row-height: 0px;
   }
   .below-title {
     position: relative;

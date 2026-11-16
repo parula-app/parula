@@ -3,6 +3,7 @@
 import "../../../logic/app";
 import WindowHeader from "../../MainWindow/WindowHeader.svelte";
 import CalendarApp from "../../Calendar/CalendarApp.svelte";
+import { tabsInTitleBar } from "../../Shared/Ribbon/Ribbon.svelte";
 import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeAll, beforeEach, expect, test } from "vitest";
@@ -22,6 +23,7 @@ let page: Record<string, any> | null = null;
 
 beforeEach(() => {
   localStorage.clear();
+  tabsInTitleBar.value = true;
   header = mount(WindowHeader, { target: document.body, props: { selectedApp: null } });
   page = mount(CalendarApp, { target: document.body });
   flushSync();
@@ -61,4 +63,17 @@ test("Collapsed ribbon: A tab in the title bar shows the ribbon, and a click els
   document.body.click();
   flushSync();
   expect(ribbon.classList.contains("temp-open")).toBe(false);
+});
+
+test("The setting moves the tabs between the title bar and their own row above the ribbon. Tell me stays in the title bar.", () => {
+  tabsInTitleBar.value = false;
+  flushSync();
+  expect(document.querySelector(".title-bar [role=tab]")).toBeNull();
+  expect(document.querySelector(".ribbon > .tab-row + .ribbon-content")).toBeTruthy();
+  expect(document.querySelector(".title-bar .tell-me-button")).toBeTruthy();
+
+  tabsInTitleBar.value = true;
+  flushSync();
+  expect(document.querySelector(".title-bar [role=tab]")).toBeTruthy();
+  expect(document.querySelector(".ribbon .tab-row")).toBeNull();
 });

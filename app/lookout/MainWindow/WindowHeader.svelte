@@ -5,7 +5,7 @@
   <hbox class="app-name">{appName}</hbox>
   <QuickAccessToolbar placement="above" />
   <hbox class="ribbon-tabs" bind:this={$titleBarTabs} />
-  <hbox class="search-area" class:mail={isMail}>
+  <hbox class="search-area" class:mail={isMail} style:--text-shift={textShift} bind:this={searchAreaEl}>
     <hbox class="search-box" class:has-search={!!$globalSearchTerm}>
       {#if isMail}
         <MailSearchBox />
@@ -13,6 +13,7 @@
         <SearchField bind:searchTerm={$globalSearchTerm} placeholder={$t`Search`} bind:this={searchField} />
       {/if}
     </hbox>
+    <hbox class="tell-me-slot" bind:this={$titleBarTellMe} />
   </hbox>
   <hbox class="window-buttons">
     {#if !webMail}
@@ -43,7 +44,7 @@
   import SearchField from "../../frontend/Shared/SearchField.svelte";
   import MailSearchBox, { mailSearchInput } from "../Mail/Search/MailSearchBox.svelte";
   import QuickAccessToolbar, { quickAccessCommands } from "./QuickAccessToolbar.svelte";
-  import { titleBarTabs } from "../Shared/Ribbon/Ribbon.svelte";
+  import { titleBarTabs, titleBarTellMe } from "../Shared/Ribbon/Ribbon.svelte";
   import type { QuickAccessCommand } from "../Shared/QuickAccess/QuickAccess";
   import type { EMail } from "../../logic/Mail/EMail";
   import { selectedMessages } from "../../frontend/Mail/Selected";
@@ -64,6 +65,7 @@
   import XIcon from "lucide-svelte/icons/x";
   import { getOSName } from "../../frontend/Util/util";
   import { catchErrors } from "../../frontend/Util/error";
+  import { onMount } from "svelte";
   import { rtlLocales } from "../../l10n/list";
   import { t } from "../../l10n/l10n";
 
@@ -72,6 +74,7 @@
   $: isMail = !!selectedApp && (selectedApp == mailMustangApp || mailMustangApp.subApps.includes(selectedApp));
 
   let searchField: SearchField;
+  let searchAreaEl: HTMLElement;
   export function focusSearch() {
     if (isMail) {
       $mailSearchInput?.focus();
@@ -107,6 +110,25 @@
       run: () => { $printMessage = get(selectedArray)[0]; } },
   ];
   $: $quickAccessCommands = isMail ? mailCommands : [sendReceiveAll];
+
+  /** Fonts put the letters a bit above or below the middle of the line,
+   * e.g. DejaVu Sans 2px above, Noto Sans 1px below. The icons are in the middle.
+   * This is how far the text of the search field must move down to be in the middle, too.
+   * The CSS text-box trims a line to the capital letters, so it shows where they are. */
+  let textShift = "0px";
+  onMount(async () => {
+    await document.fonts?.ready;
+    let probe = document.createElement("div");
+    probe.textContent = "H";
+    searchAreaEl.append(probe);
+    let line = probe.getBoundingClientRect().height;
+    probe.style.setProperty("text-box", "trim-start cap alphabetic");
+    let aboveLetters = line - probe.getBoundingClientRect().height;
+    probe.style.setProperty("text-box", "trim-both cap alphabetic");
+    let letters = probe.getBoundingClientRect().height;
+    probe.remove();
+    textShift = (line - letters) / 2 - aboveLetters + "px";
+  });
 
   /* <copied from="../../frontend/MainWindow/WindowHeader.svelte"> */
   const mac = (!webMail && getOSName() == "macintosh") ? true : false;
@@ -169,9 +191,13 @@
     min-width: 0;
     app-region: no-drag;
   }
+  .ribbon-tabs :global(.tab-row) {
+    height: auto;
+    padding: 0;
+  }
   .search-area {
     flex: 1 1 0;
-    min-width: calc(50px + 10ch);
+    min-width: calc(85px + 10ch);
     align-items: center;
     justify-content: center;
     /* Leaves space to drag the window */
@@ -179,17 +205,31 @@
     container: search-area / inline-size;
   }
   .search-area.mail {
-    min-width: calc(155px + 10ch);
+    min-width: calc(190px + 10ch);
   }
   .search-box {
     flex: 0 1 680px;
     min-width: 0;
   }
+  .tell-me-slot {
+    display: contents;
+  }
+  .search-area :global(.search input),
+  .search-area :global(.scope-label),
+  .search-area :global(.tell-me-input) {
+    position: relative;
+    top: var(--text-shift);
+    line-height: inherit;
+  }
+  /* Tell me replaces the search field while it's open */
+  .search-area:has(:global(.tell-me.expanded)) .search-box {
+    display: none;
+  }
   /* If there is not enough space, the search field shrinks to about 25 characters.
    * Then, the mail search scope shows only an icon.
    * Then, the search field shrinks to 10 characters, and expands when it's used.
-   * 245px, 155px and 50px are roughly the icons and buttons around the text field. */
-  @container search-area (width < calc(245px + 25ch)) {
+   * The px values are roughly the icons and buttons around the text field, and the Tell me button. */
+  @container search-area (width < calc(280px + 25ch)) {
     .mail :global(.scope-label) {
       display: none;
     }
@@ -197,17 +237,18 @@
       display: block;
     }
   }
-  @container search-area (width < calc(155px + 25ch)) {
+  @container search-area (width < calc(190px + 25ch)) {
     .mail .search-box:not(:has(input:focus), .has-search) {
       flex: 0 0 calc(155px + 10ch);
     }
   }
-  @container search-area (width < calc(50px + 25ch)) {
+  @container search-area (width < calc(85px + 25ch)) {
     .search-area:not(.mail) .search-box:not(:has(input:focus), .has-search) {
       flex: 0 0 calc(50px + 10ch);
     }
   }
-  .search-box :global(.search) {
+  /* The search field of the other apps. The mail search box has its own. */
+  .search-area:not(.mail) :global(.search) {
     flex: 1 1 0;
     height: 30px;
     box-sizing: border-box;
@@ -220,14 +261,15 @@
     color: var(--lo-fg-secondary);
     app-region: no-drag;
   }
-  .search-box :global(.search:hover) {
+  .search-area:not(.mail) :global(.search:hover) {
     border-color: var(--lo-border-strong);
   }
-  .search-box :global(.search:focus-within) {
+  .search-area:not(.mail) :global(.search:focus-within) {
     border-color: var(--lo-border-strong);
-    border-bottom: 2px solid var(--lo-accent);
+    border-bottom-color: var(--lo-accent);
+    box-shadow: inset 0 -1px 0 var(--lo-accent);
   }
-  .search-box :global(.search input) {
+  .search-area:not(.mail) :global(.search input) {
     flex: 1 1 0;
     min-width: 0;
     border: none;
@@ -236,7 +278,7 @@
     font-size: var(--lo-font-size);
     outline: none;
   }
-  .search-box :global(.search input:focus) {
+  .search-area:not(.mail) :global(.search input:focus) {
     border: none;
   }
   .window-buttons {

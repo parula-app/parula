@@ -219,14 +219,15 @@
     flex: 0 0 auto;
     align-items: center;
     gap: 2px;
-    height: 28px;
-    margin-inline-end: 4px;
+    height: 30px;
+    margin-inline-start: 4px;
     border: 1px solid transparent;
     border-radius: var(--lo-radius-small);
     color: var(--lo-fg-secondary);
   }
+  /* Same width as the search field, which it replaces */
   .tell-me.expanded {
-    flex: 0 1 240px;
+    flex: 0 1 680px;
     min-width: 120px;
     padding-inline-end: 8px;
     border-color: var(--lo-border);
