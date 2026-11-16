@@ -50,8 +50,8 @@
   import { writable } from "svelte/store";
 
   /** Whether the tabs are in the window title bar, or in their own row below it.
-   * Default: On the web, and in the desktop app except on Windows. */
-  export const tabsInTitleBar = getLocalStorage<boolean>("lookout.ribbon.tabsInTitleBar", webMail || getOSName() != "windows");
+   * Default: On the web and on macOS, like Parula's `appearance.titleBar`. */
+  export const tabsInTitleBar = getLocalStorage<boolean>("lookout.ribbon.tabsInTitleBar", webMail || getOSName() == "macintosh");
   /** The ribbon of the page, whose tabs and Tell me the window title bar shows, if `tabsInTitleBar` */
   export const currentRibbon = writable<RibbonState | null>(null);
 </script>
