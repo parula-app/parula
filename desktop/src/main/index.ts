@@ -243,6 +243,37 @@ app.on('web-contents-created', (event, webContents) => {
   restrictPermissions(webContents.session);
 });
 
+/** Electron forgets the session cookies, i.e. those without an expiry date, when the app quits.
+ * Logins are often such cookies: Microsoft's `ESTSAUTH`, unless the user chose "Stay signed in",
+ * and the key with which Microsoft's web apps, e.g. Word, encrypt their own login (`msal.cache.encryption`).
+ * So after a restart, a web app was logged out, while its mail account stayed logged in
+ * with its refresh token. We keep these cookies, like a browser that continues where it left off.
+ * Only in the cookie stores of the accounts and web apps (`<webview partition="persist:...">`),
+ * not in that of our app. */
+app.on('session-created', created => {
+  if (created.isPersistent() && created != session.defaultSession) {
+    created.cookies.on('changed', (_event, cookie, _cause, removed) => {
+      if (removed || !cookie.session || !cookie.domain) {
+        return;
+      }
+      let host = cookie.domain.startsWith(".") ? cookie.domain.substring(1) : cookie.domain;
+      // Setting the cookie again fires this event again, but then, it's no longer a session cookie
+      created.cookies.set({
+        url: "https://" + host + cookie.path,
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.hostOnly ? undefined : cookie.domain,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        sameSite: cookie.sameSite,
+        expirationDate: Date.now() / 1000 + 90 * 24 * 60 * 60, // 90 days, like "Stay signed in"
+      })
+        .catch(console.error);
+    });
+  }
+});
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
