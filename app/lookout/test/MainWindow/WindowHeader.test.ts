@@ -65,15 +65,17 @@ test("Collapsed ribbon: A tab in the title bar shows the ribbon, and a click els
   expect(ribbon.classList.contains("temp-open")).toBe(false);
 });
 
-test("The setting moves the tabs between the title bar and their own row above the ribbon. Tell me stays in the title bar.", () => {
+test("The setting moves the tabs and Tell me between the title bar and their own row above the ribbon", () => {
   tabsInTitleBar.value = false;
   flushSync();
   expect(document.querySelector(".title-bar [role=tab]")).toBeNull();
+  expect(document.querySelector(".title-bar .tell-me-button")).toBeNull();
   expect(document.querySelector(".ribbon > .tab-row + .ribbon-content")).toBeTruthy();
-  expect(document.querySelector(".title-bar .tell-me-button")).toBeTruthy();
+  expect(document.querySelector(".ribbon .tab-row .tell-me-button")).toBeTruthy();
 
   tabsInTitleBar.value = true;
   flushSync();
   expect(document.querySelector(".title-bar [role=tab]")).toBeTruthy();
+  expect(document.querySelector(".title-bar .tell-me-button")).toBeTruthy();
   expect(document.querySelector(".ribbon .tab-row")).toBeNull();
 });

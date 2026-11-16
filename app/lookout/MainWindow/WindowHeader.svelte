@@ -5,7 +5,7 @@
   <hbox class="app-name">{appName}</hbox>
   <QuickAccessToolbar placement="above" />
   <hbox class="ribbon-tabs" bind:this={$titleBarTabs} />
-  <hbox class="search-area" class:mail={isMail} style:--text-shift={textShift} bind:this={searchAreaEl}>
+  <hbox class="search-area" class:mail={isMail}>
     <hbox class="search-box" class:has-search={!!$globalSearchTerm}>
       {#if isMail}
         <MailSearchBox />
@@ -65,7 +65,6 @@
   import XIcon from "lucide-svelte/icons/x";
   import { getOSName } from "../../frontend/Util/util";
   import { catchErrors } from "../../frontend/Util/error";
-  import { onMount } from "svelte";
   import { rtlLocales } from "../../l10n/list";
   import { t } from "../../l10n/l10n";
 
@@ -74,7 +73,6 @@
   $: isMail = !!selectedApp && (selectedApp == mailMustangApp || mailMustangApp.subApps.includes(selectedApp));
 
   let searchField: SearchField;
-  let searchAreaEl: HTMLElement;
   export function focusSearch() {
     if (isMail) {
       $mailSearchInput?.focus();
@@ -110,25 +108,6 @@
       run: () => { $printMessage = get(selectedArray)[0]; } },
   ];
   $: $quickAccessCommands = isMail ? mailCommands : [sendReceiveAll];
-
-  /** Fonts put the letters a bit above or below the middle of the line,
-   * e.g. DejaVu Sans 2px above, Noto Sans 1px below. The icons are in the middle.
-   * This is how far the text of the search field must move down to be in the middle, too.
-   * The CSS text-box trims a line to the capital letters, so it shows where they are. */
-  let textShift = "0px";
-  onMount(async () => {
-    await document.fonts?.ready;
-    let probe = document.createElement("div");
-    probe.textContent = "H";
-    searchAreaEl.append(probe);
-    let line = probe.getBoundingClientRect().height;
-    probe.style.setProperty("text-box", "trim-start cap alphabetic");
-    let aboveLetters = line - probe.getBoundingClientRect().height;
-    probe.style.setProperty("text-box", "trim-both cap alphabetic");
-    let letters = probe.getBoundingClientRect().height;
-    probe.remove();
-    textShift = (line - letters) / 2 - aboveLetters + "px";
-  });
 
   /* <copied from="../../frontend/MainWindow/WindowHeader.svelte"> */
   const mac = (!webMail && getOSName() == "macintosh") ? true : false;
@@ -189,7 +168,6 @@
   /* Shrinks only if even the smallest search field doesn't fit */
   .ribbon-tabs {
     min-width: 0;
-    app-region: no-drag;
   }
   .ribbon-tabs :global(.tab-row) {
     height: auto;
@@ -214,16 +192,12 @@
   .tell-me-slot {
     display: contents;
   }
-  .search-area :global(.search input),
-  .search-area :global(.scope-label),
-  .search-area :global(.tell-me-input) {
-    position: relative;
-    top: var(--text-shift);
-    line-height: inherit;
-  }
-  /* Tell me replaces the search field while it's open */
+  /* Tell me replaces the search field while it's open, with the same width */
   .search-area:has(:global(.tell-me.expanded)) .search-box {
     display: none;
+  }
+  .search-area :global(.tell-me.expanded) {
+    flex: 0 1 680px;
   }
   /* If there is not enough space, the search field shrinks to about 25 characters.
    * Then, the mail search scope shows only an icon.
@@ -266,8 +240,7 @@
   }
   .search-area:not(.mail) :global(.search:focus-within) {
     border-color: var(--lo-border-strong);
-    border-bottom-color: var(--lo-accent);
-    box-shadow: inset 0 -1px 0 var(--lo-accent);
+    border-bottom: 2px solid var(--lo-accent);
   }
   .search-area:not(.mail) :global(.search input) {
     flex: 1 1 0;

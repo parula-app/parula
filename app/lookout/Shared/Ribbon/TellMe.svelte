@@ -217,17 +217,18 @@
 <style>
   .tell-me {
     flex: 0 0 auto;
+    align-self: center;
     align-items: center;
     gap: 2px;
     height: 30px;
-    margin-inline-start: 4px;
+    margin-inline: 4px;
     border: 1px solid transparent;
     border-radius: var(--lo-radius-small);
     color: var(--lo-fg-secondary);
+    app-region: no-drag;
   }
-  /* Same width as the search field, which it replaces */
   .tell-me.expanded {
-    flex: 0 1 680px;
+    flex: 0 1 240px;
     min-width: 120px;
     padding-inline-end: 8px;
     border-color: var(--lo-border);

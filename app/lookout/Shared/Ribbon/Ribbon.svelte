@@ -27,7 +27,7 @@
     </hbox>
     <hbox flex class="spacer" />
     <slot name="tab-row-end" />
-    <div class="tell-me-box" bind:this={tellMeEl} use:moveInto={$titleBarTellMe}>
+    <div class="tell-me-box" bind:this={tellMeEl} use:moveInto={$tabsInTitleBar.value ? $titleBarTellMe : null}>
       <TellMe {ribbonEl} {tabRowEl} bind:isSurveying={isTellMeSurveying} />
     </div>
     <ContextMenu bind:this={contextMenu}>
@@ -73,7 +73,7 @@
 
   /** Whether the tabs are in the window title bar, or in their own row below it */
   export const tabsInTitleBar = getLocalStorage<boolean>("lookout.ribbon.tabsInTitleBar", getOSName() != "windows");
-  /** Where the window title bar shows the ribbon tabs and Tell me */
+  /** Where the window title bar shows the ribbon tabs and Tell me, if `tabsInTitleBar` */
   export const titleBarTabs = writable<HTMLElement | null>(null);
   export const titleBarTellMe = writable<HTMLElement | null>(null);
 </script>
@@ -147,7 +147,7 @@
   let tellMeEl: HTMLElement;
   let probeEl: HTMLElement;
 
-  /** Moves the tab row and Tell me into the window title bar, and the tab row back */
+  /** Moves the tab row and Tell me into the window title bar, and back */
   function moveInto(el: HTMLElement, target: HTMLElement | null) {
     let home = el.parentElement;
     let next = el.nextSibling;
@@ -306,6 +306,7 @@
     min-width: 0;
     height: var(--lo-ribbon-tab-row-height);
     padding: 0 8px;
+    app-region: drag;
   }
   .tabs {
     align-items: stretch;
@@ -331,6 +332,7 @@
     font-family: inherit;
     font-size: var(--lo-font-size);
     white-space: nowrap;
+    app-region: no-drag;
   }
   /* The padding. If the tabs don't fit, the padding shrinks first, then the label. */
   .tab::before,

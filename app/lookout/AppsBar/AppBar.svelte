@@ -53,5 +53,6 @@
     gap: 8px;
     padding: var(--lo-ribbon-tab-row-height) 0 8px 0;
     background-color: var(--lo-window-bg);
+    app-region: drag;
   }
 </style>
