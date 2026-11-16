@@ -159,8 +159,8 @@ export class AppWindow {
     let features = `width=${width},height=${height}`;
     let browserWindow = null;
     if (!webMail) {
-      // The desktop app allows only windows with this token, see `setWindowOpenHandler()` in desktop/src/main/index.ts
-      browserWindow = await appGlobal.remoteApp.allowSecondaryWindow();
+      // The desktop app opens only windows with this token. For the flow, see `SecondaryBrowserWindow` in desktop/backend/
+      browserWindow = await appGlobal.remoteApp.newSecondaryBrowserWindow();
       features += ",mustang-window=" + browserWindow.token;
     }
     let win = AppWindow.main.window.open("about:blank", name, features);

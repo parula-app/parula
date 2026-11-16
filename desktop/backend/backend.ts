@@ -68,7 +68,7 @@ async function createSharedAppObject() {
     unminimizeMainWindow,
     maximizeMainWindow,
     openBrowserWindow,
-    allowSecondaryWindow,
+    newSecondaryBrowserWindow,
     addEventListenerWebContents,
     getWebContents,
     writeTextToClipboard,
@@ -664,9 +664,9 @@ export function setMainWindow(mainWin: BrowserWindow) {
   });
 }
 
-/** Lets the frontend open one secondary window. @see `SecondaryBrowserWindow` */
-function allowSecondaryWindow(): SecondaryBrowserWindow {
-  return SecondaryBrowserWindow.allow();
+/** The frontend calls this before it opens a secondary window. @see `SecondaryBrowserWindow` */
+function newSecondaryBrowserWindow(): SecondaryBrowserWindow {
+  return new SecondaryBrowserWindow();
 }
 
 function minimizeMainWindow() {

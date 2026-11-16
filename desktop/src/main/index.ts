@@ -61,13 +61,9 @@ async function createWindow(): Promise<void> {
      * Thus, sanitizeHTML() adds a `target="_blank"` to such links,
      * which is considered a new web window and forces them to end up here. */
     mainWindow.webContents.setWindowOpenHandler((details): any => {
-      // Secondary windows of our app. Only our frontend has a valid token.
-      let token = details.features?.split(",").find(feature => feature.startsWith("mustang-window="))?.substring("mustang-window=".length);
-      let created = details.url == "about:blank" && token ? SecondaryBrowserWindow.use(token) : null;
-      if (created) {
-        return allowSecondaryWindow(created);
-      }
-      return openInBrowser(details);
+      // Secondary windows of our app, which only our frontend can open
+      return SecondaryBrowserWindow.allowWindowOpen(details, windowFrame, openInBrowser) ??
+        openInBrowser(details);
     })
 
     /** Keep the app in its window. A link without `target`, or a link or file that the user
@@ -118,40 +114,6 @@ function openInBrowser(details: HandlerDetails): WindowOpenHandlerResponse {
       .catch(console.error); // must return the action synchronously
   }
   return { action: 'deny' };
-}
-
-/**
- * Opens a secondary window of our app, which the frontend opened from the main window.
- * The frontend writes the content into the `about:blank` page, and this content runs
- * in the JS context of the main window. @see `AppWindow` in the frontend
- * The window must never load anything else, and it may not open other windows.
- * @param created from `SecondaryBrowserWindow.use()`
- */
-function allowSecondaryWindow(created: (browserWindow: BrowserWindow) => void): WindowOpenHandlerResponse {
-  return {
-    action: 'allow',
-    overrideBrowserWindowOptions: {
-      ...windowFrame,
-      // Set all of them here, because they are not inherited from the main window,
-      // and `window.open()` could set some of them
-      webPreferences: {
-        nodeIntegration: false,
-        nodeIntegrationInSubFrames: false,
-        contextIsolation: true,
-        sandbox: true,
-        webviewTag: true, // for emails, see `WebView.svelte`. Restricted by `restrictWebViews()`.
-        backgroundThrottling: false,
-      },
-    },
-    createWindow: (options: BrowserWindowConstructorOptions) => {
-      let browserWindow = new BrowserWindow(options);
-      let webContents = browserWindow.webContents;
-      webContents.setWindowOpenHandler(openInBrowser);
-      webContents.on('will-navigate', event => event.preventDefault());
-      created(browserWindow);
-      return webContents;
-    },
-  };
 }
 
 function createMenu() {

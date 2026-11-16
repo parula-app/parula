@@ -407,11 +407,11 @@
     await mailMustangApp.writeMailInNewWindow(mail);
   }
 
-  /** The user closed the separate window of the composer */
   onDestroy(() => {
     if (closing || appWindow.isMainWindow || !hasOwnText(mail)) {
       return;
     }
+    // The user closed the separate window of the composer
     mail.compose.saveAsDraft()
       .catch(ex => {
         showError(ex);
