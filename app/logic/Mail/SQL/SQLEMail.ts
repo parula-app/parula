@@ -341,22 +341,13 @@ export class SQLEMail {
     }
   }
 
+  /** @param row, recipientRows, attachmentRows, tagRows from `readMultiple()`.
+   *   Without them, reads the email with `readMultiple()`. */
   static async read(dbID: number, email: EMail, row?: any, recipientRows?: any[], attachmentRows?: any[], tagRows?: any[]): Promise<EMail> {
     if (!row) {
-      // <copied to="readAll()" />
-      row = await (await getDatabase()).get(sql`
-      SELECT
-        pID, messageID, parentMsgID,
-        size, dateSent, dateReceived,
-        outgoing,
-        subject, plaintext, html,
-        threadID, downloadComplete, json,
-        isRead, isStarred, isReplied, isForwarded, isImportant, isDraft, isSpam
-      FROM email
-      WHERE id = ${dbID}
-      `) as any;
-      // contactEmail, contactName, myEmail
-      assert(row, `EMail DB ID ${dbID} not found`);
+      email.dbID = dbID;
+      await this.readMultiple([email], ex => { throw ex; });
+      return email;
     }
     email.dbID = sanitize.integer(dbID);
     email.pID = typeof(row.pID) == "number"
@@ -389,7 +380,6 @@ export class SQLEMail {
   static async readMultiple(emails: EMail[], errorCallback: (ex: Error) => void): Promise<void> {
     let db = await getDatabase();
     let ofEMails = sql`IN (SELECT value FROM json_each(${JSON.stringify(emails.map(email => email.dbID))}))`;
-    // <copied from="read()" />
     let rows = await db.all(sql`
       SELECT
         id, pID, messageID, parentMsgID,
@@ -401,7 +391,6 @@ export class SQLEMail {
       FROM email
       WHERE id $${ofEMails}
       `) as any[];
-    // <copied from="readRecipients()" />
     let recipientRows = Map.groupBy(await db.all(sql`
       SELECT
         emailID, name, emailAddress, recipientType
@@ -409,7 +398,6 @@ export class SQLEMail {
         LEFT JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id)
       WHERE emailID $${ofEMails}
       `) as any[], row => row.emailID);
-    // <copied from="readAttachments()" />
     let attachmentRows = Map.groupBy(await db.all(sql`
       SELECT
         emailID, filename, filepathLocal, mimeType, size, contentID, disposition, related, json
@@ -427,7 +415,9 @@ export class SQLEMail {
     for (let email of emails) {
       let id = email.dbID as number;
       try {
-        await this.read(id, email, rowByID.get(id), recipientRows.get(id) ?? [], attachmentRows.get(id) ?? [], tagRows.get(id) ?? []);
+        let row = rowByID.get(id);
+        assert(row, `EMail DB ID ${id} not found`);
+        await this.read(id, email, row, recipientRows.get(id) ?? [], attachmentRows.get(id) ?? [], tagRows.get(id) ?? []);
       } catch (ex) {
         errorCallback(ex);
       }
@@ -488,17 +478,7 @@ export class SQLEMail {
     await this.readTags(email, tagRows);
   }
 
-  protected static async readRecipients(email: EMail, recipientRows?: any[]) {
-    if (!recipientRows) {
-      // <copied to="readAll()" />
-      recipientRows = await (await getDatabase()).all(sql`
-        SELECT
-          name, emailAddress, recipientType
-        FROM emailPersonRel
-          LEFT JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id)
-        WHERE emailID = ${email.dbID}
-      `) as any;
-    }
+  protected static async readRecipients(email: EMail, recipientRows: any[]) {
     email.to.clear();
     email.cc.clear();
     email.bcc.clear();
@@ -528,16 +508,7 @@ export class SQLEMail {
     }
   }
 
-  protected static async readAttachments(email: EMail, attachmentRows?: any[]) {
-    if (!attachmentRows) {
-      // <copied to="readAll()" />
-      attachmentRows = await (await getDatabase()).all(sql`
-        SELECT
-          filename, filepathLocal, mimeType, size, contentID, disposition, related, json
-        FROM emailAttachment
-        WHERE emailID = ${email.dbID}
-      `) as any;
-    }
+  protected static async readAttachments(email: EMail, attachmentRows: any[]) {
     let fallbackID = 0;
     email.attachments.clear();
     for (let row of attachmentRows) {
@@ -564,7 +535,7 @@ export class SQLEMail {
 
   protected static async readTags(email: EMail, tagRows?: any[]) {
     if (!tagRows) {
-      // <copied to="readAll()" />
+      // <copied to="readMultiple()" />
       tagRows = await (await getDatabase()).all(sql`
         SELECT
           tagName
@@ -648,7 +619,7 @@ export class SQLEMail {
       limit = -1;
     }
     await JSONEMail.init();
-    // <copied from="read()" />
+    // <copied from="readMultiple()" />
     let emailRows = await (await getDatabase()).all(sql`
       SELECT
         id, pID, messageID, parentMsgID,
