@@ -1,6 +1,6 @@
 <vbox class="app-bar">
   {#each $showApps.each as app}
-    <AppButton selected={selectedApp == app} classes={app.id}
+    <AppButton selected={selectedApp == app && !(app == webAppsMustangApp && $showingWebApp)} classes={app.id}
       on:click={() => catchErrors(() => onSelectApp(app))} >
       <AppIcon slot="icon" icon={app.icon} size="24px" />
       <hbox slot="label" class="label">
@@ -35,6 +35,7 @@
   import DemoBarMiddle from "./DemoBarMiddle.svelte";
   import LaunchBar from "../WebApps/LauncherBar/LaunchBar.svelte";
   import { webAppsMustangApp } from "../WebApps/WebAppsMustangApp";
+  import { showingWebApp } from "../WebApps/Runner/WebAppsRunning";
   import { catchErrors } from "../Util/error";
   import type { Collection } from "svelte-collections";
 
