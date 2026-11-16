@@ -2,7 +2,7 @@
   <vbox class="left-pane" slot="left">
     <Header bind:selectedAccount={$selectedAccount} {accounts} />
     <RoomList {rooms} bind:selectedRoom={$selectedRoom} />
-    <WorkspaceSearchBar />
+    <GlobalSearchBar />
   </vbox>
   <vbox class="right-pane  background-pattern" slot="right">
     {#if messages && $selectedRoom }
@@ -26,7 +26,7 @@
 </Splitter>
 
 <script lang="ts">
-  import WorkspaceSearchBar from "../MainWindow/WorkspaceSearchBar.svelte";
+  import GlobalSearchBar from "../MainWindow/GlobalSearchBar.svelte";
   import { Person } from "../../logic/Abstract/Person";
   import { ChatRoom } from "../../logic/Chat/ChatRoom";
   import { ChatPersonUID } from "../../logic/Chat/ChatPersonUID";

@@ -113,10 +113,10 @@
 {#if $appGlobal.isMobile}
   <StartBarM {selectedAccount} />
 {/if}
-<WorkspaceSearchBar compact />
+<GlobalSearchBar compact />
 
 <script lang="ts">
-  import WorkspaceSearchBar from "../../MainWindow/WorkspaceSearchBar.svelte";
+  import GlobalSearchBar from "../../MainWindow/GlobalSearchBar.svelte";
   import { startAdHocMeeting, callSelected, joinByURL, startFakeMeeting, testIncoming, createMustangMeetAccountIfPossible } from "./start";
   import { PhoneAccount } from "../../../logic/Meet/PhoneAccount";
   import { selectedPerson } from "../../Contacts/Person/Selected";

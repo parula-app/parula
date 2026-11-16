@@ -17,7 +17,7 @@
           </hbox>
           <TitleBarRight bind:dateInterval={dateIntervalSetting.value} slot="top-right" />
         </MainView>
-        {#if noTitleBar && !$isCalendarListOpen}
+        {#if $noTitleBar && !$isCalendarListOpen}
           <hbox class="global-search">
             <SearchButton />
           </hbox>

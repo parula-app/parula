@@ -1,5 +1,5 @@
 <vbox flex class="page">
-  <PageHeader title={$t`Workspaces`} subtitle={noTitleBar
+  <PageHeader title={$t`Workspaces`} subtitle={$noTitleBar
     ? $t`Your work-life balance: Mute some accounts at times to focus or relax. You can choose the workspace at the bottom, next to the search field.`
     : $t`Your work-life balance: Mute some accounts at times to focus or relax. You can choose the workspace in the window header.`}>
     <RoundButton

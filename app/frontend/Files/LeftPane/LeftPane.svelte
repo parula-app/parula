@@ -17,11 +17,11 @@
   {:else if activeTab == FilesView.CloudStorage || activeTab == FilesView.Harddrive}
     <FolderPane bind:listFiles bind:listDirs {activeTab} bind:selectedFolder={$selectedFolder} />
   {/if}
-  <WorkspaceSearchBar />
+  <GlobalSearchBar />
 </vbox>
 
 <script lang="ts">
-  import WorkspaceSearchBar from "../../MainWindow/WorkspaceSearchBar.svelte";
+  import GlobalSearchBar from "../../MainWindow/GlobalSearchBar.svelte";
   import { File } from "../../../logic/Files/File";
   import { Directory } from "../../../logic/Files/Directory";
   import { selectedFolder } from "../selected";

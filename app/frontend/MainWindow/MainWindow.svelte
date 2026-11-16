@@ -18,13 +18,13 @@
     dir={rtl}
     class:mobile={$appGlobal.isMobile}
     class:desktop={!$appGlobal.isMobile}
-    class:no-title-bar={noTitleBar}>
-    {#if !appGlobal.isMobile && !noTitleBar}
+    class:no-title-bar={$noTitleBar}>
+    {#if !appGlobal.isMobile && !$noTitleBar}
       <WindowHeader selectedApp={$selectedApp} />
     {/if}
     <hbox flex>
       {#if !appGlobal.isMobile}
-        <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} {noTitleBar} />
+        <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} noTitleBar={$noTitleBar} />
       {/if}
       <vbox flex>
         <NotificationBar notifications={$notifications} />
@@ -89,10 +89,11 @@
   import MeetBackground from "../Meet/MeetBackground.svelte";
   import WebAppsInBackground from "../WebApps/Runner/WebAppsInBackground.svelte";
   import { catchErrors } from "../Util/error";
+  import { getOSName } from "../Util/util";
   import { assert } from "../../logic/util/util";
   import { getUILocale, t } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
-  import { appName, defaultFrontend } from "../../logic/build";
+  import { appName, defaultFrontend, webMail } from "../../logic/build";
   import { onMount } from "svelte";
   import debounce from "lodash/debounce";
   import { Router } from "svelte-navigator";
@@ -109,6 +110,10 @@
   $: $sidebarApp = $meetMustangApp.showSidebar ? meetMustangApp : null;
   $: sidebar = $sidebarApp?.sidebar;
   $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
+  /** macOS: The traffic lights are on top of the app bar, so we need no title bar.
+   * If the UI language and macOS have different writing directions,
+   * then the traffic lights are on the other side, above the app content. */
+  $: $noTitleBar = !webMail && getOSName() == "macintosh" && !!rtl == rtlLocales.includes(navigator.language);
   categoriesLoaded; /* make sure to import the file, so that that categories load */
 
   onMount(() => catchErrors(onLoad));

@@ -1,6 +1,6 @@
 <!-- macOS: At the bottom of the left bar of each app -->
-{#if noTitleBar}
-  <hbox class="workspace-search-bar" class:compact>
+{#if $noTitleBar}
+  <hbox class="global-search-bar" class:compact>
     <WorkspaceButton />
     {#if compact}
       <SearchButton />
@@ -22,12 +22,12 @@
 </script>
 
 <style>
-  .workspace-search-bar {
+  .global-search-bar {
     align-items: center;
     gap: 4px;
     padding: 6px 8px;
   }
-  .workspace-search-bar :global(.search) {
+  .global-search-bar :global(.search) {
     flex: 1 1 0;
     min-width: 0;
   }
