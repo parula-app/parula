@@ -15,9 +15,9 @@
 </vbox>
 
 {#if showMore && more.length}
-  <!-- The web apps that don't fit into the AppBar, next to it -->
+  <!-- All web apps, with their names, next to the AppBar -->
   <vbox class="more">
-    {#each more as app (app)}
+    {#each $apps.contents as app (app)}
       <AppLaunchButton {app} showLabel iconSize={24} on:start={() => showMore = false} />
     {/each}
   </vbox>
@@ -37,7 +37,7 @@
 
   /** Empty space in the AppBar underneath all apps, in px */
   export let freeHeight = 0;
-  /** Show the web apps that don't fit into the AppBar
+  /** Show all web apps next to the AppBar, if not all fit into it
    * in/out */
   export let showMore = false;
 
@@ -101,7 +101,7 @@
     inset-inline-start: 100%;
     top: 0px;
     bottom: 0px;
-    max-width: 240px;
+    max-width: 200px;
     justify-content: safe center;
     overflow-y: auto;
     background-color: var(--appbar-bg);

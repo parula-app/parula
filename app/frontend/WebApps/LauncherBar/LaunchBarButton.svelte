@@ -1,11 +1,11 @@
 <hbox class="web-app" class:running class:showing title={app.nameTranslated}
   on:click={() => catchErrors(startApp)}
   on:contextmenu={contextMenu.onContextMenu}>
+  <hbox class="close" title={$t`Close` + " " + app.nameTranslated}
+    on:click|stopPropagation={() => catchErrors(closeApp)}>
+    <CloseIcon size="14px" />
+  </hbox>
   <vbox class="gutter">
-    <hbox class="close" title={$t`Close` + " " + app.nameTranslated}
-      on:click|stopPropagation={() => catchErrors(closeApp)}>
-      <CloseIcon size="12px" />
-    </hbox>
     <hbox class="dot" />
   </vbox>
   <img src={app.icon} width={iconSize} height={iconSize} alt="" />
@@ -63,6 +63,7 @@
 
 <style>
   .web-app {
+    position: relative;
     align-items: center;
     padding-block: 8px;
     padding-inline-end: 8px;
@@ -76,17 +77,17 @@
     color: #494558 /* var(--appbar-bg) */;
   }
   .gutter {
-    position: relative;
     align-self: stretch;
-    width: 13px;
-    min-width: 13px;
+    width: 18px;
+    min-width: 18px;
     align-items: center;
     justify-content: center;
   }
-  /* On the left, above the dot */
+  /* At the top left, above the dot */
   .close {
     position: absolute;
-    top: 0px;
+    top: 2px;
+    inset-inline-start: 4px;
     visibility: hidden;
   }
   .running:hover .close {

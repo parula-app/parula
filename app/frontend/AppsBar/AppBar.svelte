@@ -8,7 +8,7 @@
       </hbox>
     </AppButton>
     <SubAppsList mainApp={app} bind:selectedApp />
-    {#if app == webAppsMustangApp}
+    {#if app == webAppsMustangApp && app == selectedApp}
       <LaunchBar freeHeight={middleHeight} bind:showMore={showMoreWebApps} />
     {/if}
   {/each}
@@ -46,7 +46,7 @@
   export let showApps: Collection<MustangApp>;
 
   let middleHeight: number;
-  /** Clicking on Apps shows the web apps that don't fit into the app bar */
+  /** Clicking on Apps shows all web apps, if not all fit into the app bar */
   let showMoreWebApps = false;
   $: if (selectedApp != webAppsMustangApp) showMoreWebApps = false;
 
