@@ -24,10 +24,11 @@ export class Addressbook extends Account {
   readDBRunOnce = new RunOnce();
   readDBPersonsRunOnce = new RunOnce();
   /** Lowercase email address -> `{ emailAddress, person }`. For `findPerson()`.
-   * When the user edits an email address, `emailAddressesLowercase` replaces its entry with a new one,
-   * so the key of an entry never changes. */
+   * When the user edits an email address, the `ContactEntry` stays the same object,
+   * but `emailAddressesLowercase` replaces its `{ emailAddress, person }` object with a new one,
+   * so the key of such an object never changes. */
   readonly personsByEMailAddress = new CollectionIndex(this.persons,
-    person => person.emailAddressesLowercase, entry => entry.emailAddress);
+    person => person.emailAddressesLowercase, address => address.emailAddress);
 
   newPerson(): Person {
     return new Person(this);
