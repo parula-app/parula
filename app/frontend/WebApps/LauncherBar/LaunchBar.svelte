@@ -18,7 +18,7 @@
   <!-- The web apps that don't fit into the AppBar, next to it -->
   <vbox class="more">
     {#each more as app (app)}
-      <AppLaunchButton {app} showLabel on:start={() => showMore = false} />
+      <AppLaunchButton {app} showLabel iconSize={24} on:start={() => showMore = false} />
     {/each}
   </vbox>
 {/if}
@@ -101,7 +101,7 @@
     inset-inline-start: 100%;
     top: 0px;
     bottom: 0px;
-    width: 90px;
+    max-width: 240px;
     justify-content: safe center;
     overflow-y: auto;
     background-color: var(--appbar-bg);

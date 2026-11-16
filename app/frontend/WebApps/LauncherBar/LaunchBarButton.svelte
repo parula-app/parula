@@ -8,12 +8,10 @@
     </hbox>
     <hbox class="dot" />
   </vbox>
-  <vbox class="icon-label">
-    <img src={app.icon} width="32" height="32" alt="" />
-    {#if showLabel}
-      <div class="label font-smallest">{app.nameTranslated}</div>
-    {/if}
-  </vbox>
+  <img src={app.icon} width={iconSize} height={iconSize} alt="" />
+  {#if showLabel}
+    <div class="label font-small">{app.nameTranslated}</div>
+  {/if}
 </hbox>
 
 <ContextMenu bind:this={contextMenu}>
@@ -37,8 +35,10 @@
   import { t } from "../../../l10n/l10n";
 
   export let app: WebAppListed;
-  /** Show the name underneath the icon */
+  /** Show the name next to the icon */
   export let showLabel = false;
+  /** in px */
+  export let iconSize = 32;
 
   $: showing = $showingWebApp == app;
   $: running = $webAppsRunning.contains(app);
@@ -92,20 +92,11 @@
   .running:hover .close {
     visibility: visible;
   }
-  .icon-label {
-    flex: 1 0 0;
-    min-width: 0px;
-    align-items: center;
-  }
   .label {
-    max-width: 100%;
-    margin-block-start: 4px;
-    text-align: center;
-    overflow-wrap: break-word;
+    margin-inline-start: 8px;
+    white-space: nowrap;
     overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
   }
   .running .dot {
     width: 4px;
