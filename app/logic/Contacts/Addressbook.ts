@@ -6,12 +6,12 @@ import type { Contact } from "../Abstract/Contact";
 import type { PublicKey } from "../Mail/Encryption/PublicKey";
 import { SQLGroup } from "./SQL/SQLGroup";
 import { SQLPerson } from "./SQL/SQLPerson";
-import { PersonsByEMailAddress } from "./PersonsByEMailAddress";
+import { CollectionIndex } from "../util/collections";
 import { appGlobal } from "../app";
 import { RunOnce } from "../util/flow/RunOnce";
 import { AbstractFunction, NotReached } from "../util/util";
 import { gt } from "../../l10n/l10n";
-import { ArrayColl, Collection, mergeColl } from "svelte-collections";
+import { ArrayColl, Collection, mergeColl, mergeColls } from "svelte-collections";
 
 export class Addressbook extends Account {
   readonly protocol: string = "addressbook-local";
@@ -23,8 +23,9 @@ export class Addressbook extends Account {
   syncState: string | null = null;
   readDBRunOnce = new RunOnce();
   readDBPersonsRunOnce = new RunOnce();
-  /** For `findPerson()` */
-  readonly personsByEMailAddress = new PersonsByEMailAddress(this.persons);
+  /** Lowercase email address -> `{ emailAddress, person }`. For `findPerson()` */
+  readonly personsByEMailAddress = new CollectionIndex(
+    mergeColls(this.persons.map(person => person.emailAddressesLowercase)), entry => entry.emailAddress);
 
   newPerson(): Person {
     return new Person(this);
