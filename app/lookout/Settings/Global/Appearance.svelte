@@ -9,6 +9,9 @@
           <DialogButton label={$t`Switch`} icon={SwitchIcon} onClick={onSaveFrontend} />
         {/if}
       </hbox>
+      <!-- Without title bar, the ribbon tabs are in the window title bar. Parula has the same checkbox, with its own setting. -->
+      <Checkbox label={$t`Show the title bar`} checked={!$tabsInTitleBar.value}
+        on:change={event => { $tabsInTitleBar.value = !event.detail; }} />
     </OptionsRow>
     <OptionsRow icon={ThemeIcon}>
       <hbox class="field-row">
@@ -43,10 +46,12 @@
   import { appName, defaultFrontend } from "../../../logic/build";
   import { catchErrors } from "../../../frontend/Util/error";
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
+  import Checkbox from "../../Shared/Form/Checkbox.svelte";
   import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
   import OptionsPage from "../Shared/OptionsPage.svelte";
   import OptionsSection from "../Shared/OptionsSection.svelte";
   import OptionsRow from "../Shared/OptionsRow.svelte";
+  import { tabsInTitleBar } from "../../Shared/Ribbon/Ribbon.svelte";
   import GeneralIcon from "lucide-svelte/icons/settings";
   import ThemeIcon from "lucide-svelte/icons/sun-moon";
   import UserInterfaceIcon from "lucide-svelte/icons/panels-top-left";

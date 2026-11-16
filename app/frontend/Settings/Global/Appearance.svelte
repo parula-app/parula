@@ -153,7 +153,7 @@
     margin-inline-end: 24px;
   }
   .title-bar {
-    margin-block-start: 12px;
+    margin-block-start: 20px;
   }
   .appearance :global(.theme svg) {
     width: 32px;
