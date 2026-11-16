@@ -383,13 +383,14 @@ export class SQLEMail {
     return email;
   }
 
-  /** Like `read()` for each email, but with 4 queries for all emails, instead of 5 for each email.
+  /** Like `read()`, but for many emails, with 4 queries for all of them, instead of 5 for each email.
    * @param emails must have a `dbID`
    * @param errorCallback for an email that could not be read */
   static async readMultiple(emails: EMail[], errorCallback: (ex: Error) => void): Promise<void> {
-    let ids = JSON.stringify(emails.map(email => email.dbID));
+    let db = await getDatabase();
+    let ofEMails = sql`IN (SELECT value FROM json_each(${JSON.stringify(emails.map(email => email.dbID))}))`;
     // <copied from="read()" />
-    let rows = await (await getDatabase()).all(sql`
+    let rows = await db.all(sql`
       SELECT
         id, pID, messageID, parentMsgID,
         size, dateSent, dateReceived,
@@ -398,40 +399,35 @@ export class SQLEMail {
         threadID, downloadComplete, json,
         isRead, isStarred, isReplied, isForwarded, isImportant, isDraft, isSpam
       FROM email
-      WHERE id IN (SELECT value FROM json_each(${ids}))
+      WHERE id $${ofEMails}
       `) as any[];
     // <copied from="readRecipients()" />
-    let recipientRows = await (await getDatabase()).all(sql`
+    let recipientRows = Map.groupBy(await db.all(sql`
       SELECT
         emailID, name, emailAddress, recipientType
       FROM emailPersonRel
         LEFT JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id)
-      WHERE emailID IN (SELECT value FROM json_each(${ids}))
-      `) as any[];
+      WHERE emailID $${ofEMails}
+      `) as any[], row => row.emailID);
     // <copied from="readAttachments()" />
-    let attachmentRows = await (await getDatabase()).all(sql`
+    let attachmentRows = Map.groupBy(await db.all(sql`
       SELECT
         emailID, filename, filepathLocal, mimeType, size, contentID, disposition, related, json
       FROM emailAttachment
-      WHERE emailID IN (SELECT value FROM json_each(${ids}))
-      `) as any[];
+      WHERE emailID $${ofEMails}
+      `) as any[], row => row.emailID);
     // <copied from="readTags()" />
-    let tagRows = await (await getDatabase()).all(sql`
+    let tagRows = Map.groupBy(await db.all(sql`
       SELECT
         emailID, tagName
       FROM emailTag
-      WHERE emailID IN (SELECT value FROM json_each(${ids}))
-      `) as any[];
+      WHERE emailID $${ofEMails}
+      `) as any[], row => row.emailID);
     let rowByID = new Map(rows.map(row => [row.id, row]));
-    let recipientRowsByID = Map.groupBy(recipientRows, row => row.emailID);
-    let attachmentRowsByID = Map.groupBy(attachmentRows, row => row.emailID);
-    let tagRowsByID = Map.groupBy(tagRows, row => row.emailID);
     for (let email of emails) {
+      let id = email.dbID as number;
       try {
-        await this.read(email.dbID as number, email, rowByID.get(email.dbID),
-          recipientRowsByID.get(email.dbID) ?? [],
-          attachmentRowsByID.get(email.dbID) ?? [],
-          tagRowsByID.get(email.dbID) ?? []);
+        await this.read(id, email, rowByID.get(id), recipientRows.get(id) ?? [], attachmentRows.get(id) ?? [], tagRows.get(id) ?? []);
       } catch (ex) {
         errorCallback(ex);
       }
@@ -618,62 +614,26 @@ export class SQLEMail {
       limit = -1;
     }
     await JSONEMail.init();
-    // <copied from="read()" />
-    let emailRows = await (await getDatabase()).all(sql`
-      SELECT
-        id, pID, messageID, parentMsgID,
-        size, dateSent, dateReceived,
-        outgoing,
-        subject,
-        threadID, downloadComplete, json,
-        isRead, isStarred, isReplied, isForwarded, isImportant, isDraft, isSpam
+    let rows = await (await getDatabase()).all(sql`
+      SELECT id
       FROM email
       WHERE folderID = ${folder.dbID}
       ORDER BY dateSent DESC
       $${limit ? sql` LIMIT ${limit} ` : sql``}
       $${startWith ? sql` OFFSET ${startWith} ` : sql``}
     `) as any;
-    //console.time("sql read emails");
-    // plaintext, html, -- 10x slower, so do this later or on demand
-    //console.timeEnd("sql read emails");
-    // <copied from="readRecipients()" />
-    let folderRecipientRows = await (await getDatabase()).all(sql`
-      SELECT
-        emailID, name, emailAddress, recipientType
-      FROM emailPersonRel
-        LEFT JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id)
-        LEFT JOIN email ON (emailID = email.id)
-      WHERE folderID = ${folder.dbID}
-    `) as any;
-    // <copied from="readAttachments()" />
-    let folderAttachmentRows = await (await getDatabase()).all(sql`
-      SELECT
-        emailID, filename, filepathLocal, mimeType, emailAttachment.size as size, contentID, disposition, related, json
-      FROM emailAttachment
-      LEFT JOIN email ON (emailID = email.id)
-      WHERE folderID = ${folder.dbID}
-    `) as any;
-    let folderTagRows = await (await getDatabase()).all(sql`
-        SELECT
-          tagName
-        FROM emailTag
-        LEFT JOIN email ON (emailID = email.id)
-        WHERE folderID = ${folder.dbID}
-      `) as any;
-    let newEmails = new ArrayColl<EMail>();
-    for (let row of emailRows) {
+    let newEmails: EMail[] = [];
+    for (let row of rows) {
       let email = folder.messages.find(email => email.dbID == row.id);
       if (email) {
-        await SQLEMail.readWritableProps(email, row); // TODO needed?
+        await SQLEMail.readWritableProps(email); // TODO needed?
       } else {
         email = folder.newEMail();
-        let emailRecipientRows = folderRecipientRows.filter(r => r.emailID == row.id);
-        let emailAttachmentRows = folderAttachmentRows.filter(r => r.emailID == row.id);
-        let emailTagRows = folderTagRows.filter(r => r.emailID == row.id);
-        await SQLEMail.read(row.id, email, row, emailRecipientRows, emailAttachmentRows, emailTagRows);
-        newEmails.add(email);
+        email.dbID = row.id;
+        newEmails.push(email);
       }
     }
+    await SQLEMail.readMultiple(newEmails, folder.account.errorCallback);
     folder.messages.addAll(newEmails);
   }
 
