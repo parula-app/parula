@@ -1,5 +1,5 @@
 {#if $isDemo}
-  <hbox flex class="demo-bar">
+  <hbox class="demo-bar">
     <hbox class="text font-smallest">
       Demo
     </hbox>
@@ -16,6 +16,7 @@
     background: linear-gradient(to top, #FFF160 60%, transparent 95%) !important;
     color: #160C27;
     width: 18px;
+    height: 100%;
   }
   .text {
     transform: rotate(-90deg);

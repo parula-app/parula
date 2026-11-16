@@ -87,7 +87,7 @@
   .close {
     position: absolute;
     top: 2px;
-    inset-inline-start: 4px;
+    inset-inline-start: 2px;
     visibility: hidden;
   }
   .running:hover .close {

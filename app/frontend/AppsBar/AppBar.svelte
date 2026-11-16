@@ -10,10 +10,10 @@
     <SubAppsList mainApp={app} bind:selectedApp />
   {/each}
 
+  {#if selectedApp == webAppsMustangApp} <!-- right underneath Apps, because that's the last app -->
+    <LaunchBar freeHeight={middleHeight} bind:showMore={showMoreWebApps} />
+  {/if}
   <vbox flex class="middle" bind:clientHeight={middleHeight}>
-    {#if selectedApp == webAppsMustangApp} <!-- right underneath Apps, because that's the last app -->
-      <LaunchBar height={middleHeight} bind:showMore={showMoreWebApps} />
-    {/if}
     <DemoBarMiddle />
   </vbox>
   {#if $showDemoToggle}
@@ -67,6 +67,9 @@
     padding-block-start: 8px;
     z-index: 4;
     position: relative; /* for the 2nd bar of `LaunchBar` */
+    /* The content must not make the app bar higher than the window,
+     * else `LaunchBar` would count that as space for more web apps */
+    contain: size;
   }
   .app-bar :global(.app-button),
   .middle {
@@ -80,9 +83,6 @@
   }
   .middle {
     min-height: 0px;
-    /* The size must not depend on the content, because `LaunchBar` fits its content into this size */
-    contain: size;
-    overflow: hidden;
   }
   .above-setup {
     margin-block-end: 14px;

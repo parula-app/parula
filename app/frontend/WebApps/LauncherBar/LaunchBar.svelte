@@ -1,9 +1,9 @@
 <!-- Shows in the AppBar underneath the Apps button -->
-<vbox class="launch-bar">
-  {#if onBar.length}
+<vbox class="launch-bar" bind:clientHeight={height}>
+  {#if appsOnBar.length}
     <!-- Separate the colored icons of the web apps from the outline icons of our apps -->
     <vbox class="tray">
-      {#each onBar as app (app)}
+      {#each appsOnBar as app (app)}
         <AppLaunchButton {app} on:start={() => showMore = false} />
       {/each}
     </vbox>
@@ -14,7 +14,7 @@
   </hbox>
 </vbox>
 
-{#if showMore && more.length}
+{#if showMore && appsOnBar.length < $apps.length}
   <!-- All web apps, with their names, next to the AppBar -->
   <vbox class="more">
     {#each $apps.contents as app (app)}
@@ -35,8 +35,8 @@
   import { catchErrors } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
 
-  /** Space for the web apps in the AppBar, in px */
-  export let height = 0;
+  /** Empty space in the AppBar underneath the web apps, in px */
+  export let freeHeight = 0;
   /** Show all web apps next to the AppBar, if not all fit into it
    * in/out */
   export let showMore = false;
@@ -44,11 +44,12 @@
   let apps = appGlobal.webApps.myApps.merge(webAppsRunning);
   /** Keys of the web apps that the user opened, the last one first */
   let recent = getLocalStorage<string[]>("webapps.recent", []);
+  let height = 0;
 
+  // We can use our height and the empty space underneath.
   // 48px per app, and 28px for the Add button. Must match the CSS.
-  $: rows = Math.max(Math.floor((height - 28) / 48), 1);
-  $: onBar = mostRecent($apps.contents, $recent.value, rows);
-  $: more = $apps.contents.filter(app => !onBar.includes(app));
+  $: rows = Math.max(Math.floor((height + freeHeight - 28) / 48), 1);
+  $: appsOnBar = mostRecent($apps.contents, $recent.value, rows);
 
   $: $showingWebApp && setRecent($showingWebApp)
   function setRecent(app: WebAppListed) {
@@ -75,6 +76,10 @@
 </script>
 
 <style>
+  .launch-bar {
+    min-height: 0px;
+    overflow: hidden;
+  }
   .tray {
     background-color: rgba(0, 0, 0, 25%);
   }
@@ -102,10 +107,12 @@
     background-color: var(--appbar-bg);
     box-shadow: 1px 0px 3px 0px rgba(22, 12, 39, 20%); /* #160C27 */
   }
+  .launch-bar,
   .more {
     border-right: 1px dotted var(--border);
   }
   @media (prefers-color-scheme: light) {
+    .launch-bar,
     .more {
       border-right: 1px dotted grey;
     }
