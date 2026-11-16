@@ -1,6 +1,10 @@
 <vbox class="app-bar">
   {#if noTitleBar}
-    <hbox class="window-buttons window-drag" /> <!-- macOS shows its traffic lights here -->
+    <hbox class="window-buttons window-drag" class:mac> <!-- macOS shows its traffic lights here -->
+      {#if !mac}
+        <WindowButtons />
+      {/if}
+    </hbox>
   {/if}
   {#each $showApps.each as app}
     <AppButton selected={selectedApp == app && !(app == webAppsMustangApp && $showingWebApp)} classes={app.id}
@@ -37,9 +41,11 @@
   import DemoToggle from "./DemoToggle.svelte";
   import DemoBarMiddle from "./DemoBarMiddle.svelte";
   import LaunchBar from "../WebApps/LauncherBar/LaunchBar.svelte";
+  import WindowButtons from "../MainWindow/WindowButtons.svelte";
   import { webAppsMustangApp } from "../WebApps/WebAppsMustangApp";
   import { showingWebApp } from "../WebApps/Runner/WebAppsRunning";
   import { catchErrors } from "../Util/error";
+  import { getOSName } from "../Util/util";
   import type { Collection } from "svelte-collections";
 
   /* in/out */
@@ -47,9 +53,12 @@
   /* Which apps to show on the app bar
    * readonly */
   export let showApps: Collection<MustangApp>;
-  /** macOS: The window has no title bar, and the traffic lights are on top of the app bar.
+  /** The window has no title bar, and the window buttons are on top of the app bar.
+   * macOS shows its traffic lights there.
    * in */
   export let noTitleBar = false;
+
+  const mac = getOSName() == "macintosh";
 
   let middleHeight: number;
   /** Clicking on Apps shows all web apps, if not all fit into the app bar */
@@ -66,13 +75,23 @@
 
 <style>
   .window-buttons {
+    margin-block-start: -8px;
+    background-color: var(--appbar-bg);
+  }
+  .window-buttons.mac {
     /* Electron gives the height of the macOS traffic lights.
      * 0 in fullscreen, where macOS hides them, and in a web browser. */
     height: calc(env(titlebar-area-height, 0px) + 8px);
-    margin-block-start: -8px;
     /* The macOS 26 traffic lights are wider than the app bar */
     min-width: env(titlebar-area-x, 0px);
-    background-color: var(--appbar-bg);
+  }
+  .window-buttons:not(.mac) {
+    justify-content: center;
+    padding-block: 4px;
+  }
+  .window-buttons :global(button) {
+    color: var(--appbar-fg);
+    padding: 4px 2px;
   }
   .app-bar {
     width: 64px;

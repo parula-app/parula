@@ -23,6 +23,13 @@
     </HeaderGroupBox>
   {/if}
 
+  {#if !appGlobal.isMobile && !webMail}
+    <HeaderGroupBox>
+      <hbox slot="header">{$t`Window`}</hbox>
+      <Checkbox bind:checked={$titleBarSetting.value} label={$t`Show the title bar`} allowIndetermined={false} />
+    </HeaderGroupBox>
+  {/if}
+
   <HeaderGroupBox>
     <hbox slot="header">{$t`Dark mode`}</hbox>
     <ThemeSwitcher />
@@ -72,7 +79,7 @@
 <script lang="ts">
   import { getUILocale, getUILocalePref, getDateTimeLocale, getDateTimeLocalePref, saveDateTimeLocale, saveUILocale, setUILocale, t } from "../../../l10n/l10n";
   import { appGlobal } from "../../../logic/app";
-  import { appName, defaultFrontend } from "../../../logic/build";
+  import { appName, defaultFrontend, webMail } from "../../../logic/build";
   import { getLocalStorage } from "../../Util/LocalStorage";
   import { openApp } from "../../AppsBar/selectedApp";
   import { mailMustangApp } from "../../Mail/MailMustangApp";
@@ -81,9 +88,11 @@
   import LanguageDropDown from "./LanguageDropDown.svelte";
   import HeaderGroupBox from "../../Shared/HeaderGroupBox.svelte";
   import Button from "../../Shared/Button.svelte";
+  import Checkbox from "../../Shared/Checkbox.svelte";
   import RestartIcon from "lucide-svelte/icons/rotate-ccw";
   import SwitchIcon from "lucide-svelte/icons/arrow-left-right";
   import { catchErrors } from "../../Util/error";
+  import { getOSName } from "../../Util/util";
 
   let frontendSetting = getLocalStorage("appearance.frontend", defaultFrontend);
   let frontend = frontendSetting.value;
@@ -92,6 +101,9 @@
     openApp(mailMustangApp, {});
     frontendSetting.value = frontend;
   }
+
+  /** Default: No title bar on macOS, see `MainWindow.svelte` */
+  const titleBarSetting = getLocalStorage("appearance.titleBar", getOSName() != "macintosh");
 
   let language = getUILocalePref();
   let dateTimeFormat = getDateTimeLocalePref();
