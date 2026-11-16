@@ -90,17 +90,41 @@ export class ObservableMapToCollection<Source extends Observable, Result> extend
 }
 
 /**
- * Finds the items of a collection by a key, without going through all items.
- * Follows the items added to and removed from the collection.
- * The key of an item must not change.
+ * Finds items by a key, without going through all items.
+ * The items are in a collection of each source item, e.g. the email addresses of each person.
+ * Follows the source items added and removed, and the items added to and removed from their collections.
+ * The key of an item must not change. To change it, replace the item,
+ * like `ObservableMapToCollection` does when its source item changes.
  */
-export class CollectionIndex<Key, Item> {
+export class CollectionIndex<Key, Source, Item> {
   protected readonly itemsByKey = new Map<Key, Item[]>();
+  /** A field, because `registerObserver()` holds it only weakly */
+  protected readonly sourceObserver = {
+    added: (sources: Source[]) => {
+      for (let source of sources) {
+        let items = this.itemsFunc(source);
+        items.registerObserver(this);
+        this.added(items.contents);
+      }
+    },
+    removed: (sources: Source[]) => {
+      for (let source of sources) {
+        let items = this.itemsFunc(source);
+        items.unregisterObserver(this);
+        this.removed(items.contents);
+      }
+    },
+  };
 
-  /** @param source This keeps it alive, because it holds this observer only weakly */
-  constructor(protected readonly source: Collection<Item>, protected readonly keyFunc: (item: Item) => Key) {
-    source.registerObserver(this);
-    this.added(source.contents);
+  /**
+   * @param source Must be kept alive by the caller, which also keeps this index alive
+   * @param itemsFunc Must return the same collection each time for the same source item
+   */
+  constructor(source: Collection<Source>,
+    protected readonly itemsFunc: (source: Source) => Collection<Item>,
+    protected readonly keyFunc: (item: Item) => Key) {
+    source.registerObserver(this.sourceObserver);
+    this.sourceObserver.added(source.contents);
   }
 
   /** @returns the first item with this key */
