@@ -1,8 +1,8 @@
 <vbox class="app-bar">
   {#if noTitleBar}
     <hbox class="window-buttons window-drag" class:mac> <!-- macOS shows its traffic lights here -->
-      {#if !mac}
-        <WindowButtons />
+      {#if !mac && !webMail}
+        <WindowButtons atStart />
       {/if}
     </hbox>
   {/if}
@@ -46,6 +46,7 @@
   import { showingWebApp } from "../WebApps/Runner/WebAppsRunning";
   import { catchErrors } from "../Util/error";
   import { getOSName } from "../Util/util";
+  import { webMail } from "../../logic/build";
   import type { Collection } from "svelte-collections";
 
   /* in/out */

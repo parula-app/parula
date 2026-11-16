@@ -1,5 +1,5 @@
-<!-- Minimize, maximize and close. Not on macOS, which has its traffic lights. -->
-<hbox class="buttons">
+<!-- Minimize, maximize and close. Not on macOS, which has its traffic lights, and not on the web. -->
+<hbox class="buttons" class:at-start={atStart}>
   <Button label={$t`Minimize`}
     icon={MinimizeIcon} iconSize="16px" plain iconOnly classes="minimize"
     onClick={onMinimize}
@@ -24,6 +24,10 @@
   import { AppWindow } from "./AppWindow";
   import { t } from "../../l10n/l10n";
 
+  /** The buttons are at the start of the window, e.g. on the app bar (left in LTR).
+   * Then the order is close, maximize, minimize, so that close is at the edge of the window. */
+  export let atStart = false;
+
   const appWindow = AppWindow.current();
   const isFirstWindow = appWindow == AppWindow.main;
 
@@ -47,6 +51,9 @@
 </script>
 
 <style>
+  .at-start {
+    flex-direction: row-reverse;
+  }
   .buttons :global(.minimize svg) {
     margin-block-start: 8px; /* Find better icon */
   }
