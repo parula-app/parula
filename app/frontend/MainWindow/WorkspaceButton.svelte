@@ -10,11 +10,11 @@
 </Clickable>
 
 <script lang="ts">
-  import { selectedApp } from "./selectedApp";
-  import { selectedWorkspace } from "../MainWindow/Selected";
+  import { selectedApp } from "../AppsBar/selectedApp";
+  import { selectedWorkspace } from "./Selected";
   import { settingsMustangApp } from "../Settings/Window/SettingsMustangApp";
   import { selectedCategory } from "../Settings/Window/selected";
-  import WorkspaceDropDown from "../MainWindow/WorkspaceDropDown.svelte";
+  import WorkspaceDropDown from "./WorkspaceDropDown.svelte";
   import Popup from "../Shared/Popup.svelte";
   import Clickable from "../Shared/Clickable.svelte";
   import { t } from "../../l10n/l10n";
@@ -33,10 +33,10 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    color: rgba(255, 255, 255, 80%);
+    flex-shrink: 0;
   }
   .workspace-button:hover {
-    background-color: rgba(255, 255, 255, 25%);
+    background-color: var(--hover-bg);
   }
   .dot {
     width: 14px;

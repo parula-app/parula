@@ -228,6 +228,16 @@ grid[flex] {
   flex: 1 0 0;
 }
 
+/* macOS without title bar: The background of these elements moves the window.
+ * The controls in them still get the clicks.
+ * `app-region` is inherited, so also popups that open from them. */
+.no-title-bar .window-drag {
+  app-region: drag;
+}
+.no-title-bar .window-drag :is(button, input, select, textarea, a, label, .clickable, .popup) {
+  app-region: no-drag;
+}
+
 hbox.spacer,
 vbox.spacer,
 spacer {

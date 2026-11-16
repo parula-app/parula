@@ -1,5 +1,5 @@
 <vbox flex class="left-pane">
-  <hbox class="top">
+  <hbox class="top window-drag">
     <vbox class="island">
       <PaneViewSwitcher bind:active={activeTab} />
     </vbox>
@@ -17,9 +17,11 @@
   {:else if activeTab == FilesView.CloudStorage || activeTab == FilesView.Harddrive}
     <FolderPane bind:listFiles bind:listDirs {activeTab} bind:selectedFolder={$selectedFolder} />
   {/if}
+  <WorkspaceSearchBar />
 </vbox>
 
 <script lang="ts">
+  import WorkspaceSearchBar from "../../MainWindow/WorkspaceSearchBar.svelte";
   import { File } from "../../../logic/Files/File";
   import { Directory } from "../../../logic/Files/Directory";
   import { selectedFolder } from "../selected";

@@ -11,7 +11,7 @@
 </Clickable>
 
 <script lang="ts">
-  import { globalSearchTerm } from "./selectedApp";
+  import { globalSearchTerm } from "../AppsBar/selectedApp";
   import SearchField from "../Shared/SearchField.svelte";
   import Popup from "../Shared/Popup.svelte";
   import Clickable from "../Shared/Clickable.svelte";
@@ -39,10 +39,9 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    color: rgba(255, 255, 255, 80%);
   }
   .search-button:hover {
-    background-color: rgba(255, 255, 255, 25%);
+    background-color: var(--hover-bg);
   }
   .search-button.active {
     color: var(--selected-bg);

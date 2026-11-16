@@ -22,9 +22,11 @@
         />
     </IslandSwitcher>
   </hbox>
+  <WorkspaceSearchBar />
 </vbox>
 
 <script lang="ts">
+  import WorkspaceSearchBar from "../../MainWindow/WorkspaceSearchBar.svelte";
   import { rootTopic } from "../../../logic/Topic/TopicAccounts";
   import { getLocalStorage } from "../../Util/LocalStorage";
   import IslandSwitcher from "../../Shared/IslandSwitcher.svelte";

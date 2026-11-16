@@ -17,6 +17,11 @@
           </hbox>
           <TitleBarRight bind:dateInterval={dateIntervalSetting.value} slot="top-right" />
         </MainView>
+        {#if noTitleBar && !$isCalendarListOpen}
+          <hbox class="global-search">
+            <SearchButton />
+          </hbox>
+        {/if}
       </vbox>
       <vbox flex class="sidebar" slot="right">
         {#if $selectedEvent && !appGlobal.isMobile}
@@ -36,6 +41,8 @@
   import { isCalendarListOpen, kDateIntervalViews, selectedCalendar, selectedDate, selectedEvent, shownCalendarEvents, startDate, type DateInterval } from "./selected";
   import { CalendarRange } from "./CalendarRange";
   import { appGlobal } from "../../logic/app";
+  import { noTitleBar } from "../MainWindow/Selected";
+  import SearchButton from "../MainWindow/SearchButton.svelte";
   import CalendarList from "./CalendarList.svelte";
   import MainView from "./MainView.svelte";
   import CalendarViewBarM from "./MonthView/CalenderViewBarM.svelte";
@@ -55,6 +62,11 @@
 <style>
   .main {
     margin: 0px 16px 16px 16px;
+  }
+  .global-search {
+    /* Below the calendar view, partly in the margin.
+     * Over the view, it would cover events in the month view. */
+    margin-block-end: -10px;
   }
   .main :global(.range-header) {
     height: 58px;

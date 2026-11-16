@@ -3,6 +3,7 @@
     <Scroll>
       <Categories showCategories={topLevelCategories} allCategories={categories} bind:selected={selectedCategory} />
     </Scroll>
+    <WorkspaceSearchBar />
   </vbox>
   <vbox flex class="apps">
     <Scroll>
@@ -18,6 +19,7 @@
 </hbox>
 
 <script lang="ts">
+  import WorkspaceSearchBar from "../../MainWindow/WorkspaceSearchBar.svelte";
   import type { WebAppCategory } from "../../../logic/WebApps/WebAppCategory";
   import type { WebAppListed } from "../../../logic/WebApps/WebAppListed";
   import { appGlobal } from "../../../logic/app";

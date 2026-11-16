@@ -28,9 +28,11 @@
       {/each}
     {/each}
   </vbox>
+  <WorkspaceSearchBar />
 </vbox>
 
 <script lang="ts">
+  import WorkspaceSearchBar from "../MainWindow/WorkspaceSearchBar.svelte";
   import { selectedDate, shownCalendars, startDate } from "./selected";
   import type { CalendarRange } from "./CalendarRange";
   import { CalendarGroups } from "./CalendarGroups";

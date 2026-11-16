@@ -1,5 +1,5 @@
 <vbox flex class="folder-pane">
-    <hbox class="top">
+    <hbox class="top window-drag">
       <vbox class="island">
         <SearchSwitcher bind:active={activeTab} />
       </vbox>
@@ -40,9 +40,11 @@
     <hbox class="separator" />
     <ViewSwitcher />
   {/if}
+  <WorkspaceSearchBar />
 </vbox>
 
 <script lang="ts">
+  import WorkspaceSearchBar from "../../MainWindow/WorkspaceSearchBar.svelte";
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import { type Folder } from "../../../logic/Mail/Folder";
   import type { EMail } from "../../../logic/Mail/EMail";
@@ -164,5 +166,11 @@
   }
   .island {
     margin: 8px 12px;
+  }
+  .folder-pane :global(.workspace-search-bar) {
+    /* Same height and background as the `FolderFooter` next to it */
+    height: 32px;
+    padding-block: 2px;
+    background-color: var(--main-bg);
   }
 </style>
