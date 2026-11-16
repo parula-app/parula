@@ -105,4 +105,11 @@
     border-radius: 50%;
     background-color: currentColor;
   }
+  :global(.lookout-window) .web-app:hover {
+    background-color: var(--lo-hover-bg);
+  }
+  :global(.lookout-window) .web-app.showing {
+    background-color: var(--lo-pane-bg);
+    color: var(--lo-accent-text);
+  }
 </style>

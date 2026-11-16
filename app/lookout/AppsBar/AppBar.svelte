@@ -7,11 +7,14 @@
     </hbox>
   {/if}
   {#each railApps as app (app.id)}
-    <AppButton {app} selected={isSelected(app, selectedApp)}
+    <AppButton {app} selected={isSelected(app, selectedApp) && !(app == webAppsMustangApp && $showingWebApp)}
       on:click={() => catchErrors(() => onSelectApp(app))} />
     <SubAppsList mainApp={app} bind:selectedApp />
   {/each}
-  <vbox flex class="spacer" />
+  {#if selectedApp == webAppsMustangApp}
+    <LaunchBar freeHeight={spacerHeight} bind:showMore={showMoreWebApps} />
+  {/if}
+  <vbox flex class="spacer" bind:clientHeight={spacerHeight} />
   <AppButton app={settingsMustangApp} selected={isSelected(settingsMustangApp, selectedApp)}
     on:click={() => openOptions()} />
 </vbox>
@@ -26,7 +29,10 @@
   import { openOptions } from "../Settings/SettingsDialogs";
   import AppButton from "./AppButton.svelte";
   import SubAppsList from "./SubAppsList.svelte";
+  import LaunchBar from "../../frontend/WebApps/LauncherBar/LaunchBar.svelte";
   import WindowButtons from "../../frontend/MainWindow/WindowButtons.svelte";
+  import { webAppsMustangApp } from "../../frontend/WebApps/WebAppsMustangApp";
+  import { showingWebApp } from "../../frontend/WebApps/Runner/WebAppsRunning";
   import { catchErrors } from "../../frontend/Util/error";
   import { getOSName } from "../../frontend/Util/util";
   import { webMail } from "../../logic/build";
@@ -42,6 +48,11 @@
 
   const mac = getOSName() == "macintosh";
 
+  let spacerHeight: number;
+  /** Clicking on Apps shows all web apps, if not all fit into the app bar */
+  let showMoreWebApps = false;
+  $: if (selectedApp != webAppsMustangApp) showMoreWebApps = false;
+
   $: railApps = sortRailApps($showApps.contents);
 
   function sortRailApps(apps: MustangApp[]): MustangApp[] {
@@ -53,6 +64,9 @@
   }
 
   function onSelectApp(app: MustangApp) {
+    if (app == webAppsMustangApp) {
+      showMoreWebApps = !showMoreWebApps;
+    }
     openApp(app, app.windowParams);
   }
 
@@ -70,6 +84,11 @@
     padding: var(--lo-ribbon-tab-row-height) 0 8px 0;
     background-color: var(--lo-window-bg);
     app-region: drag;
+    position: relative; /* for the 2nd bar of `LaunchBar` */
+    z-index: 4; /* The 2nd bar is above the app and the running web app */
+    /* The content must not make the nav rail higher than the window,
+     * else `LaunchBar` would count that as space for more web apps */
+    contain: size;
   }
   .window-buttons.mac {
     /* Electron gives the height of the macOS traffic lights.

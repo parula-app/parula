@@ -19,18 +19,16 @@
   .webapps {
     position: fixed;
     left: 64px; /* app bar width */
-    width: calc(100% - 65px);
+    right: 0px;
+    bottom: 0px;
   }
   .webapps.running {
     top: 37px; /* window header height */
-    height: calc(100% - 37px);
   }
   .webapps.running.no-title-bar {
     top: 0px;
-    height: 100%;
   }
   .webapps:not(.running) {
-    bottom: 0px;
     height: 0px;
   }
   .webapp.running {
@@ -41,9 +39,5 @@
   }
   .webapp:not(.running) {
     visibility: collapse;
-  }
-  :global(.lookout-window) .webapps.running:not(.no-title-bar) {
-    top: var(--lo-titlebar-height);
-    height: calc(100% - var(--lo-titlebar-height));
   }
 </style>
