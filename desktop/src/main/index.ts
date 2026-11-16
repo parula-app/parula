@@ -1,12 +1,10 @@
 import { setMainWindow, startupBackend, shutdownBackend, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
 import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents, type Session } from 'electron'
-import { ipcMain } from 'electron/main';
 import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
 import { appName, dataAppName } from '../../../app/logic/build'
-import { sanitize } from '../../../lib/util/sanitizeDatatypes'
 
 async function createWindow(): Promise<void> {
   try {
@@ -62,15 +60,6 @@ async function createWindow(): Promise<void> {
       if (!details.url?.startsWith("https://")) {
         return { action: 'deny' };
       }
-      // Windows opened by us for OAuth2
-      // Must match OAuth2Window.ts login()
-      if (details?.features?.includes("oauth2popup")) {
-        let features = details.features.split(",");
-        let feature = (name: string) => features.find(pair => pair.startsWith(name + "="))?.substring(name.length + 1);
-        openBrowserWindow(mainWindow, sanitize.url(details.url, null, ["https"]),
-          sanitize.alphanumdash(feature("oauth2session"), null), sanitize.alphanumdash(feature("oauth2window"), null));
-        return { action: 'deny' };
-      }
       // Open the URL in the system web browser
       shell.openExternal(details.url)
         .catch(console.error); // must return the action synchronously
@@ -117,43 +106,6 @@ async function createWindow(): Promise<void> {
   } catch (ex) {
     console.error(ex);
   }
-}
-
-/** The OAuth2 login window of `OAuth2Window.ts`.
- * Not the window of `window.open()`: Electron gives that the cookies of our app,
- * and its login page an `opener`, through which it could navigate our app window.
- * Instead, a window with the cookies of the account, like `<webview partition>` in `Browser.svelte`.
- * @param sessionID `Account.webSessionID`
- * @param windowID Which login window the messages to and from `OAuth2Window` are about.
- *   There may be several at once. */
-function openBrowserWindow(mainWindow: BrowserWindow, url: string | null, sessionID: string | null, windowID: string | null) {
-  if (!url || !sessionID || !windowID) {
-    console.error("Refusing to open the login window", url, sessionID, windowID);
-    return;
-  }
-  let loginWindow = new BrowserWindow({
-    center: true,
-    webPreferences: {
-      partition: "persist:" + sessionID,
-      sandbox: true,
-    },
-  });
-  // Workaround for window.close() not closing in some cases
-  let onCloseRequest = (_event, id: string) => {
-    if (id == windowID) {
-      loginWindow.close();
-    }
-  };
-  ipcMain.on('oauth2-close', onCloseRequest);
-  loginWindow.on('closed', () => {
-    ipcMain.removeListener('oauth2-close', onCloseRequest);
-    mainWindow.webContents.send('oauth2-close', windowID);
-  });
-  loginWindow.webContents.on('did-navigate', (_event, url) => {
-    mainWindow.webContents.send('oauth2-navigate', windowID, url);
-  });
-  loginWindow.loadURL(url)
-    .catch(console.error);
 }
 
 function createMenu() {
@@ -244,6 +196,37 @@ app.on('web-contents-created', (event, webContents) => {
   setWindowOpenHandler(webContents);
   restrictWebViews(webContents);
   restrictPermissions(webContents.session);
+});
+
+/** Electron forgets the session cookies, i.e. those without an expiry date, when the app quits.
+ * Logins are often such cookies: Microsoft's `ESTSAUTH`, unless the user chose "Stay signed in",
+ * and the key with which Microsoft's web apps, e.g. Word, encrypt their own login (`msal.cache.encryption`).
+ * So after a restart, a web app was logged out, while its mail account stayed logged in
+ * with its refresh token. We keep these cookies, like a browser that continues where it left off.
+ * Only in the cookie stores of the accounts and web apps (`<webview partition="persist:...">`),
+ * not in that of our app. */
+app.on('session-created', created => {
+  if (created.isPersistent() && created != session.defaultSession) {
+    created.cookies.on('changed', (_event, cookie, _cause, removed) => {
+      if (removed || !cookie.session || !cookie.domain) {
+        return;
+      }
+      let host = cookie.domain.startsWith(".") ? cookie.domain.substring(1) : cookie.domain;
+      // Setting the cookie again fires this event again, but then, it's no longer a session cookie
+      created.cookies.set({
+        url: "https://" + host + cookie.path,
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.hostOnly ? undefined : cookie.domain,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        sameSite: cookie.sameSite,
+        expirationDate: Date.now() / 1000 + 90 * 24 * 60 * 60, // 90 days, like "Stay signed in"
+      })
+        .catch(console.error);
+    });
+  }
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

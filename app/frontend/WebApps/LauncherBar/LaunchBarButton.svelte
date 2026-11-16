@@ -1,19 +1,18 @@
-<vbox class="app-button" class:running class:selected
+<hbox class="web-app" class:running class:showing title={app.nameTranslated}
+  on:click={() => catchErrors(startApp)}
   on:contextmenu={contextMenu.onContextMenu}>
-  <Button
-    label={app.nameTranslated}
-    onClick={startApp}
-    {selected}
-    {disabled}
-    iconOnly plain>
-    <hbox class="icon" slot="icon">
-      <vbox class="dot">
-        <DotIcon size={32} />
-      </vbox>
-      <img src={app.icon} width="32" height="32" alt="" />
-    </hbox>
-  </Button>
-</vbox>
+  <hbox class="close" title={$t`Close` + " " + app.nameTranslated}
+    on:click|stopPropagation={() => catchErrors(closeApp)}>
+    <CloseIcon size="14px" />
+  </hbox>
+  <vbox class="gutter">
+    <hbox class="dot" />
+  </vbox>
+  <img src={app.icon} width={iconSize} height={iconSize} alt="" />
+  {#if showLabel}
+    <div class="label font-small">{app.nameTranslated}</div>
+  {/if}
+</hbox>
 
 <ContextMenu bind:this={contextMenu}>
   {#if running}
@@ -27,23 +26,28 @@
 <script lang="ts">
   import type { WebAppListed } from "../../../logic/WebApps/WebAppListed";
   import { showingWebApp, selectedWebApp, webAppsRunning } from "../Runner/WebAppsRunning";
+  import { startWebApp } from "../Runner/open";
   import ContextMenu from "../../Shared/Menu/ContextMenu.svelte";
-  import Button from "../../Shared/Button.svelte";
-  import DotIcon from "lucide-svelte/icons/dot";
-  import CloseIcon from "lucide-svelte/icons/square-x";
+  import CloseIcon from "lucide-svelte/icons/x";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
+  import { catchErrors } from "../../Util/error";
+  import { createEventDispatcher } from "svelte";
   import { t } from "../../../l10n/l10n";
 
   export let app: WebAppListed;
-  export let disabled = false;
+  /** Show the name next to the icon */
+  export let showLabel = false;
+  /** in px */
+  export let iconSize = 32;
 
-  $: selected = $showingWebApp == app;
+  $: showing = $showingWebApp == app;
   $: running = $webAppsRunning.contains(app);
   let contextMenu: ContextMenu;
+  const dispatch = createEventDispatcher<{ start: void }>();
 
   function startApp() {
-    webAppsRunning.add(app);
-    $showingWebApp = $selectedWebApp = app;
+    startWebApp(app);
+    dispatch("start");
   }
 
   function closeApp() {
@@ -58,39 +62,47 @@
 </script>
 
 <style>
-  .app-button :global(button.plain) {
-    border-radius: 0px;
+  .web-app {
+    position: relative;
+    align-items: center;
+    padding-block: 8px;
+    padding-inline-end: 8px;
+    color: var(--appbar-fg);
   }
-  .app-button :global(button:not(.selected):hover) {
+  .web-app:hover {
     background-color: rgba(255, 255, 255, 25%);
   }
-  .app-button :global(button:not(.selected):hover .label) {
-    color: black;
-  }
-  .app-button :global(button.selected:not(.disabled)) {
+  .web-app.showing {
     background-color: rgba(255, 255, 255, 95%);
+    color: #494558 /* var(--appbar-bg) */;
   }
-  .app-button :global(button.selected:not(.disabled) .label > .label) {
-    color: black;
-  }
-  /*.app-button :global(button.disabled) {
-    opacity: unset;
-  }*/
-  .icon {
-    padding: 8px 8px 8px 0px;
-  }
-  .dot {
-    justify-content: center;
+  .gutter {
+    align-self: stretch;
+    width: 18px;
+    min-width: 18px;
     align-items: center;
-    width: 8px;
-    color: var(--appbar-fg);
-    margin-inline-start: 2px;
-    margin-inline-end: 3px;
+    justify-content: center;
   }
-  .selected .dot {
-    color: var(--appbar-bg);
+  /* At the top left, above the dot */
+  .close {
+    position: absolute;
+    top: 2px;
+    inset-inline-start: 2px;
+    visibility: hidden;
   }
-  .app-button:not(.running) .dot :global(> *) {
-    display: none;
+  .running:hover .close {
+    visibility: visible;
+  }
+  .label {
+    margin-inline-start: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .running .dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: currentColor;
   }
 </style>
