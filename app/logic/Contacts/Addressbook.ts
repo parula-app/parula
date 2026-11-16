@@ -6,6 +6,7 @@ import type { Contact } from "../Abstract/Contact";
 import type { PublicKey } from "../Mail/Encryption/PublicKey";
 import { SQLGroup } from "./SQL/SQLGroup";
 import { SQLPerson } from "./SQL/SQLPerson";
+import { PersonsByEMailAddress } from "./PersonsByEMailAddress";
 import { appGlobal } from "../app";
 import { RunOnce } from "../util/flow/RunOnce";
 import { AbstractFunction, NotReached } from "../util/util";
@@ -22,36 +23,8 @@ export class Addressbook extends Account {
   syncState: string | null = null;
   readDBRunOnce = new RunOnce();
   readDBPersonsRunOnce = new RunOnce();
-  /** Lowercase email address -> person, for `findPersonByEMailAddress()`.
-   * null = Build it again on the next search, because the persons changed.
-   * `Person.saveLocally()` resets it, because the email addresses of a person may have changed. */
-  personsByEMailAddress: Map<string, Person> | null = null;
-
-  constructor() {
-    super();
-    // Not `registerObserver()`: It holds the observer only weakly, so the observer would be gone after the next GC
-    this.persons.subscribe(() => this.personsByEMailAddress = null);
-  }
-
-  /** Finds the person with this email address.
-   * Fast, because the app calls this for every sender and recipient of every email,
-   * and an address book may have thousands of persons.
-   * @param emailAddress must be lowercase
-   * @returns the first person in `persons` with this email address */
-  findPersonByEMailAddress(emailAddress: string): Person | undefined {
-    if (!this.personsByEMailAddress) {
-      this.personsByEMailAddress = new Map();
-      for (let person of this.persons) {
-        for (let entry of person.emailAddresses) {
-          let address = entry.value?.toLowerCase();
-          if (address && !this.personsByEMailAddress.has(address)) {
-            this.personsByEMailAddress.set(address, person);
-          }
-        }
-      }
-    }
-    return this.personsByEMailAddress.get(emailAddress);
-  }
+  /** For `findPerson()` */
+  readonly personsByEMailAddress = new PersonsByEMailAddress(this.persons);
 
   newPerson(): Person {
     return new Person(this);

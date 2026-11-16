@@ -77,7 +77,6 @@ export class Person extends ContactBase {
     if (!this.addressbook.persons.contains(this)) {
       this.addressbook.persons.add(this);
     }
-    this.addressbook.personsByEMailAddress = null; // The email addresses may have changed
     await this.addressbook.storage.savePerson(this);
   }
 

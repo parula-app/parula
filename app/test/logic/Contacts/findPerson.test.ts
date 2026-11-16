@@ -41,22 +41,37 @@ test("Finds persons added and drops persons removed after a search", () => {
   expect(findPerson("fred@example.com")).toBeUndefined();
 });
 
-test("Finds the new email address of a saved person", async () => {
+test("Follows email addresses added, changed and removed", () => {
   let fred = addPerson("Fred", "fred@example.com");
   expect(findPerson("fred@example.com")).toBe(fred);
-  fred.emailAddresses.first.value = "fred@bedrock.example";
-  await fred.save();
+  let entry = new ContactEntry("", "home"); // like the UI: add an empty field, then type
+  fred.emailAddresses.add(entry);
+  entry.value = "Fred@Bedrock.example";
   expect(findPerson("fred@bedrock.example")).toBe(fred);
+  fred.emailAddresses.first.value = "fred@quarry.example";
+  expect(findPerson("fred@quarry.example")).toBe(fred);
   expect(findPerson("fred@example.com")).toBeUndefined();
+  fred.emailAddresses.remove(entry);
+  expect(findPerson("fred@bedrock.example")).toBeUndefined();
+  expect(findPerson("fred@quarry.example")).toBe(fred);
 });
 
-test("Finds persons added after a garbage collection", async () => {
+test("Finds the other person with the same email address", () => {
+  let fred = addPerson("Fred", "info@bedrock.example");
+  let wilma = addPerson("Wilma", "info@bedrock.example");
+  expect(findPerson("info@bedrock.example")).toBe(fred);
+  addressbook.persons.remove(fred);
+  expect(findPerson("info@bedrock.example")).toBe(wilma);
+});
+
+test("Follows changes after a garbage collection", async () => {
   v8.setFlagsFromString("--expose-gc");
   let gc = vm.runInNewContext("gc");
-  addPerson("Fred", "fred@example.com");
-  expect(findPerson("barney@example.com")).toBeUndefined();
+  let fred = addPerson("Fred", "fred@example.com");
   await new Promise(resolve => setTimeout(resolve)); // WeakRefs are cleared only after the current task
   gc();
   let barney = addPerson("Barney", "barney@example.com");
   expect(findPerson("barney@example.com")).toBe(barney);
+  fred.emailAddresses.add(new ContactEntry("fred@bedrock.example", "home"));
+  expect(findPerson("fred@bedrock.example")).toBe(fred);
 });
