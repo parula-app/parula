@@ -11,6 +11,6 @@ export const changedWorkspace = writable(1);
 
 /** The window has no title bar. The window buttons (macOS: traffic lights) are on top of the app bar,
  * and the workspace and the search are in the left bar of each app.
- * Default on macOS, user preference `appearance.titleBar`.
+ * Default on the web and on macOS, user preference `appearance.titleBar`.
  * Set by `MainWindow.svelte`. */
 export const noTitleBar = writable(false);

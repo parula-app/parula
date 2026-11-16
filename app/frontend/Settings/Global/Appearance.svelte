@@ -20,11 +20,9 @@
             />
         {/if}
       </hbox>
-      {#if !webMail}
-        <hbox class="title-bar">
-          <Checkbox bind:checked={$titleBarSetting.value} label={$t`Show the title bar`} allowIndetermined={false} />
-        </hbox>
-      {/if}
+      <hbox class="title-bar">
+        <Checkbox bind:checked={$titleBarSetting.value} label={$t`Show the title bar`} allowIndetermined={false} />
+      </hbox>
     </HeaderGroupBox>
   {/if}
 
@@ -100,8 +98,8 @@
     frontendSetting.value = frontend;
   }
 
-  /** Default: No title bar on macOS, see `MainWindow.svelte` */
-  const titleBarSetting = getLocalStorage("appearance.titleBar", getOSName() != "macintosh");
+  /** Default: No title bar on the web and on macOS, see `MainWindow.svelte` */
+  const titleBarSetting = getLocalStorage("appearance.titleBar", !webMail && getOSName() != "macintosh");
 
   let language = getUILocalePref();
   let dateTimeFormat = getDateTimeLocalePref();
