@@ -658,8 +658,8 @@ export function setMainWindow(mainWin: BrowserWindow) {
   mainWindow = mainWin;
   // The main window holds the JS context for all windows, so close all secondary windows as well
   mainWindow.on("closed", () => {
-    for (let secondaryWindow of BrowserWindow.getAllWindows()) {
-      secondaryWindow.close();
+    for (let win of BrowserWindow.getAllWindows()) {
+      win.close();
     }
   });
 }
