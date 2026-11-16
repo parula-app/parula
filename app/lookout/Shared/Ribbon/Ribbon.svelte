@@ -45,11 +45,13 @@
 <script lang="ts" context="module">
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { getOSName } from "../../../frontend/Util/util";
+  import { webMail } from "../../../logic/build";
   import type { RibbonState } from "./RibbonGroup";
   import { writable } from "svelte/store";
 
-  /** Whether the tabs are in the window title bar, or in their own row below it */
-  export const tabsInTitleBar = getLocalStorage<boolean>("lookout.ribbon.tabsInTitleBar", getOSName() != "windows");
+  /** Whether the tabs are in the window title bar, or in their own row below it.
+   * Default: On the web, and in the desktop app except on Windows. */
+  export const tabsInTitleBar = getLocalStorage<boolean>("lookout.ribbon.tabsInTitleBar", webMail || getOSName() != "windows");
   /** The ribbon of the page, whose tabs and Tell me the window title bar shows, if `tabsInTitleBar` */
   export const currentRibbon = writable<RibbonState | null>(null);
 </script>

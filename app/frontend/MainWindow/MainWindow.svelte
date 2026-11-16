@@ -47,13 +47,13 @@
       </vbox>
     </hbox>
   </vbox>
+  <WebAppsInBackground noTitleBar={$noTitleBar} />
 {/if}
 {#if isFirstWindow}
   <MeetBackground />
   <MailInBackground />
   <CalendarInBackground />
 {/if}
-<WebAppsInBackground />
 
 <script lang="ts">
   import { selectedApp, sidebarApp, mustangApps, goTo, openApp, history } from "../AppsBar/selectedApp";
@@ -115,10 +115,14 @@
   // <copied to="SecondaryWindow.svelte">
   $: rtl = rtlLocales.includes(getUILocale());
   // </copied>
-  /** macOS: The traffic lights are on top of the app bar, so we need no title bar.
-   * If the UI language and macOS have different writing directions,
-   * then the traffic lights are on the other side, above the app content. */
-  $: $noTitleBar = !webMail && getOSName() == "macintosh" && rtl == rtlLocales.includes(navigator.language);
+  /** User preference. Default: No title bar on the web, and on macOS,
+   * where the traffic lights fit on top of the app bar. */
+  const titleBarSetting = getLocalStorage("appearance.titleBar", !webMail && getOSName() != "macintosh");
+  /** macOS: If the UI language and macOS have different writing directions,
+   * then the traffic lights are on the other side, above the app content,
+   * so we need the title bar. */
+  $: $noTitleBar = !$titleBarSetting.value &&
+    (webMail || getOSName() != "macintosh" || rtl == rtlLocales.includes(navigator.language));
   categoriesLoaded; /* make sure to import the file, so that that categories load */
 
   onMount(() => catchErrors(onLoad));

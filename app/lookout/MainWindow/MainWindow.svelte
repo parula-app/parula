@@ -1,8 +1,10 @@
 <vbox flex class="main-window desktop lookout-window" class:tabs-in-title-bar={$tabsInTitleBar.value} dir={rtl}>
-  <WindowHeader selectedApp={$selectedApp} bind:this={windowHeader} />
+  {#if !noTitleBar}
+    <WindowHeader selectedApp={$selectedApp} bind:this={windowHeader} />
+  {/if}
   <vbox flex class="below-title">
     <hbox flex class="window-body">
-      <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} />
+      <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} {noTitleBar} />
       <vbox flex class="app-area">
         <NotificationBar notifications={$notifications} />
         {#if $selectedApp}
@@ -24,6 +26,7 @@
       </vbox>
     {/if}
   </vbox>
+  <WebAppsInBackground {noTitleBar} />
   <SettingsDialogHost />
   <MessageBoxHost />
 </vbox>
@@ -55,6 +58,8 @@
   import SettingsDialogHost from "../Settings/SettingsDialogHost.svelte";
   import MessageBoxHost from "../Shared/Dialog/MessageBoxHost.svelte";
   import NotificationBar from "../../frontend/MainWindow/NotificationBar.svelte";
+  import WebAppsInBackground from "../../frontend/WebApps/Runner/WebAppsInBackground.svelte";
+  import { showingWebApp } from "../../frontend/WebApps/Runner/WebAppsRunning";
   import Splitter from "../../frontend/Shared/Splitter.svelte";
   import { getUILocale } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
@@ -70,6 +75,10 @@
   $: sidebar = $sidebarApp?.sidebar;
   $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
   /* </copied> */
+  /** A web app needs neither the search nor the ribbon tabs of the title bar.
+   * If the tabs are in the title bar, the user doesn't want a title bar of its own,
+   * so the web app gets the whole height, and the window buttons are on the app bar. */
+  $: noTitleBar = $tabsInTitleBar.value && !!$showingWebApp;
 
   // Not a plain CSS import: the global CSS must go away when the user switches to the classic frontend at runtime
   const globalStyle = document.createElement("style");

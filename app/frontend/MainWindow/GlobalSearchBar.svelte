@@ -1,4 +1,4 @@
-<!-- macOS: At the bottom of the left bar of each app -->
+<!-- Without title bar: At the bottom of the left bar of each app -->
 {#if $noTitleBar}
   <hbox class="global-search-bar" class:compact>
     <WorkspaceButton />
