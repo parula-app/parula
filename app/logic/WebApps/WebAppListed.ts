@@ -44,18 +44,6 @@ export class WebAppListed {
   /** Which login the app needs, and therefore which accounts we can offer for it. */
   loginType: WebAppLoginType;
 
-  /** `start`, logged in as `account`.
-   * Microsoft: Without `login_hint`, the app shows its welcome page with a "Sign in" button
-   * when the web login of the account has expired, and the user has to enter the email address. */
-  get startURL(): string {
-    if (this.loginType != WebAppLoginType.Office365 || !this.account?.username) {
-      return this.start;
-    }
-    let url = new URL(this.start);
-    url.searchParams.set("login_hint", this.account.username);
-    return url.href;
-  }
-
   /** The provider that the app needs an account of, or null if any account works */
   get loginProvider(): Provider | null {
     return sanitize.translate(this.loginType, {
