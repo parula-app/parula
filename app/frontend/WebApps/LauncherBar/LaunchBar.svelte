@@ -81,7 +81,7 @@
     overflow: hidden;
   }
   .tray {
-    background-color: rgba(0, 0, 0, 10%);
+    background-color: rgba(0, 0, 0, 5%);
   }
   .add {
     height: 28px;
