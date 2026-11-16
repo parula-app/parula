@@ -2,7 +2,7 @@
   <hbox class="search-button" class:active={$globalSearchTerm} bind:this={searchE}>
     <SearchIcon size="20px" />
     <Popup bind:popupOpen={showSearchField} popupAnchor={searchE} placement="right-start" boundaryElSel="body">
-      <hbox class="search-popup" on:keydown={onKeyDown}>
+      <hbox class="search-popup" on:keydown={event => onKeyEnter(event, () => { showSearchField = false; })}> <!-- Enter closes the field, but keeps the search -->
         <SearchField bind:searchTerm={$globalSearchTerm} autofocus
           on:clear={() => showSearchField = false} />
       </hbox>
@@ -16,19 +16,15 @@
   import Popup from "../Shared/Popup.svelte";
   import Clickable from "../Shared/Clickable.svelte";
   import SearchIcon from "lucide-svelte/icons/search";
+  import { onKeyEnter } from "../Util/util";
   import { t } from "../../l10n/l10n";
 
   let searchE: HTMLDivElement;
+  /** Only to start a search. While there is a search,
+   * the app shows it, e.g. Calendar in its list view with a search field. */
   let showSearchField = false;
   function onSearchToggle() {
     showSearchField = !showSearchField;
-  }
-
-  /** The search stays active after Enter. The app shows the results. */
-  function onKeyDown(event: KeyboardEvent) {
-    if (event.key == "Enter") {
-      showSearchField = false;
-    }
   }
 </script>
 

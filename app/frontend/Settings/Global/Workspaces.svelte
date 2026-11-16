@@ -1,7 +1,5 @@
 <vbox flex class="page">
-  <PageHeader title={$t`Workspaces`} subtitle={$noTitleBar
-    ? $t`Your work-life balance: Mute some accounts at times to focus or relax. You can choose the workspace at the bottom, next to the search field.`
-    : $t`Your work-life balance: Mute some accounts at times to focus or relax. You can choose the workspace in the window header.`}>
+  <PageHeader title={$t`Workspaces`} subtitle={$t`Your work-life balance: Mute some accounts at times to focus or relax. You can choose the workspace using the circle button in the main window.`}>
     <RoundButton
       label={$t`Add`}
       onClick={onAdd}
@@ -41,7 +39,7 @@
 <script lang="ts">
   import { Workspace, randomAccountColor, saveWorkspaces } from "../../../logic/Abstract/Workspace";
   import { appGlobal } from "../../../logic/app";
-  import { changedWorkspace, noTitleBar } from "../../MainWindow/Selected";
+  import { changedWorkspace } from "../../MainWindow/Selected";
   import WorkspaceBlock from "./WorkspaceBlock.svelte";
   import WorkspaceAccounts from "./WorkspaceAccounts.svelte";
   import PageHeader from "../Shared/PageHeader.svelte";

@@ -15,7 +15,7 @@
   {/await}
 {:else}
   <vbox flex class="main-window"
-    dir={rtl}
+    dir={rtl ? "rtl" : null}
     class:mobile={$appGlobal.isMobile}
     class:desktop={!$appGlobal.isMobile}
     class:no-title-bar={$noTitleBar}>
@@ -109,11 +109,11 @@
   // $: sidebarApp = $mustangApps.filter(app => app.showSidebar).first; // TODO watch `app` property changes
   $: $sidebarApp = $meetMustangApp.showSidebar ? meetMustangApp : null;
   $: sidebar = $sidebarApp?.sidebar;
-  $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
+  $: rtl = rtlLocales.includes(getUILocale());
   /** macOS: The traffic lights are on top of the app bar, so we need no title bar.
    * If the UI language and macOS have different writing directions,
    * then the traffic lights are on the other side, above the app content. */
-  $: $noTitleBar = !webMail && getOSName() == "macintosh" && !!rtl == rtlLocales.includes(navigator.language);
+  $: $noTitleBar = !webMail && getOSName() == "macintosh" && rtl == rtlLocales.includes(navigator.language);
   categoriesLoaded; /* make sure to import the file, so that that categories load */
 
   onMount(() => catchErrors(onLoad));
