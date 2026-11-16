@@ -24,21 +24,19 @@ export class OAuth2Window extends OAuth2UI {
         try {
           if (await this.oAuth2.isAuthDoneURL(url)) {
             resolve(this.oAuth2.getAuthCodeFromDoneURL(url));
-            await closeWindow();
           }
         } catch (ex) {
           reject(ex);
-          await closeWindow();
         }
       },
       // onClosed. After `resolve()`, `reject()` does nothing.
       async () => reject(new UserCancelled(gt`Login window was closed by user`)));
-    this.onAbort = () => {
-      reject(new UserCancelled(gt`Login aborted by user`));
-      closeWindow()
-        .catch(console.error);
-    };
-    return await promise;
+    this.onAbort = () => reject(new UserCancelled(gt`Login aborted by user`));
+    try {
+      return await promise;
+    } finally {
+      await closeWindow();
+    }
   }
 
   abort() {
