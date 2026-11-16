@@ -18,15 +18,18 @@
           </RouterWithContent>
         {/if}
       </vbox>
+      <!-- Here, so that the 2nd bar of the web apps in the nav rail can be on top -->
+      <WebAppsInBackground {noTitleBar} />
     </hbox>
-    <StatusBar />
+    {#if !$showingWebApp}
+      <StatusBar />
+    {/if}
     {#if $isBackstageOpen}
       <vbox class="backstage-overlay">
         <Backstage />
       </vbox>
     {/if}
   </vbox>
-  <WebAppsInBackground {noTitleBar} />
   <SettingsDialogHost />
   <MessageBoxHost />
 </vbox>
@@ -75,10 +78,9 @@
   $: sidebar = $sidebarApp?.sidebar;
   $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
   /* </copied> */
-  /** A web app needs neither the search nor the ribbon tabs of the title bar.
-   * If the tabs are in the title bar, the user doesn't want a title bar of its own,
-   * so the web app gets the whole height, and the window buttons are on the app bar. */
-  $: noTitleBar = $tabsInTitleBar.value && !!$showingWebApp;
+  /** A web app needs neither the title bar with the search and the ribbon tabs, nor the status bar.
+   * So the web app gets the whole height, and the window buttons are on the app bar. */
+  $: noTitleBar = !!$showingWebApp;
 
   // Not a plain CSS import: the global CSS must go away when the user switches to the classic frontend at runtime
   const globalStyle = document.createElement("style");
