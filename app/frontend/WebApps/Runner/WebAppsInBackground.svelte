@@ -1,4 +1,4 @@
-<vbox class="webapps" class:running={$showingWebApp}>
+<vbox class="webapps" class:running={$showingWebApp} class:no-title-bar={noTitleBar}>
   {#each $webAppsRunning.each as webApp}
     <vbox class="webapp" class:running={$showingWebApp == webApp}>
       <WebAppRunner app={webApp} />
@@ -9,6 +9,10 @@
 <script lang="ts">
   import { webAppsRunning, showingWebApp } from "./WebAppsRunning";
   import WebAppRunner from "./WebAppRunner.svelte";
+
+  /** The window has no title bar above the web app
+   * in */
+  export let noTitleBar = false;
 </script>
 
 <style>
@@ -18,8 +22,12 @@
     width: calc(100% - 65px);
   }
   .webapps.running {
-    top: 37px;
+    top: 37px; /* window header height */
     height: calc(100% - 37px);
+  }
+  .webapps.running.no-title-bar {
+    top: 0px;
+    height: 100%;
   }
   .webapps:not(.running) {
     bottom: 0px;
@@ -33,5 +41,9 @@
   }
   .webapp:not(.running) {
     visibility: collapse;
+  }
+  :global(.lookout-window) .webapps.running:not(.no-title-bar) {
+    top: var(--lo-titlebar-height);
+    height: calc(100% - var(--lo-titlebar-height));
   }
 </style>

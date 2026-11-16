@@ -1,4 +1,11 @@
 <vbox class="nav-rail" role="navigation" aria-label={$t`Apps`}>
+  {#if noTitleBar}
+    <hbox class="window-buttons" class:mac> <!-- macOS shows its traffic lights here -->
+      {#if !mac && !webMail}
+        <WindowButtons atStart />
+      {/if}
+    </hbox>
+  {/if}
   {#each railApps as app (app.id)}
     <AppButton {app} selected={isSelected(app, selectedApp)}
       on:click={() => catchErrors(() => onSelectApp(app))} />
@@ -19,12 +26,21 @@
   import { openOptions } from "../Settings/SettingsDialogs";
   import AppButton from "./AppButton.svelte";
   import SubAppsList from "./SubAppsList.svelte";
+  import WindowButtons from "../../frontend/MainWindow/WindowButtons.svelte";
   import { catchErrors } from "../../frontend/Util/error";
+  import { getOSName } from "../../frontend/Util/util";
+  import { webMail } from "../../logic/build";
   import type { Collection } from "svelte-collections";
   import { t } from "../../l10n/l10n";
 
   export let selectedApp: MustangApp;
   export let showApps: Collection<MustangApp>;
+  /** The window has no title bar, and the window buttons are on top of the app bar.
+   * macOS shows its traffic lights there.
+   * in */
+  export let noTitleBar = false;
+
+  const mac = getOSName() == "macintosh";
 
   $: railApps = sortRailApps($showApps.contents);
 
@@ -54,5 +70,15 @@
     padding: var(--lo-ribbon-tab-row-height) 0 8px 0;
     background-color: var(--lo-window-bg);
     app-region: drag;
+  }
+  .window-buttons.mac {
+    /* Electron gives the height of the macOS traffic lights.
+     * 0 in fullscreen, where macOS hides them, and in a web browser. */
+    height: env(titlebar-area-height, 0px);
+  }
+  .window-buttons :global(button) {
+    color: var(--lo-fg);
+    padding: 4px 2px;
+    app-region: no-drag;
   }
 </style>

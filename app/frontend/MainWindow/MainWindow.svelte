@@ -47,13 +47,13 @@
       </vbox>
     </hbox>
   </vbox>
+  <WebAppsInBackground noTitleBar={$noTitleBar} />
 {/if}
 {#if isFirstWindow}
   <MeetBackground />
   <MailInBackground />
   <CalendarInBackground />
 {/if}
-<WebAppsInBackground />
 
 <script lang="ts">
   import { selectedApp, sidebarApp, mustangApps, goTo, openApp, history } from "../AppsBar/selectedApp";
