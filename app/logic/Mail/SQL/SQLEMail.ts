@@ -376,12 +376,66 @@ export class SQLEMail {
         email.html = html;
       }
     }
-    await this.readWritableProps(email, row);
+    await this.readWritableProps(email, row, tagRows);
     await this.readRecipients(email, recipientRows);
     await this.readAttachments(email, attachmentRows);
-    await this.readTags(email, tagRows);
     email.contact = email.outgoing ? email.to.first : email.from;
     return email;
+  }
+
+  /** Like `read()` for each email, but with 4 queries for all emails, instead of 5 for each email.
+   * @param emails must have a `dbID`
+   * @param errorCallback for an email that could not be read */
+  static async readMultiple(emails: EMail[], errorCallback: (ex: Error) => void): Promise<void> {
+    let ids = JSON.stringify(emails.map(email => email.dbID));
+    // <copied from="read()" />
+    let rows = await (await getDatabase()).all(sql`
+      SELECT
+        id, pID, messageID, parentMsgID,
+        size, dateSent, dateReceived,
+        outgoing,
+        subject, plaintext, html,
+        threadID, downloadComplete, json,
+        isRead, isStarred, isReplied, isForwarded, isImportant, isDraft, isSpam
+      FROM email
+      WHERE id IN (SELECT value FROM json_each(${ids}))
+      `) as any[];
+    // <copied from="readRecipients()" />
+    let recipientRows = await (await getDatabase()).all(sql`
+      SELECT
+        emailID, name, emailAddress, recipientType
+      FROM emailPersonRel
+        LEFT JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id)
+      WHERE emailID IN (SELECT value FROM json_each(${ids}))
+      `) as any[];
+    // <copied from="readAttachments()" />
+    let attachmentRows = await (await getDatabase()).all(sql`
+      SELECT
+        emailID, filename, filepathLocal, mimeType, size, contentID, disposition, related, json
+      FROM emailAttachment
+      WHERE emailID IN (SELECT value FROM json_each(${ids}))
+      `) as any[];
+    // <copied from="readTags()" />
+    let tagRows = await (await getDatabase()).all(sql`
+      SELECT
+        emailID, tagName
+      FROM emailTag
+      WHERE emailID IN (SELECT value FROM json_each(${ids}))
+      `) as any[];
+    let rowByID = new Map(rows.map(row => [row.id, row]));
+    let recipientRowsByID = Map.groupBy(recipientRows, row => row.emailID);
+    let attachmentRowsByID = Map.groupBy(attachmentRows, row => row.emailID);
+    let tagRowsByID = Map.groupBy(tagRows, row => row.emailID);
+    for (let email of emails) {
+      try {
+        await this.read(email.dbID as number, email, rowByID.get(email.dbID),
+          recipientRowsByID.get(email.dbID) ?? [],
+          attachmentRowsByID.get(email.dbID) ?? [],
+          tagRowsByID.get(email.dbID) ?? []);
+      } catch (ex) {
+        errorCallback(ex);
+      }
+    }
   }
 
   /** Read only the most important properties for the msg list view. */
@@ -412,7 +466,7 @@ export class SQLEMail {
       sanitize.nonemptylabel(row.contactName, " "));
   }
 
-  static async readWritableProps(email: EMail, row?: any) {
+  static async readWritableProps(email: EMail, row?: any, tagRows?: any[]) {
     if (!row) {
       row = await (await getDatabase()).get(sql`
       SELECT
@@ -435,7 +489,7 @@ export class SQLEMail {
     email.downloadComplete = sanitize.boolean(row.downloadComplete, false);
     let json = sanitize.json(row.json, {});
     JSONEMail.readExtraData(email, json);
-    await this.readTags(email);
+    await this.readTags(email, tagRows);
   }
 
   protected static async readRecipients(email: EMail, recipientRows?: any[]) {
