@@ -7,6 +7,7 @@ import { dataAppName, production } from '../../app/logic/build';
 import { WebContents } from './WebContents';
 import { SecondaryBrowserWindow } from './SecondaryBrowserWindow';
 import { Observable, notifyChangedProperty } from '../../lib/util/Observable';
+import { sanitize } from '../../lib/util/sanitizeDatatypes';
 import { ImapFlow } from 'imapflow';
 import { Database, type Query } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
 import Zip from "adm-zip";
@@ -66,6 +67,7 @@ async function createSharedAppObject() {
     minimizeMainWindow,
     unminimizeMainWindow,
     maximizeMainWindow,
+    openBrowserWindow,
     allowSecondaryWindow,
     addEventListenerWebContents,
     getWebContents,
@@ -677,6 +679,43 @@ function unminimizeMainWindow() {
 
 function maximizeMainWindow() {
   mainWindow.maximize();
+}
+
+/**
+ * The OAuth2 login window of `OAuth2Window.ts`.
+ * Not the window of `window.open()`: Electron gives that the cookies of our app,
+ * and its login page an `opener`, through which it could navigate our app window.
+ * Instead, a window with the cookies of the account, like `<webview partition>` in `Browser.svelte`.
+ * @param sessionID `Account.webSessionID`
+ * @param onNavigate Called with each URL that the window loads. It's in the frontend.
+ * @param onClosed Called when the window closed, also when the user closed it. It's in the frontend.
+ * @returns Closes the window
+ */
+function openBrowserWindow(url: string, sessionID: string, onNavigate: (url: string) => Promise<void>, onClosed: () => Promise<void>): () => void {
+  url = sanitize.url(url, undefined, ["https"]);
+  sessionID = sanitize.alphanumdash(sessionID);
+  let browserWindow = new BrowserWindow({
+    center: true,
+    webPreferences: {
+      partition: "persist:" + sessionID,
+      sandbox: true,
+    },
+  });
+  browserWindow.on('closed', () => {
+    onClosed()
+      .catch(console.error);
+  });
+  browserWindow.webContents.on('did-navigate', (_event, url) => {
+    onNavigate(url)
+      .catch(console.error);
+  });
+  browserWindow.loadURL(url)
+    .catch(console.error);
+  return () => {
+    if (!browserWindow.isDestroyed()) {
+      browserWindow.close();
+    }
+  };
 }
 
 /**

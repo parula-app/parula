@@ -21,5 +21,5 @@ export const kDateIntervalViews: Record<DateInterval, CalendarViewType> = {
 
 export let shownCalendars = AppWindow.perWindow(appWindow => new ShownCalendars(appGlobal.calendars, appWindow.uiState(selectedCalendar)));
 export let shownCalendarEvents: Collection<Event> = AppWindow.perWindow(appWindow =>
-  mergeColls(appWindow.uiState(shownCalendars).map(cal => cal.eventsWithRecurrences)).sortBy(ev => ev.startTime));
+  mergeColls(appWindow.uiState(shownCalendars).map(cal => cal.eventsWithRecurrences)).sortBy(ev => ev.startTime.getTime()));
 export let isCalendarListOpen = AppWindow.perWindow(() => writable(false));
