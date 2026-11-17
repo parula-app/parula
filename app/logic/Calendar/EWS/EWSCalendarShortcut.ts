@@ -62,6 +62,13 @@ export class EWSCalendarShortcut {
             })),
           },
         },
+        // Without a view, Exchange can fail with "Object reference not set to an instance of an object."
+        // The folder holds only the links of Outlook's navigation pane, a few dozen,
+        // so the server's default page size is enough, and we don't page.
+        m$IndexedPageItemView: {
+          BasePoint: "Beginning",
+          Offset: 0,
+        },
         m$ParentFolderIds: {
           t$FolderId: {
             Id: folderID,
