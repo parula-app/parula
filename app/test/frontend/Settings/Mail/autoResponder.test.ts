@@ -6,6 +6,7 @@ import { AutoResponder, AutoResponderAudience } from "../../../../logic/Mail/Aut
 import AutoResponderPage from "../../../../frontend/Settings/Mail/AutoResponder.svelte";
 import { flushSync, mount, tick, unmount } from "svelte";
 import { UserError } from "../../../../logic/util/util";
+import { Editor } from "@tiptap/core";
 import { afterEach, beforeAll, expect, test, vi } from "vitest";
 
 beforeAll(() => {
@@ -71,6 +72,7 @@ let app: any;
 afterEach(() => {
   unmount(app);
   target.remove();
+  vi.restoreAllMocks();
 });
 
 async function showPage(type = TestAutoResponder): Promise<TestAutoResponder> {
@@ -128,6 +130,26 @@ test("Turning it off hides the messages, and saves", async () => {
   click([...target.querySelectorAll("button")].find(el => el.textContent.includes("Save")));
   await tick();
   expect(autoResponder.saved).toBe(1);
+});
+
+test("Turning it off and on again gives the toolbar the new editor", async () => {
+  await showPage();
+  // The toolbar calls it. For a destroyed editor, tiptap 3.30 and older throw, which crashed the page.
+  let destroyedEditors = 0;
+  let can = Editor.prototype.can;
+  vi.spyOn(Editor.prototype, "can").mockImplementation(function (this: Editor) {
+    if (this.isDestroyed) {
+      destroyedEditors++;
+    }
+    return can.call(this);
+  });
+
+  click(toggle("Send automatic replies"));
+  click(toggle("Send automatic replies"));
+  expect(destroyedEditors).toBe(0);
+  expect(target.textContent).toContain("Back on Monday");
+  let bold = target.querySelector(".editor-box button[title*=Bold]") as HTMLButtonElement;
+  expect(bold.disabled).toBe(false);
 });
 
 test("Replying to contacts outside shows their message", async () => {
