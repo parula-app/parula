@@ -172,43 +172,6 @@ export class SMIMEPublicKey extends PublicKey {
     }
   }
 
-  /**
-   * @param digestAlgorithm Only for mail, where the signature algorithm may also name only the key, RFC 5652 section 10.1.2
-   * @param hashes The signature algorithms for this type of key, with their hash
-   * @returns null, if not supported, or if the two algorithms disagree
-   */
-  protected signatureHash(signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm: AlgorithmIdentifier | undefined, hashes: Record<string, WebCryptoAlgorithm>): WebCryptoAlgorithm | null {
-    let hash = sanitize.translate(signatureAlgorithm.algorithm, hashes, null);
-    if (!digestAlgorithm) {
-      return hash;
-    }
-    let digestHash = sanitize.translate(digestAlgorithm.algorithm, DigestAlgorithm, null);
-    if (signatureAlgorithm.algorithm == this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm) {
-      return digestHash;
-    }
-    return hash == digestHash ? hash : null;
-  }
-
-  /** @param signature as X.509 and CMS have it, an `ECDSASigValue` */
-  async verifyECDSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
-    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
-    let curve = this.curveBits(publicKey);
-    let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, ECDSASignatureAlgorithm);
-    if (!curve || !hash) {
-      return false;
-    }
-    let key = await crypto.subtle.importKey("spki", SubjectPublicKeyInfo.encode(publicKey) as BufferSource, { name: "ECDSA", namedCurve: "P-" + curve }, false, ["verify"]);
-    // WebCrypto wants r and s one after the other, each in the size of the curve
-    let size = curve + 7 >> 3;
-    let max = 1n << BigInt(size * 8);
-    let { r, s } = ECDSASigValue.decode(signature);
-    if (r <= 0n || s <= 0n || r >= max || s >= max) {
-      return false;
-    }
-    let rs = Uint8ArrayFromHex(r.toString(16).padStart(size * 2, "0") + s.toString(16).padStart(size * 2, "0"));
-    return await crypto.subtle.verify({ name: "ECDSA", hash }, key, rs as BufferSource, content as BufferSource);
-  }
-
   isValidAt(date: Date): boolean {
     return date.getTime() >= this.created.getTime() && date.getTime() <= this.expires.getTime();
   }
@@ -278,10 +241,10 @@ export class SMIMEPublicKey extends PublicKey {
   }
 
   /** RSASSA-PKCS1-v1_5, RFC 8017 section 8.2.2 */
-  async verifyRSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
+  protected async verifyRSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
     let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
     let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, SignatureAlgorithm);
-    if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption" || !hash) {
+    if (!hash) {
       return false;
     }
     let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
@@ -299,6 +262,43 @@ export class SMIMEPublicKey extends PublicKey {
     // rather than silently ignored (RFC8017 EMSA-PKCS1-v1_5 verification).
     digestInfo.digestAlgorithm.parameters = Null.encode();
     return !indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa));
+  }
+
+  /** @param signature as X.509 and CMS have it, an `ECDSASigValue` */
+  protected async verifyECDSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
+    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
+    let curve = this.curveBits(publicKey);
+    let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, ECDSASignatureAlgorithm);
+    if (!curve || !hash) {
+      return false;
+    }
+    let key = await crypto.subtle.importKey("spki", SubjectPublicKeyInfo.encode(publicKey) as BufferSource, { name: "ECDSA", namedCurve: "P-" + curve }, false, ["verify"]);
+    // WebCrypto wants r and s one after the other, each in the size of the curve
+    let size = curve + 7 >> 3;
+    let max = 1n << BigInt(size * 8);
+    let { r, s } = ECDSASigValue.decode(signature);
+    if (r <= 0n || s <= 0n || r >= max || s >= max) {
+      return false;
+    }
+    let rs = Uint8ArrayFromHex(r.toString(16).padStart(size * 2, "0") + s.toString(16).padStart(size * 2, "0"));
+    return await crypto.subtle.verify({ name: "ECDSA", hash }, key, rs as BufferSource, content as BufferSource);
+  }
+
+  /**
+   * @param digestAlgorithm Only for mail, where the signature algorithm may also name only the key, RFC 5652 section 10.1.2
+   * @param hashes The signature algorithms for this type of key, with their hash
+   * @returns null, if not supported, or if the two algorithms disagree
+   */
+  protected signatureHash(signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm: AlgorithmIdentifier | undefined, hashes: Record<string, WebCryptoAlgorithm>): WebCryptoAlgorithm | null {
+    let hash = sanitize.translate(signatureAlgorithm.algorithm, hashes, null);
+    if (!digestAlgorithm) {
+      return hash;
+    }
+    let digestHash = sanitize.translate(digestAlgorithm.algorithm, DigestAlgorithm, null);
+    if (signatureAlgorithm.algorithm == this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm) {
+      return digestHash;
+    }
+    return hash == digestHash ? hash : null;
   }
 
   /** @param subCAs How many CA certificates are between this one and the leaf */

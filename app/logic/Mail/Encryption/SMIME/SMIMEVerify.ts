@@ -30,9 +30,10 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
       sameName(sid.issuer, cert.tbsCertificate.issuer)) ?? cert;
   }
   let publicKey = cert.tbsCertificate.publicKey;
-  let isEC = publicKey.algorithmIdentifier.algorithm == "ecPublicKey";
-  if (!isEC && publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
-    console.log("certificate does not contain an RSA public key");
+  // `verify()` refuses other keys, too, but `addCertificate()` below throws for them first,
+  // and the mail would show that error instead of being unsigned
+  if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption" && publicKey.algorithmIdentifier.algorithm != "ecPublicKey") {
+    console.log("certificate does not contain an RSA or EC public key");
     return null;
   }
   let digestAlgorithm = sanitize.translate(signerInfo.digestAlgorithm.algorithm, DigestAlgorithm);

@@ -270,7 +270,8 @@ describe("Signature", () => {
     for (let keyAlgorithm of [[1, 2, 840, 113549, 1, 1, 10], "rsaESOAEP"]) {
       let cert = craftCertificate("Alice", "Alice", key);
       cert.tbsCertificate.publicKey.algorithmIdentifier.algorithm = keyAlgorithm;
-      expect(await mailVerifies(cert, data => sign(data, key))).toBe(false);
+      // Unsigned, without an error
+      expect(await verifySignedData(await signedData(await sign(content, key), cert), content)).toBeNull();
       expect(await caConfirms(await selfSignedCA(key, keyAlgorithm), data => sign(data, key))).toBe(false);
     }
   });
