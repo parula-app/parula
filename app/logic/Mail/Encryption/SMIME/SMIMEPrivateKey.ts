@@ -76,7 +76,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
   }
 
   /** Decrypts our private key with our passphrase, in the PKCS#8 form that `crypto.subtle.importKey()` reads */
-  protected async decryptKeyPKCS8(): Promise<Uint8Array> {
+  protected async decryptKeyPKCS8(): Promise<Uint8Array<ArrayBuffer>> {
     if (this.passphrase) {
       let encryptedKey = EncryptedPrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "ENCRYPTED PRIVATE KEY" });
       if (encryptedKey.encryptionAlgorithm.algorithm != "pkcs5PBES2") {
@@ -97,9 +97,9 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
       throw new CannotReadMail(null, gt`The key of this message is encrypted with RSA-OAEP using ${algorithmName(hashFunc.algorithm)} and ${algorithmName(maskGenFunc.algorithm)} using ${algorithmName(maskHashFunc.algorithm)}, which is not supported`);
     }
     let label = pSourceFunc.parameters ? OctetString.decode(pSourceFunc.parameters) : undefined;
-    let key = await crypto.subtle.importKey("pkcs8", await this.decryptKeyPKCS8() as BufferSource, { name: "RSA-OAEP", hash }, false, ["decrypt"]);
+    let key = await crypto.subtle.importKey("pkcs8", await this.decryptKeyPKCS8(), { name: "RSA-OAEP", hash }, false, ["decrypt"]);
     try {
-      return new Uint8Array(await crypto.subtle.decrypt({ name: "RSA-OAEP", label: label as BufferSource }, key, encryptedKey));
+      return new Uint8Array(await crypto.subtle.decrypt({ name: "RSA-OAEP", label }, key, encryptedKey));
     } catch (ex) {
       throw new CannotReadMail(null, gt`Could not decrypt this message`);
     }
