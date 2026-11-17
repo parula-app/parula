@@ -3,7 +3,7 @@
 import "../../../logic/app";
 import { Event } from "../../../logic/Calendar/Event";
 import { Calendar } from "../../../logic/Calendar/Calendar";
-import { CalendarRange } from "../../Calendar/CalendarRange";
+import { CalendarRange } from "../../../frontend/Calendar/CalendarRange";
 import DayViewGrid from "../../Calendar/DayView/DayViewGrid.svelte";
 import MonthView from "../../Calendar/MonthView/MonthView.svelte";
 import ScheduleView from "../../Calendar/ScheduleView/ScheduleView.svelte";

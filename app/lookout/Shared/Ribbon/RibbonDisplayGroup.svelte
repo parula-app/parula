@@ -8,6 +8,10 @@
     shortCutInfo={$t`Ctrl+F1 *=> Keyboard shortcut`}
     selected={!!$collapsed.value}
     onClick={() => { $collapsed.value = !$collapsed.value; }} />
+  <RibbonToggleButton label={$t`Tabs in Title Bar`} icon={TitleBarIcon} size="small"
+    tooltip={$t`Show the tabs in the title bar of the window, to save space`}
+    selected={$tabsInTitleBar.value}
+    onClick={() => { $tabsInTitleBar.value = !$tabsInTitleBar.value; }} />
   <RibbonToggleButton label={$t`Quick Access Toolbar`} icon={QuickAccessIcon} size="small"
     tooltip={$t`Show the Quick Access Toolbar`}
     selected={$qatShown.value}
@@ -23,9 +27,11 @@
   import RibbonGroup from "./RibbonGroup.svelte";
   import RibbonButton from "./RibbonButton.svelte";
   import RibbonToggleButton from "./RibbonToggleButton.svelte";
+  import { tabsInTitleBar } from "./Ribbon.svelte";
   import SimplifiedIcon from "lucide-svelte/icons/panel-top";
   import TabsOnlyIcon from "lucide-svelte/icons/panel-top-close";
   import QuickAccessIcon from "lucide-svelte/icons/app-window";
+  import TitleBarIcon from "lucide-svelte/icons/app-window-mac";
   import CustomizeIcon from "lucide-svelte/icons/settings-2";
   import { getContext } from "svelte";
   import type { Writable } from "svelte/store";

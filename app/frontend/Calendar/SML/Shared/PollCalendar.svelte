@@ -1,13 +1,12 @@
 <!-- <copied from="EditCalendar.svelte"> -->
 <vbox class="calendar">
   <hbox class="range-header">
-    <DateRange bind:date={showDate} dateInterval={1} {showDays} />
+    <DateRange bind:date={showDate} {range} />
   </hbox>
   <DayViewGrid
     events={appGlobal.calendarEvents}
     overlayEvents={optionsAsEvents}
-    start={showDate}
-    showDays={showDays}
+    {range}
     showHours={6}
     defaultFocusHour={focusOption.getHours() - 1}
     >
@@ -26,6 +25,7 @@
   import DayViewGrid from "../../DayView/DayViewGrid.svelte";
   import EventProposal from "./EventProposal.svelte";
   import DateRange from "../../DateRange.svelte";
+  import { CalendarRange } from "../../CalendarRange";
   import type { Collection } from "svelte-collections";
 
   export let options: Collection<Date>;
@@ -35,6 +35,7 @@
   export let showDays: 1 | 2 | 7 = 2;
 
   $: showDate = focusOption;
+  $: range = new CalendarRange(showDays == 7 ? "week" : "day", showDate, showDays);
 
   $: optionsAsEvents = $options.map(start => {
     let event = new Event();

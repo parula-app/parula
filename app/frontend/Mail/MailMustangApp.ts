@@ -1,6 +1,9 @@
 import type { EMail } from "../../logic/Mail/EMail";
 import { MustangApp } from "../AppsBar/MustangApp";
 import { openApp } from "../AppsBar/selectedApp";
+import { AppWindow } from "../MainWindow/AppWindow";
+import ComposerWindow from "./Composer/ComposerWindow.svelte";
+import { showError } from "../Util/error";
 import { OAuth2Tab, oAuth2TabsOpen } from "../../logic/Auth/UI/OAuth2Tab";
 import { appGlobal } from "../../logic/app";
 import { PromiseAllDone } from "../../logic/util/flow/PromiseAllDone";
@@ -19,12 +22,26 @@ export class MailMustangApp extends MustangApp {
   /** Mails that the user is writing outside of the composer sub-apps, e.g. Lookout's inline replies */
   inlineDrafts: Collection<EMail> = new ArrayColl<EMail>();
 
+  /**
+   * Opens the mail composer.
+   * In a main window, as part of the Mail app. In other windows, in a new window.
+   */
   writeMail(mail: EMail) {
+    let appWindow = AppWindow.current();
+    if (!appWindow.isMainWindow) {
+      this.writeMailInNewWindow(mail)
+        .catch(showError);
+      return;
+    }
     let composerApp = new WriteMailMustangApp();
     composerApp.title = derived(mail, () => mail.subject ?? composerApp.name);
     composerApp.windowParams = { mail: mail };
     mailMustangApp.subApps.add(composerApp);
     openApp(composerApp, composerApp.windowParams);
+  }
+
+  async writeMailInNewWindow(mail: EMail) {
+    await AppWindow.current().open(ComposerWindow, { mail }, 1000);
   }
 
   /** The mails that the user is writing, if they already have some text of the user */

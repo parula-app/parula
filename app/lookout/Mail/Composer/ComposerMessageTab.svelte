@@ -24,6 +24,9 @@
       <RibbonToggleButton label={$t`Strikethrough *=> Text formatting: crossed-out text`} icon={StrikethroughIcon}
         selected={!!editor?.isActive("strike")} disabled={!editor}
         onClick={() => run(chain => chain.toggleStrike())} />
+      <RibbonToggleButton label={$t`Code *=> Text formatting: fixed width text`} icon={CodeWordIcon}
+        selected={!!editor?.isActive("code")} disabled={!editor}
+        onClick={() => run(chain => chain.toggleCode())} />
     </RibbonButtonRow>
     <RibbonButtonRow label={$t`Paragraph *=> Buttons for paragraph formatting`}>
       <RibbonToggleButton label={$t`Bullets *=> Format the paragraphs as a bulleted list`} icon={BulletsIcon}
@@ -96,6 +99,7 @@
   import ItalicIcon from "lucide-svelte/icons/italic";
   import UnderlineIcon from "lucide-svelte/icons/underline";
   import StrikethroughIcon from "lucide-svelte/icons/strikethrough";
+  import CodeWordIcon from "lucide-svelte/icons/code";
   import BulletsIcon from "lucide-svelte/icons/list";
   import NumberingIcon from "lucide-svelte/icons/list-ordered";
   import ClearFormattingIcon from "lucide-svelte/icons/remove-formatting";

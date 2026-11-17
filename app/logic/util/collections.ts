@@ -1,3 +1,5 @@
+import type { Observable } from "./Observable";
+import { arrayRemove } from "./util";
 import { ArrayColl, Collection } from "svelte-collections";
 
 /** @returns true, if the check returns true for all items in the collection */
@@ -49,4 +51,107 @@ export function syncArrayColl<T>(org: Array<T>, sortBy?: (i: T) => any): ArrayCo
     org.push(...c.contents);
   });
   return coll;
+}
+
+/**
+ * Like `Collection.map()`, but maps an item again when it changes.
+ * @param source Must be kept alive by the caller, which also keeps this collection alive
+ */
+export class ObservableMapToCollection<Source extends Observable, Result> extends ArrayColl<Result> {
+  protected readonly results = new Map<Source, Result>();
+  protected readonly unsubscribes = new Map<Source, () => void>();
+
+  constructor(source: Collection<Source>, protected readonly mapFunc: (item: Source) => Result) {
+    super();
+    source.registerObserver(this);
+    this.added(source.contents);
+  }
+
+  added(items: Source[]) {
+    for (let item of items) {
+      // `subscribe()` calls it right away, too
+      this.unsubscribes.set(item, item.subscribe(() => {
+        this.remove(this.results.get(item));
+        let result = this.mapFunc(item);
+        this.results.set(item, result);
+        this.add(result);
+      }));
+    }
+  }
+
+  removed(items: Source[]) {
+    for (let item of items) {
+      this.unsubscribes.get(item)?.();
+      this.unsubscribes.delete(item);
+      this.remove(this.results.get(item));
+      this.results.delete(item);
+    }
+  }
+}
+
+/**
+ * Finds items by a key, without going through all items.
+ * The items are in a collection of each source item, e.g. the email addresses of each person.
+ * Follows the source items added and removed, and the items added to and removed from their collections.
+ * The key of an item must not change. To change it, replace the item,
+ * like `ObservableMapToCollection` does when its source item changes.
+ */
+export class CollectionIndex<Key, Source, Item> {
+  protected readonly itemsByKey = new Map<Key, Item[]>();
+  /** A field, because `registerObserver()` holds it only weakly */
+  protected readonly sourceObserver = {
+    added: (sources: Source[]) => {
+      for (let source of sources) {
+        let items = this.itemsFunc(source);
+        items.registerObserver(this);
+        this.added(items.contents);
+      }
+    },
+    removed: (sources: Source[]) => {
+      for (let source of sources) {
+        let items = this.itemsFunc(source);
+        items.unregisterObserver(this);
+        this.removed(items.contents);
+      }
+    },
+  };
+
+  /**
+   * @param source Must be kept alive by the caller, which also keeps this index alive
+   * @param itemsFunc Must return the same collection each time for the same source item
+   */
+  constructor(source: Collection<Source>,
+    protected readonly itemsFunc: (source: Source) => Collection<Item>,
+    protected readonly keyFunc: (item: Item) => Key) {
+    source.registerObserver(this.sourceObserver);
+    this.sourceObserver.added(source.contents);
+  }
+
+  /** @returns the first item with this key */
+  get(key: Key): Item | undefined {
+    return this.itemsByKey.get(key)?.[0];
+  }
+
+  added(items: Item[]) {
+    for (let item of items) {
+      let key = this.keyFunc(item);
+      let sameKey = this.itemsByKey.get(key);
+      if (sameKey) {
+        sameKey.push(item);
+      } else {
+        this.itemsByKey.set(key, [item]);
+      }
+    }
+  }
+
+  removed(items: Item[]) {
+    for (let item of items) {
+      let key = this.keyFunc(item);
+      let sameKey = this.itemsByKey.get(key) ?? [];
+      arrayRemove(sameKey, item);
+      if (!sameKey.length) {
+        this.itemsByKey.delete(key);
+      }
+    }
+  }
 }

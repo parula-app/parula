@@ -1,4 +1,4 @@
-import { DigestAlgorithm, SignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, Null, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, Oid, Null, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, encrypt, padFF } from "./SMIMERSAES";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
@@ -48,6 +48,11 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
   // Without signed attributes, the signature covers the content digest directly.
   let signedDigest = messageDigest;
   if (signerInfo.signedAttrs) {
+    // RFC 8551 section 2.4.1: MIME content is id-data. The eContentType is not signed.
+    let contentTypeAttribute = signerInfo.signedAttrs.find(attr => attr.attrType == "contentType");
+    if (!contentTypeAttribute || Oid.decode(contentTypeAttribute.attrValue[0]) != "data") {
+      return null;
+    }
     let digestAttribute = signerInfo.signedAttrs.find(attr => attr.attrType == "messageDigest");
     if (!digestAttribute) {
       console.log("signature did not contain a message digest");
@@ -106,6 +111,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
 
 /** Compares two X.501 names, e.g. certificate issuer and subject */
 export function sameName(a: TBSCertificate["issuer"], b: TBSCertificate["issuer"]): boolean {
+  // Attribute types that our OID map lacks, e.g. domainComponent, decode to number arrays
   return a.length == b.length &&
-    a.every((attr, i) => attr.type == b[i].type && attr.value.value == b[i].value.value);
+    a.every((attr, i) => String(attr.type) == String(b[i].type) && attr.value.value == b[i].value.value);
 }
