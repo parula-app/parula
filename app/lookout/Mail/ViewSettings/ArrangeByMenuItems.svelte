@@ -26,7 +26,7 @@
   import type { Folder } from "../../../logic/Mail/Folder";
   import { arrangeFields, viewSettingsStore, changeViewSettings } from "./ViewSettings";
   import { arrangeFolderBy } from "./ViewCommands";
-  import { openViewSettings } from "./ViewSettingsDialog.svelte";
+  import { openViewSettings } from "../Selected";
   import { MessageGrouping } from "../3pane/MessageGrouping";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuLabel from "../../Shared/Menu/MenuLabel.svelte";

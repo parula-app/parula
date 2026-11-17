@@ -39,15 +39,8 @@
   <TagAdd on:add={event => onAdded(event.detail)} on:close={() => isAdding = false} />
 {/if}
 
-<script lang="ts" context="module">
-  import type { Tag, TaggableObject } from "../../../logic/Abstract/Tag";
-  import { derived, writable } from "svelte/store";
-
-  export const openColorCategories = writable<TaggableObject[] | null>(null);
-</script>
-
 <script lang="ts">
-  import { availableTags, saveTagsList } from "../../../logic/Abstract/Tag";
+  import { availableTags, saveTagsList, type Tag, type TaggableObject } from "../../../logic/Abstract/Tag";
   import { askYesNo } from "../Dialog/MessageBox";
   import { catchErrors } from "../../../frontend/Util/error";
   import { CategoryChoice } from "./CategoryChoice";
@@ -60,6 +53,7 @@
   import Checkbox from "../Form/Checkbox.svelte";
   import ComboBox from "../Form/ComboBox.svelte";
   import type { ComboOption } from "../Form/ComboOption";
+  import { derived } from "svelte/store";
   import { createEventDispatcher } from "svelte";
   import { t } from "../../../l10n/l10n";
 

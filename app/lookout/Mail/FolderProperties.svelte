@@ -14,19 +14,15 @@
 </Dialog>
 
 <script lang="ts" context="module">
-  import type { Folder } from "../../logic/Mail/Folder";
-  import { writable } from "svelte/store";
-
   export enum FolderPropertiesTab {
     General = "general",
     Permissions = "permissions",
     Synchronization = "synchronization",
   }
-
-  export const openFolderProperties = writable<{ folder: Folder, tab?: FolderPropertiesTab } | null>(null);
 </script>
 
 <script lang="ts">
+  import type { Folder } from "../../logic/Mail/Folder";
   import { FolderCountMode, FolderTreeActions } from "./LeftPane/FolderTreeActions";
   import { FolderPermissions } from "./FolderProperties/FolderPermissions";
   import FolderGeneralTab from "./FolderProperties/FolderGeneralTab.svelte";

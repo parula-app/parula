@@ -1,5 +1,6 @@
 <vbox class="autocomplete-list" role="listbox" id={id} aria-label={$t`Suggested contacts`}
-  style:top="{top}px" style:left="{left}px" style:width="{width}px">
+  style:top="{top}px" style:left="{left}px" style:width="{width}px"
+  bind:this={listEl}>
   <hbox class="heading">{$t`Suggested contacts`}</hbox>
   {#each suggestions as suggestion, index (suggestion.emailAddress + "|" + suggestion.name)}
     <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -18,12 +19,13 @@
     </hbox>
   {/each}
 </vbox>
+<svelte:window on:resize={place} />
 
 <script lang="ts">
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import PersonCircle from "../../Contacts/Person/PersonCircle.svelte";
   import { t } from "../../../l10n/l10n";
-  import { createEventDispatcher, onMount } from "svelte";
+  import { createEventDispatcher } from "svelte";
 
   export let suggestions: PersonUID[];
   export let highlighted = 0;
@@ -32,15 +34,10 @@
 
   const dispatch = createEventDispatcher<{ select: PersonUID }>();
 
+  let listEl: HTMLElement;
   let top = 0;
   let left = 0;
   let width = 360;
-
-  onMount(() => {
-    place();
-    window.addEventListener("resize", place);
-    return () => window.removeEventListener("resize", place);
-  });
 
   $: suggestions, place();
   function place() {
@@ -51,6 +48,10 @@
     width = Math.max(320, Math.min(rect.width, 480));
     left = Math.min(rect.left, window.innerWidth - width - 8);
     top = rect.bottom + 2;
+  }
+
+  export function contains(node: Node): boolean {
+    return !!listEl?.contains(node);
   }
 </script>
 

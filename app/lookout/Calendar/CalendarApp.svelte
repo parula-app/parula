@@ -109,7 +109,7 @@
   import { openEvent } from "../../frontend/Calendar/open";
   import { openComposer } from "../../frontend/Mail/open";
   import { IncomingInvitation } from "../../logic/Calendar/Invitation/IncomingInvitation";
-  import { eventPeek, inlineTitle, selectedSlots, updatingCount, CalendarCurrentView, CalendarFolderPane, calendarSearchOptions, listedEvents, allListedEvents, CalendarSearchScope, type SlotSelection } from "./selected";
+  import { eventPeek, inlineTitle, selectedSlots, updatingCount, isGoToDateOpen, openCalendarProperties, openSharedCalendar, CalendarCurrentView, CalendarFolderPane, calendarSearchOptions, listedEvents, allListedEvents, CalendarSearchScope, type SlotSelection } from "./selected";
   import { selectedCalendar, selectedDate, selectedEvent, shownCalendars, shownCalendarEvents, startDate } from "../../frontend/Calendar/selected";
   import { appGlobal } from "../../logic/app";
   import { getToday } from "../../logic/util/date";
@@ -117,7 +117,7 @@
   import { getOSName, isTextField } from "../../frontend/Util/util";
   import { getKeyDigit } from "../Util/util";
   import { catchErrors } from "../../frontend/Util/error";
-  import { statusBarContent, type StatusBarContent } from "../MainWindow/StatusBar.svelte";
+  import { statusBarContent, type StatusBarContent } from "../MainWindow/Selected";
   import CalendarRibbon from "./CalendarRibbon.svelte";
   import DateNavigator from "../../frontend/Calendar/DateNavigator.svelte";
   import CalendarList from "./CalendarList.svelte";
@@ -133,9 +133,9 @@
   import DisplayEvent from "./DisplayEvent/DisplayEvent.svelte";
   import type { ReadingPanePosition } from "../Mail/3pane/3Pane.svelte";
   import SlotMenu from "./SlotMenu.svelte";
-  import GoToDateDialog, { isGoToDateOpen } from "./GoToDateDialog.svelte";
-  import CalendarPropertiesDialog, { openCalendarProperties } from "./CalendarPropertiesDialog.svelte";
-  import OpenCalendarDialog, { openSharedCalendar } from "./OpenCalendarDialog.svelte";
+  import GoToDateDialog from "./GoToDateDialog.svelte";
+  import CalendarPropertiesDialog from "./CalendarPropertiesDialog.svelte";
+  import OpenCalendarDialog from "./OpenCalendarDialog.svelte";
   import AdjacentEventTabs from "./AdjacentEventTabs.svelte";
   import ListView from "./ListView/ListView.svelte";
   import CalendarSearchTab from "./ListView/CalendarSearchTab.svelte";
