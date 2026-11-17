@@ -106,6 +106,9 @@
     if (editor) {
       editor.destroy();
     }
+    // Else `bind:editor` keeps the destroyed editor in the parent, and when
+    // an `{#if}` shows us again, the new toolbar gets it before our new editor
+    editor = null;
     editorElementCreatedMutationObserver.disconnect();
   });
 
