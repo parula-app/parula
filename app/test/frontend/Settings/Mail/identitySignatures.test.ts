@@ -7,6 +7,7 @@ import { DummyMailStorage } from "../../../../logic/Mail/Store/DummyMailStorage"
 import { gLicense } from "../../../../logic/util/License";
 import { sleep } from "../../../../logic/util/util";
 import IdentityBlock from "../../../../frontend/Settings/Mail/Account/IdentityBlock.svelte";
+import Identity from "../../../../frontend/Settings/Mail/Account/Identity.svelte";
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
@@ -84,4 +85,17 @@ test("Add alternative signature adds an empty one, and the trash button deletes 
   expect(identity.altSignatures.contents).toEqual(["<p>Fred, Treasurer</p>", ""]);
   await vi.waitFor(() => expect(editorTexts()).toEqual(["Fred", "Fred, Treasurer", ""]));
   expect(identity.signatureHTML).toBe("<p>Fred</p>");
+});
+
+test("Save drops the alternative signatures that the user left empty", async () => {
+  identity.altSignatures.addAll(["", "<p></p>"]);
+  let target = document.createElement("div");
+  document.body.append(target);
+  app = mount(Identity, { target, props: { account: identity.account } });
+  flushSync();
+  let save = vi.spyOn(identity.account, "save");
+  button("Save").click();
+  await vi.waitFor(() => expect(save).toHaveBeenCalled());
+  expect(identity.altSignatures.contents).toEqual(["<p>Fred, CTO</p>", "<p>Fred, Treasurer</p>"]);
+  expect(identity.toConfigJSON().altSignatures).not.toContain("<p></p>");
 });

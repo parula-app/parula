@@ -444,13 +444,11 @@ test("An identity keeps its extra signatures in the config", () => {
   expect(loaded.altSignatures.isEmpty).toBe(true);
 });
 
-test("The signatures to pick: The default first, without empty ones", () => {
-  personal.altSignatures.replaceAll(["<p></p>", kWork, ""]);
+test("The signatures to pick: The default first, if there is one", () => {
+  personal.altSignatures.replaceAll([kWork, ""]);
   expect(personal.signatures.contents).toEqual([kFred, kWork]);
   personal.signatureHTML = null;
   expect(personal.signatures.contents).toEqual([kWork]);
-  personal.altSignatures.replaceAll([`<p><img src="data:image/png;base64,AAAA"></p>`]);
-  expect(personal.signatures.length).toBe(1);
 });
 
 test("Picking another signature of the same identity swaps ours", () => {

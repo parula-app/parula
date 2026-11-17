@@ -41,7 +41,7 @@ beforeEach(async () => {
   identity.emailAddress = account.emailAddress;
   identity.realname = account.realname;
   identity.signatureHTML = "<p>Test User</p>";
-  identity.altSignatures.addAll(["<p>Test User</p><p>Work Inc.</p>", "<p></p>"]);
+  identity.altSignatures.addAll(["<p>Test User</p><p>Work Inc.</p>", ""]);
   account.identities.add(identity);
   for (let specialFolder of [SpecialFolder.Inbox, SpecialFolder.Sent, SpecialFolder.Drafts]) {
     let folder = new Folder(account);

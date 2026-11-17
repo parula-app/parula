@@ -1,7 +1,6 @@
 import type { MailAccount } from "./MailAccount";
 import { PersonUID } from "../Abstract/PersonUID";
 import type { EMail } from "./EMail";
-import { MailBody } from "./MailBody";
 import { SMLHTTPAccount } from "./SML/SMLHTTPAccount";
 import type { PublicKey } from "./Encryption/PublicKey";
 import type { PrivateKey } from "./Encryption/PrivateKey";
@@ -78,12 +77,9 @@ export class MailIdentity extends Observable {
   async deleteFromServer(): Promise<void> {
   }
 
-  /** The signatures that the user can pick in the composer, the default first.
-   * Leaves out the empty ones: `signatureHTML` is null without default signature,
-   * and an extra signature is empty while the user hasn't written it yet in the settings. */
+  /** The signatures that the user can pick in the composer, the default first, if there is one */
   get signatures(): ArrayColl<string> {
-    return new ArrayColl([this.signatureHTML, ...this.altSignatures]
-      .filter(signatureHTML => !new MailBody(signatureHTML).isEmpty));
+    return new ArrayColl([this.signatureHTML, ...this.altSignatures].filter(signatureHTML => signatureHTML));
   }
 
   asPersonUID(): PersonUID {
