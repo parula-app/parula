@@ -61,6 +61,7 @@ ${question}`);
       email.to.add(new PersonUID("parula.support@beonex.com", "Parula support"));
       email.subject = "Could not migrate";
       email.text = "Dear support, please help me with the migration";
+      email.compose.addSignatureWithoutComposer();
       await email.compose.send();
     }
   }

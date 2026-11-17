@@ -23,6 +23,8 @@ import { ArrayColl, type Collection } from "svelte-collections";
  * or are higher-level functions not inherently about the email object. */
 export class ComposeActions {
   readonly email: EMail;
+  /** Whether the composer still has to add our signature, the `<footer class="signature">` */
+  needsFooter = false;
 
   constructor(email: EMail) {
     this.email = email;
@@ -200,7 +202,7 @@ export class ComposeActions {
   async redirect(): Promise<EMail> {
     await this.email.loadAttachments();
     let redirect = this.email.folder.account.newEMailFrom();
-    redirect.needsFooter = false;
+    redirect.compose.needsFooter = false;
     redirect.replyTo = this.email.from;
     redirect.subject = this.email.subject;
     redirect.html = this.email.html;
@@ -211,7 +213,7 @@ export class ComposeActions {
   async editAsNew(): Promise<EMail> {
     await this.email.loadAttachments();
     let clone = this.email.folder.account.newEMailFrom();
-    clone.needsFooter = false;
+    clone.compose.needsFooter = false;
     clone.to.addAll(this.email.to);
     clone.cc.addAll(this.email.cc);
     clone.subject = this.email.subject;
@@ -318,16 +320,22 @@ export class ComposeActions {
 
   /**
    * For a new mail, reply or forward, when the composer opens it.
-   * `send()` adds it for mails which skip the composer.
    * @param body In the editor
    * @returns false, if nothing changed
    */
   addSignature(identity: MailIdentity, body: MailBody): boolean {
-    if (!this.email.needsFooter) {
+    if (!this.needsFooter) {
       return false;
     }
-    this.email.needsFooter = false;
+    this.needsFooter = false;
     return body.putOwnSignature(identity.signatureHTML);
+  }
+
+  /** Adds our signature to a mail that skips the composer, e.g. the quick reply from a notification */
+  addSignatureWithoutComposer() {
+    let body = new MailBody(this.email.html);
+    body.putOwnSignature(this.email.identity?.signatureHTML, false);
+    this.email.html = body.html;
   }
 
   /**
@@ -346,7 +354,6 @@ export class ComposeActions {
   /**
    * Sets up the email for sending, with all the headers, signature etc.
    *
-   * - Add the signature, if the composer didn't
    * - Insert inline images
    * - Sanitize
    * - Encrypt
@@ -368,12 +375,6 @@ export class ComposeActions {
     }
     let account = fromIdentity.account;
 
-    if (this.email.needsFooter) {
-      let body = new MailBody(this.email.html);
-      body.putOwnSignature(fromIdentity.signatureHTML, false);
-      this.email.html = body.html;
-      this.email.needsFooter = false;
-    }
     await this.convertInlineAttachmentsURLs();
     const kSentByHTML = `<p style="color: #777777">Sent by © <a href="https://parula.app" style="color: #20AE9E; text-decoration: none"><strong><em>Parula</em></strong></a></p>`;
     // Sanitized, so that we send no http: images, e.g. in signatures,

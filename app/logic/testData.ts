@@ -331,7 +331,7 @@ class FakeEMail extends EMail {
     }
   }
   get compose() {
-    return new FakeComposeActions(this);
+    return this._compose ??= new FakeComposeActions(this);
   }
   async download() {}
 }

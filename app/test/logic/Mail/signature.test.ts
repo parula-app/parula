@@ -109,7 +109,7 @@ test("A new mail gets the signature at the end, below an empty line to type in",
   let html = addSignature(mail, personal, "<p></p>");
   expect(topLevel(html)).toEqual(["P", "FOOTER"]);
   expect(ownSignatureText(html)).toBe("Fred MillerExample Inc.");
-  expect(mail.needsFooter).toBe(false);
+  expect(mail.compose.needsFooter).toBe(false);
   // Only once
   expect(addSignature(mail, personal, html)).toBeNull();
 });
@@ -306,10 +306,11 @@ test("Send sanitizes the body, so the signature has no remote images", async () 
   expect(doc(mail.rawHTMLDangerous).querySelectorAll("footer.signature img").length).toBe(2);
 });
 
-test("Send adds the signature, if the mail bypassed the composer, e.g. a quick reply", async () => {
+test("A mail that skips the composer, e.g. a quick reply, gets the signature before sending", async () => {
   let reply = receivedMail("<p>Lunch at 12?</p>").compose.replyToAuthor();
   reply.html = null;
   reply.text = "Sounds good";
+  reply.compose.addSignatureWithoutComposer();
   await send(reply);
   expect(reply.text).toMatch(/^Sounds good\n\n-- \nFred Miller/);
 });
@@ -318,8 +319,17 @@ test("A quick reply gets the signature right after the text, without an empty li
   let reply = receivedMail("<p>Lunch at 12?</p>").compose.replyToAuthor();
   reply.html = null;
   reply.text = "Sounds good";
+  reply.compose.addSignatureWithoutComposer();
   await send(reply);
   expect(topLevel(reply.rawHTMLDangerous)).toEqual(["P", "FOOTER"]);
+});
+
+test("Send adds no signature, also when no composer added one", async () => {
+  let reply = receivedMail("<p>Lunch at 12?</p>").compose.replyToAuthor();
+  reply.html = "<p>Sounds good</p>";
+  await send(reply);
+  expect(reply.rawHTMLDangerous).not.toContain("footer");
+  expect(reply.text).not.toContain("Fred Miller");
 });
 
 test("Send does not add the signature again, if the user removed it in the composer", async () => {

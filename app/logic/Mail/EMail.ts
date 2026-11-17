@@ -97,8 +97,6 @@ export class EMail extends Message {
   readonly storageLock = new Lock();
   /** For composer only. Optional. */
   identity: MailIdentity;
-  /** For composer only: Whether the composer, or else `send()`, still has to add our signature, the `<footer class="signature">` */
-  needsFooter = false;
 
   /** PGP or S/MIME or none */
   system: EncryptionSystem | null = null;
@@ -796,8 +794,10 @@ export class EMail extends Message {
       null;
   }
 
+  /** One per mail, because it keeps state for the composer */
+  protected _compose: ComposeActions | null = null;
   get compose(): ComposeActions {
-    return new ComposeActions(this);
+    return this._compose ??= new ComposeActions(this);
   }
 }
 
