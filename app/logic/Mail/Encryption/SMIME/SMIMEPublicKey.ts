@@ -1,6 +1,6 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, NameConstraints, type AlgorithmIdentifier, type WebCryptoAlgorithm } from "./SMIMEASN1";
+import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, NameConstraints, algorithmName, type AlgorithmIdentifier, type WebCryptoAlgorithm } from "./SMIMEASN1";
 import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayFromHex } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
@@ -65,7 +65,7 @@ export class SMIMEPublicKey extends PublicKey {
         this.keyLengthInBits = sanitize.bigint(RSAPublicKey.decode(publicKey.subjectPublicKey.data).n).toString(16).length * 4;
         break;
       default:
-        throw new NotImplemented(gt`Certificates with ${typeof algorithm == "string" ? algorithm : algorithm.join(".")} keys are not supported`);
+        throw new NotImplemented(gt`Certificates with ${algorithmName(algorithm)} keys are not supported`);
       }
       this.id = this.publicKeyID(publicKey);
     }

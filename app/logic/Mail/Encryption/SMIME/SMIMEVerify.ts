@@ -36,7 +36,11 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     console.log("certificate does not contain an RSA or EC public key");
     return null;
   }
-  let digestAlgorithm = sanitize.translate(signerInfo.digestAlgorithm.algorithm, DigestAlgorithm);
+  let digestAlgorithm = sanitize.translate(signerInfo.digestAlgorithm.algorithm, DigestAlgorithm, null);
+  if (!digestAlgorithm) {
+    console.log("message was digested with an algorithm that we do not know");
+    return null;
+  }
   let messageDigest = new Uint8Array(await crypto.subtle.digest(digestAlgorithm, content as BufferSource));
   // Without signed attributes, the signature covers the content digest directly.
   let signedContent = content;
