@@ -16,7 +16,7 @@
 
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
-  import type { CalendarRange } from "./CalendarRange";
+  import type { CalendarRange } from "../../frontend/Calendar/CalendarRange";
   import { EventLook } from "./DisplayEvent/EventLook";
   import { selectedDate, selectedEvent, startDate } from "../../frontend/Calendar/selected";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";

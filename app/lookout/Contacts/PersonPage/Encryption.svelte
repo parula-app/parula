@@ -126,7 +126,7 @@
   }
   .buttons {
     gap: 8px;
-    width: 130px;
+    min-width: 130px;
   }
   .buttons :global(button) {
     width: 100%;

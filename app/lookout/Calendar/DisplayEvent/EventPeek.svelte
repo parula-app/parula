@@ -65,14 +65,14 @@
 </Popup>
 
 <script lang="ts">
-  import { RecurrenceCase, type Event } from "../../../logic/Calendar/Event";
+  import { RecurrenceCase } from "../../../logic/Calendar/Event";
   import { InvitationResponse, type InvitationResponseInMessage } from "../../../logic/Calendar/Invitation/InvitationStatus";
   import { EventLook } from "./EventLook";
   import { CalendarActions } from "../CalendarActions";
   import { openEvent } from "../../../frontend/Calendar/open";
   import { openComposer } from "../../../frontend/Mail/open";
   import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
-  import { eventPeek } from "../selected";
+  import { eventPeek, type EventPeek } from "../selected";
   import { catchErrors } from "../../../frontend/Util/error";
   import Popup from "../../../frontend/Shared/Popup.svelte";
   import OpenIcon from "lucide-svelte/icons/square-pen";
@@ -87,8 +87,10 @@
   import Checkbox from "../../Shared/Form/Checkbox.svelte";
   import { t } from "../../../l10n/l10n";
 
-  export let event: Event;
-  export let anchor: HTMLElement;
+  export let peek: EventPeek;
+
+  // Read once: When the popup closes, `peek` is already null while this popup still updates
+  const { event, anchor } = peek;
 
   let popupOpen = true;
   let sendReply = true;

@@ -1,22 +1,27 @@
 import type { MustangApp } from "./MustangApp";
-import { createHashHistory } from "../Util/hashHistory";
+import { AppWindow } from "../MainWindow/AppWindow";
+import { createHashHistory, createMemoryHistory } from "../Util/hashHistory";
 import type AnyObject from "svelte-navigator/types/AnyObject";
-import { appGlobal } from "../../logic/app";
 import { minorError } from "../Util/error";
 import { ArrayColl, MapColl } from "svelte-collections";
 import { writable, get, type Writable } from "svelte/store";
 import type RawLocation from "svelte-navigator/types/RawLocation";
 
-export const selectedApp: Writable<MustangApp> = writable(null);
-export const sidebarApp: Writable<MustangApp> = writable(null);
+export const selectedApp: Writable<MustangApp> = AppWindow.perMainWindow(() => writable(null));
+export const sidebarApp: Writable<MustangApp> = AppWindow.perMainWindow(() => writable(null));
 export const mustangApps = new ArrayColl<MustangApp>;
 
 export const showDemoToggle: Writable<boolean> = writable(true);
 
 /** Search bar in the window title, applies to all apps */
-export const globalSearchTerm: Writable<string> = writable(null);
+export const globalSearchTerm: Writable<string> = AppWindow.perMainWindow(() => writable(null));
 
-export const history = createHashHistory();
+export const history = AppWindow.perMainWindow(appWindow => {
+  // Going back in the browser history of another window would unload it, because `AppWindow` filled it with `document.open()`
+  let history = appWindow == AppWindow.main ? createHashHistory() : createMemoryHistory();
+  history.listen(params => syncSelectedApp(params, appWindow.uiState(selectedApp)));
+  return history;
+});
 
 export type PageParams = Record<string, any>;
 export function openApp(app: MustangApp, params: PageParams) {
@@ -25,13 +30,17 @@ export function openApp(app: MustangApp, params: PageParams) {
 }
 
 export function goTo(pageURL: string, params: PageParams) {
-  let location = window.location.hash.slice(1);
+  let location = history.location.pathname;
   let replace = pageURL == location;
   console.log("Go to", pageURL, replace ? "replace" : "", "from", location, "with params", params);
   history.navigate(pageURL, {
     replace,
     state: addParams(params),
   });
+  let appWindow = AppWindow.current();
+  if (!appWindow.isMainWindow) {
+    bringAppToFront();
+  }
 }
 
 export function goBack() {
@@ -39,7 +48,7 @@ export function goBack() {
 }
 
 /** When `goTo()` is called, we need to update `selectedApp` accordingly */
-function syncSelectedApp(params: { location: RawLocation }) {
+function syncSelectedApp(params: { location: RawLocation }, selectedApp: Writable<MustangApp>) {
   let url = params.location.pathname as string;
   // Windows share their URL, e.g. one window per event, so find the window by its params
   let pageParams = getParams(params.location.state);
@@ -66,8 +75,9 @@ function syncSelectedApp(params: { location: RawLocation }) {
 }
 
 export function bringAppToFront() {
-  window.focus();
-  appGlobal.remoteApp.unminimizeMainWindow()
+  let appWindow = AppWindow.current().mainWindow;
+  appWindow.focus();
+  appWindow.restore()
     .catch(minorError);
 }
 
@@ -100,6 +110,3 @@ function deletePage(id: HistoryIDObj | AnyObject): void {
   }
   historyParams.delete(id.id);
 }
-
-// After `historyParams`, because `listen()` calls `syncSelectedApp()` right away
-history.listen(syncSelectedApp);
