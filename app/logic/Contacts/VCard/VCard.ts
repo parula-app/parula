@@ -285,7 +285,7 @@ function setValues(container: Record<string, string[]>, key: string, values: Arr
       line += `;PREF=${entry.preference}`;
     }
     line += ":";
-    // IMPP must be a URI
+    // IMPP is the chat account (RFC 6350 6.4.3), and must be a URI, e.g. "xmpp:alice@example.com"
     let value = key == "impp" && ContactEntry.chatURISchemes.includes(entry.protocol) && !/^\w+:/.test(entry.value)
       ? entry.protocol + ":" + entry.value
       : entry.value;
