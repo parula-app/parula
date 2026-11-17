@@ -6,6 +6,12 @@ export const emailPIDIndex = sql`
   CREATE INDEX IF NOT EXISTS index_email_folderID_pID ON email (folderID, pID);
 `;
 
+/** Finds the emails with a person, ignoring case, e.g. for the contact history.
+ * Separate from the schema below, for the migration of pre-existing databases. */
+export const emailPersonLowercaseIndex = sql`
+  CREATE INDEX IF NOT EXISTS index_emailPerson_emailAddress_lower ON emailPerson (lower(emailAddress));
+`;
+
 export const mailDatabaseSchema = sql`
   -- Email addresses, as found in received emails.
   -- They are not necessarily in the personal address book.
@@ -21,6 +27,7 @@ export const mailDatabaseSchema = sql`
     --  REFERENCES person (id)
     --  ON DELETE SET NULL
   );
+  $${emailPersonLowercaseIndex}
 
   -- n:n table for email to emailPersons
   -- TODO Should we merge emailPersons into this table? + Less JOINs, - more duplication
