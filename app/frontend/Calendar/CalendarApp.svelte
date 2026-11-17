@@ -1,7 +1,7 @@
 <vbox flex class="calendar-app">
   <hbox flex>
     {#if $isCalendarListOpen}
-      <CalendarList />
+      <CalendarList {range} />
     {/if}
     <Splitter
       initialRightRatio={0.25}
@@ -9,7 +9,7 @@
       hasRight={!appGlobal.isMobile}
       >
       <vbox flex class="main" slot="left" class:mobile={$appGlobal.isMobile}>
-        <MainView events={shownCalendarEvents} bind:start={$startDate} dateInterval={$dateIntervalSetting.value}>
+        <MainView events={shownCalendarEvents} bind:start={$startDate} dateInterval={$dateIntervalSetting.value} {range}>
           <hbox slot="top-left">
             {#if !$appGlobal.isMobile}
               <TitleBarLeft />
@@ -17,6 +17,11 @@
           </hbox>
           <TitleBarRight bind:dateInterval={dateIntervalSetting.value} slot="top-right" />
         </MainView>
+        {#if $noTitleBar && !$isCalendarListOpen}
+          <hbox class="global-search">
+            <SearchButton />
+          </hbox>
+        {/if}
       </vbox>
       <vbox flex class="sidebar" slot="right">
         {#if $selectedEvent && !appGlobal.isMobile}
@@ -33,8 +38,11 @@
 </vbox>
 
 <script lang="ts">
-  import { isCalendarListOpen, selectedCalendar, selectedEvent, shownCalendarEvents, startDate, type DateInterval } from "./selected";
+  import { isCalendarListOpen, kDateIntervalViews, selectedCalendar, selectedDate, selectedEvent, shownCalendarEvents, startDate, type DateInterval } from "./selected";
+  import { CalendarRange } from "./CalendarRange";
   import { appGlobal } from "../../logic/app";
+  import { noTitleBar } from "../MainWindow/Selected";
+  import SearchButton from "../MainWindow/SearchButton.svelte";
   import CalendarList from "./CalendarList.svelte";
   import MainView from "./MainView.svelte";
   import CalendarViewBarM from "./MonthView/CalenderViewBarM.svelte";
@@ -47,11 +55,18 @@
   $: if (!$selectedCalendar) { $selectedCalendar = appGlobal.calendars.first; }
 
   let dateIntervalSetting = getLocalStorage("calendar.view", 2 as DateInterval);
+  $: view = kDateIntervalViews[$dateIntervalSetting.value];
+  $: range = new CalendarRange(view, view == "dual" ? $selectedDate : $startDate);
 </script>
 
 <style>
   .main {
     margin: 0px 16px 16px 16px;
+  }
+  .global-search {
+    /* Below the calendar view, partly in the margin.
+     * Over the view, it would cover events in the month view. */
+    margin-block-end: -10px;
   }
   .main :global(.range-header) {
     height: 58px;

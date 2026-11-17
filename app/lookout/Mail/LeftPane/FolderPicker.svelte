@@ -1,4 +1,4 @@
-<vbox class="folder-picker" role="tree" aria-label={label}>
+<vbox class="folder-picker" role="tree" tabindex="-1" aria-label={label} on:keydown={event => onListKey(event, ".node:not(.disabled)")}>
   {#each $accounts.each as account (account.id)}
     <button type="button" class="node account"
       class:selected={allowAccount && selectedAccount == account && !selectedFolder}
@@ -20,6 +20,7 @@
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import { appGlobal } from "../../../logic/app";
   import FolderPickerNode from "./FolderPickerNode.svelte";
+  import { onListKey } from "../../../frontend/Util/util";
   import AccountIcon from "lucide-svelte/icons/at-sign";
   import { createEventDispatcher } from "svelte";
 
