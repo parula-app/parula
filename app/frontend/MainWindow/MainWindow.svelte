@@ -3,7 +3,7 @@
   on:resize={saveWindowSettingsDebounced}
   on:blur={() => catchErrors(saveWindowSettings)}
   on:visibilitychange={() => catchErrors(saveWindowSettings)}
-  on:beforeunload={() => catchErrors(saveWindowSettings)} />
+  on:beforeunload={(event) => catchErrors(() => onBeforeUnload(event))} />
 
 {#if frontend == "lookout"}
   {#await lookoutWindow then lookout}
@@ -87,7 +87,7 @@
   import MeetBackground from "../Meet/MeetBackground.svelte";
   import WebAppsInBackground from "../WebApps/Runner/WebAppsInBackground.svelte";
   import { AppWindow } from "./AppWindow";
-  import { catchErrors } from "../Util/error";
+  import { catchErrors, showError } from "../Util/error";
   import { getOSName } from "../Util/util";
   import { assert } from "../../logic/util/util";
   import { getUILocale, t } from "../../l10n/l10n";
@@ -145,6 +145,9 @@
 
   async function startup() {
     await getStartObjects();
+    // #if [!WEBMAIL && !MOBILE]
+    await appGlobal.remoteApp.onQuit(saveDraftsOnQuit);
+    // #endif
     if (appGlobal.emailAccounts.isEmpty && appGlobal.chatAccounts.isEmpty) {
       await setup();
     } else {
@@ -152,6 +155,17 @@
       // Setting $selectedApp late would overwrite commandline/URL handlers
       $selectedAccount = appGlobal.emailAccounts.first;
       // `MailApp` selects the inbox, once we read the folders
+    }
+  }
+
+  /** @returns whether the app may quit */
+  async function saveDraftsOnQuit(): Promise<boolean> {
+    try {
+      await mailMustangApp.saveDraftsOnQuit();
+      return true;
+    } catch (ex) {
+      showError(ex);
+      return false;
     }
   }
 
@@ -200,6 +214,12 @@
   }
   const saveWindowSettingsDebounced = debounce(() => catchErrors(saveWindowSettings), 1000);
 
+  function onBeforeUnload(event: BeforeUnloadEvent) {
+    saveWindowSettings();
+    if (webMail && mailMustangApp.draftsWithText().hasItems) {
+      event.preventDefault();
+    }
+  }
 </script>
 
 <style>
