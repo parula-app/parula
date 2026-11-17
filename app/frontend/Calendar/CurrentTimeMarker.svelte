@@ -6,7 +6,8 @@
   import { k1MinuteMS } from "../../logic/util/date";
   import { readable } from "svelte/store";
 
-  const now = readable(new Date(), set => {
+  /** The current time, updated every minute */
+  export const now = readable(new Date(), set => {
     let timeout: ReturnType<typeof setTimeout>;
     function update() {
       let time = new Date();

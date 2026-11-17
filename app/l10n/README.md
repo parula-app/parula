@@ -44,6 +44,8 @@ We chose lingui and svelte-18n-lingui, because:
 4. The tools will find which strings are not yet translated, and
   trigger translation for those.
 5. Translation (AI or humans)
+   Klingon in pIqaD (`tlh-Piqd`) is not translated, but generated
+   from Klingon in Latin (`tlh`) with `yarn run l10n:pIqaD`.
 6. The tools will merge the new translations with the existing
    translations, adding only the new or changed strings.
 7. The tools will export back into the translation file format that

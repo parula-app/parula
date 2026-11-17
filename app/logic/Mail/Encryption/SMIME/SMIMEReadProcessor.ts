@@ -23,7 +23,8 @@ export class SMIMEReadProcessor extends EMailProcessor {
     let contentTypeHeader = sanitize.string(postal.headers.find(header => header.key == "content-type")?.value, "");
     let contentType = parseHeaderParameters(contentTypeHeader).$main;
     if (contentType == "application/pkcs7-mime" ||
-        contentType == "application/x-pkcs7-mime") { // legacy type name, used by Outlook
+        contentType == "application/x-pkcs7-mime" || // legacy type name, used by Outlook
+        contentType == "application/octet-stream" && email.attachments.first?.filename.toLowerCase().endsWith(".p7m")) { // MS-OXOSMIME 2.1.3.2.1.1
       // The whole message is a CMS blob. It's the only body part, but fsr
       // this is an attachment.
       let cms = email.attachments.first?.content;
