@@ -76,4 +76,32 @@
   .second-row:first-child {
     max-height: 1.3em;
   }
+
+  :global(.lookout-window) .person {
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 56px;
+    border-block-end: 1px solid var(--lo-divider);
+  }
+  :global(.lookout-window) .person :global(.avatar) {
+    flex-shrink: 0;
+    margin: 0 12px;
+  }
+  :global(.lookout-window) .name {
+    font-size: 15px;
+  }
+  :global(.lookout-window) .person.selected {
+    color: var(--lo-fg);
+  }
+  :global(.lookout-window) .person::before {
+    display: none;
+  }
+  :global(.lookout-window) .person.selected::before {
+    display: block;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-left: 3px solid var(--lo-accent);
+    border-radius: 0;
+  }
 </style>

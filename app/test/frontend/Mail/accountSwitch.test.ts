@@ -6,9 +6,9 @@ import { Folder, SpecialFolder } from "../../../logic/Mail/Folder";
 import { DummyMailStorage } from "../../../logic/Mail/Store/DummyMailStorage";
 import { selectedAccount, selectedFolder } from "../../../frontend/Mail/Selected";
 import MailApp from "../../../frontend/Mail/MailApp.svelte";
-import { flushSync, mount } from "svelte";
+import { flushSync, mount, unmount } from "svelte";
 import { get } from "svelte/store";
-import { beforeAll, expect, test } from "vitest";
+import { afterEach, beforeAll, expect, test } from "vitest";
 
 beforeAll(() => {
   (globalThis as any).ResizeObserver ??= class {
@@ -16,6 +16,13 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   };
+});
+
+let mailApp: Record<string, any> | null = null;
+
+afterEach(() => {
+  mailApp && unmount(mailApp);
+  mailApp = null;
 });
 
 function newTestAccount(name: string, folderNames: string[]): MailAccount {
@@ -62,7 +69,7 @@ test("Switching the account lists and selects the folders of the new account", (
   selectedFolder.set(subFolder);
   let target = document.createElement("div");
   document.body.append(target);
-  mount(MailApp, { target });
+  mailApp = mount(MailApp, { target });
   flushSync();
   expect(shownFolderNames(target)[0]).toEqual("Inbox");
   expect(get(selectedFolder)).toBe(subFolder);
@@ -73,4 +80,26 @@ test("Switching the account lists and selects the folders of the new account", (
   expect(shownFolderNames(target)).not.toContain("Subfolder");
   expect(shownFolderNames(target)[0]).toEqual("Inbox");
   expect(get(selectedFolder)).toBe(accountB.inbox);
+});
+
+test("Adding a top-level folder keeps the selected subfolder selected", () => {
+  let account = newTestAccount("C", ["Inbox", "Sent", "Parent", "Archive"]);
+  let subFolder = newSubFolder(account.rootFolders.find(folder => folder.name == "Parent"), "Subfolder");
+  appGlobal.emailAccounts.add(account);
+
+  selectedAccount.set(account);
+  selectedFolder.set(subFolder);
+  let target = document.createElement("div");
+  document.body.append(target);
+  mailApp = mount(MailApp, { target });
+  flushSync();
+  expect(get(selectedFolder)).toBe(subFolder);
+
+  let newFolder = new Folder(account);
+  newFolder.name = "New";
+  newFolder.id = "C-New";
+  account.rootFolders.add(newFolder);
+  flushSync();
+  // The tree showed only the top-level folders again, without the selected subfolder
+  expect(get(selectedFolder)).toBe(subFolder);
 });

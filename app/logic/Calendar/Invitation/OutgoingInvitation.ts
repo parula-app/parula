@@ -2,8 +2,9 @@ import { type Event, RecurrenceCase } from "../Event";
 import { Participant } from "../Participant";
 import { InvitationResponse, type iCalMethod } from "./InvitationStatus";
 import { findIdentityForEMailAddress, type MailIdentity} from "../../Mail/MailIdentity";
-import { getICal } from "../ICal/ICalGenerator";
 import type { EMail } from "../../Mail/EMail";
+import type { SMLData } from "../../Mail/SML/SMLData";
+import type { TSMLMeetingTimePoll } from "../../Mail/SML/TSML";
 import type { Calendar } from "../Calendar";
 import { MailAccount } from "../../Mail/MailAccount";
 import { appGlobal } from "../../app";
@@ -135,30 +136,24 @@ export class OutgoingInvitation {
       event.isOnline != unedited.isOnline ||
       event.onlineMeetingURL != unedited.onlineMeetingURL ||
       event.recurrenceCase != unedited.recurrenceCase ||
-      event.recurrenceRule != unedited.recurrenceRule
+      event.recurrenceRule != unedited.recurrenceRule ||
+      event.exclusions.length != unedited.exclusions.length
     );
   }
 
   /**
-   * Forwards an event to another person by email.
-   *
-   * - This is typically used on an event from incoming invitation.
-   * - If it was an outgoing invitation, that means you're the organizer, and
-   *   you'd simply add participants to the event.
-   * - If it was an event without participants, you'd simply add participants.
+   * Asks the participants by email which of the proposed times suit them.
+   * @param poll A `MeetingTimePoll`
    */
-  static async forwardEventByMail(event: Event): Promise<EMail> {
-    let identity = identityForCalendar(event.calendar);
-    let mail = identity.newEMailFrom();
-    mail.subject = "Fwd: " + event.title; // Do NOT translate "Fwd: "
-    mail.event = event;
-    // `mail.event` already sends the event, but it's not visible in the composer, so add it a third time
-    let icalStr = new TextEncoder().encode(await getICal(event));
-    let file = new File([icalStr], "forwarded.ics", { type: "text/calendar" });
-    let attachment = mail.newAttachment();
-    attachment.fromFile(file);
-    mail.attachments.add(attachment);
-    return mail;
+  meetingTimePollMail(participants: Collection<Participant>, poll: SMLData): EMail {
+    let timePoll = poll.sml as TSMLMeetingTimePoll;
+    timePoll.name = this.event.title;
+    timePoll.duration = this.event.durationMinutes;
+    let email = this.event.calendar.inviteAs.newEMailFrom();
+    email.to.addAll(participants);
+    email.subject = this.event.title;
+    email.sml = poll;
+    return email;
   }
 }
 

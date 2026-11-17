@@ -4,7 +4,7 @@ import { decryptAuthEnveloped } from "../../../../../logic/Mail/Encryption/SMIME
 import { SMIMESend, kOurCapabilities } from "../../../../../logic/Mail/Encryption/SMIME/SMIMESend";
 import { BlockType, padFF, padRandom, encrypt, decrypt, unpadPKCS } from "../../../../../logic/Mail/Encryption/SMIME/SMIMERSAES";
 import { verifySignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEVerify";
-import type { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
+import { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { appGlobal } from "../../../../../logic/app";
 import { berToDER } from "../../../../../../lib/asn1/ber";
 import { base64ToBytes } from "../../../../../../lib/asn1/decoders/pem";
@@ -268,9 +268,8 @@ A3wcgtodjMMasKVm9sOX9Ja48mkCD8sA5L1PfFLbWa2x1VUEEGgMGxrugKYvwiROWMyLUkcAAAAAAAAA
 `;
 
 describe("Opaque-signed and streaming BER messages (Outlook style)", () => {
-  function signerModulusTail(): string {
-    let cert = Certificate.decodePEM(kSignerCert, { label: "CERTIFICATE" });
-    return RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data).n.toString(16).slice(-16);
+  async function signerKeyID(): Promise<string> {
+    return (await SMIMEPublicKey.importPublicKey(kSignerCert)).id;
   }
 
   async function readOpaque(base64: string): Promise<{ content: Uint8Array, signer: SMIMEPublicKey | null }> {
@@ -301,18 +300,18 @@ describe("Opaque-signed and streaming BER messages (Outlook style)", () => {
   test("reads and verifies an opaque-signed message (DER)", async () => {
     let { content, signer } = await readOpaque(kOpaqueSignedDER);
     expect(new TextDecoder().decode(content)).toBe(kOpaqueContent);
-    expect(signer?.id).toBe(signerModulusTail());
+    expect(signer?.id).toBe(await signerKeyID());
   });
 
   test("reads and verifies an opaque-signed message (streaming BER)", async () => {
     let { content, signer } = await readOpaque(kOpaqueSignedStreaming);
     expect(new TextDecoder().decode(content)).toBe(kOpaqueContent);
-    expect(signer?.id).toBe(signerModulusTail());
+    expect(signer?.id).toBe(await signerKeyID());
   });
 
   test("verifies a signature without signed attributes", async () => {
     let { signer } = await readOpaque(kOpaqueSignedNoAttrs);
-    expect(signer?.id).toBe(signerModulusTail());
+    expect(signer?.id).toBe(await signerKeyID());
   });
 
   test("rejects a signature over other content", async () => {

@@ -1,4 +1,4 @@
-<vbox class="message-header"
+<vbox class="message-header window-drag"
   class:outgoing={$message.outgoing}
   on:swipeleft={onPreviousMessage}
   on:swiperight={onNextMessage}

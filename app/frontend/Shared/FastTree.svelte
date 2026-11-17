@@ -31,7 +31,7 @@
   $: showItems = new ArrayColl($items);
 
   const selectOpens = true;
-  $: selectOpens && selectedItem && openOnly(selectedItem)
+  $: $items, selectOpens && selectedItem && openOnly(selectedItem)
   function openOnly(selectedItem: T) {
     for (let item of showItems) {
       item.expanded = false;

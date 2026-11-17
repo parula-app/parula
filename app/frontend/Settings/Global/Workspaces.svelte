@@ -1,5 +1,5 @@
 <vbox flex class="page">
-  <PageHeader title={$t`Workspaces`} subtitle={$t`Your work-life balance: Mute some accounts at times to focus or relax. You can choose the workspace in the window header.`}>
+  <PageHeader title={$t`Workspaces`} subtitle={$t`Your work-life balance: Mute some accounts at times to focus or relax. You can choose the workspace using the circle button in the main window.`}>
     <RoundButton
       label={$t`Add`}
       onClick={onAdd}
