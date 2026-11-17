@@ -64,25 +64,28 @@ export class JMAPFolder extends Folder {
   /** Lists all messages in this folder.
    * But doesn't download their contents. @see downloadMessages() */
   protected async listAllMessages(): Promise<ArrayColl<JMAPEMail>> {
-    const batchSize = 200;
+    const batchSize = Math.min(500, this.account.maxObjectsInGet);
     let state: string;
     let allNewMessages = new ArrayColl<JMAPEMail>();
     let position = 0;
-    const kMaxRounds = 5000; // 1,000,000 emails
+    let saving = Promise.resolve();
+    const kMaxRounds = Math.min(5000, 1000000 / batchSize);
     let loop = new LoopGuard(kMaxRounds, () =>
       this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
     let onServer = new Set<string>();
     while (loop.nextRound()) {
       let { newMessages, updatedMessages, syncState, ids, limit } = await retryOnTransientError(() =>
         this.fetchMessageList(position, batchSize));
+      await saving; // Save the last page and fetch this one at the same time
       if (loop.isSameAsLastRound(ids.join(" "))) {
         break;
       }
       ids.forEach(id => onServer.add(id));
       state ??= syncState;
       this.messages.addAll(newMessages);
-      await this.saveNewMsgs(newMessages);
-      await this.saveMsgUpdates(updatedMessages);
+      saving = this.saveNewMsgs(newMessages)
+        .then(() => this.saveMsgUpdates(updatedMessages))
+        .catch(this.account.errorCallback);
       allNewMessages.addAll(newMessages);
       position += ids.length;
       if (ids.length < limit) {
@@ -94,6 +97,7 @@ export class JMAPFolder extends Folder {
         break;
       }
     }
+    await saving;
     if (state) {
       this.account.syncState.set("Email", state);
     }
@@ -407,16 +411,11 @@ export class JMAPFolder extends Folder {
   }
 
   protected async saveNewMsgs(msgs: Collection<JMAPEMail>) {
-    let startTime = Date.now();
-    for (let email of msgs) {
-      try {
-        if (email.subject) {
-          await email.saveMetadataLocally();
-        }
-      } catch (ex) {
-        this.account.errorCallback(ex);
-      }
+    if (msgs.isEmpty) {
+      return;
     }
+    let startTime = Date.now();
+    await this.storage.saveMessages(msgs);
     let saveTime = Date.now() - startTime;
     console.log("  Saved", msgs.length, "msgs in", saveTime, "ms =", saveTime / msgs.length, "ms/msg");
   }

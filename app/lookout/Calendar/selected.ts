@@ -9,8 +9,6 @@ import { TimeZoneRuler } from "./TimeZones";
 import { getLocalStorage } from "../../frontend/Util/LocalStorage";
 import { derived, readable, writable, type Readable } from "svelte/store";
 
-export type CalendarViewType = "day" | "workweek" | "week" | "month" | "schedule" | "dual";
-
 export enum CalendarCurrentView {
   Calendar = "calendar",
   Preview = "preview",
