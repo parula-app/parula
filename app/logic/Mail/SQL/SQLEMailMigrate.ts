@@ -17,3 +17,11 @@ export async function addEMailStatusColumns(database: Database): Promise<void> {
     await database.execute(sql`ALTER TABLE email ADD COLUMN "isImportant" BOOLEAN default false;`);
   }
 }
+
+/** Until #1916, a PGP mail that we signed kept our secret key and its
+ * passphrase as its signer. Removes them, and keeps the public key. */
+export const removeSecretKeyOfSigner = sql`
+  UPDATE email
+  SET json = json_remove(json, '$.encryption.signedPublicKey.privateKeyArmored', '$.encryption.signedPublicKey.passphrase')
+  WHERE json LIKE '%privateKeyArmored%' AND json_valid(json);
+`;
