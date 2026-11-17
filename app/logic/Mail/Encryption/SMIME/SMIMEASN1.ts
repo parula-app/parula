@@ -163,7 +163,7 @@ export const Null = define<void>("Null", function() {
   this.null();
 });
 
-export const OctetString = define<Uint8Array>("OctetString", function() {
+export const OctetString = define<Uint8Array<ArrayBuffer>>("OctetString", function() {
   this.octstr();
 });
 
@@ -433,7 +433,7 @@ export const PrivateKeyInfo = define("PrivateKeyInfo", function() {
 
 export interface EncryptedPrivateKeyInfo {
   encryptionAlgorithm: AlgorithmIdentifier;
-  encryptedData: Uint8Array;
+  encryptedData: Uint8Array<ArrayBuffer>;
 }
 export const EncryptedPrivateKeyInfo = define<EncryptedPrivateKeyInfo>("EncryptedPrivateKeyInfo", function() {
   this.seq().obj(
@@ -499,7 +499,7 @@ const RecipientInfo = define("RecipientInfo", function() {
 });
 
 /** Raw DER, e.g. to keep bytes that we do not need to look into */
-export const Any = define<Uint8Array>("Any", function() {
+export const Any = define<Uint8Array<ArrayBuffer>>("Any", function() {
   this.any();
 });
 

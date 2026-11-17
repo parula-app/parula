@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
  * @param iv 8 bytes
  * @returns the plaintext, without the padding
  */
-export function tripleDESDecrypt(data: Uint8Array, key: Uint8Array, iv: Uint8Array): Uint8Array {
+export function tripleDESDecrypt(data: Uint8Array, key: Uint8Array, iv: Uint8Array): Uint8Array<ArrayBuffer> {
   if (key.length != 24 && key.length != 16) {
     throw new Error("Triple DES needs a 16 or 24 byte key");
   }
@@ -59,7 +59,7 @@ export function tripleDESDecrypt(data: Uint8Array, key: Uint8Array, iv: Uint8Arr
  * @param iv 8 bytes
  * @returns the plaintext, without the padding
  */
-export function rc2Decrypt(data: Uint8Array, key: Uint8Array, iv: Uint8Array, effectiveKeyBits: number): Uint8Array {
+export function rc2Decrypt(data: Uint8Array, key: Uint8Array, iv: Uint8Array, effectiveKeyBits: number): Uint8Array<ArrayBuffer> {
   let expandedKey = expandRC2Key(key, effectiveKeyBits);
   return decryptCBC(data, iv, block => rc2Block(block, expandedKey));
 }
@@ -67,7 +67,7 @@ export function rc2Decrypt(data: Uint8Array, key: Uint8Array, iv: Uint8Array, ef
 /** Decrypts data that was encrypted with RC4.
  * RC4 is a stream cipher, so this is the same operation as encrypting,
  * and there is neither an IV nor padding. */
-export function rc4Decrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
+export function rc4Decrypt(data: Uint8Array, key: Uint8Array): Uint8Array<ArrayBuffer> {
   if (!key.length) {
     throw new Error("RC4 needs a key");
   }
@@ -96,7 +96,7 @@ export function rc4Decrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
  * XORed with the ciphertext block before it.
  * @param iv the block that the first block was XORed with
  * @returns the plaintext, without the padding */
-function decryptCBC(data: Uint8Array, iv: Uint8Array, decryptBlock: (block: Uint8Array) => Uint8Array): Uint8Array {
+function decryptCBC(data: Uint8Array, iv: Uint8Array, decryptBlock: (block: Uint8Array) => Uint8Array): Uint8Array<ArrayBuffer> {
   let blockLength = 8;
   if (iv.length != blockLength) {
     throw new Error("The IV must be one block");
@@ -119,7 +119,7 @@ function decryptCBC(data: Uint8Array, iv: Uint8Array, decryptBlock: (block: Uint
 
 /** Removes the padding that fills up the last block, RFC 5652 section 6.3.
  * A wrong passphrase practically always shows up here. */
-function unpadPKCS7(plaintext: Uint8Array, blockLength: number): Uint8Array {
+function unpadPKCS7(plaintext: Uint8Array<ArrayBuffer>, blockLength: number): Uint8Array<ArrayBuffer> {
   let padding = plaintext[plaintext.length - 1];
   if (!padding || padding > blockLength) {
     throw new Error("Bad padding");

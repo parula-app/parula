@@ -67,7 +67,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
     await this.unwrapMIME(email, decryptedContent);
   }
 
-  protected async decryptContent(algorithm: AlgorithmIdentifier, key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
+  protected async decryptContent(algorithm: AlgorithmIdentifier, key: Uint8Array, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
     switch (algorithm.algorithm) {
     case "desEDE3CBC":
       return tripleDESDecrypt(data, key, OctetString.decode(algorithm.parameters));
