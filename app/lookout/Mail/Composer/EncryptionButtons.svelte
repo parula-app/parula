@@ -7,7 +7,7 @@
       onClick={toggleEncrypted} />
     <RibbonToggleButton label={$t`Sign *=> Digitally sign this email`} icon={SignIcon}
       tooltip={$t`This proves that I wrote this email`}
-      selected={$mail.shouldSign}
+      selected={!!$mail.signedKeyFingerprint}
       disabled={$mail.mustEncrypt && $t`Policy requires that this email stays encrypted, to keep protect secret information`}
       onClick={toggleSigned} />
   {:else}
@@ -44,10 +44,10 @@
     if (mail.mustEncrypt) {
       return;
     }
-    if (mail.shouldSign && mail.shouldEncrypt) {
+    if (mail.signedKeyFingerprint && mail.shouldEncrypt) {
       mail.shouldEncrypt = false;
-    } else if (mail.shouldSign) {
-      mail.shouldSign = false;
+    } else if (mail.signedKeyFingerprint) {
+      mail.signedKeyFingerprint = null;
       mail.shouldEncrypt = false;
     } else {
       doSign();
@@ -58,8 +58,8 @@
       openTrustCenter(identity);
       return;
     }
-    assert(getMyPrivateKey(identity), "No signing key found");
-    mail.shouldSign = true;
+    mail.signedKeyFingerprint = getMyPrivateKey(identity)?.fingerprint;
+    assert(mail.signedKeyFingerprint, "No signing key found");
   }
   function toggleEncrypted() {
     if (mail.mustEncrypt) {
@@ -74,7 +74,7 @@
     }
 
     mail.shouldEncrypt = !mail.shouldEncrypt;
-    if (mail.shouldEncrypt && !mail.shouldSign) {
+    if (mail.shouldEncrypt && !mail.signedKeyFingerprint) {
       doSign();
     }
   }

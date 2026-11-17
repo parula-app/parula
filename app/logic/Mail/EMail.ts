@@ -103,9 +103,6 @@ export class EMail extends Message {
   /** For composer/send only: This email should be end-to-end encrypted. */
   @notifyChangedProperty
   shouldEncrypt = false;
-  /** For composer/send only: This email should be signed. */
-  @notifyChangedProperty
-  shouldSign = false;
   /** For composer/send only: This email must be end-to-end encrypted, e.g.
    * because it quotes from an encrypted email. */
   @notifyChangedProperty
@@ -118,6 +115,7 @@ export class EMail extends Message {
    * The signature was valid and the public key matches `From:`.
    * This gives you the specific public key that was used to sign.
    * Not the key ID, because another key can have the same key ID.
+   * For composer/send: Our key that will sign this email.
    * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
   signedKeyFingerprint: string | null = null;
@@ -771,7 +769,6 @@ export class EMail extends Message {
     other.mustEncrypt = this.mustEncrypt;
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
-    other.shouldSign = this.shouldSign;
     other.signedKeyFingerprint = this.signedKeyFingerprint;
     other.system = this.system;
   }

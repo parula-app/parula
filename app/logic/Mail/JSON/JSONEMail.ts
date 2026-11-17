@@ -75,7 +75,7 @@ export class JSONEMail {
       json.invitationMessage = email.invitationMessage;
     }
 
-    if (email.signedKeyFingerprint || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt || email.shouldSign) {
+    if (email.signedKeyFingerprint || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt) {
       let e = json.encryption = {} as any;
       e.system = email.system;
       e.signedPublicKeyFingerprint = email.signedKeyFingerprint;
@@ -83,7 +83,6 @@ export class JSONEMail {
       e.wasEncrypted = email.wasEncrypted;
       e.mustEncrypt = email.mustEncrypt;
       e.shouldEncrypt = email.shouldEncrypt;
-      e.shouldSign = email.shouldSign;
     }
   }
 
@@ -244,7 +243,6 @@ export class JSONEMail {
       email.signedKeyJSON = e.signedPublicKey ?? null;
       email.wasEncrypted = sanitize.boolean(e.wasEncrypted, false);
       email.shouldEncrypt = sanitize.boolean(e.shouldEncrypt, false);
-      email.shouldSign = sanitize.boolean(e.shouldSign, false);
       email.mustEncrypt = sanitize.boolean(e.mustEncrypt, false);
     }
   }

@@ -214,7 +214,6 @@ export class ComposeActions {
   async editDraft(): Promise<void> {
     await this.email.loadMIME();
     this.email.mustEncrypt = this.email.wasEncrypted;
-    this.email.shouldSign ||= !!this.email.signedKeyFingerprint;
   }
 
   async convertInlineAttachmentsURLs() {

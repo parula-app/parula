@@ -40,7 +40,7 @@ async function send(encrypt: boolean): Promise<string> {
   mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
   mail.to.add(mail.from);
   mail.subject = kSubject;
-  mail.shouldSign = true;
+  mail.signedKeyFingerprint = key.fingerprint;
   mail.shouldEncrypt = encrypt;
   return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
 }
@@ -124,7 +124,7 @@ describe("A draft", () => {
     expect(draft.text.trim()).toBe("Grüße aus Köln!");
     expect(draft.shouldEncrypt).toBe(true);
     expect(draft.mustEncrypt).toBe(true);
-    expect(draft.shouldSign).toBe(true);
+    expect(draft.signedKeyFingerprint).toBe(key.fingerprint);
   });
 
   test("that is not encrypted reopens with encryption optional", async () => {

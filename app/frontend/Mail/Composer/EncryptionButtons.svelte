@@ -5,9 +5,9 @@
     <ButtonMenu bind:isMenuOpen>
       <RoundButton
         label={$t`Sign or encrypt`}
-        tooltip={signDisabledReason ?? encryptDisabledReason ?? mail.shouldEncrypt ? $t`Encrypt and sign` : mail.shouldSign ? $t`Sign digitally` : $t`Sign or encrypt`}
-        icon={mail.shouldEncrypt ? EncryptIcon : mail.shouldSign ? SignIcon : NoEncryptIcon}
-        selected={mail.shouldSign || mail.shouldEncrypt}
+        tooltip={signDisabledReason ?? encryptDisabledReason ?? mail.shouldEncrypt ? $t`Encrypt and sign` : mail.signedKeyFingerprint ? $t`Sign digitally` : $t`Sign or encrypt`}
+        icon={mail.shouldEncrypt ? EncryptIcon : mail.signedKeyFingerprint ? SignIcon : NoEncryptIcon}
+        selected={!!mail.signedKeyFingerprint || mail.shouldEncrypt}
         onClick={() => isMenuOpen = !isMenuOpen}
         disabled={mail.mustEncrypt || !!signDisabledReason && !!encryptDisabledReason}
         classes="plain"
@@ -20,7 +20,7 @@
       <MenuItem
         label={$t`Don't encrypt nor sign`}
         icon={NoneIcon}
-        selected={!mail.shouldSign && !mail.shouldEncrypt}
+        selected={!mail.signedKeyFingerprint && !mail.shouldEncrypt}
         onClick={onDisableBoth}
         classes="nothing"
         iconSize="16px"
@@ -30,7 +30,7 @@
         label={$t`Sign digitally`}
         tooltip={signDisabledReason ?? $t`This proves that I wrote this email`}
         icon={SignIcon}
-        selected={mail.shouldSign}
+        selected={!!mail.signedKeyFingerprint}
         onClick={toggleSigned}
         disabled={!!signDisabledReason}
         classes="sign"
@@ -93,16 +93,16 @@
   $: privateKey, changedIdentity()
   function changedIdentity() {
     if (privateKey) {
-      if (!mail.shouldSign && privateKey.useToSign) {
-        mail.shouldSign = true;
+      if (!mail.signedKeyFingerprint && privateKey.useToSign) {
+        mail.signedKeyFingerprint = privateKey.fingerprint;
         extra.signOnlyByDefault = true;
       }
       if (!mail.shouldEncrypt && privateKey.encryptByDefault) {
         mail.shouldEncrypt = true;
         extra.encryptOnlyByDefault = true;
       }
-      if (mail.shouldSign && extra.signOnlyByDefault && !privateKey.useToSign) {
-        mail.shouldSign = false;
+      if (mail.signedKeyFingerprint && extra.signOnlyByDefault && !privateKey.useToSign) {
+        mail.signedKeyFingerprint = null;
         extra.signOnlyByDefault = false;
       }
       if (mail.shouldEncrypt && extra.encryptOnlyByDefault && !privateKey.encryptByDefault) {
@@ -112,7 +112,7 @@
     } else {
       assert(!mail.mustEncrypt, gt`This email must be encrypted.`);
       mail.shouldEncrypt = false;
-      mail.shouldSign = false;
+      mail.signedKeyFingerprint = null;
     }
   }
 
@@ -120,10 +120,10 @@
     if (mail.mustEncrypt) {
       return;
     }
-    if (mail.shouldSign && mail.shouldEncrypt) {
+    if (mail.signedKeyFingerprint && mail.shouldEncrypt) {
       mail.shouldEncrypt = false;
-    } else if (mail.shouldSign) {
-      mail.shouldSign = false;
+    } else if (mail.signedKeyFingerprint) {
+      mail.signedKeyFingerprint = null;
       mail.shouldEncrypt = false;
     } else {
       doSign();
@@ -134,8 +134,8 @@
       openSettingsCategoryForAccount(identity.account, "mail-identity");
       return;
     }
-    assert(getMyPrivateKey(identity), "No signing key found");
-    mail.shouldSign = true;
+    mail.signedKeyFingerprint = getMyPrivateKey(identity)?.fingerprint;
+    assert(mail.signedKeyFingerprint, "No signing key found");
   }
   function toggleEncrypted() {
     if (mail.mustEncrypt) {
@@ -147,7 +147,7 @@
     }
 
     mail.shouldEncrypt = !mail.shouldEncrypt;
-    if (mail.shouldEncrypt && !mail.shouldSign) {
+    if (mail.shouldEncrypt && !mail.signedKeyFingerprint) {
       doSign();
     }
   }
@@ -155,7 +155,7 @@
     if (mail.mustEncrypt) {
       return;
     }
-    mail.shouldSign = false;
+    mail.signedKeyFingerprint = null;
     mail.shouldEncrypt = false;
   }
 
