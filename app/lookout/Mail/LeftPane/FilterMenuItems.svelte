@@ -34,8 +34,7 @@
   import { globalSearchTerm } from "../../../frontend/AppsBar/selectedApp";
   import { hasSearchCriteria, isQuickFilterActive, toggleQuickFilter, searchInFolder, QuickFilter } from "../MailFilters";
   import { defaultSearchOptions } from "../Search/MailSearch";
-  import { isAdvancedSearchOpen, searchOptions } from "../Selected";
-  import { openSearchPerson } from "../Search/SearchPersonDialog.svelte";
+  import { isAdvancedSearchOpen, searchOptions, openSearchPerson } from "../Selected";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
   import SubMenu from "../../Shared/Menu/SubMenu.svelte";

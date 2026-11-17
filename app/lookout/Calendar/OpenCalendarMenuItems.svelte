@@ -12,7 +12,7 @@
 
 <script lang="ts">
   import { openSettingsDialog } from "../Settings/SettingsDialogs";
-  import { openSharedCalendar } from "./OpenCalendarDialog.svelte";
+  import { openSharedCalendar } from "./selected";
   import { appGlobal } from "../../logic/app";
   import MenuItem from "../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../Shared/Menu/MenuDivider.svelte";

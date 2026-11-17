@@ -25,14 +25,8 @@
     on:ok={onPicked} on:close={() => { isPicking = false; }} />
 {/if}
 
-<script lang="ts" context="module">
-  import { MailAccount } from "../../../logic/Mail/MailAccount";
-  import { writable } from "svelte/store";
-
-  export const openSharedFolder = writable<MailAccount | null>(null);
-</script>
-
 <script lang="ts">
+  import { MailAccount } from "../../../logic/Mail/MailAccount";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import SelectNamesDialog from "../Composer/SelectNamesDialog.svelte";
   import MailAutocomplete from "../Composer/MailAutocomplete.svelte";

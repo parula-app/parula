@@ -3,9 +3,11 @@
   class:temp-open={isCollapsed && $isTempOpen}
   on:contextmenu={ribbon.onContextMenu}
   bind:this={tabRowEl}>
-  <button class="tab file-tab" on:click={ribbon.onFile} title={$t`File`}>
-    <span class="tab-label">{$t`File`}</span>
-  </button>
+  {#if appWindow.isMainWindow}
+    <button class="tab file-tab" on:click={ribbon.onFile} title={$t`File`}>
+      <span class="tab-label">{$t`File`}</span>
+    </button>
+  {/if}
   <hbox class="tabs" role="tablist" tabindex="-1" on:keydown={onKeyDown}>
     {#each $shownTabs as tab}
       <button class="tab" role="tab"
@@ -27,11 +29,14 @@
 <script lang="ts">
   import type { RibbonState } from "./RibbonGroup";
   import KeyTipsLayer from "./KeyTipsLayer.svelte";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { t } from "../../../l10n/l10n";
 
   /** Shown in the ribbon, or in the window title bar */
   export let ribbon: RibbonState;
+
+  const appWindow = AppWindow.current();
 
   $: shownTabs = ribbon.shownTabs;
   $: selectedTab = ribbon.selectedTab;
@@ -45,7 +50,7 @@
       return;
     }
     let tabButtons = Array.from(tabRowEl.querySelectorAll<HTMLElement>(".tabs .tab"));
-    let pos = tabButtons.indexOf(document.activeElement as HTMLElement);
+    let pos = tabButtons.indexOf(appWindow.window.document.activeElement as HTMLElement);
     if (pos < 0) {
       return;
     }
