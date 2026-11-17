@@ -5,7 +5,7 @@ import { MailAccount } from "../../../../logic/Mail/MailAccount";
 import { AutoResponder, AutoResponderAudience } from "../../../../logic/Mail/AutoResponder";
 import AutoResponderPage from "../../../../frontend/Settings/Mail/AutoResponder.svelte";
 import { flushSync, mount, tick, unmount } from "svelte";
-import { UserError } from "../../../../logic/util/util";
+import { PermissionMissing } from "../../../../logic/Abstract/Account";
 import { Editor } from "@tiptap/core";
 import { afterEach, beforeAll, expect, test, vi } from "vitest";
 
@@ -46,15 +46,13 @@ class DeniedResponder extends TestAutoResponder {
 
   async load() {
     if (!this.granted) {
-      this.needsPermission = true;
-      throw new UserError("Please log in once more and allow access.");
+      throw new PermissionMissing(null, "Please log in once more and allow access.");
     }
     await super.load();
   }
 
   async grantPermission() {
     this.granted = true;
-    this.needsPermission = false;
   }
 }
 
@@ -171,5 +169,5 @@ test("A login without the permission offers to allow it", async () => {
     flushSync();
     expect(toggle("Send automatic replies").classList.contains("on")).toBe(true);
   });
-  expect(autoResponder.needsPermission).toBe(false);
+  expect(autoResponder.granted).toBe(true);
 });

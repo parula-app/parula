@@ -2,6 +2,7 @@
 import { appGlobal } from "../../../../logic/app";
 import { GraphAccount } from "../../../../logic/Mail/Graph/GraphAccount";
 import { AutoResponderAudience } from "../../../../logic/Mail/AutoResponder";
+import { PermissionMissing } from "../../../../logic/Abstract/Account";
 import { expect, test, vi } from "vitest";
 
 // DOMPurify needs a real browser DOM
@@ -153,10 +154,10 @@ test("A login without the permission asks to allow it", async () => {
   } catch (ex) {
     error = ex;
   }
+  expect(error).toBeInstanceOf(PermissionMissing);
   expect(error.isUserError).toBe(true);
   expect(error.message).toContain("allow access");
   expect(error.message).not.toContain("https://");
-  expect(autoResponder.needsPermission).toBe(true);
 });
 
 test("Other server errors are not about the permission", async () => {
@@ -164,8 +165,7 @@ test("Other server errors are not about the permission", async () => {
   response = httpError(500);
   let autoResponder = account.autoResponder;
 
-  await expect(autoResponder.load()).rejects.toThrow();
-  expect(autoResponder.needsPermission).toBe(false);
+  await expect(autoResponder.load()).rejects.not.toBeInstanceOf(PermissionMissing);
 });
 
 test("Allowing access logs in with the scopes that we need now", async () => {
@@ -175,13 +175,11 @@ test("Allowing access logs in with the scopes that we need now", async () => {
     loginScopes.push((account.oAuth2 as any).scope);
   };
   let autoResponder = account.autoResponder;
-  autoResponder.needsPermission = true;
   await autoResponder.grantPermission();
 
   expect(loginScopes.length).toBe(1);
   expect(loginScopes[0]).toContain("MailboxSettings.ReadWrite");
   expect((account.oAuth2 as any).scope).toContain("MailboxSettings.ReadWrite");
-  expect(autoResponder.needsPermission).toBe(false);
 });
 
 test("If the user does not allow access, the old login stays", async () => {

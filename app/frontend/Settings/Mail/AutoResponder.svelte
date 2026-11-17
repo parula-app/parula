@@ -5,7 +5,7 @@
     <hbox class="loading">
       <Loader />
     </hbox>
-  {:else if loadError && $autoResponder.needsPermission}
+  {:else if loadError instanceof PermissionMissing}
     <vbox class="permission">
       <hbox>{loadError.message}</hbox>
       <hbox>
@@ -108,6 +108,7 @@
 <script lang="ts">
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import { AutoResponderAudience, type AutoResponder } from "../../../logic/Mail/AutoResponder";
+  import { PermissionMissing } from "../../../logic/Abstract/Account";
   import PageHeader from "../Shared/PageHeader.svelte";
   import HeaderGroupBox from "../../Shared/HeaderGroupBox.svelte";
   import Checkbox from "../../Shared/Checkbox.svelte";

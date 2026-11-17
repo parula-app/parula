@@ -3,7 +3,7 @@ import type { GraphAccount } from "./GraphAccount";
 import type { TGraphAutoReplies, TGraphDateTimeZone } from "./TGraphMail";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { sanitizeHTML } from "../../util/convertHTML";
-import { UserError } from "../../util/util";
+import { PermissionMissing } from "../../Abstract/Account";
 import { gt } from "../../../l10n/l10n";
 
 /** `mailboxSettings/automaticRepliesSetting`. Exchange replies once per sender. */
@@ -34,7 +34,6 @@ export class GraphAutoResponder extends AutoResponder {
 
   async grantPermission(): Promise<void> {
     await this.account.upgradeScopes();
-    this.needsPermission = false;
   }
 
   protected async call<T>(func: () => Promise<T>): Promise<T> {
@@ -43,8 +42,7 @@ export class GraphAutoResponder extends AutoResponder {
     } catch (ex) {
       // Logins from before we asked for `MailboxSettings.ReadWrite`
       if ((ex?.httpCode ?? ex?.status) == 403) {
-        this.needsPermission = true;
-        throw new UserError(gt`To see and change your automatic replies, please log in once more and allow access.`);
+        throw new PermissionMissing(ex, gt`To see and change your automatic replies, please log in once more and allow access.`);
       }
       throw ex;
     }
