@@ -60,9 +60,9 @@ function ownSignatureText(html: string): string | null {
   return doc(html).body.querySelector(":scope > footer.signature[data-own-signature]")?.textContent ?? null;
 }
 
-function putOwnSignature(html: string, signatureHTML: string | null): string {
+function setOwnSignature(html: string, signatureHTML: string | null): string {
   let body = new MailBody(html);
-  body.putOwnSignature(signatureHTML);
+  body.setOwnSignature(signatureHTML);
   return body.html;
 }
 
@@ -159,7 +159,7 @@ test("Changing From swaps only our signature, in the same place", async () => {
   expect(new MailBody(removed).ownSignature).toBeNull();
   expect(doc(removed).body.querySelector("footer").textContent).toBe("Anna");
 
-  // ... and back to an identity with signature puts it above the forwarded mail again
+  // ... and back to an identity with signature adds it above the forwarded mail again
   let back = changeSignature(forward, none, personal, removed);
   expect(doc(back).querySelector("footer + hr")).not.toBeNull();
 });
@@ -226,7 +226,7 @@ test("A reopened draft swaps its signature only if it has ours", () => {
 
 test("Picking a signature explicitly also works on a redirect", async () => {
   let redirect = await receivedMail("<p>Lunch at 12?</p>").compose.redirect();
-  expect(ownSignatureText(putOwnSignature(redirect.html, work.signatureHTML))).toBe("Fred Miller, CTO");
+  expect(ownSignatureText(setOwnSignature(redirect.html, work.signatureHTML))).toBe("Fred Miller, CTO");
 });
 
 // Replying
@@ -373,30 +373,30 @@ test("Unlicensed without own signature: The Sent by line is a signature of its o
 
 // MailBody
 
-test("putOwnSignature() changes nothing, if there's nothing to do", () => {
+test("setOwnSignature() changes nothing, if there's nothing to do", () => {
   let body = new MailBody("<p>Hi</p>");
-  expect(body.putOwnSignature(null)).toBe(false);
-  expect(body.putOwnSignature("<p></p>")).toBe(false);
+  expect(body.setOwnSignature(null)).toBe(false);
+  expect(body.setOwnSignature("<p></p>")).toBe(false);
   expect(body.html).toBe("<p>Hi</p>");
 });
 
 test("A `-- ` that the user typed into the signature is not doubled", () => {
   for (let signatureHTML of ["<p>-- </p><p>Fred</p>", "<p>-- <br>Fred</p>", "-- <br>Fred", "\n<p>--</p>\n<p>Fred</p>"]) {
-    let html = putOwnSignature("", signatureHTML);
+    let html = setOwnSignature("", signatureHTML);
     expect(ownSignatureText(html).trim()).toBe("Fred");
     expect(convertHTMLToText(html).match(/^-- ?$/gm)).toHaveLength(1);
   }
   // Only a separator line, not other text starting with dashes
-  expect(ownSignatureText(putOwnSignature("", "<p>-- Fred</p>"))).toBe("-- Fred");
+  expect(ownSignatureText(setOwnSignature("", "<p>-- Fred</p>"))).toBe("-- Fred");
 });
 
 test("A signature at the end gets an empty line before it, to type in", () => {
-  expect(topLevel(putOwnSignature("<p>Hi</p>", kFred))).toEqual(["P", "P", "FOOTER"]);
-  expect(topLevel(putOwnSignature("<p>Hi</p><p></p>", kFred))).toEqual(["P", "P", "FOOTER"]);
+  expect(topLevel(setOwnSignature("<p>Hi</p>", kFred))).toEqual(["P", "P", "FOOTER"]);
+  expect(topLevel(setOwnSignature("<p>Hi</p><p></p>", kFred))).toEqual(["P", "P", "FOOTER"]);
 });
 
 test("A signature of plain text without paragraph", () => {
-  let html = putOwnSignature("", "Fred<br>Miller");
+  let html = setOwnSignature("", "Fred<br>Miller");
   expect(ownSignatureText(html)).toBe("FredMiller");
   expect(convertHTMLToText(html)).toMatch(/^-- \nFred\nMiller\s*$/);
 });
@@ -467,7 +467,7 @@ test("Picking another signature of the same identity swaps ours", () => {
   let body = new MailBody(addSignature(mail, personal, "<p>See you</p>"));
   expect(body.isOwnSignature(kFred)).toBe(true);
   expect(body.isOwnSignature(kWork)).toBe(false);
-  expect(body.putOwnSignature(personal.altSignatures.first)).toBe(true);
+  expect(body.setOwnSignature(personal.altSignatures.first)).toBe(true);
   expect(ownSignatureText(body.html)).toBe("Fred Miller, CTO");
   expect(body.isOwnSignature(kWork)).toBe(true);
   expect(body.isOwnSignature(kFred)).toBe(false);

@@ -12,7 +12,7 @@
       <MenuItem
         label={new MailBody(signatureHTML).textLine}
         selected={current.isOwnSignature(signatureHTML)}
-        onClick={() => editor.commands.editSignature(body => body.putOwnSignature(signatureHTML))}
+        onClick={() => editor.commands.editSignature(body => body.setOwnSignature(signatureHTML))}
         />
     {/each}
     <MenuDivider />

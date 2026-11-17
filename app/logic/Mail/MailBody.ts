@@ -30,12 +30,12 @@ export class MailBody {
   }
 
   /**
-   * Replaces our signature. If there is none yet, puts it between the user's text
+   * Replaces our signature. If there is none yet, adds it between the user's text
    * and the quote or forwarded mail, or at the end.
-   * @param forEditing Puts an empty line before a signature at the end, for the user to type in
+   * @param forEditing Adds an empty line before a signature at the end, for the user to type in
    * @returns false, if nothing changed
    */
-  putOwnSignature(signatureHTML: string | null, forEditing = true): boolean {
+  setOwnSignature(signatureHTML: string | null, forEditing = true): boolean {
     let footerE = this.newOwnSignature(signatureHTML);
     let existing = this.ownSignature;
     if (!footerE.textContent.trim() && !footerE.querySelector("img")) {

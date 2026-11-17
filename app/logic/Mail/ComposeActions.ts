@@ -328,13 +328,13 @@ export class ComposeActions {
       return false;
     }
     this.needsFooter = false;
-    return body.putOwnSignature(identity.signatureHTML);
+    return body.setOwnSignature(identity.signatureHTML);
   }
 
   /** Adds our signature to a mail that skips the composer, e.g. the quick reply from a notification */
   addSignatureWithoutComposer() {
     let body = new MailBody(this.email.html);
-    body.putOwnSignature(this.email.identity?.signatureHTML, false);
+    body.setOwnSignature(this.email.identity?.signatureHTML, false);
     this.email.html = body.html;
   }
 
@@ -348,7 +348,7 @@ export class ComposeActions {
     if (!body.ownSignature && previous.signatureHTML) { // The user removed it, or it's e.g. a redirect
       return false;
     }
-    return body.putOwnSignature(identity.signatureHTML);
+    return body.setOwnSignature(identity.signatureHTML);
   }
 
   /**

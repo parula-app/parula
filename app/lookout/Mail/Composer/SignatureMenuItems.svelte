@@ -34,7 +34,7 @@
 
   function onInsert(signatureHTML: string) {
     if (mail) {
-      editor.commands.editSignature(body => body.putOwnSignature(signatureHTML));
+      editor.commands.editSignature(body => body.setOwnSignature(signatureHTML));
     } else {
       editor.chain().focus().insertContent(signatureHTML).run();
     }
