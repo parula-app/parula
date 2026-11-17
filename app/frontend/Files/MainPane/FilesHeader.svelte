@@ -1,4 +1,4 @@
-<hbox class="header">
+<hbox class="header window-drag">
   <hbox class="buttons" class:hidden={!dir.parent}>
     <RoundButton
       onClick={goBack}

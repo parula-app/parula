@@ -21,8 +21,8 @@
 
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
-  import type { CalendarRange } from "../CalendarRange";
-  import { getWeekNumber } from "../../Util/date";
+  import type { CalendarRange } from "../../../frontend/Calendar/CalendarRange";
+  import { getWeekNumber } from "../../../logic/util/date";
   import WeekRow from "./WeekRow.svelte";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import type { Collection } from "svelte-collections";
@@ -58,6 +58,7 @@
 <style>
   .month-grid {
     min-height: 0;
+    container-type: size;
   }
   .weekdays {
     display: grid;

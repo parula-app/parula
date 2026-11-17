@@ -320,6 +320,12 @@ describe("Opaque-signed and streaming BER messages (Outlook style)", () => {
     expect(await verifySignedData(signedData, tampered)).toBeNull();
   });
 
+  test("a digest algorithm that we don't know leaves the message unsigned, without an error", async () => {
+    let signedData = SignedData.decodeFromBase64(kOpaqueSignedStreaming, { berToDER: true });
+    signedData.content.signerInfos[0].digestAlgorithm.algorithm = [1, 2, 840, 113549, 2, 5]; // MD5, which WebCrypto doesn't have
+    expect(await verifySignedData(signedData, new TextEncoder().encode(kOpaqueContent))).toBeNull();
+  });
+
   test("decrypts a streaming BER encrypted message (chunked encryptedContent)", async () => {
     let envelopedData = EnvelopedData.decodeFromBase64(kEncryptedStreaming, { berToDER: true });
     let info = envelopedData.content.encryptedContentInfo;
