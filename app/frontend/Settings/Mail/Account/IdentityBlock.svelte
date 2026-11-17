@@ -91,13 +91,11 @@
               on:change={event => onAltSignatureChange(i, event.detail)} />
           </vbox>
         {/each}
-        <hbox class="add-signature">
-          <Button
-            label={$t`Add alternative signature`}
-            icon={AddIcon}
-            onClick={() => identity.altSignatures.add("")}
-            />
-        </hbox>
+        {#key $altSignatures.length} <!-- The expander button hides itself when clicked, so it comes back for the next one -->
+          <hbox class="add-signature">
+            <ExpanderButton label={$t`Add alternative signature`} on:expand={() => identity.altSignatures.add("")} />
+          </hbox>
+        {/key}
       </vbox>
     {/if}
 
@@ -127,7 +125,6 @@
   import RoundButton from "../../../Shared/RoundButton.svelte";
   import Button from "../../../Shared/Button.svelte";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
-  import AddIcon from "lucide-svelte/icons/plus";
   import RemoveIcon from "lucide-svelte/icons/circle-x";
   import type { Editor } from "@tiptap/core";
   import { appName, siteRoot } from "../../../../logic/build";

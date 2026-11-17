@@ -75,6 +75,7 @@ test("Add alternative signature adds an empty one, and the trash button deletes 
   flushSync();
   expect(identity.altSignatures.contents).toEqual(["<p>Fred, CTO</p>", "<p>Fred, Treasurer</p>", ""]);
   await vi.waitFor(() => expect(editorTexts()).toEqual(["Fred", "Fred, CTO", "Fred, Treasurer", ""]));
+  expect(button("Add alternative signature")).toBeTruthy(); // for the next one
 
   let deleteButtons = Array.from(document.querySelectorAll("button"))
     .filter(button => button.title == "Delete this signature");
