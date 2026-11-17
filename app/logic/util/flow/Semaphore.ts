@@ -68,8 +68,15 @@ export class Semaphore {
     if (locked.wasWaiting) {
       this.waiting.push(locked);
       do {
-        // Wait for `Locked.release()` of any of the other running tasks
-        await Promise.any(this.running.map(locked => locked._promise));
+        if (this.running.length) {
+          // Wait for `Locked.release()` of any of the other running tasks
+          await Promise.any(this.running.map(locked => locked._promise));
+        } else {
+          // Nothing is running, so a slot is free, and the first waiting task
+          // is about to take it. Let it, then look again.
+          // `Promise.any([])` would reject, and we would never run.
+          await Promise.resolve();
+        }
         // All waiting continue at the same time, but one runs first, and removes itself from waiting,
         // the others also think they are next. Thus, need to check running as well.
       } while (this.waiting[0] != locked || this.running.length >= this.maxParallel)

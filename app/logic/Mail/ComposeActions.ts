@@ -4,14 +4,16 @@ import { Attachment, ContentDisposition } from "../Abstract/Attachment";
 import { PersonUID, findOrCreatePersonUID } from "../Abstract/PersonUID";
 import { MailIdentity, findIdentityForEMailAddress } from "./MailIdentity";
 import { SendEncrypted } from "./Encryption/SendEncrypted";
+import { ExtraData } from "./ExtraData";
 import { appName, appVersion, siteRoot } from "../build";
 import { gLicense } from "../util/License";
-import { getLocalStorage } from "../../frontend/Util/LocalStorage";
 import { importAutoCryptKeys } from "./Encryption/PGP/AutoCrypt";
 import { fileExtensionForMIMEType } from "../Files/FileType/MIMETypes";
-import { backgroundError } from "../../frontend/Util/error";
+import { escapeAttr, escapeHTML } from "../Files/FileType/htmlHelper";
+import { minorError } from "../util/error";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
-import { UserError, assert, dataURLToBlob, type URLString, ensureArray } from "../util/util";
+import { UserError, assert, type URLString, ensureArray, getUserPreference } from "../util/util";
+import { dataURLToBlob } from "../util/blob";
 import { getDateTimeLocale, gt } from "../../l10n/l10n";
 import { ArrayColl, type Collection } from "svelte-collections";
 
@@ -68,20 +70,22 @@ export class ComposeActions {
     let reply = this.newMailFromSameIdentity();
 
     let original = this.email;
-    original.markReplied()
-      .catch(original.folder.account.errorCallback);
+    let sendData = new SendData();
+    sendData.replyTo = original;
+    reply.extraData.set(SendData.extraDataName, sendData);
 
     reply.subject = "Re: " + original.baseSubject; // Do *not* localize "Re: "
     reply.inReplyTo = original.messageID;
     reply.references = original.references?.slice() ?? [];
     reply.references.push(original.messageID);
     reply.mustEncrypt = original.wasEncrypted;
+    reply.system = original.system;
     importAutoCryptKeys(original)
       .catch(original.folder.account.errorCallback);
 
-    let quoteSetting = getLocalStorage("mail.send.quote", "below").value;
-    let quote = `<p class="quote-header">${this.quotePrefixLine()}</p>
-    <blockquote cite="mid:${original.id}">
+    let quoteSetting = getUserPreference("mail.send.quote", "below");
+    let quote = `<p class="quote-header">${escapeHTML(this.quotePrefixLine())}</p>
+    <blockquote cite="mid:${escapeAttr(original.id ?? "")}">
       ${original.html}
     </blockquote>`;
     reply.html = quoteSetting == "none" ? `<p></p>` :
@@ -124,7 +128,7 @@ export class ComposeActions {
   }
 
   async forward(): Promise<EMail> {
-    let setting = getLocalStorage("mail.send.forward", "inline").value;
+    let setting = getUserPreference("mail.send.forward", "inline");
     if (setting == "attachment") {
       return await this.forwardAsAttachment();
     } else {
@@ -136,8 +140,10 @@ export class ComposeActions {
     let forward = this.email.folder.account.newEMailFrom();
     forward.subject = "Fwd: " + this.email.subject; // Do *not* localize "Fwd: "
     forward.mustEncrypt = this.email.wasEncrypted;
-    this.email.markForwarded()
-      .catch(this.email.folder.account.errorCallback);
+    forward.system = this.email.system;
+    let sendData = new SendData();
+    sendData.forwarded = this.email;
+    forward.extraData.set(SendData.extraDataName, sendData);
     return forward;
   }
 
@@ -151,7 +157,7 @@ export class ComposeActions {
     <p class="forward-header">
       <div>
         <span class="field">From:</span> <span class="value">
-          ${this.email.from?.name ?? this.email.from.emailAddress}${this.email.from?.name != this.email.from?.emailAddress ? ' <' + this.email.from.emailAddress + '>' : ''}
+          ${escapeHTML(this.email.from?.name ?? this.email.from.emailAddress ?? "")}${this.email.from?.name != this.email.from?.emailAddress ? escapeHTML(' <' + this.email.from.emailAddress + '>') : ''}
         </span>
       </div>
       <div>
@@ -161,7 +167,7 @@ export class ComposeActions {
       </div>
       <div>
         <span class="field">Subject:</span> <span class="value">
-          ${this.email.subject ?? ""}
+          ${escapeHTML(this.email.subject ?? "")}
         </span>
       </div>
     </p>
@@ -203,6 +209,11 @@ export class ComposeActions {
     clone.html = this.email.html;
     clone.attachments.addAll(this.email.attachments.map(a => a.cloneTo(clone)));
     return clone;
+  }
+
+  async editDraft(): Promise<void> {
+    await this.email.loadMIME();
+    this.email.mustEncrypt = this.email.wasEncrypted;
   }
 
   async convertInlineAttachmentsURLs() {
@@ -265,11 +276,11 @@ export class ComposeActions {
   populateFromMailtoURL(mailtoURL: URLString) {
     let urlObj = new URL(mailtoURL);
     let args = new URLSearchParams(urlObj.search);
-    let tos = ensureArray(urlObj.pathname.split(","));
+    let tos = ensureArray(urlObj.pathname.split(",")).filter(to => to);
     for (let to of tos) {
       this.email.to.add(findOrCreatePersonUID(sanitize.emailAddress(to), null));
     }
-    let ccs = ensureArray(args.get("cc")?.split(","));
+    let ccs = ensureArray(args.get("cc")?.split(",")).filter(cc => cc);
     for (let cc of ccs) {
       this.email.cc.add(findOrCreatePersonUID(sanitize.emailAddress(cc), null));
     }
@@ -302,12 +313,17 @@ export class ComposeActions {
    * - Insert inline images
    * - Add footer signature
    * - Encrypt
+   * - Send
+   * - Mark the message that we replied to or forwarded
    * - Delete drafts
    *
    * Called by composer.
-   * The actual send on the protocol level is done by `EMail.send()`
+   * The actual send on the protocol level is done by `MailAccount.send()`
+   *
+   * @param onSending Called once the mail is on its way, i.e. after all errors
+   *   that the user must fix were thrown. The composer uses it to close itself.
    */
-  async send(): Promise<void> {
+  async send(onSending?: () => void): Promise<void> {
     let fromIdentity = this.email.identity;
     assert(fromIdentity, "Need identity set on mail");
     if (fromIdentity.replyTo) {
@@ -324,6 +340,7 @@ export class ComposeActions {
       this.email.html += `<footer class="signature">${sig}</footer>`;
     }
     this.email.regenerateTextFromHTML();
+    this.email.mime = undefined; // else the protocol uploads the MIME of the last draft save, or of the draft that we opened
     this.email.headers.set("User-Agent", (appName == "Mustang" ? "" : `Mustang/${appVersion} `) + `${appName}/${appVersion}`);
 
     if (fromIdentity.isCatchAll) {
@@ -341,13 +358,33 @@ export class ComposeActions {
       this.email.folder = account.getSpecialFolder(SpecialFolder.Sent);
     }
     this.email.isDraft = false;
+    this.email.sent = new Date();
+    this.email.received = this.email.sent;
+    this.email.outgoing = true;
+    this.email.contact = this.email.to.first;
 
     let mail = await SendEncrypted.encryptAsNeeded(this.email);
-    await account.send(mail);
+
+    let sentFolder = this.email.folder;
+    this.email.isSending = true;
+    sentFolder?.messages.add(this.email);
+    onSending?.();
+    try {
+      await account.send(mail);
+    } finally {
+      this.email.isSending = false;
+      // The real sent mail comes with the next folder sync.
+      sentFolder?.messages.remove(this.email);
+    }
 
     this.email.folder = previousFolder;
+    let sendData = this.email.extraData.get(SendData.extraDataName) as SendData;
+    sendData?.replyTo?.markReplied()
+      .catch(minorError);
+    sendData?.forwarded?.markForwarded()
+      .catch(minorError);
     this.deleteDrafts(previousDrafts)
-      .catch(backgroundError);
+      .catch(minorError);
   }
 
   async saveAsDraft(): Promise<void> {
@@ -362,10 +399,11 @@ export class ComposeActions {
     let previousDrafts = this.getDrafts();
 
     this.email.isDraft = true;
-    // TODO encrypt
-    assert(!this.email.shouldEncrypt, "TODO encrypt drafts");
+    this.email.regenerateTextFromHTML();
+    this.email.mime = undefined; // else the protocol uploads the MIME of the last save, or of the draft that we opened
+    let draft = this.email.shouldEncrypt ? await SendEncrypted.encryptDraft(this.email) : this.email;
 
-    await draftFolder.addMessage(this.email);
+    await draftFolder.addMessage(draft);
 
     await this.deleteDrafts(previousDrafts);
   }
@@ -381,5 +419,17 @@ export class ComposeActions {
     for (let previousDraft of previousDrafts) {
       await previousDraft.deleteMessage();
     }
+  }
+}
+
+/** What `send()` still has to do, once the mail went out.
+ * Live objects, not IDs, so a saved draft loses them. */
+class SendData extends ExtraData {
+  static extraDataName = "send";
+  replyTo: EMail | null = null;
+  forwarded: EMail | null = null;
+
+  toJSON(): null {
+    return null;
   }
 }

@@ -2,7 +2,7 @@ import type { Person } from "../Abstract/Person";
 import { PersonUID } from "../Abstract/PersonUID";
 import { appGlobal } from "../app";
 import { promiseErrors } from "../util/flow/promiseUtil";
-import { logError } from "../../frontend/Util/error";
+import { logErrorToServer } from "../util/error";
 import { ArrayColl } from "svelte-collections";
 
 /** Search all address books and server-based query-only address books for
@@ -19,12 +19,14 @@ export async function searchContacts(searchStr: string, skip: (person: PersonUID
       person.name?.toLowerCase().includes(inputPart) ||
       person.emailAddresses.some(c => c.value?.toLowerCase().includes(inputPart)))));
   }
-  let results = await Promise.allSettled(appGlobal.searchOnlyAddressbooks.map(async ab => {
+  // `.contents`, because `Collection.map()` keeps observing the address book list
+  // and would re-run this search whenever a GAL is added or removed
+  let results = await Promise.allSettled(appGlobal.searchOnlyAddressbooks.contents.map(async ab => {
     let results = new ArrayColl<Person>;
     await ab.quickSearchAsync(searchStr.toLowerCase(), results);
     persons = persons.concat(results.contents);
   }));
-  promiseErrors(results).forEach(ex => logError(ex));
+  promiseErrors(results).forEach(ex => logErrorToServer(ex));
   let emailAddresses: PersonUID[] = [];
   for (let person of persons) {
     for (let c of person.emailAddresses.sortBy(c => c.preference)) {

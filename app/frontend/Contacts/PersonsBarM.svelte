@@ -35,7 +35,7 @@
   import Button from "../Shared/Button.svelte";
   import AppMenuButton from "../AppsBar/AppMenuM/AppMenuButton.svelte";
   import PlusIcon from "lucide-svelte/icons/plus";
-  import { URLPart } from "../Util/util";
+  import { URLPart } from "../../logic/util/blob";
   import { t } from "../../l10n/l10n";
 
   export let selectedAddressbook: Addressbook;

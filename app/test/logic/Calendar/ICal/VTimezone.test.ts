@@ -2,7 +2,7 @@
 import { appGlobal } from "../../../../logic/app";
 import { Event } from "../../../../logic/Calendar/Event";
 import { getICal } from "../../../../logic/Calendar/ICal/ICalGenerator";
-import { k1HourMS, k1MinuteMS } from "../../../../frontend/Util/date";
+import { k1HourMS, k1MinuteMS } from "../../../../logic/util/date";
 import { expect, test } from "vitest";
 
 /** The `VTIMEZONE`s that Google Calendar and Outlook write for these timezones */

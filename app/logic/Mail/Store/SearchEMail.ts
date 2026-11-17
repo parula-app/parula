@@ -2,6 +2,7 @@ import type { EMail } from "../EMail";
 import type { Person } from "../../Abstract/Person";
 import type { MailAccount } from "../MailAccount";
 import type { Folder } from "../Folder";
+import type { Workspace } from "../../Abstract/Workspace";
 import { getTagByName, type Tag } from "../../Abstract/Tag";
 import { findPerson } from "../../Abstract/PersonUID";
 import { appGlobal } from "../../app";
@@ -17,6 +18,8 @@ import { SetColl, type ArrayColl } from "svelte-collections";
 export class SearchEMail extends Observable {
   @notifyChangedProperty
   account: MailAccount | null = null;
+  @notifyChangedProperty
+  workspace: Workspace | null = null;
   _folder: Folder | null = null;
   @notifyChangedProperty
   folderID: string | undefined;
@@ -26,6 +29,9 @@ export class SearchEMail extends Observable {
   set folder(folder: Folder | null) {
     this._folder = folder;
     this.folderID = folder?.id;
+    if (folder?.account) {
+      this.account = folder.account;
+    }
   }
 
   @notifyChangedProperty
@@ -64,6 +70,10 @@ export class SearchEMail extends Observable {
    * Obviously, this is slow. */
   @notifyChangedProperty
   bodyText: string | null = null;
+
+  /** The protocol cannot search for one of the criteria above, so the server
+   * ignored it, and the results are a superset of what we searched for. */
+  unsupportedFilters = false;
 
   async startSearch(limit?: number): Promise<ArrayColl<EMail>> {
     throw new AbstractFunction();
@@ -117,9 +127,31 @@ export class SearchEMail extends Observable {
     };
   }
 
+  copyFrom(other: SearchEMail) {
+    this.account = other.account;
+    this.workspace = other.workspace;
+    this._folder = other._folder;
+    this.folderID = other.folderID;
+    this.isOutgoing = other.isOutgoing;
+    this.includesPerson = other.includesPerson;
+    this.messageID = other.messageID;
+    this.threadID = other.threadID;
+    this.sentDateMin = other.sentDateMin;
+    this.sentDateMax = other.sentDateMax;
+    this.sizeMin = other.sizeMin;
+    this.sizeMax = other.sizeMax;
+    this.isRead = other.isRead;
+    this.isStarred = other.isStarred;
+    this.isReplied = other.isReplied;
+    this.tags.replaceAll(other.tags);
+    this.hasAttachment = other.hasAttachment;
+    this.hasAttachmentMIMETypes.replaceAll(other.hasAttachmentMIMETypes);
+    this.bodyText = other.bodyText;
+  }
+
   clone(): SearchEMail {
     let clone = new (this as any).constructor();
-    clone.fromJSON(this.toJSON());
+    clone.copyFrom(this);
     return clone;
   }
 
@@ -208,6 +240,7 @@ function matchesBoolean(search: boolean | undefined, value: boolean) {
 }
 
 export function msgHasSearchTerm(msg: EMail, searchTerm: string) {
+  searchTerm = searchTerm.toLowerCase();
   return msg.subject?.toLowerCase().includes(searchTerm) ||
     msg.contact?.name?.toLowerCase().includes(searchTerm) ||
     msg.from?.name?.toLowerCase().includes(searchTerm) ||

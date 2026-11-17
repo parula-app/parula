@@ -48,7 +48,7 @@
   import { SetupMustangApp } from "../../Setup/SetupMustangApp";
   import { appGlobal } from "../../../logic/app";
   import { goTo, mustangApps } from "../../AppsBar/selectedApp";
-  import { URLPart } from "../../Util/util";
+  import { URLPart } from "../../../logic/util/blob";
   import CategoryBarM from "./CategoryBarM.svelte";
   import RowButton from "./RowButton.svelte";
   import Scroll from "../../Shared/Scroll.svelte";

@@ -71,7 +71,7 @@ export function updatePerson(vcard: ICalContainer, person: Person) {
   person.emailAddresses.clear();
   if (vcard.entries.email) {
     for (let entry of vcard.entries.email) {
-      person.emailAddresses.add(makeContactEntry(entry, "mailto", false));
+      person.emailAddresses.add(makeContactEntry(entry, "mailto", true, true));
     }
   }
   person.phoneNumbers.clear();

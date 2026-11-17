@@ -2,8 +2,10 @@ import sql, { type Database } from "../../../../../lib/rs-sqlite/index";
 import { accountsDatabaseSchema } from "./createDatabase";
 import { migrateToAccountsDB } from "./SQLAccountsMigrate";
 import { getSQLiteDatabase } from "../../../util/backend-wrapper";
+import { RunOnce } from "../../../util/flow/RunOnce";
 
 let accountsDatabase: Database;
+let openRunOnce = new RunOnce<Database>();
 
 // Lib docs:
 // https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md
@@ -11,15 +13,14 @@ let accountsDatabase: Database;
 // https://www.sqlite.org/lang.html
 
 export async function getDatabase(): Promise<Database> {
-  if (accountsDatabase) {
-    return accountsDatabase;
-  }
-  await migrateToAccountsDB();
-  accountsDatabase = await getSQLiteDatabase("account.db");
-  await accountsDatabase.migrate(accountsDatabaseSchema);
-  await accountsDatabase.pragma('foreign_keys = true');
-  await accountsDatabase.pragma('journal_mode = DELETE');
-  return accountsDatabase;
+  return accountsDatabase ?? await openRunOnce.runOnce(async () => {
+    await migrateToAccountsDB();
+    let db = await getSQLiteDatabase("account.db");
+    await db.migrate(accountsDatabaseSchema);
+    await db.pragma('foreign_keys = true');
+    await db.pragma('journal_mode = DELETE');
+    return accountsDatabase = db;
+  });
 }
 
 /**

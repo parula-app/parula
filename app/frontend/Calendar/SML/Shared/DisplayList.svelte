@@ -31,7 +31,7 @@
 </vbox>
 
 <script lang="ts">
-  import { getDateString, getTimeString } from "../../../Util/date";
+  import { getDateString, getTimeString } from "../../../../logic/util/date";
   import { Collection } from "svelte-collections";
   import Clickable from "../../../Shared/Clickable.svelte";
   import { createEventDispatcher } from 'svelte';

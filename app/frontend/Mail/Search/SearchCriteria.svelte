@@ -147,9 +147,7 @@
   let sizeMinMB: number;
   let sizeMaxMB: number;
 
-  // Should trigger *only* when a different search is loaded, *not* `$search` when its contents change,
-  // but it actually triggers for all changes to `search`, which causes bugs, see e.g. PersonList below.
-  $: search, loadSearch()
+  $: search, loadSearch() // $search causes loop
   function loadSearch() {
     // Enable/disable: `SearchEmail` to controls
     hasAccount = search.account ? true : null;

@@ -1,4 +1,31 @@
 <vbox class="appearance">
+  {#if !appGlobal.isMobile}
+    <HeaderGroupBox>
+      <hbox slot="header">{$t`User interface`}</hbox>
+      <hbox class="frontend">
+        <label>
+          <input type="radio" value="classic" bind:group={frontend} />
+          {appName == "Lookout" ? "Parula" : appName}
+        </label>
+        <label>
+          <input type="radio" value="lookout" bind:group={frontend} />
+          Lookout
+        </label>
+        {#if frontend != $frontendSetting.value}
+          <Button
+            label={$t`Switch`}
+            icon={SwitchIcon}
+            onClick={onSaveFrontend}
+            classes="restart"
+            />
+        {/if}
+      </hbox>
+      <hbox class="title-bar">
+        <Checkbox bind:checked={$titleBarSetting.value} label={$t`Show the title bar`} allowIndetermined={false} />
+      </hbox>
+    </HeaderGroupBox>
+  {/if}
+
   <HeaderGroupBox>
     <hbox slot="header">{$t`Dark mode`}</hbox>
     <ThemeSwitcher />
@@ -48,13 +75,31 @@
 <script lang="ts">
   import { getUILocale, getUILocalePref, getDateTimeLocale, getDateTimeLocalePref, saveDateTimeLocale, saveUILocale, setUILocale, t } from "../../../l10n/l10n";
   import { appGlobal } from "../../../logic/app";
+  import { appName, defaultFrontend, webMail } from "../../../logic/build";
+  import { getLocalStorage } from "../../Util/LocalStorage";
+  import { openApp } from "../../AppsBar/selectedApp";
+  import { mailMustangApp } from "../../Mail/MailMustangApp";
   import ThemeSwitcher from "./ThemeSwitcher.svelte";
   import AppThemeColors from "./AppThemeColors.svelte";
   import LanguageDropDown from "./LanguageDropDown.svelte";
   import HeaderGroupBox from "../../Shared/HeaderGroupBox.svelte";
   import Button from "../../Shared/Button.svelte";
+  import Checkbox from "../../Shared/Checkbox.svelte";
   import RestartIcon from "lucide-svelte/icons/rotate-ccw";
+  import SwitchIcon from "lucide-svelte/icons/arrow-left-right";
   import { catchErrors } from "../../Util/error";
+  import { getOSName } from "../../Util/util";
+
+  let frontendSetting = getLocalStorage("appearance.frontend", defaultFrontend);
+  let frontend = frontendSetting.value;
+
+  function onSaveFrontend() {
+    openApp(mailMustangApp, {});
+    frontendSetting.value = frontend;
+  }
+
+  /** Default: No title bar on the web and on macOS, see `MainWindow.svelte` */
+  const titleBarSetting = getLocalStorage("appearance.titleBar", !webMail && getOSName() != "macintosh");
 
   let language = getUILocalePref();
   let dateTimeFormat = getDateTimeLocalePref();
@@ -97,6 +142,16 @@
   }
   .language .dropdown {
     margin-block-end: 24px;
+  }
+  .frontend {
+    align-items: center;
+    min-height: 40px;
+  }
+  .frontend label {
+    margin-inline-end: 24px;
+  }
+  .title-bar {
+    margin-block-start: 20px;
   }
   .appearance :global(.theme svg) {
     width: 32px;

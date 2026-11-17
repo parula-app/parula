@@ -1,6 +1,8 @@
 import { NTLMConnection, CookieJar } from "./NTLMConnection";
 import type { NTLMRequestOptions, NTLMResponse } from "./NTLMResponse";
 import type { EWSAccount } from "../../Mail/EWS/EWSAccount";
+import { ConnectionPurpose } from "../../Mail/EWS/ConnectionPurpose";
+import { Lock } from "../../util/flow/Lock";
 import { Semaphore } from "../../util/flow/Semaphore";
 import { arrayRemove } from "../../util/util";
 
@@ -9,7 +11,7 @@ import { arrayRemove } from "../../util/util";
  *
  * Each connection authenticates its own TCP connection independently, so
  * correctness never depends on the pool: Any request may run on any
- * connection. The pool size only tunes parallelism.
+ * connection, whatever it was used for before.
  *
  * All connections use a specific cookie jar, so if a load-balancer adds cookies
  * for recording the server affinity, they behave like in a browser.
@@ -18,23 +20,28 @@ import { arrayRemove } from "../../util/util";
 export class NTLMConnectionPool {
   protected readonly account: EWSAccount;
   readonly cookies: CookieJar;
+  /** Logged in, and not currently running a request */
   protected readonly free: NTLMConnection[] = [];
   protected readonly all: NTLMConnection[] = [];
-  protected readonly semaphore: Semaphore;
+  protected readonly handshakeLock = new Lock();
+  /** Connection pool: 2 interactive, 2 background fetch, plus
+   * 1 stream per account on server */
+  protected readonly semaphores = new Map<ConnectionPurpose, Semaphore>([
+    [ConnectionPurpose.Fetch, new Semaphore(2)],
+    [ConnectionPurpose.Display, new Semaphore(2)],
+  ]);
 
-  constructor(account: EWSAccount, cookies = new CookieJar(), maxConnections = 6) {
+  constructor(account: EWSAccount, cookies = new CookieJar()) {
     this.account = account;
     this.cookies = cookies;
-    this.semaphore = new Semaphore(maxConnections);
   }
 
-  /** POSTs to the account URL, over the first free connection,
-   * waiting for one if all are busy. */
-  async request(body: string, options?: NTLMRequestOptions): Promise<NTLMResponse> {
-    let locked = await this.semaphore.lock();
+  /** POSTs to the account URL, over the first free connection */
+  async request(body: string, options: NTLMRequestOptions = {}): Promise<NTLMResponse> {
+    let locked = await this.semaphores.get(options.purpose ?? ConnectionPurpose.Display).lock();
     let conn = this.free.pop();
     if (!conn) {
-      conn = new NTLMConnection(this.account, this.cookies);
+      conn = new NTLMConnection(this.account, this.cookies, this.handshakeLock);
       this.all.push(conn);
     }
     try {
@@ -62,7 +69,7 @@ export class NTLMConnectionPool {
    * @param _streamID only `NTLMChromiumSession` needs it
    */
   newDedicatedConnection(_streamID?: string): NTLMConnection {
-    return new NTLMConnection(this.account, this.cookies);
+    return new NTLMConnection(this.account, this.cookies, this.handshakeLock);
   }
 
   protected remove(conn: NTLMConnection): void {

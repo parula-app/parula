@@ -46,6 +46,10 @@ export function fixNewlines(text: string): string {
   return text?.replace(/\r?\n/g, "\r\n");
 }
 
+/** Remove dangerous HTML from untrusted content.
+ * Intended only as additional security (defense in depth),
+ * not as sole protection. Render it in a jailed sandboxed `<iframe>`.
+ * @returns HTML snipplet, not whole document */
 export function sanitizeHTML(html: string): string {
   if (!html) {
     return "";
@@ -53,12 +57,69 @@ export function sanitizeHTML(html: string): string {
   includeExternal = false;
   let sanitized = DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
-    FORBID_TAGS: ["svg", "mathml"],
+    FORBID_TAGS: ["svg", "mathml", "form"],
     WHOLE_DOCUMENT: true,
   });
   return sanitized;
 }
 
+/** Similar to `sanitizeHTML()`,
+ * but additionally drops `<style>`, which would affect the rest of the document.
+ * The `style` attribute stays allowed, because it applies only to the element itself.
+ *
+ * E.g. to render HTML inline as `{@html san…(html)}` instead of in an `<iframe>`.
+ * Warning: Don't use this sanitizer as the only defense.
+ * Use this in combination with other defenses, e.g. for
+ * MarkDown->HTML without accepting HTML from the source MarkDown.
+ * @returns HTML snipplet, not whole document */
+export function sanitizeHTMLWithoutStyleTag(html: string): string {
+  if (!html) {
+    return "";
+  }
+  includeExternal = false;
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ["svg", "mathml", "style", "form"],
+  });
+}
+
+/** For HTML that the editor loads, or that the user pastes.
+ *
+ * Most HTML in the editor is the user's own. HTML from others mostly comes as the quote
+ * in a reply or forward, which is already the output of `sanitizeHTML()`.
+ * Only a draft from the server and pasted HTML
+ * come from others without that, so the editor sanitizes all HTML that it gets.
+ *
+ * Like `sanitizeHTMLWithoutStyleTag()`, with the same hooks below. But the editor saves
+ * and sends what it gets, so this keeps what the author wrote, see `forEditor`:
+ * - links without our `target`, `source` and `title`
+ * - the `blob:` images of a forwarded mail
+ * - the size of resized images, in `containerstyle` and `wrapperstyle`
+ * And it drops all `style` attributes. The editor has no styles.
+ * @returns HTML snipplet, not whole document */
+export function sanitizeHTMLForEditor(html: string): string {
+  if (!html) {
+    return "";
+  }
+  includeExternal = false;
+  forEditor = true;
+  try {
+    return DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      FORBID_TAGS: ["svg", "mathml", "style", "form"],
+      FORBID_ATTR: ["style"],
+      // `tiptap-extension-resize-image` keeps the image size in these
+      ADD_ATTR: ["containerstyle", "wrapperstyle"],
+      ADD_URI_SAFE_ATTR: ["containerstyle", "wrapperstyle"],
+      // DOMPurify's default, plus `blob:`
+      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    });
+  } finally {
+    forEditor = false;
+  }
+}
+
+/** Allow to load images from Internet */
 export function sanitizeHTMLExternal(html: string): string {
   if (!html) {
     return "";
@@ -66,7 +127,7 @@ export function sanitizeHTMLExternal(html: string): string {
   includeExternal = true;
   let sanitized = DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
-    FORBID_TAGS: ["svg", "mathml"],
+    FORBID_TAGS: ["svg", "mathml", "form"],
     WHOLE_DOCUMENT: true,
   });
   includeExternal = false;
@@ -75,7 +136,7 @@ export function sanitizeHTMLExternal(html: string): string {
 
 // <copied from="https://github.com/cure53/DOMPurify/blob/main/demos/hooks-proxy-demo.html" modified="true" license="Apache 2.0">
 const proxy = 'http://localhost:5454/proxy?url=';
-const cssURLRegex = /(url\("?)(?!data:)/gim;
+const cssURLRegex = /url\((?!["']?data:)["']?/gim;
 const urlAttributes = ['action', 'background', 'href', 'poster', 'src', 'srcset'];
 
 function urlAttribute(url: URLString, includeExternal = false) {
@@ -83,29 +144,44 @@ function urlAttribute(url: URLString, includeExternal = false) {
     return "";
   }
   if (url.startsWith("data:image/") || url.startsWith("cid:") ||
+    forEditor && url.startsWith("blob:") || // the images of a forwarded mail, see `sanitizeHTMLForEditor()`
     includeExternal && (url.startsWith("https://") || url.startsWith("http://"))) {
     return url; // or `${proxy}${escape(url)}`;
   }
   return "";
 }
 
-function addStyles(output: string[], styles: CSSStyleDeclaration) {
-  for (let style of [...styles].reverse()) {
-    if (styles[style]) {
-      styles[style] = styles[style].replace(cssURLRegex, `$1${proxy}`);
-      output.push(`${style}: ${styles[style]};`);
+/** Keeps `srcset` only if every image in it passes `urlAttribute()` */
+function srcsetAttribute(srcset: URLString): string {
+  for (let word of srcset.split(/\s+/)) {
+    let url = word.replace(/^,+|,+$/g, ""); // remove , at start or end
+    let isDescriptor = "wxh".includes(url.slice(-1).toLowerCase()) && !isNaN(Number(url.slice(0, -1))); // number and letter, e.g. "1.5x"
+    if (url && !isDescriptor && !urlAttribute(url)) {
+      return "";
     }
+  }
+  return srcset;
+}
+
+function addStyles(output: string[], styles: CSSStyleDeclaration) {
+  if (styles) {
+    output.push(styleDeclarations(styles));
   }
 };
 
+/** The declarations of `styles` as CSS text, with external URLs redirected to our proxy.
+ * `cssText` keeps the declaration order and the `!important` flags. Mails need
+ * `!important` in their `@media` rules to override their inline styles. */
+function styleDeclarations(styles: CSSStyleDeclaration): string {
+  return styles.cssText.replace(cssURLRegex, `$&${proxy}`);
+};
+
 function addCSSRules(output: string[], cssRules = []) {
-  for (let rule of [...cssRules].reverse()) {
+  for (let rule of cssRules) {
     switch (rule.type) {
       case CSSRule.STYLE_RULE:
         output.push(`${rule.selectorText} {`);
-        if (rule.style) {
-          addStyles(output, rule.style);
-        }
+        addStyles(output, rule.style);
         output.push('}\n');
         break;
       case CSSRule.MEDIA_RULE:
@@ -115,19 +191,15 @@ function addCSSRules(output: string[], cssRules = []) {
         break;
       case CSSRule.FONT_FACE_RULE:
         output.push('@font-face {');
-        if (rule.style) {
-          addStyles(output, rule.style);
-        }
+        addStyles(output, rule.style);
         output.push('}\n');
         break;
       case CSSRule.KEYFRAMES_RULE:
         output.push(`@keyframes ${rule.name} {`);
-        for (let frame of [...rule.cssRules].reverse()) {
+        for (let frame of rule.cssRules) {
           if (frame.type === CSSRule.KEYFRAME_RULE && frame.keyText) {
             output.push(`${frame.keyText} {`);
-            if (frame.style) {
-              addStyles(output, frame.style);
-            }
+            addStyles(output, frame.style);
             output.push('}\n');
           }
         }
@@ -154,10 +226,15 @@ DOMPurify.addHook('uponSanitizeElement', (node, data) => {
 });
 
 let includeExternal = false;
+/** The exceptions of `sanitizeHTMLForEditor()` */
+let forEditor = false;
 DOMPurify.addHook('afterSanitizeAttributes', node => {
   for (let attribute of urlAttributes) {
     if (node.hasAttribute(attribute)) {
       if (node.tagName.toLowerCase() == "a" && attribute == "href") {
+        if (forEditor) {
+          continue; // The editor would save and send what we add here
+        }
         try {
           // New window requests are caught by e2 index.ts setWindowOpenHandler()
           node.setAttribute("target", "_blank");
@@ -166,7 +243,7 @@ DOMPurify.addHook('afterSanitizeAttributes', node => {
           if (!url) {
             continue;
           }
-          let domain = getBaseDomainFromURL(url);
+          let domain = getBaseDomainFromURL(url) ?? ""; // null for `mailto:`, `tel:` etc.
           node.setAttribute("title", domain + "\n\n" + url.substring(0, 120));
         } catch (ex) {
           node.setAttribute(attribute, "");
@@ -176,7 +253,13 @@ DOMPurify.addHook('afterSanitizeAttributes', node => {
           (node.tagName.toLocaleLowerCase() == "link" && node.getAttribute("rel") == "stylesheet" && attribute == "href")) {
         let orgURL = node.getAttribute(attribute);
         let newURL = urlAttribute(orgURL, includeExternal);
-        node.setAttribute(attribute, newURL);
+        if (newURL) {
+          node.setAttribute(attribute, newURL);
+        } else {
+          node.removeAttribute(attribute); // Else, the editor shows an empty image
+        }
+      } else if (attribute == "srcset") {
+        node.setAttribute(attribute, srcsetAttribute(node.getAttribute(attribute)));
       } else {
         let orgURL = node.getAttribute(attribute);
         let newURL = urlAttribute(orgURL);
@@ -185,17 +268,21 @@ DOMPurify.addHook('afterSanitizeAttributes', node => {
     }
   }
 
-  if (node.hasAttribute('style')) {
-    const styles = (node as HTMLElement).style;
-    const output = [];
-    for (let style of [...styles].reverse()) {
-      if (styles[style] && cssURLRegex.test(styles[style])) {
-        styles[style] = styles[style].replace(cssURLRegex, `$1${proxy}`);
-      }
-      output.push(`${style}: ${styles[style]};`);
+  // Only `sanitizeHTMLForEditor()` allows these. No `url()` or other functions, and no escapes.
+  // `tiptap-extension-resize-image` also allows only some properties and values in them.
+  for (let attribute of ["containerstyle", "wrapperstyle"]) {
+    if (["(", "\\"].some(char => node.getAttribute(attribute)?.includes(char))) {
+      node.removeAttribute(attribute);
     }
+  }
 
-    node.setAttribute('style', output.join('') || node.removeAttribute('style') || '');
+  if (node.hasAttribute('style')) {
+    let styles = styleDeclarations((node as HTMLElement).style);
+    if (styles) {
+      node.setAttribute('style', styles);
+    } else {
+      node.removeAttribute('style');
+    }
   }
 });
 // </copied>

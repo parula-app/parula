@@ -23,23 +23,25 @@ export class MailDir implements MailContentStorage {
   }
 
   async read(email: EMail): Promise<void> {
-    let dir = await this.getFilePath(email);
-    await this._read(email, dir);
+    try {
+      email.mime = await appGlobal.remoteApp.readFile(await this.getFilePath(email));
+    } catch (ex) {
+      if (ex.code != "ENOENT") {
+        throw ex;
+      }
+    }
   }
 
-  async _read(email: EMail, filepath: string): Promise<void> {
-    email.mime = await appGlobal.remoteApp.readFile(filepath);
-    await email.parseMIME();
-    await email.save();
-  }
-
+  /** All emails of the folder, as saved on disk. E.g. to restore a lost database. */
   async readAll(folder: Folder): Promise<ArrayColl<EMail>> {
     let emails = new ArrayColl<EMail>();
     let dir = await this.getFolderDir(folder);
-    let files = await appGlobal.remoteApp.fs.readdir() as string[];
-    for (let file of files) {
+    for (let file of await appGlobal.remoteApp.fs.readdir(dir) as string[]) {
       try {
-        await this._read(folder.newEMail(), dir + "/" + file);
+        let email = folder.newEMail();
+        email.mime = await appGlobal.remoteApp.readFile(dir + "/" + file);
+        await email.parseMIME();
+        emails.add(email);
       } catch (ex) {
         folder.account.errorCallback(ex);
       }
@@ -48,8 +50,13 @@ export class MailDir implements MailContentStorage {
   }
 
   async deleteIt(email: EMail): Promise<void> {
-    let dir = await this.getFilePath(email);
-    await MailDir.rmdirWithFiles(dir);
+    try {
+      await appGlobal.remoteApp.deleteFile(await this.getFilePath(email));
+    } catch (ex) {
+      if (ex.code != "ENOENT") {
+        throw ex;
+      }
+    }
   }
 
   supportsAttachments = true;
@@ -57,6 +64,9 @@ export class MailDir implements MailContentStorage {
     let email = attachment.message as EMail;
     if (!email.mime) {
       await this.read(email);
+    }
+    if (!email.mime) {
+      return false;
     }
     await email.parseMIME();
     return true;
@@ -67,28 +77,15 @@ export class MailDir implements MailContentStorage {
   async deleteAttachment(attachment: Attachment): Promise<void> {
   }
 
-
-  static async rmdirWithFiles(dir: string) {
-    try {
-      let files = await appGlobal.remoteApp.fs.readdir(dir);
-      for (let file of files) {
-        await appGlobal.remoteApp.fs.rm(dir + "/" + file);
-      }
-      await appGlobal.remoteApp.fs.rmdir(dir);
-    } catch (ex) {
-    }
-  }
-
   filesDir: string | null = null;
   haveDirs = new SetColl<string>(); // Check dir only once per app session
 
   async getFolderDir(folder: Folder): Promise<string> {
     this.filesDir = this.filesDir ?? await getFilesDir();
     let dir = `${this.filesDir}/backup/email/individual/${sanitize.filename(folder.account.emailAddress.replace("@", "-"))}-${sanitize.filename(folder.account.id)}`;
-    if (folder.parent) {
-      dir += `/${sanitize.filename(folder.parent.path, "unknownFolder")}`;
+    for (let name of folder.fullPath.split("/")) {
+      dir += `/${sanitize.filename(name, "unknownFolder")}`;
     }
-    dir += `/${sanitize.filename(folder.name, "unknownFolder")}`;
     if (!this.haveDirs.contains(dir)) {
       // Permissions: Only user can read and write the dir.
       await appGlobal.remoteApp.fs.mkdir(dir, { recursive: true, mode: 0o700 });

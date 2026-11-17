@@ -40,7 +40,7 @@ export async function setupTestMailAccount(config: typeof kMailAccounts[0]): Pro
   identity.realname = acc.realname;
   acc.identities.add(identity);
 
-  await acc.login(false);
+  await acc.loginAndStartup(false);
   assert(acc.inbox, "Inbox not found");
   return acc;
 }

@@ -11,9 +11,10 @@ import { EWSDeleteItemRequest } from "../../Mail/EWS/Request/EWSDeleteItemReques
 import { EWSUpdateItemRequest } from "../../Mail/EWS/Request/EWSUpdateItemRequest";
 import { getEmailAddressOrX400 } from "../../Mail/EWS/EWSEMail";
 import { ContentDisposition } from "../../Abstract/Attachment";
-import { k1MinuteMS } from "../../../frontend/Util/date";
+import { k1MinuteMS } from "../../util/date";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { assert, base64ToUint8Array, blobToBase64, ensureArray } from "../../util/util";
+import { assert, ensureArray } from "../../util/util";
+import { base64ToUint8Array } from "../../util/blob";
 import type { ArrayColl } from "svelte-collections";
 
 const ResponseTypes: Record<InvitationResponseInMessage, string> = {
@@ -191,7 +192,7 @@ export class EWSEvent extends ExchangeEvent {
             t$FileAttachment: {
               t$Name: attachment.filename,
               t$ContentType: attachment.mimeType,
-              t$Content: await blobToBase64(attachment.content),
+              t$Content: await attachment.contentAsBase64(),
             },
           },
         },
@@ -239,7 +240,8 @@ export class EWSEvent extends ExchangeEvent {
      * invitation, and add the attendees only after the attachments.
      * Otherwise, the attendees would get 2 invitations,
      * and the first one without the attachments. */
-    let inviteAfterAttachments = !this.itemID && !this.parentEvent &&
+    let isNew = !this.itemID;
+    let inviteAfterAttachments = isNew && !this.parentEvent &&
       this.participants.hasItems && this.attachments.hasItems;
 
     /* Disabling tasks for now.
@@ -254,6 +256,9 @@ export class EWSEvent extends ExchangeEvent {
     await this.saveAttachmentsToServer();
     if (inviteAfterAttachments) {
       await this.saveCalendarItemToServer();
+    }
+    if (isNew) {
+      await this.saveLocally(); // Save server IDs, otherwise we get dups
     }
   }
 
@@ -404,7 +409,10 @@ export class EWSEvent extends ExchangeEvent {
   async deleteFromServer() {
     if (this.itemID) {
       // This works both for recurring masters and exceptions.
-      let request = new EWSDeleteItemRequest(this.itemID, {SendMeetingCancellations: "SendToAllAndSaveCopy"});
+      let request = new EWSDeleteItemRequest(this.itemID, {
+        DeleteType: "HardDelete",
+        SendMeetingCancellations: "SendToAllAndSaveCopy",
+      });
       try {
         await this.calendar.account.callEWS(request);
       } catch (ex) {
@@ -424,7 +432,7 @@ export class EWSEvent extends ExchangeEvent {
               InstanceIndex: this.parentEvent.recurrenceRule.getIndexOfOccurrence(this.recurrenceStartTime) + 1,
             },
           },
-          DeleteType: "MoveToDeletedItems",
+          DeleteType: "HardDelete",
           SendMeetingCancellations: "SendToAllAndSaveCopy",
         },
       };
@@ -500,7 +508,7 @@ export class EWSEvent extends ExchangeEvent {
             InstanceIndex: this.recurrenceRule.getIndexOfOccurrence(event.recurrenceStartTime) + 1,
           },
         })),
-        DeleteType: "MoveToDeletedItems",
+        DeleteType: "HardDelete",
         SendMeetingCancellations: "SendToAllAndSaveCopy",
       },
     };
@@ -508,7 +516,7 @@ export class EWSEvent extends ExchangeEvent {
     await super.makeExclusions(exclusions);
   }
 
-  async respondToInvitation(response: InvitationResponseInMessage): Promise<void> {
+  async respondToInvitation(response: InvitationResponseInMessage, sendReply = true): Promise<void> {
     assert(this.isIncomingMeeting, "Only invitations can be responded to");
     let itemID = this.itemID;
     // Unfortunately this API won't take an OccurrenceItemId directly.
@@ -531,7 +539,7 @@ export class EWSEvent extends ExchangeEvent {
       let response = await this.calendar.account.callEWS(request);
       itemID = sanitize.nonemptystring(response.Items.CalendarItem.ItemId.Id);
     }
-    let request = new EWSCreateItemRequest({MessageDisposition: "SendAndSaveCopy"});
+    let request = new EWSCreateItemRequest({MessageDisposition: sendReply ? "SendAndSaveCopy" : "SaveOnly"});
     request.addField(ResponseTypes[response], "ReferenceItemId", { Id: itemID });
     await this.calendar.account.callEWS(request);
     await this.calendar.listEvents(); // Sync whatever Exchange decides to do

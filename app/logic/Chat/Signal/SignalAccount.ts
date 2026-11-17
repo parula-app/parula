@@ -149,14 +149,9 @@ export class SignalAccount extends ChatAccount {
 
   // --- login / connection ---
 
-  async startup(): Promise<void> {
-    await this.listRooms();
-  }
-
   async login(interactive: boolean): Promise<void> {
     await super.login(interactive);
-    await Promise.all(appGlobal.addressbooks.contents.map(ab => ab.readContactsFromDB()));
-    await this.listRooms();
+    await this.readFromDB();
     if (this.aciStore && this.servicePassword) {
       await this.connect();
     }
@@ -361,7 +356,8 @@ export class SignalAccount extends ChatAccount {
     this.connection = connection;
     await connection.connect(this.authCredentials());
     this.isOnline = true;
-    this.afterLogin().catch(this.errorCallback);
+    // Publish our prekeys, so that others can start Signal sessions to encrypt to us
+    this.uploadPreKeys().catch(this.errorCallback);
   }
 
   async disconnect(): Promise<void> {
@@ -397,12 +393,10 @@ export class SignalAccount extends ChatAccount {
     appGlobal.meetAccounts.add(this.meetAccount);
   }
 
-  /** After connecting: top up + publish prekeys so peers can start sessions to us,
-   * then sync the roster (storage service), turn it into rooms, and fetch the
+  /** Syncs the roster (storage service), turns it into rooms, and fetches the
    * roster's profiles (name + avatar) in the background. */
-  protected async afterLogin(): Promise<void> {
-    await this.uploadPreKeys().catch(this.errorCallback);
-    await this.syncRoster().catch(this.errorCallback);
+  async syncOnStartup(): Promise<void> {
+    await this.syncRoster().catch(this.errorCallback); // if error, still show the rooms from DB
     await this.createRoomsFromRoster();
     for (let contact of this.roster.contents) {
       this.fetchContactProfile(contact); // background, best-effort

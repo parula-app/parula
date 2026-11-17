@@ -30,7 +30,9 @@ export class RawFilesAttachment implements MailContentStorage {
       // knows that the message is not complete on disk.
       await saves.wait();
     } finally {
-      await this.messageFinished(message);
+      if (message.dbID) {
+        await this.messageFinished(message);
+      } // else: deleted while we were writing
     }
   }
 
@@ -40,7 +42,10 @@ export class RawFilesAttachment implements MailContentStorage {
       return;
     }
     attachment.filepathLocal = await this.writeFile(attachment, message);
-    // Save the local file path in the message DB
+    // The OS opens the file by its name on disk, which `sanitize.filename()` changed:
+    // the sender's `invoice.b#at` became `invoice-1.bat` here
+    await attachment.checkExecutable();
+    // Save the local file path, and the check on it, in the message DB
     if (message instanceof EMail) {
       await SQLEMail.saveAttachmentFilename(message, attachment);
     } else if (message instanceof ChatMessage) {
@@ -89,6 +94,7 @@ export class RawFilesAttachment implements MailContentStorage {
     let array = await appGlobal.remoteApp.readFile(attachment.filepathLocal);
     let file = new File([array], attachment.filename, { type: attachment.mimeType });
     attachment.content = file;
+    await attachment.checkExecutable();
     return true;
   }
 
@@ -106,6 +112,7 @@ export class RawFilesAttachment implements MailContentStorage {
 
   static async rmdirWithFiles(dir: string) {
     try {
+      await appGlobal.remoteApp.fs.chmod(dir, 0o700); // `messageFinished()` made it read-only
       let files = await appGlobal.remoteApp.fs.readdir(dir);
       for (let file of files) {
         await appGlobal.remoteApp.fs.rm(dir + "/" + file);

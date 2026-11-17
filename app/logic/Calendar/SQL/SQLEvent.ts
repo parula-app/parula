@@ -7,7 +7,7 @@ import { getDatabase } from "./SQLDatabase";
 import { appGlobal } from "../../app";
 import { getFilesDir } from "../../util/backend-wrapper";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { backgroundError } from "../../../frontend/Util/error";
+import { dataError } from "../../util/error";
 import { assert, fileExtensionForMIMEType } from "../../util/util";
 import { ArrayColl, Collection } from "svelte-collections";
 import sql from "../../../../lib/rs-sqlite";
@@ -96,6 +96,9 @@ export class SQLEvent extends Event {
 
     for (let exclusion of event.exclusions) {
       let index = event.recurrenceRule.getIndexOfOccurrence(exclusion);
+      if (index < 0) {
+        continue; // the rule has no occurrence then, so nothing to exclude
+      }
       await (await getDatabase()).run(sql`
         INSERT INTO eventExclusion (
           recurrenceMasterEventID, recurrenceIndex
@@ -162,9 +165,10 @@ export class SQLEvent extends Event {
     assert(event.dbID, "Need to save event before attachment");
     await (await getDatabase()).run(sql`
       INSERT OR IGNORE INTO eventAttachment (
-        eventID, filename, filepathLocal, mimeType, size, pID, url
+        eventID, filename, filepathLocal, mimeType, size, pID, url, json
       ) VALUES (
-        ${event.dbID}, ${a.filename}, ${await relativeFilepath(a)}, ${a.mimeType}, ${a.size}, ${a.pID}, ${a.url}
+        ${event.dbID}, ${a.filename}, ${await relativeFilepath(a)}, ${a.mimeType}, ${a.size},
+        ${a.pID}, ${a.url}, ${JSON.stringify(a.toExtraJSON(), null, 2)}
       )`);
   }
 
@@ -175,6 +179,7 @@ export class SQLEvent extends Event {
         size = ${a.size},
         pID = COALESCE(${a.pID}, pID),
         url = COALESCE(${a.url}, url),
+        json = ${JSON.stringify(a.toExtraJSON(), null, 2)},
         filepathLocal = COALESCE(${await relativeFilepath(a)}, filepathLocal)
       WHERE id = ${rowID}
       `);
@@ -186,7 +191,8 @@ export class SQLEvent extends Event {
     assert(event.dbID, "Need to save event before attachment");
     await (await getDatabase()).run(sql`
       UPDATE eventAttachment SET
-        filepathLocal = ${await relativeFilepath(a)}
+        filepathLocal = ${await relativeFilepath(a)},
+        json = ${JSON.stringify(a.toExtraJSON(), null, 2)}
       WHERE eventID = ${event.dbID}
         AND filename = ${a.filename}
       `);
@@ -307,7 +313,7 @@ export class SQLEvent extends Event {
         participant.lastUpdateTime = sanitize.date(json.lastUpdateTime, null);
         event.participants.add(participant);
       } catch (ex) {
-        backgroundError(ex);
+        dataError(ex);
       }
     }
   }
@@ -315,7 +321,7 @@ export class SQLEvent extends Event {
   protected static async readAttachments(event: Event) {
     let rows = await (await getDatabase()).all(sql`
       SELECT
-        filename, filepathLocal, mimeType, size, pID, url
+        filename, filepathLocal, mimeType, size, pID, url, json
       FROM eventAttachment
       WHERE eventID = ${event.dbID}
       `) as any;
@@ -330,9 +336,10 @@ export class SQLEvent extends Event {
         a.pID = sanitize.string(row.pID, null);
         a.url = sanitize.url(row.url, null);
         a.disposition = ContentDisposition.attachment;
+        a.fromExtraJSON(sanitize.json(row.json, {}) as any);
         attachments.push(a);
       } catch (ex) {
-        backgroundError(ex);
+        dataError(ex);
       }
     }
     event.attachments.replaceAll(attachments);

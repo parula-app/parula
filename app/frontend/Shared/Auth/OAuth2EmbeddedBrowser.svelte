@@ -21,7 +21,7 @@
   import { catchErrors } from "../../Util/error";
   import { onMount, onDestroy } from "svelte";
   import { t } from "../../../l10n/l10n";
-  import { k1MinuteMS } from "../../Util/date";
+  import { k1MinuteMS } from "../../../logic/util/date";
 
   export let dialog: OAuth2Tab | OAuth2Embed;
   export let withURLbar = true;

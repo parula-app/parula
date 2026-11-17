@@ -11,7 +11,8 @@
   import FileSelector from "../../Mail/Composer/Attachments/FileSelector.svelte";
   import Button from "../../Shared/Button.svelte";
   import PictureIcon from "lucide-svelte/icons/circle-user-round";
-  import { blobToDataURL } from "../../../logic/util/util";
+  import { scaleImageToDataURL } from "../../Shared/image";
+  import type { URLString } from "../../../logic/util/util";
   import { t } from "../../../l10n/l10n";
 
   export let person: Person;
@@ -25,6 +26,15 @@
     if (!file) {
       return;
     }
-    person.picture = await blobToDataURL(file);
+    person.picture = await scalePicture(file);
+  }
+
+  async function scalePicture(file: Blob): Promise<URLString> {
+    const kPictureSize = 240; // at least 96px * 2 for HiDPI
+    /** ActiveSync allows only 48 kB of base64 for a contact picture @see [MS-ASCNTC] 2.2.2.58 `Picture`
+     * and the other protocols have size limits, too */
+    const kMaxPictureLength = 48 * 1024;
+
+    return await scaleImageToDataURL(file, kPictureSize, kMaxPictureLength);
   }
 </script>

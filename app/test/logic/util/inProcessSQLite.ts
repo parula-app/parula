@@ -28,24 +28,46 @@ export class InProcessSQLiteDatabase {
   }
 
   async migrate(...migrations: (Query | ((database: Database) => void | Promise<void>))[]): Promise<this> {
-    // Always starts on a fresh test database, so no versioning needed
-    for (let migration of migrations) {
-      if (typeof (migration) == "function") {
-        await migration(this as any as Database);
-      } else {
-        this.db.exec(this.source(migration));
+    // Like @radically-straightforward/sqlite, so that a migration sees the same
+    // database: its `ON DELETE CASCADE`s do not run.
+    this.pragma("foreign_keys = false");
+    try {
+      // Always starts on a fresh test database, so no versioning needed
+      for (let migration of migrations) {
+        if (typeof (migration) == "function") {
+          await migration(this as any as Database);
+        } else {
+          this.db.exec(this.source(migration));
+        }
       }
+    } finally {
+      this.pragma("foreign_keys = true");
     }
     return this;
   }
 
   execute(query: Query): this {
-    this.db.exec(this.source(query));
+    // `exec()` takes no parameters, so quote them into the source,
+    // like @radically-straightforward/sqlite does
+    let parameters = this.parameters(query);
+    let source = query.sourceParts[0];
+    for (let i = 0; i < parameters.length; i++) {
+      let quoted = this.db.prepare("SELECT quote(?) AS quoted").get(parameters[i]) as any;
+      source += quoted.quoted + query.sourceParts[i + 1];
+    }
+    this.db.exec(source);
     return this;
   }
 
   run(query: Query): any {
     return this.db.prepare(this.source(query)).run(...this.parameters(query));
+  }
+
+  /** Like the backend: one call, but each statement with its bound parameters */
+  runMultiple(queries: Query[]): void {
+    for (let query of queries) {
+      this.db.prepare(this.source(query)).run(...this.parameters(query));
+    }
   }
 
   get<Type>(query: Query): Type | undefined {

@@ -1,6 +1,6 @@
 import { newChatAccountForProtocol } from '../../../logic/Chat/AccountsList/ChatAccounts';
 import { kChatAccounts } from './logins';
-import { connectToBackend, stopBackend } from '../util/backend.test';
+import { connectToBackend, stopBackend } from '../util/backend';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 
 beforeAll(connectToBackend);

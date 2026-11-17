@@ -63,5 +63,5 @@
   import { Route, useLocation } from "svelte-navigator";
 
   $: location = useLocation();
-  $: params = getParams($location.state);
+  $: params = getParams($location?.state);
 </script>

@@ -2,6 +2,7 @@ import { MailAccount, DeleteStrategy } from "../MailAccount";
 import { AuthMethod } from "../../Abstract/Account";
 import { TLSSocketType } from "../../Abstract/TCPAccount";
 import { IMAPFolder } from "./IMAPFolder";
+import { IMAPSearchEMail } from "./IMAPSearchEMail";
 import { appGlobal } from "../../app";
 import type { EMail } from "../EMail";
 import { ConnectError, LoginError } from "../../Abstract/Account";
@@ -20,7 +21,6 @@ import { gt } from "../../../l10n/l10n";
 
 export class IMAPAccount extends MailAccount {
   readonly protocol: string = "imap";
-  acceptOldTLS = false;
   pathDelimiter: string; /** Separator in folder path. E.g. '.' or '/', depending on server */
   deleteStrategy: DeleteStrategy = DeleteStrategy.MoveToTrash;
   /**
@@ -36,6 +36,8 @@ export class IMAPAccount extends MailAccount {
   connectionLock = new MapColl<ImapFlow, Lock>();
   protected throttle = new Throttle(50, 1);
   protected reconnectRunOnce = new MapColl<ConnectionPurpose, RunOnce<ImapFlow>>();
+  protected loginRunOnce = new RunOnce();
+  protected startupRunOnce = new RunOnce();
   /** High level logging about the commands we issue, logged by us */
   logCommands = false;
   /** Logs by ImapFlow */
@@ -60,22 +62,25 @@ export class IMAPAccount extends MailAccount {
   }
 
   async login(interactive: boolean): Promise<void> {
-    await super.login(interactive);
-    if (!this.dbID) {
-      await this.storage.saveAccount(this);
-    }
-    await this.storage.readFolderHierarchy(this);
+    await this.loginRunOnce.runOnce(async () => {
+      await super.login(interactive);
+      if (!this.dbID) {
+        await this.storage.saveAccount(this);
+      }
+      await this.storage.readFolderHierarchy(this);
 
-    await this.connection(interactive);
-    await this.startup();
+      await this.connection(interactive);
+    });
   }
 
-  async startup() {
-    this.namespaces = await this.getNamespaces();
-    await super.startup();
-    await this.startIDLE(await this.connection(false, ConnectionPurpose.Main));
-    this.notifyObservers();
-    (this.inbox as IMAPFolder).startPolling();
+  async syncOnStartup() {
+    await this.startupRunOnce.runOnce(async () => {
+      this.namespaces = await this.getNamespaces();
+      await super.syncOnStartup();
+      this.notifyObservers();
+      (this.inbox as IMAPFolder).startPolling();
+      await this.startIDLE(await this.connection(false, ConnectionPurpose.Main));
+    });
   }
 
   async verifyLogin(): Promise<void> {
@@ -135,7 +140,7 @@ export class IMAPAccount extends MailAccount {
         greetingTimeout: 5 * 1000, // 5 s greeting timeout
         socketTimeout: purpose == ConnectionPurpose.Main
           ? (2 * kIDLERenewalSeconds) * 1000 + 1 * 60 * 1000 // 2 * 5 min IDLE + 1 min leeway
-          : 10 * 60 * 1000, // 10 min - Fetch/Display connections time one when unused, and we re-create them on demand
+          : (Math.max(this.pollIntervalMinutes, 10) + 1) * 60 * 1000, // 11 min - Fetch/Display connections time out when unused, and we re-create them on demand
         logger: false, // true, // Run backend using: `yarn run dev | npx pino-pretty -i time,msg`
         emitLogs: this.logLibrary,
       }
@@ -217,7 +222,7 @@ export class IMAPAccount extends MailAccount {
         await folder.messageFlagsChanged(info.uid ?? null, info.seq, info.flags, info.modseq, connection);
       } catch (ex) {
         console.error("Error", ex, "in processing server event", info);
-        this.errorCallback(new IMAPCommandError(ex, `Server event about message seq ${info.seq} = UID ${info.uid} in folder ${info.path} failed:\n${ex.message}\n${this.hostname} IMAP server`));
+        this.errorCallback(new IMAPCommandError(ex, `Server event about a message in folder ${info.path} failed:\n${ex.message}\n${this.hostname} IMAP server`));
       }
     });
     connection.on("expunge", async (info) => {
@@ -374,9 +379,7 @@ export class IMAPAccount extends MailAccount {
     for (let folderInfo of subFoldersInfo) {
       let subFolder = addTo.find(folder => folder.path == folderInfo.path);
       if (subFolder) {
-        if (folderInfo.status) {
-          subFolder.fromFlow(folderInfo); // update with new info
-        }
+        subFolder.fromFlow(folderInfo); // update with new info
       } else if (folderInfo.path == "[Gmail]" || folderInfo.flags.has("\\NoSelect")) {
         let subFoldersInfo = allFoldersInfo.filter(f => f.parentPath == folderInfo.path);
         this.readFolders(parent, addTo, subFoldersInfo, allFoldersInfo, resultAllFolders);
@@ -453,6 +456,12 @@ export class IMAPAccount extends MailAccount {
     let sentFolder = email.folder ?? this.getSpecialFolder(SpecialFolder.Sent);
     email.isRead = true;
     await sentFolder.addMessage(email);
+  }
+
+
+  get sharePermissionLevels(): MailShareCombinedPermissions[] {
+    return [MailShareCombinedPermissions.Read, MailShareCombinedPermissions.FlagChange,
+      MailShareCombinedPermissions.Modify, MailShareCombinedPermissions.Custom];
   }
 
   canShareWithPersons(): boolean {
@@ -538,6 +547,10 @@ export class IMAPAccount extends MailAccount {
 
   newFolder(): IMAPFolder {
     return new IMAPFolder(this);
+  }
+
+  newSearch(): IMAPSearchEMail {
+    return new IMAPSearchEMail();
   }
 }
 

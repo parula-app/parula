@@ -15,7 +15,7 @@
   import PersonsList from "./Person/PersonsList.svelte";
   import PersonsToolbar from "./PersonsToolbar.svelte";
   import PersonsBarM from "./PersonsBarM.svelte";
-  import { URLPart } from "../Util/util";
+  import { URLPart } from "../../logic/util/blob";
   import { catchErrors } from "../Util/error";
   import { assert, sleep } from "../../logic/util/util";
   import type { Collection } from "svelte-collections";

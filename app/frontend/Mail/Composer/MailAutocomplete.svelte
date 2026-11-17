@@ -1,4 +1,4 @@
-<PersonsAutocomplete persons={addresses} {placeholder} {tabindex} {autofocus}>
+<PersonsAutocomplete persons={addresses} {onAddPerson} {placeholder} {tabindex} {autofocus}>
   <slot name="end" slot="end" />
   <hbox class="addressbooks" slot="person-popup-bottom" let:person class:top-border={person?.person?.emailAddresses.length > 1}>
     {#if person?.person}
@@ -12,6 +12,7 @@
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import PersonsAutocomplete from "../../Contacts/PersonAutocomplete/PersonsAutocomplete.svelte";
   import AddressbookChanger from "../../Contacts/AddressbookChanger.svelte";
+  import { showError } from "../../Util/error";
   import type { ArrayColl } from "svelte-collections";
 
   /** E.g. to, cc or bcc list
@@ -20,6 +21,19 @@
   export let placeholder: string;
   export let tabindex = null;
   export let autofocus = false;
+
+  function onAddPerson(recipient: PersonUID) {
+    // <copied from="PersonsAutocomplete.onAddPersonDefault()">
+    if (!recipient || addresses.contains(recipient)) {
+      return;
+    }
+    addresses.add(recipient);
+    // </copied>
+
+    // Get the certificate now, so that we can show whether we can encrypt
+    recipient.fetchEncryptionKeys()
+      .catch(showError);
+  }
 </script>
 
 <style>

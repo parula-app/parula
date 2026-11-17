@@ -27,7 +27,7 @@
   import Header from "../Shared/Header.svelte";
   import ErrorMessage, { ErrorGravity } from "../../Shared/ErrorMessage.svelte";
   import { Cancelled } from "../../../logic/util/flow/Abortable";
-  import { catchErrors, logError } from "../../Util/error";
+  import { catchErrors, logErrorToServer } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
 
   export let account: MailAccount;
@@ -44,7 +44,7 @@
       return;
     }
     console.error(ex);
-    logError(ex);
+    logErrorToServer(ex);
     errorMessage = ex.message;
   }
 

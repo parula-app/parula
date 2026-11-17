@@ -1,3 +1,4 @@
+import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 
 export function assert(test: boolean | object | string | number | null | undefined, errorMessage: string): asserts test {
   if (!test) {
@@ -13,6 +14,8 @@ export async function sleep(seconds: number): Promise<void> {
     setTimeout(resolve, seconds * 1000);
   });
 }
+
+export const waitTime = { factor: 1 }; // tests lower it, to not wait the real time for network timeouts, retries and throttling, see `kRealtimeWait`
 
 export function arrayRemove<T>(array: T[], item: T) {
   let pos = array.indexOf(item);
@@ -32,51 +35,42 @@ export function ensureArray<Type>(val: Type[] | Type): Type[] {
   return val ? Array.isArray(val) ? val : [val] : [];
 }
 
+export function booleanHasValue(value: boolean | null | undefined): value is boolean {
+  return value === true || value === false;
+}
+
+/** `obj[key]`, but only a property of `obj` itself, so that a key from the server
+ * like `__proto__` or `constructor` can't reach a prototype and change `Object.prototype` */
+export function getOwnProperty<T>(obj: Record<string, T> | null | undefined, key: string): T | undefined {
+  return obj && typeof (obj) == "object" && Object.hasOwn(obj, key) ? obj[key] : undefined;
+}
+
+/** `obj[key] = value`, but throws for the key `__proto__`, which would replace the prototype of `obj` */
+export function setOwnProperty<T>(obj: Record<string, T>, key: string, value: T): T {
+  assert(key != "__proto__", "The property name __proto__ is not allowed");
+  obj[key] = value;
+  return value;
+}
+
+// <copied from="../../frontend/Util/LocalStorage.ts">
+/** HACK: Assumes that `getLocalStorage()` in the frontend saves the value there, in this format. */
+export function getUserPreference<T>(key: string, defaultValue?: T): T {
+  return JSON.parse(sanitize.nonemptystring(localStorage.getItem(key), null)) ?? defaultValue;
+}
+export function setUserPreference<T>(key: string, value: T) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+// </copied>
+
 export function randomID(): string {
   return Date.now() + "-" + Math.ceil(Math.random() * 900000);
 }
 
 export function capitalizeStart(str: string): string {
-  return str[0].toLocaleUpperCase() + str.substring(1);
+  return str.charAt(0).toLocaleUpperCase() + str.substring(1);
 }
 export function capitalizeWords(str: string): string {
   return str.split(" ").map(word => capitalizeStart(word)).join(" ");
-}
-
-export async function blobToBase64(blob: Blob): Promise<string> {
-  let dataURL = await blobToDataURL(blob)
-  return dataURL.split(",")[1];
-}
-
-export async function blobToDataURL(blob: Blob): Promise<URLString> {
-  return new Promise((resolve) => {
-    let reader = new FileReader();
-    reader.onloadend = () => {
-      let dataURL = reader.result as string;
-      resolve(dataURL);
-    }
-    reader.readAsDataURL(blob);
-  });
-}
-
-/** Decodes base64. */
-export function base64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
-  if (Uint8Array.fromBase64) {
-    return Uint8Array.fromBase64(base64);
-  }
-  // Fallback: node doesn't have it yet, unlike Electron
-  // `Uint8Array.from()` with a map is 30x slower = 1.2s for a 20 MB mail
-  let binary = atob(base64);
-  let bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-export async function dataURLToBlob(dataURL: URLString): Promise<Blob> {
-  let res = await fetch(dataURL);
-  return await res.blob();
 }
 
 /** TODO Implement this correctly */

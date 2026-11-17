@@ -2,6 +2,7 @@ import { File } from '../../logic/Files/File';
 import { viewFile, fileViewer } from './selected';
 import type { WebAppListed } from '../../logic/WebApps/WebAppListed';
 import { kSupportedExt as kHTMLExt } from './Thumbnail/HTMLThumbnail.svelte';
+import { kSupportedExt as kPDFExt } from './Thumbnail/PDFThumbnail.svelte';
 import { kSupportedExt as kOfficeExt } from './Thumbnail/OfficeThumbnail.svelte';
 import { kSupportedExt as kImageExt } from './Thumbnail/ImageThumbnail.svelte';
 import { kSupportedExt as kVideoExt } from './Thumbnail/VideoThumbnail.svelte';

@@ -1,4 +1,5 @@
-import { blobToDataURL, type URLString } from "../../../logic/util/util";
+import { type URLString } from "../../../logic/util/util";
+import { blobToDataURL } from "../../../logic/util/blob";
 import favicon from "@victr/favicon-fetcher";
 
 /** Given a domain name, find the website's homepage favicon

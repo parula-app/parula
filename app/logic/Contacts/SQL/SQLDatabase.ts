@@ -1,21 +1,21 @@
-import { appGlobal } from "../../app";
 import sql, { type Database } from "../../../../lib/rs-sqlite/index";
 import { contactsDatabaseSchema } from "./createDatabase";
 import { getSQLiteDatabase } from "../../util/backend-wrapper";
+import { RunOnce } from "../../util/flow/RunOnce";
 
 // <copied from="Mail/SQL/Account/SQLDatabase.ts">
 
 let contactsDatabase: Database;
+let openRunOnce = new RunOnce<Database>();
 
 export async function getDatabase(): Promise<Database> {
-  if (contactsDatabase) {
-    return contactsDatabase;
-  }
-  contactsDatabase = await getSQLiteDatabase("contacts.db");
-  await contactsDatabase.migrate(contactsDatabaseSchema);
-  await contactsDatabase.pragma('foreign_keys = true');
-  await contactsDatabase.pragma('journal_mode = WAL');
-  return contactsDatabase;
+  return contactsDatabase ?? await openRunOnce.runOnce(async () => {
+    let db = await getSQLiteDatabase("contacts.db");
+    await db.migrate(contactsDatabaseSchema);
+    await db.pragma('foreign_keys = true');
+    await db.pragma('journal_mode = WAL');
+    return contactsDatabase = db;
+  });
 }
 
 /**

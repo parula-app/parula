@@ -9,6 +9,9 @@ export class TCPAccount extends Account {
   port: number | null = null;
   @notifyChangedProperty
   tls = TLSSocketType.Unknown;
+  /** Allow TLS 1.0 and 1.1, for old servers */
+  @notifyChangedProperty
+  acceptOldTLS = false;
 
   getHostname(): string | null {
     return this.hostname;
@@ -22,12 +25,14 @@ export class TCPAccount extends Account {
     this.hostname = sanitize.hostname(json.hostname, null);
     this.port = sanitize.portTCP(json.port, null);
     this.tls = sanitize.enum(json.tls, [TLSSocketType.Plain, TLSSocketType.TLS, TLSSocketType.STARTTLS], TLSSocketType.Unknown);
+    this.acceptOldTLS = sanitize.boolean(json.acceptOldTLS, false);
   }
   toConfigJSON(): any {
     let json = super.toConfigJSON();
     json.hostname = this.hostname;
     json.port = this.port;
     json.tls = this.tls;
+    json.acceptOldTLS = this.acceptOldTLS;
     return json;
   }
 

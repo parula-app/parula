@@ -3,7 +3,7 @@ import type { TEmailAddress, TJSContact, TLink, TNameComponent, TOnlineService, 
 import type { JMAPPerson } from './JMAPPerson';
 import type { TID } from '../../Mail/JMAP/TJMAPGeneric';
 import { sanitize } from '../../../../lib/util/sanitizeDatatypes';
-import { assert, ensureArray, randomID } from '../../util/util';
+import { assert, ensureArray, getOwnProperty, randomID, setOwnProperty } from '../../util/util';
 import type { ArrayColl } from 'svelte-collections';
 
 export class JSContact {
@@ -20,13 +20,14 @@ export class JSContact {
     person.lastName = sanitize.nonemptystring(jscontact.name?.components?.find(c => c.kind == "surname")?.value, "");
 
     JSContact.toContactEntries(person.emailAddresses, jscontact.emails, e => new ContactEntry(
-      sanitize.emailAddress(e.address),
+      // Contacts imported from vCard often have a `mailto:` URL here, not a bare address
+      sanitize.emailAddress(e.address?.replace(/^mailto:/i, ""), null),
       null, "mailto"));
     JSContact.toContactEntries(person.phoneNumbers, jscontact.phones, e => new ContactEntry(
-      sanitize.nonemptystring(e.number),
+      sanitize.nonemptystring(e.number, null),
       null, JSContact.fromPhoneFeatureToProtocol(e.features)));
     JSContact.toContactEntries(person.chatAccounts, jscontact.onlineServices, e => new ContactEntry(
-      sanitize.nonemptystring(e.uri ?? e.user),
+      sanitize.nonemptystring(e.uri ?? e.user, null),
       null, e.service));
     JSContact.toContactEntries(person.urls, jscontact.links, e => {
       let url = sanitize.url(e.uri, null, ["https", "http", "mailto", "tel", "fax"]); // ["*"] ?
@@ -163,6 +164,9 @@ export class JSContact {
     for (let jmapID in jscontactEntries) {
       let jscontactEntry = jscontactEntries[jmapID];
       let newCE = getValues(jscontactEntry);
+      if (!newCE.value) { // malformed value on the server, e.g. not an email address
+        continue;
+      }
       newCE.purpose = JSContact.fromContextToPurpose(jscontactEntry.contexts);
       newCE.preference = sanitize.integerRange(jscontactEntry.pref, 0, 100, 100);
       let existing = personEntries.find(p => getJMAPID(p) == jmapID);
@@ -177,9 +181,9 @@ export class JSContact {
       }
     }
     // Delete old entries
-    for (let p of personEntries) {
+    for (let p of personEntries.contents) { // copy: remove alters personEntries
       let jmapID = getJMAPID(p);
-      if (!jmapID || !jscontactEntries[jmapID]) {
+      if (!jmapID || !getOwnProperty(jscontactEntries, jmapID)) {
         personEntries.remove(p);
       }
     }
@@ -198,7 +202,7 @@ export class JSContact {
         jmapID = crypto.randomUUID();
         setJMAPID(personEntry, jmapID);
       }
-      let jscontactEntry = jscontactEntries[jmapID] ??= {} as T;
+      let jscontactEntry = getOwnProperty(jscontactEntries, jmapID) ?? setOwnProperty(jscontactEntries, jmapID, {} as T);
       jscontactEntry[valueProp] = personEntry.value;
       jscontactEntry.pref = personEntry.preference;
       jscontactEntry.contexts = JSContact.fromPurposeToContext(personEntry.purpose);
@@ -259,8 +263,7 @@ function setOneValue<TValueObject>(personGeneric: Person, jscontact: JSContact, 
   let person = personGeneric as JMAPPerson;
   person.propertyFieldIDs ??= {};
   let id = person.propertyFieldIDs[propName] ??= firstPropertyName(jscontactEntries) ?? randomID();
-  jscontactEntries[id] ??= {} as TValueObject;
-  setter(jscontactEntries[id]);
+  setter(getOwnProperty(jscontactEntries, id) ?? setOwnProperty(jscontactEntries, id, {} as TValueObject));
 }
 
 function getOneValue<TValueObject, TValue>(personGeneric: Person, jscontact: JSContact, jscontactEntries: Record<string, TValueObject>, propName: string, getter: (obj: TValueObject) => TValue | null): TValue | null {
@@ -275,8 +278,8 @@ function getOneValue<TValueObject, TValue>(personGeneric: Person, jscontact: JSC
     return null;
   }
   let id = person.propertyFieldIDs[propName] ??= firstID;
-  if (!jscontactEntries[id]) { // our entry was deleted on the server
+  if (!getOwnProperty(jscontactEntries, id)) { // our entry was deleted on the server
     id = person.propertyFieldIDs[propName] = firstID;
   }
-  return getter(jscontactEntries[id]);
+  return getter(getOwnProperty(jscontactEntries, id));
 }

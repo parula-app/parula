@@ -83,7 +83,7 @@
   import RadioGroup, { type RadioOption } from "./RadioGroup.svelte";
   import RoundButton from '../../Shared/RoundButton.svelte';
   import { catchErrors } from "../../Util/error";
-  import { kAllWeekdays, weekdayLabel } from "../../Util/date";
+  import { kAllWeekdays, weekdayLabel } from "../../../logic/util/date";
   import { arrayRemove, assert } from '../../../logic/util/util';
   import { getDateTimeLocale, t, plural } from "../../../l10n/l10n";
 

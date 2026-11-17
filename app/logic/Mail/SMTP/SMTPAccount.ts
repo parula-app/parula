@@ -4,7 +4,7 @@ import { TLSSocketType } from "../../Abstract/TCPAccount";
 import type { EMail } from "../EMail";
 import { CreateMIME } from "./CreateMIME";
 import { appGlobal } from "../../app";
-import { logError } from "../../../frontend/Util/error";
+import { internalError } from "../../util/error";
 import { assert } from "../../util/util";
 
 export class SMTPAccount extends MailAccount {
@@ -16,7 +16,7 @@ export class SMTPAccount extends MailAccount {
   set mainAccount(imap: MailAccount) {
     super.mainAccount = imap;
     if (!imap) {
-      logError(new Error(`SMTP account ${this.hostname} lost its IMAP account`));
+      internalError(new Error(`SMTP account ${this.hostname} lost its IMAP account`));
       super.mainAccount = null;
       return;
     }
@@ -26,7 +26,7 @@ export class SMTPAccount extends MailAccount {
   }
 
   // Should not be called, but do nothing, just in case.
-  async startup() {
+  async syncOnStartup() {
   }
 
   // We have no folders
@@ -57,7 +57,7 @@ export class SMTPAccount extends MailAccount {
       requireTLS: this.tls == TLSSocketType.STARTTLS,
       ignoreTLS: this.tls == TLSSocketType.Plain,
       tls: {
-        //minVersion: this.acceptOldTLS ? 'TLSv1' : undefined,
+        minVersion: this.acceptOldTLS ? 'TLSv1' : undefined,
         rejectUnauthorized: !this.acceptBrokenTLSCerts,
       },
       auth: noAuth ? undefined : {

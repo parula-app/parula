@@ -1,5 +1,5 @@
 import { iCalWeekday } from "../RecurrenceRule";
-import { k1MinuteMS } from "../../../frontend/Util/date";
+import { k1MinuteMS } from "../../util/date";
 
 /**
  * The daylight saving time rules of a timezone, as iCal `VTIMEZONE`,

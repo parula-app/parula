@@ -54,10 +54,7 @@ export class WhatsAppBackupImport {
         await this.readContactNames(waDB);
       }
       await this.readJIDs();
-      if (!this.account.dbID) {
-        await this.account.save();
-      }
-      await this.account.listRooms(); // load previously imported chats, to avoid duplication
+      await this.account.readFromDB(); // load previously imported chats, to avoid duplication
       let chats = await this.msgstore.all(sql`
         SELECT _id as rowID, jid_row_id as jidRowID, subject, created_timestamp as createdTime
         FROM chat

@@ -1,5 +1,5 @@
 import { EMailProcessor, ProcessingStartOn } from "../../EMailProcessor";
-import type { EMail } from "../../EMail";
+import { EMail } from "../../EMail";
 import { PGPPrivateKey } from "./PGPPrivateKey";
 import { PGPPublicKey, type OpenPGPModule } from "./PGPPublicKey";
 import { readAutoCryptKeys } from "./AutoCrypt";
@@ -8,8 +8,9 @@ import { parseMIMEDirectSubparts, parseHeaderParameters, toCRLF } from "../MIME"
 import { MailIdentity, findIdentityForEMailAddress } from "../../MailIdentity";
 import type { PersonUID } from "../../../Abstract/PersonUID";
 import type { Attachment } from "../../../Abstract/Attachment";
-import { k1HourMS } from "../../../../frontend/Util/date";
-import { assert } from "../../../util/util";
+import { k1HourMS } from "../../../util/date";
+import { UserError, assert } from "../../../util/util";
+import { gt } from "../../../../l10n/l10n";
 import { ArrayColl, Collection } from "svelte-collections";
 import type { Email as MIME } from "postal-mime";
 import type OpenPGP from "openpgp";
@@ -48,7 +49,9 @@ export class PGPReadProcessor extends EMailProcessor {
         let identity = MailIdentity.findIdentity(new ArrayColl([recipient]), email.folder?.account)?.identity;
         privateKeys.addAll(await this.getPrivateKeysForIdentity(identity));
       }
-      assert(privateKeys.hasItems, "Did not find private keys");
+      if (privateKeys.isEmpty) {
+        throw new UserError(gt`This message is encrypted, and the key is not available`);
+      }
       let armored = await encrypted.text();
       let encryptedMessage = await openPGP.readMessage({ armoredMessage: armored });
       let decryptedResult = await openPGP.decrypt({
@@ -59,15 +62,18 @@ export class PGPReadProcessor extends EMailProcessor {
         date: email.sent,
       });
       email.wasEncrypted = true;
+      let signer: PGPPublicKey | null = null;
       if (decryptedResult.signatures?.length) {
-        let signedWithKey = await this.checkSignatures(decryptedResult.signatures, senderPublicKeys, email.sent, openPGP);
-        email.signedByKeyID = signedWithKey?.id ?? null;
+        signer = await this.checkSignatures(decryptedResult.signatures, senderPublicKeys, email.sent, openPGP);
       }
       // TODO If inner MIME doesn't contain headers, keep the outer ones
-      await this.updateMIME(email, decryptedResult.data, outerFrom);
+      await this.updateMIME(email, decryptedResult.data, outerFrom, signer);
     } else if (detachedSignature) { // why `else`: don't overwrite the signature within the encrypted part
       await email.parseHeaders();
       let signedPart = getSignedCleartext(email);
+      if (!signedPart) {
+        return;
+      }
       signedPart = toCRLF(signedPart);
       let signedBinary = new TextEncoder().encode(signedPart);
       let signedContent = await openPGP.createMessage({ binary: signedBinary });
@@ -81,8 +87,9 @@ export class PGPReadProcessor extends EMailProcessor {
         format: "binary",
         // date: email.sent, // TODO plus a few minutes. Getting "Signature creation time is in the future"
       });
-      let signedWithKey = await this.checkSignatures(verificationResult.signatures, senderPublicKeys, email.sent, openPGP);
-      email.signedByKeyID = signedWithKey?.id ?? null;
+      let signer = await this.checkSignatures(verificationResult.signatures, senderPublicKeys, email.sent, openPGP);
+      let innerFrom = (await EMail.getHeadersFromMIME(signedBinary)).from;
+      email.rememberSigner(!innerFrom || innerFrom.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
       email.attachments.remove(detachedSignaturePart);
     }
   }
@@ -118,16 +125,18 @@ export class PGPReadProcessor extends EMailProcessor {
   }
 
   /** Replace the email with this new decrypted email */
-  async updateMIME(email: EMail, content: Uint8Array, outerFrom: string) {
-    if (email.from.emailAddress.toLowerCase() != outerFrom.toLowerCase()) {
-      // Treat as phishing
-      console.warn("PGP signature ignored, because inner signed From: is", email.from.emailAddress, "but outer header From: is", outerFrom);
-      email.signedByKeyID = null;
-    }
+  async updateMIME(email: EMail, content: Uint8Array, outerFrom: string, signer: PGPPublicKey | null) {
     email.downloadComplete = false;
     email.mime = content;
     email.resetProperties();
     await email.parseMIME();
+    if (email.from.emailAddress.toLowerCase() != outerFrom.toLowerCase()) {
+      // Treat as phishing
+      console.warn("PGP signature ignored, because inner signed From: is", email.from.emailAddress, "but outer header From: is", outerFrom);
+      email.rememberSigner(null);
+    } else if (signer) { // else keep a signature that parseMIME() found inside
+      email.rememberSigner(signer);
+    }
     await email.saveCompleteMessage();
   }
 
@@ -177,12 +186,16 @@ function attachmentOfType(email: EMail, mimeType: string): Attachment | undefine
   return email.attachments.find(a => a.mimeType.toLowerCase() == mimeType);
 }
 
-function getSignedCleartext(email: EMail): string {
+/** @returns null, if the signature is not the main content of the email,
+ * but nested, e.g. a mailing list wrapped the signed message */
+function getSignedCleartext(email: EMail): string | null {
   assert(email.headers.length > 0, "parseHeaders first");
   let contentType = email.headers.get("content-type");
   let parameters = parseHeaderParameters(contentType);
-  assert(parameters.$main == "multipart/signed", "Signature must be the main content of the email, not nested");
-  assert(parameters.protocol?.toLowerCase() == "application/pgp-signature", "PGP signature must be at the top level");
+  if (parameters.$main != "multipart/signed" ||
+      parameters.protocol?.toLowerCase() != "application/pgp-signature") {
+    return null;
+  }
   let parts = parseMIMEDirectSubparts(email.mime, contentType);
   assert(parts.length == 2, "multipart/signed must have exactly 2 subparts: cleartext and signature, but got " + parts.length);
   return parts[0];

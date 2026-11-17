@@ -58,6 +58,20 @@ test("Lock wasWaiting", async () => {
   third.release();
 });
 
+test("Lock released twice", async () => {
+  let lock = new Lock();
+  let hangs = await lock.lock();
+  hangs.release(); // e.g. a `Timeout` that broke the lock from outside
+  let second = await lock.lock();
+  hangs.release(); // the hanging function finally finishes
+  let thirdPromise = lock.lock();
+  second.release();
+  let third = await thirdPromise;
+  expect(third.wasWaiting).toBe(true);
+  third.release();
+  expect(lock.haveWaiting).toBe(false);
+});
+
 test("Without Lock", async () => {
   let a = new WithoutLock();
   let promise1 = a.run();

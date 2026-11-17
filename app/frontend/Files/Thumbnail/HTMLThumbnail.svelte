@@ -1,6 +1,7 @@
 <iframe
   src={$file.url}
   title={$file.name}
+  sandbox=""
   class:preview
   scrolling={preview ? "no" : null}
   />
@@ -13,7 +14,7 @@
 </script>
 
 <script lang="ts" context="module">
-  export const kSupportedExt = ["html", "htm", "shtml", "pdf", "md", "txt"];
+  export const kSupportedExt = ["html", "htm", "shtml", "md", "txt"];
 </script>
 
 <style>

@@ -8,7 +8,7 @@ import { appGlobal } from "../../app";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { Lock } from "../../util/flow/Lock";
 import { RunOnce } from "../../util/flow/RunOnce";
-import { NotReached, assert, type URLString } from "../../util/util";
+import { NotReached, UserError, assert, type URLString } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl, Collection } from "svelte-collections";
 import type { DAVClient, DAVAddressBook, DAVObject } from "tsdav";
@@ -65,6 +65,9 @@ export class CardDAVAddressbook extends Addressbook {
       assert(usePassword || useOAuth2, gt`Unknown authentication method`);
       if (this.client && (!useOAuth2 || this.clientAccessToken == oAuth2.accessToken)) {
         return; // already logged in. The client caches the auth headers, so re-create it once the access token changed.
+      }
+      if (!URL.canParse(this.url)) {
+        throw new UserError(gt`Please enter the server URL, e.g. https://dav.example.com/`);
       }
       let options = {
         serverUrl: this.url,

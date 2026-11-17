@@ -2,7 +2,8 @@ import { openExternalURL } from "../../logic/util/os-integration";
 import { appGlobal } from "../../logic/app";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { catchErrors } from "../Util/error";
-import { blobToDataURL, NotImplemented, type URLString } from "../../logic/util/util";
+import { NotImplemented, type URLString } from "../../logic/util/util";
+import { blobToDataURL } from "../../logic/util/blob";
 import { gt } from "../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
 

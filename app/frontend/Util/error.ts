@@ -1,28 +1,16 @@
-import { notifications, Notification, NotificationSeverity } from "../MainWindow/Notification";
+import * as logic from "../../logic/util/error";
+import { notifications, Notification, NotificationSeverity } from "../../logic/util/Notification";
 import { production } from "../../logic/build";
 import * as Sentry from "@sentry/svelte";
 
-export function showError(ex: Error) {
-  console.error(errorMessage(ex), ex);
-  if (shouldShow(ex)) {
-    notifications.add(new Notification(errorMessage(ex), NotificationSeverity.Error, ex));
-    logErrorToServer(ex);
-  }
-}
-
-export function backgroundError(ex: Error) {
-  console.error(errorMessage(ex), ex);
-  if (production) {
-    return;
-  }
-  if (shouldShow(ex)) {
-    notifications.add(new Notification(errorMessage(ex), NotificationSeverity.Warning, ex));
-    logErrorToServer(ex);
-  }
-}
+export const showError = logic.showError;
+export const logErrorToServer = logic.logErrorToServer;
+export const minorError = logic.minorError;
+export const catchErrors = logic.catchErrors;
+export const catchFallback = logic.catchFallback;
 
 export function showUserError(ex: Error, autoDisappearAfterSeconds?: number): { remove(): void } {
-  let notification = new Notification(errorMessage(ex), NotificationSeverity.Error, ex);
+  let notification = new Notification(logic.errorMessage(ex), NotificationSeverity.Error, ex);
   notifications.add(notification);
   if (autoDisappearAfterSeconds) {
     setTimeout(() => {
@@ -36,27 +24,7 @@ export function showUserError(ex: Error, autoDisappearAfterSeconds?: number): { 
   };
 }
 
-function shouldShow(ex: Error): boolean {
-  return ex?.message &&
-    !(ex as any).doNotShow &&
-    !notifications.find(noti => noti.message == errorMessage(ex)); // don't repeat
-}
-
-/** The account name, for errors of a specific account.
- * It's in a separate property and not in `ex.message`, because we must not
- * send it to the error log server. @see `addAccountName()` */
-function errorMessage(ex: Error): string {
-  let message = ex?.message ?? ex + "";
-  let accountName = (ex as any)?.accountName;
-  return accountName ? `${accountName}: ${message}` : message;
-}
-
-export function logError(ex: Error) {
-  console.error(errorMessage(ex), ex);
-  logErrorToServer(ex);
-}
-
-function logErrorToServer(ex: Error) {
+function sendToErrorLogServer(ex: Error) {
   try {
     if ((ex as any)?.isUserError || (ex as any)?.doNotLog) {
       return;
@@ -69,19 +37,35 @@ function logErrorToServer(ex: Error) {
   }
 }
 
-export async function catchErrors(func: Function, errorFunc = showError) {
-  try {
-    await func();
-  } catch (ex) {
-    errorFunc(ex);
+const logNotificationErrors = {
+  added(added: Notification[]) {
+    for (let notification of added) {
+      if (notification.ex) {
+        sendToErrorLogServer(notification.ex);
+      }
+    }
+  },
+  removed() {
+  },
+};
+notifications.registerObserver(logNotificationErrors);
+(notifications as any)._logNotificationErrors = logNotificationErrors; // HACK to keep it alive: `registerObserver()` holds it only weakly
+
+function sendErrorsForServer() {
+  let errors = logic.errorsForServer.contents;
+  logic.errorsForServer.clear();
+  for (let ex of errors) {
+    sendToErrorLogServer(ex);
   }
 }
 
-/** In case of errors/exceptions, return a fallback value */
-export function catchFallback<T>(func: () => T, fallbackResult: T): T {
-  try {
-    return func();
-  } catch (ex) {
-    return fallbackResult;
-  }
-}
+const logErrorsForServer = {
+  added() {
+    sendErrorsForServer();
+  },
+  removed() {
+  },
+};
+logic.errorsForServer.registerObserver(logErrorsForServer);
+(logic.errorsForServer as any)._logErrorsForServer = logErrorsForServer; // HACK to keep it alive: `registerObserver()` holds it only weakly
+sendErrorsForServer(); // Errors that logic added before this file was loaded

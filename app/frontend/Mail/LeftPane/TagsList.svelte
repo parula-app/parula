@@ -14,12 +14,12 @@
   import { availableTags, type Tag } from '../../../logic/Abstract/Tag';
   import type { Folder } from '../../../logic/Mail/Folder';
   import type { EMail } from '../../../logic/Mail/EMail';
-  import { newSearchEMail } from '../../../logic/Mail/Store/setStorage';
+  import { newServerSearchEMail } from '../../../logic/Mail/Store/setStorage';
   import TagSelector from '../../Shared/Tag/TagSelector.svelte';
   import { catchErrors } from '../../Util/error';
   import { ArrayColl, SetColl } from 'svelte-collections';
   import { t } from '../../../l10n/l10n';
-  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   const dispatchEvent = createEventDispatcher<{ clear: void }>();
 
   export let selectedTags = new SetColl<Tag>();
@@ -31,7 +31,7 @@
 
   async function onSelect() {
     if (selectedTags.hasItems) {
-      let search = newSearchEMail();
+      let search = newServerSearchEMail();
       search.folder = folder;
       search.tags.replaceAll(selectedTags);
       searchMessages = await search.startSearch();

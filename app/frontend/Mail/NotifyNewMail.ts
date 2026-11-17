@@ -1,5 +1,6 @@
 import type { EMail } from "../../logic/Mail/EMail";
 import type { MailAccount } from "../../logic/Mail/MailAccount";
+import { SpecialFolder, type Folder } from "../../logic/Mail/Folder";
 import { selectedMessage, selectedFolder, selectedAccount } from "./Selected";
 import { mailMustangApp } from "./MailMustangApp";
 import { openApp, bringAppToFront } from "../AppsBar/selectedApp";
@@ -7,8 +8,8 @@ import { appGlobal } from "../../logic/app";
 import { SystemNotification, NotificationKinds } from "../Shared/SystemNotification";
 import { getLocalStorage } from "../Util/LocalStorage";
 import MailIcon from '../asset/icon/appBar/mail.svg?raw';
-import { logError, showError } from "../Util/error";
-import { CollectionObserver } from "svelte-collections";
+import { logErrorToServer, showError } from "../Util/error";
+import { CollectionObserver, type ArrayColl } from "svelte-collections";
 
 export async function newMailListener() {
   appGlobal.emailAccounts.registerObserver(accountsObserver);
@@ -25,7 +26,7 @@ export async function showNewMail(messages: EMail[]) {
   const onlyInAB = getLocalStorage("notifications.mail.only.addressbook", true).value;
 
   const filterConditions: ((msg: EMail) => boolean)[] = [];
-  filterConditions.push(msg => msg.isNewArrived);
+  filterConditions.push(msg => msg.isNewArrived && !msg.isRead);
   if (onlyInAB) {
     filterConditions.push(msg => msg.from?.findPerson() && appGlobal.addressbooks.some(ab => ab.persons.some(person => person == msg.from.person)));
   }
@@ -40,9 +41,6 @@ export async function showNewMail(messages: EMail[]) {
   let singleMsg = messages.length == 1 ? messages[0] : null;
   let firstMsg = singleMsg ?? messages[0];
 
-  for (let msg of messages) {
-    await msg.download();
-  }
   let title = singleMsg?.subject ??
     messages.map(msg => msg.subject?.substring(0, 20) ?? "").join(", ").substring(0, 60);
   let body = singleMsg?.text ??
@@ -86,11 +84,12 @@ async function reply(msg: EMail, replyText: string) {
 }
 
 class NewMessageObserver extends CollectionObserver<EMail> {
-  added(messages: EMail[]) {
-    showNewMail(messages)
-      .catch(logError);
+  added(messages: EMail[] | ArrayColl<EMail>) {
+    // `addAll()` hands us whatever the caller passed, usually a `Collection`, which has no [0]
+    showNewMail(Array.from(messages))
+      .catch(logErrorToServer);
   }
-  removed(messages: EMail[]) {
+  removed(messages: EMail[] | ArrayColl<EMail>) {
     // do nothing
   }
 }
@@ -99,13 +98,35 @@ let newMessageObserver = new NewMessageObserver();
 class AccountsObserver extends CollectionObserver<MailAccount> {
   added(accounts: MailAccount[]) {
     for (let account of accounts) {
-      account.inbox?.messages.registerObserver(newMessageObserver);
+      account.rootFolders.registerObserver(foldersObserver);
+      observeInbox(account.rootFolders.contents);
     }
   }
   removed(accounts: MailAccount[]) {
     for (let account of accounts) {
+      account.rootFolders.unregisterObserver(foldersObserver);
       account.inbox?.messages.unregisterObserver(newMessageObserver);
     }
   }
 }
 let accountsObserver = new AccountsObserver();
+
+/** We know the account long before its folders: They arrive one by one,
+ * first from the database, then from the server. */
+class FoldersObserver extends CollectionObserver<Folder> {
+  added(folders: Folder[]) {
+    observeInbox(folders);
+  }
+  removed(folders: Folder[]) {
+    // do nothing
+  }
+}
+let foldersObserver = new FoldersObserver();
+
+function observeInbox(folders: Folder[]) {
+  for (let folder of folders) {
+    if (folder.specialFolder == SpecialFolder.Inbox) {
+      folder.messages.registerObserver(newMessageObserver);
+    }
+  }
+}

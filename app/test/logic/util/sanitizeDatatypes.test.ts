@@ -89,3 +89,27 @@ test("Check EAI email addresses", () => {
     sanitize.emailAddress("d@d.xn-");
   }).toThrow();
 });
+
+test("Strip path separators from filenames", () => {
+  expect(sanitize.filename("invoice.pdf")).toBe("invoice.pdf");
+  expect(sanitize.filename("../../../home/u/.bashrc")).toBe("......homeu.bashrc");
+  expect(sanitize.filename("a/b/c.txt")).toBe("abc.txt");
+  expect(sanitize.filename("Ünïcödé Ñame.pdf")).toBe("Ünïcödé Ñame.pdf");
+});
+
+test("Strip path separators from filenames, without Unicode regexp support", () => {
+  // node.js mobile has no `\p{Letter}` and throws
+  let unicodeRegexp = sanitize.regexpFilename;
+  sanitize.regexpFilename = {
+    [Symbol.replace]() {
+      throw new SyntaxError("Invalid regular expression: Invalid property name");
+    },
+  } as any;
+  try {
+    expect(sanitize.filename("invoice.pdf")).toBe("invoice.pdf");
+    expect(sanitize.filename("../../../home/u/.bashrc")).toBe("......homeu.bashrc");
+    expect(sanitize.filename("a/b/c.txt")).toBe("abc.txt");
+  } finally {
+    sanitize.regexpFilename = unicodeRegexp;
+  }
+});

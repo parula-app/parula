@@ -34,7 +34,7 @@
   import PersonPicture from "../Person/PersonPicture.svelte";
   import Popup from "../../Shared/Popup.svelte";
   import Clickable from "../../Shared/Clickable.svelte";
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   const dispatchEvent = createEventDispatcher<{ focusNext: void }>();
 
   export let person: PersonUID;
@@ -44,13 +44,6 @@
   // Popup
   let popupOpen = false;
   let popupAnchor: HTMLElement;
-
-  onMount(checkPopup);
-  function checkPopup() {
-    if ((person as any).openPopup) {
-      popupOpen = true;
-    }
-  }
 
   function onPopupToggle(event: MouseEvent) {
     popupOpen = !popupOpen;

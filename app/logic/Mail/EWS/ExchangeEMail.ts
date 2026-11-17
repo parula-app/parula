@@ -35,6 +35,9 @@ export const IconIndexPidTag = "0x1080";
 export const EMailFlagPidTag = "0x1081";
 // <https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtaglastverbexecutiontime-canonical-property>
 export const EMailFlagTimePidTag = "0x1082";
+/** 2 = the user flagged the message. There is no `FieldURI` for it.
+ * <https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagflagstatus-canonical-property> */
+export const FlagStatusPidTag = "0x1090";
 
 /** Values of `IconIndexPidTag`.
  * Outlook shows the reply and forward arrows based on it.

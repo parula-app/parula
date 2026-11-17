@@ -175,24 +175,43 @@
       },
       "homepage": "https://docs.parula.app/paper/",
       "start": "https://office.parula.app/paper/",
-      "icon": "https://parula.beonex.com/assets/images/parula_white.png"
+      "loginType": "none",
+      "icon": "https://parula.app/assets/images/logo/paper.png"
     },
     {
       "id": "parula-sheets",
       "categoryFullIDs": [
-        "productivity/text-editor",
+        "productivity/spreadsheet",
         "recommended"
       ],
       "name": {
         "en": "Parula Spreadsheet"
       },
       "description": {
-        "en": "Open word processor with ODT and Word compatibility, real-time collaboration and change merges",
-        "de": "Offene Textverarbeitung mit ODT- und Word-Kompatibilität, Zusammenarbeit in Echtzeit, und Zusammenführen von Änderungen"
+        "en": "Open spreadsheet application with ODS and Excel compatibility, pivot tables, real-time collaboration and Visual Basic macro execution in an isolated sandbox",
+        "de": "Offene Tabellenkalkulation mit ODS- und Excel-Kompatibilität, Zusammenarbeit in Echtzeit, und Visual Basic-Makro-Ausführung in einer abgesicherten Sandbox"
       },
       "homepage": "https://docs.parula.app/sheets/",
       "start": "https://office.parula.app/sheets/",
-      "icon": "https://parula.beonex.com/assets/images/parula_white.png"
+      "loginType": "none",
+      "icon": "https://parula.app/assets/images/logo/sheets.png"
+    },
+    {
+      "id": "parula-showon",
+      "categoryFullIDs": [
+        "productivity/presentation"
+      ],
+      "name": {
+        "en": "Parula ShowOn"
+      },
+      "description": {
+        "en": "Simple creation of presentations, with export to PDF and HTML",
+        "de": "Einfache Erstellung von Präsentation, mit Export zu PDF und HTML"
+      },
+      "homepage": "https://parula.app",
+      "start": "https://office.parula.app/showon/",
+      "loginType": "none",
+      "icon": "https://parula.app/assets/images/logo/showon.png"
     },
     {
       "id": "miro",
@@ -208,6 +227,7 @@
       },
       "homepage": "https://www.miro.com",
       "start": "https://miro.com/app/dashboard/",
+      "loginType": "account",
       "icon": "https://files.readme.io/17d4a23-miro-logo-color-square.png"
     },
     {
@@ -224,6 +244,7 @@
       },
       "homepage": "https://www.figma.com",
       "start": "https://www.figma.com/login",
+      "loginType": "account",
       "icon": "https://s3-alpha.figma.com/hub/file/1481185752/fa4cd070-6a79-4e1b-b079-8b9b76408595-cover.png"
     },
     {
@@ -240,6 +261,7 @@
       "homepage": "https://www.collaboraonline.com/collabora-online/",
       "pricePage": "https://www.collaboraonline.com/subscriptions/",
       "start": "https://www.collaboraonline.com",
+      "loginType": "account",
       "icon": "https://wiki.calculate-linux.org/download_images/original/xcollabora-logo.png.pagespeed.ic.acN5E7XQKT.png"
     },
     {
@@ -255,6 +277,7 @@
       },
       "homepage": "https://www.open-xchange.com/products/ox-documents/",
       "start": "https://www.open-xchange.com/products/ox-drive/",
+      "loginType": "account",
       "icon": "https://avatars.githubusercontent.com/u/5494836?s=200&v=4"
     },
     {
@@ -270,6 +293,7 @@
       },
       "homepage": "https://www.onlyoffice.com/office-suite.aspx",
       "start": "https://www.onlyoffice.com/signin.aspx",
+      "loginType": "account",
       "icon": "https://static-www.onlyoffice.com/v9.5.0/images/logo_130_24.svg"
     },
     {
@@ -285,6 +309,7 @@
       },
       "homepage": "https://www.wps.com/wpsdocs/",
       "start": "https://account.wps.com/",
+      "loginType": "account",
       "icon": "https://cloud.cache.wpscdn.com/ovs-beta/account/libs/img/v1/pro/wps.d6f53e0f.svg"
     },
     {
@@ -301,6 +326,7 @@
       },
       "homepage": "https://www.microsoft.com/microsoft-365/free-office-online-for-the-web",
       "start": "https://m365.cloud.microsoft/launch/Word/",
+      "loginType": "office365",
       "icon": "https://raw.githubusercontent.com/mustang-im/mustang/refs/heads/master/app/frontend/asset/icon/brand/microsoft365.svg"
     },
     {
@@ -318,6 +344,7 @@
       },
       "homepage": "https://www.microsoft.com/microsoft-365/free-office-online-for-the-web",
       "start": "https://word.cloud.microsoft",
+      "loginType": "office365",
       "icon": "https://res.cdn.office.net/files/fabric-cdn-prod_20240610.001/assets/brand-icons/product/svg/word_32x1.svg"
     },
     {
@@ -335,6 +362,7 @@
       },
       "homepage": "https://www.microsoft.com/microsoft-365/free-office-online-for-the-web",
       "start": "https://excel.cloud.microsoft",
+      "loginType": "office365",
       "icon": "https://res.cdn.office.net/files/fabric-cdn-prod_20240610.001/assets/brand-icons/product/svg/excel_32x1.svg"
     },
     {
@@ -351,6 +379,7 @@
       },
       "homepage": "https://www.microsoft.com/microsoft-365/free-office-online-for-the-web",
       "start": "https://powerpoint.cloud.microsoft",
+      "loginType": "office365",
       "icon": "https://res.cdn.office.net/files/fabric-cdn-prod_20240610.001/assets/brand-icons/product/svg/powerpoint_32x1.svg"
     },
     {
@@ -367,6 +396,7 @@
       },
       "homepage": "https://workspace.google.com/products/docs/",
       "start": "https://docs.google.com/document/",
+      "loginType": "google",
       "icon": "https://upload.wikimedia.org/wikipedia/commons/0/01/Google_Docs_logo_%282014-2020%29.svg"
     },
     {
@@ -383,6 +413,7 @@
       },
       "homepage": "https://workspace.google.com/products/sheets/",
       "start": "https://docs.google.com/spreadsheets/",
+      "loginType": "google",
       "icon": "https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg"
     },
     {
@@ -399,6 +430,7 @@
       },
       "homepage": "https://workspace.google.com/products/slides/",
       "start": "https://docs.google.com/presentation/",
+      "loginType": "google",
       "icon": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Google_Slides_logo_%282014-2020%29.svg"
     },
     {
@@ -416,6 +448,7 @@
       },
       "homepage": "https://cryptpad.fr",
       "start": "https://cryptpad.fr/pad/",
+      "loginType": "none",
       "icon": "https://cryptpad.fr/customize/CryptPad_logo_hero.svg"
     }
   ]

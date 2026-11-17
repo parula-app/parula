@@ -16,8 +16,8 @@
     text-anchor="middle"
     dominant-baseline="central"
     font-size={kRadius}
-    font-weight={isBold ? "bold" : "normal"}
-    fill="var(--graph-node-text, #333)"
+    font-weight="bold"
+    fill={color ? "white" : "var(--graph-node-text, #333)"}
     pointer-events="none"
   >{letter}</text>
 {/if}
@@ -27,8 +27,9 @@
 
   export let icon: string | null;
   export let letter: string | null;
+  /** Background that the letter sits on. @see Node.color */
+  export let color: string | null = null;
   export let x: number;
   export let y: number;
-  export let isBold: boolean = false;
   export let i: number;
 </script>

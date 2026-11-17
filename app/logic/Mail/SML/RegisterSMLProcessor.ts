@@ -18,13 +18,17 @@ export abstract class RegisterSMLProcessor extends SMLProcessor {
     let identity = email.folder.account.findIdentityForEMailAddress(emailAddress);
     assert(identity, "EMail address in registration does not match the email account");
     let smlAccount = identity.smlAccount;
-    assert(smlAccount, "Ignoring registration for an account that we didn't request");
+    if (!smlAccount) { // we never asked for this registration
+      return;
+    }
 
     let confirmURL = sanitize.url(sml.target);
     let emailDomain = getDomainForEmailAddress(emailAddress);
     let domain = getBaseDomainFromURL(confirmURL);
     // Make sure that it's a trusted domain before confirming: Either our server or the email hoster
-    assert(domain == emailDomain || trustedDomains.includes(domain), "Ignoring registration request for unknown domain " + domain);
+    if (!(domain == emailDomain || trustedDomains.includes(domain))) {
+      return;
+    }
     let oAuth2Response = await fetchJSON(confirmURL);
     smlAccount.setAccessToken(sanitize.nonemptystring(oAuth2Response.access_token));
     await smlAccount.save();

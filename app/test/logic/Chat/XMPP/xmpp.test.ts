@@ -1,6 +1,6 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
 import { appGlobal } from "../../../../logic/app";
-import { setupChatTestEnv, newChatStorage, Database } from "./setup";
+import { setupChatTestEnv, newChatStorage } from "./setup";
 import { XMPPAccount } from "../../../../logic/Chat/XMPP/XMPPAccount";
 import { XMPP1to1Chat } from "../../../../logic/Chat/XMPP/XMPP1to1Chat";
 import { getDatabase } from "../../../../logic/Chat/SQL/SQLDatabase";
@@ -8,6 +8,7 @@ import { SQLChatRoom } from "../../../../logic/Chat/SQL/SQLChatRoom";
 import { DummyChatStorage } from "../../../../logic/Chat/SQL/DummyChatStorage";
 import { LoginError } from "../../../../logic/Abstract/Account";
 import { MockXMPPServer } from "./MockXMPPServer";
+import { waitFor } from "../../util/waitFor";
 import sql from "../../../../../lib/rs-sqlite";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
@@ -61,11 +62,10 @@ test("Login with wrong password fails cleanly", { timeout: 10000 }, async () => 
   expect(account.isLoggedIn).toBe(false);
 });
 
-// Needs the in-process SQLite, see setup.ts
-test.skipIf(!Database)("Login, roster, message history, send, live message, then sync again without duplicates", { timeout: 30000 }, async () => {
+test("Login, roster, message history, send, live message, then sync again without duplicates", { timeout: 30000 }, async () => {
   let account = newAccount();
   appGlobal.chatAccounts.add(account);
-  await account.login(true);
+  await account.loginAndStartup(true);
   expect(account.isLoggedIn).toBe(true);
   expect(account.dbID).toBeTruthy();
 
@@ -73,13 +73,16 @@ test.skipIf(!Database)("Login, roster, message history, send, live message, then
   expect(account.roster.length).toBe(2);
   let alicePerson = account.getExistingPerson(kAlice);
   expect(alicePerson?.name).toBe("Alice Test");
-  expect(appGlobal.personalAddressbook.persons.find(p => p.name == "Alice Test")).toBeTruthy();
+  // Roster contacts stay `ChatPersonUID`s. Linking them to a `Person` is up to
+  // the UI, so the chat must not add them to the address book by itself.
+  expect(alicePerson.findPerson()).toBeUndefined();
+  expect(appGlobal.personalAddressbook.persons.isEmpty).toBe(true);
   let aliceChat = account.getExistingChat(kAlice) as XMPP1to1Chat;
   let bobChat = account.getExistingChat(kBob) as XMPP1to1Chat;
   expect(aliceChat).toBeTruthy();
   expect(bobChat).toBeTruthy();
 
-  // History from the server archive (login() also syncs in the background;
+  // History from the server archive (the startup also syncs in the background;
   // the lock makes this call wait for it, and dedup prevents doubles)
   await aliceChat.listMessages();
   await bobChat.listMessages();
@@ -100,19 +103,17 @@ test.skipIf(!Database)("Login, roster, message history, send, live message, then
   let sendMsg = aliceChat.newMessage();
   sendMsg.text = "Sent from the test";
   await aliceChat.sendMessage(sendMsg);
-  await new Promise(resolve => setTimeout(resolve, 500)); // until the mock server got it
-  expect(server.received.some(msg => msg.to == kAlice && msg.body == "Sent from the test")).toBe(true);
+  await waitFor(() => server.received.some(msg => msg.to == kAlice && msg.body == "Sent from the test"));
   expect(aliceChat.messages.length).toBe(4);
   expect(await countMessagesInDB()).toBe(6);
 
   // Live incoming message
   server.pushMessage(kAlice, kMe, "Live message");
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await waitFor(async () => await countMessagesInDB() == 7); // stored, which comes last
   let live = aliceChat.messages.find(msg => msg.text == "Live message");
   expect(live).toBeTruthy();
   expect(live.outgoing).toBe(false);
   expect(aliceChat.lastMessage?.text).toBe("Live message");
-  expect(await countMessagesInDB()).toBe(7);
 
   await account.logout();
   expect(account.isLoggedIn).toBe(false);
@@ -128,7 +129,7 @@ test.skipIf(!Database)("Login, roster, message history, send, live message, then
   appGlobal.chatAccounts.remove(account);
   appGlobal.chatAccounts.add(account2);
   server.countQueriesAfter = 0;
-  await account2.login(false);
+  await account2.loginAndStartup(false);
 
   let aliceChat2 = account2.getExistingChat(kAlice) as XMPP1to1Chat;
   expect(aliceChat2.dbID).toBe(aliceChat.dbID); // from DB, not re-created
@@ -149,7 +150,7 @@ test.skipIf(!Database)("Login, roster, message history, send, live message, then
 });
 
 // 450 messages = 3 batches of 200 (kBatchSize in XMPP1to1Chat)
-test.skipIf(!Database)("First sync gets the whole archive, in batches", { timeout: 30000 }, async () => {
+test("First sync gets the whole archive, in batches", { timeout: 30000 }, async () => {
   const kCharlie = "charlie@localhost";
   const kTotal = 450;
   for (let i = 1; i <= kTotal; i++) {
@@ -163,8 +164,8 @@ test.skipIf(!Database)("First sync gets the whole archive, in batches", { timeou
   }
   let account = newAccount();
   appGlobal.chatAccounts.add(account);
-  await account.login(false);
-  // Charlie is not in the roster, so only we sync this chat, not login()
+  await account.loginAndStartup(false);
+  // Charlie is not in the roster, so only we sync this chat, not the startup
   let chat = await account.getNewChat(kCharlie) as XMPP1to1Chat;
   await chat.listMessages();
 
@@ -182,15 +183,15 @@ test.skipIf(!Database)("First sync gets the whole archive, in batches", { timeou
   appGlobal.chatAccounts.remove(account);
 });
 
-// The same flow without the local DB, as when the SQLite native module
-// doesn't load (see setup.ts): everything stays in memory.
+// The same flow without the local DB, as in the webmail build: chats and
+// messages stay in memory.
 // Keep this test last: it stubs out reading rooms from the DB.
 test("Login and sync without local DB", { timeout: 30000 }, async () => {
-  SQLChatRoom.readAll = async () => {}; // as in setup.ts without SQLite
+  SQLChatRoom.readAll = async () => {}; // there are no saved rooms to read
   let account = newAccount();
   account.storage = new DummyChatStorage();
   appGlobal.chatAccounts.add(account);
-  await account.login(true);
+  await account.loginAndStartup(true);
   expect(account.isLoggedIn).toBe(true);
   expect(account.roster.length).toBe(2);
   let aliceChat = account.getExistingChat(kAlice) as XMPP1to1Chat;

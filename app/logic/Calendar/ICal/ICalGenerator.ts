@@ -1,10 +1,10 @@
 import type { Event } from "../Event";
 import { InvitationResponse, ParticipationStatus, type iCalMethod } from "../Invitation/InvitationStatus";
 import { VTimezone } from "./VTimezone";
-import { myTimezone } from "../../../frontend/Util/date";
+import { myTimezone } from "../../util/date";
 import { appName } from "../../build";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { assert, blobToBase64 } from "../../util/util";
+import { assert } from "../../util/util";
 import type { Collection } from "svelte-collections";
 
 export async function getICal(event: Event, method?: iCalMethod): Promise<string | null> {
@@ -47,10 +47,14 @@ function timezoneOf(event: Event): string {
   return event.timezone || myTimezone();
 }
 
+/** @param method (Optional) The invitation action, only if this iCal is sent as an invitation email */
 async function addVEvent(lines: (string | string[])[], event: Event, method?: iCalMethod): Promise<void> {
   lines.push(["BEGIN", "VEVENT"]);
   lines.push(["DTSTAMP", utc2ical(new Date())]);
   lines.push(["UID", event.calUID]);
+  if (event.sequence) {
+    lines.push(["SEQUENCE", String(event.sequence)]);
+  }
   if (event.title) {
     lines.push(["SUMMARY", event.title]);
   }
@@ -137,23 +141,23 @@ async function addVEvent(lines: (string | string[])[], event: Event, method?: iC
       break;
     }
   }
-  await addAttachments(lines, event, method);
+  if (!method) {
+    await addAttachments(lines, event);
+  } // else: Invitations send the files as email attachments @see OutgoingInvitation.addAttachments()
   lines.push(["END", "VEVENT"]);
 }
 
 /** Attachments, RFC 5545 3.8.1.1.
- * `SIZE` and `FILENAME` are RFC 8607, `X-FILENAME` is what Outlook writes.
- * @param method If this iCal goes out as an email invitation, we have to send the
- *   files themselves, because the invitees have no access to our file storage. */
-async function addAttachments(lines: (string | string[])[], event: Event, method?: iCalMethod): Promise<void> {
+ * `SIZE` and `FILENAME` are RFC 8607, `X-FILENAME` is what Outlook writes. */
+async function addAttachments(lines: (string | string[])[], event: Event): Promise<void> {
   if (event.attachments.isEmpty) {
     return;
   }
-  if (event.attachments.some(attachment => !attachment.content && (method || !attachment.url))) {
+  if (event.attachments.some(attachment => !attachment.content && !attachment.url)) {
     await event.loadAttachments(); // we need the file contents of these
   }
   for (let attachment of event.attachments) {
-    if (attachment.url && !method) {
+    if (attachment.url) {
       // The server stores the file outside of the event, @see `Attachment.url`
       let size = attachment.size ?? attachment.content?.size;
       lines.push(["ATTACH", "FMTTYPE", attachment.mimeType, "FILENAME", attachment.filename,
@@ -165,7 +169,7 @@ async function addAttachments(lines: (string | string[])[], event: Event, method
     }
     lines.push(["ATTACH", "VALUE", "BINARY", "ENCODING", "BASE64",
       "FMTTYPE", attachment.mimeType, "FILENAME", attachment.filename, "X-FILENAME", attachment.filename,
-      await blobToBase64(attachment.content)]);
+      await attachment.contentAsBase64()]);
   }
 }
 

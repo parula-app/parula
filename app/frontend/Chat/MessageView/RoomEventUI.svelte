@@ -4,12 +4,13 @@
   class:outgoing={message.outgoing}
   >
   <vbox class="right">
-    <hbox class="text selectable font-smallest">{@html message.html }</hbox>
+    <hbox class="text selectable font-smallest">{@html sanitizeHTMLWithoutStyleTag(message.html)}</hbox>
   </vbox>
 </hbox>
 
 <script lang="ts">
   import type { ChatRoomEvent } from "../../../logic/Chat/RoomEvent";
+  import { sanitizeHTMLWithoutStyleTag } from "../../../logic/util/convertHTML";
 
   export let message: ChatRoomEvent;
 </script>
@@ -27,6 +28,7 @@
   }
 
   .text {
+    contain: paint; /* Prevent CSS on remote content from rendering outside the area */
   }
   .text :global(.person) {
     color: var(--link-fg);

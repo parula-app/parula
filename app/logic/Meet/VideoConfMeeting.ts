@@ -7,7 +7,7 @@ import { appGlobal } from "../app";
 import { SetColl, ArrayColl } from 'svelte-collections';
 import { Observable, notifyChangedProperty } from "../util/Observable";
 import { assert, type URLString, AbstractFunction, NotSupported } from "../util/util";
-import { catchErrors } from "../../frontend/Util/error";
+import { catchErrors } from "../util/error";
 import { gt } from "../../l10n/l10n";
 
 export class VideoConfMeeting extends Observable {

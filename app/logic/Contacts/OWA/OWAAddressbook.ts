@@ -1,11 +1,13 @@
 import { ExchangeAddressbook } from "../EWS/ExchangeAddressbook";
-import { type AddressbookShareCombinedPermissions } from "../Addressbook";
+import { AddressbookShareCombinedPermissions } from "../Addressbook";
 import type { PersonUID } from "../../Abstract/PersonUID";
+import type { Attachment } from "../../Abstract/Attachment";
 import { OWAPerson } from "./OWAPerson";
 import { OWAGroup } from "./OWAGroup";
 import { type OWAAccount, kMaxFetchCount } from "../../Mail/OWA/OWAAccount";
 import { owaGetPermissionsRequest, owaSetFolderPermissionsRequest } from "../../Mail/OWA/Request/OWAFolderRequests";
-import { owaFindPersonsRequest, owaGetPersonaRequest } from "./Request/OWAPersonRequests";
+import { owaGetAttachmentsRequest } from "../../Mail/OWA/Request/OWAAttachmentRequests";
+import { owaFindPersonsRequest, owaGetContactAttachmentsRequest, owaGetPersonaRequest } from "./Request/OWAPersonRequests";
 import { getSharedPersons, ExchangePermission, deleteExchangePermissions, setExchangePermissions } from "../../Mail/EWS/ExchangePermission";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
@@ -30,6 +32,12 @@ export class OWAAddressbook extends ExchangeAddressbook {
     return this.username == this.account.username
       ? this.account.callOWA(aRequest)
       : this.account.callOWA(aRequest, this.username);
+  }
+
+  callOWAWithOffice365Attachment(aRequest: any, attachment: Attachment) {
+    return this.username == this.account.username
+      ? this.account.callOWAWithOffice365Attachment(aRequest, attachment)
+      : this.account.callOWAWithOffice365Attachment(aRequest, attachment, this.username);
   }
 
   newPerson(): OWAPerson {
@@ -87,14 +95,49 @@ export class OWAAddressbook extends ExchangeAddressbook {
         let requestNotes = new OWAGetNotesForPersonaRequest(result.PersonaId.Id);
         let responseNotes = await this.callOWA(requestNotes);
         result.Notes = responseNotes.PersonaWithNotes?.BodiesArray[0].Value.Value;
-        let person = this.getPersonByPersonaID(result.PersonaId.Id);
-        if (person) {
-          person.fromJSON(result);
-          await person.saveLocally();
-        } else {
-          person = this.newPerson();
-          person.fromJSON(result);
-          await person.saveLocally();
+        let person = this.getPersonByPersonaID(result.PersonaId.Id) ?? this.newPerson();
+        person.fromJSON(result);
+        await person.saveLocally();
+      } catch (ex) {
+        this.account.errorCallback(ex);
+      }
+    }
+    // The pictures are slow and not vital, so they come only after all contacts
+    await this.downloadPictures(this.persons.contents);
+  }
+
+  /** Exchange saves the pictures as attachments of the contacts,
+   * which the personas do not include, so they need 2 extra calls,
+   * but a whole batch of contacts fits in each call.
+   * Downloads only the pictures that changed, @see `ExchangePerson.needsPicture` */
+  async downloadPictures(persons: OWAPerson[]) {
+    let contacts = persons.filter(person => person.itemID);
+    for (let i = 0; i < contacts.length; i += kMaxFetchCount) {
+      let batch = contacts.slice(i, i + kMaxFetchCount);
+      try {
+        // Which attachment of each contact is the picture, and did it change?
+        let response = await this.callOWA(owaGetContactAttachmentsRequest(batch.map(person => person.itemID)));
+        let items = response.ResponseMessages ? this.account.itemsFromResponses(response.ResponseMessages.Items) : response.Items;
+        for (let item of items) {
+          let itemID = sanitize.nonemptystring(item.ItemId.Id);
+          let person = batch.find(person => person.itemID == itemID);
+          if (person?.pictureChangedOnServer(item.Attachments ?? []) && !person.needsPicture) {
+            await person.saveLocally(); // the picture disappeared from the server
+          }
+        }
+        let needPicture = batch.filter(person => person.needsPicture);
+        if (!needPicture.length) {
+          continue;
+        }
+        response = await this.callOWA(owaGetAttachmentsRequest(needPicture.map(person => person.pictureAttachmentID)));
+        let attachments = response.ResponseMessages ? this.account.itemsFromResponses(response.ResponseMessages.Items, "Attachments") : response.Attachments;
+        for (let attachment of attachments) {
+          let attachmentID = sanitize.nonemptystring(attachment.AttachmentId.Id);
+          let person = needPicture.find(person => person.pictureAttachmentID == attachmentID);
+          if (person) {
+            person.pictureFromServer(sanitize.nonemptystring(attachment.Content), sanitize.nonemptystring(attachment.ContentType, ""));
+            await person.saveLocally();
+          }
         }
       } catch (ex) {
         this.account.errorCallback(ex);
@@ -147,6 +190,10 @@ export class OWAAddressbook extends ExchangeAddressbook {
 
   async deleteSharedPerson(otherPerson: PersonUID) {
     await deleteExchangePermissions(this, otherPerson);
+  }
+
+  get sharePermissionLevels(): AddressbookShareCombinedPermissions[] {
+    return [AddressbookShareCombinedPermissions.Read, AddressbookShareCombinedPermissions.Modify];
   }
 
   async addSharedPerson(otherPerson: PersonUID, access: AddressbookShareCombinedPermissions) {

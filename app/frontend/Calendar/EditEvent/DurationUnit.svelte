@@ -8,7 +8,7 @@
 </select>
 
 <script lang="ts">
-  import { k1DayS, k1HourS, k1MinuteS } from "../../Util/date";
+  import { k1DayS, k1HourS, k1MinuteS } from "../../../logic/util/date";
   import { plural } from "../../../l10n/l10n";
   import { createEventDispatcher } from 'svelte';
   const dispatchEvent = createEventDispatcher<{ setAllDay: boolean }>();

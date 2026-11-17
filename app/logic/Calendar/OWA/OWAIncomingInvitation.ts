@@ -5,7 +5,6 @@ import type { OWAEvent } from "./OWAEvent";
 import type { OWAEMail } from "../../Mail/OWA/OWAEMail";
 import { OWACreateItemRequest } from "../../Mail/OWA/Request/OWACreateItemRequest";
 import { assert } from "../../util/util";
-import { ArrayColl } from "svelte-collections";
 
 const ResponseTypes: Record<InvitationResponseInMessage, string> = {
   [InvitationResponse.Accept]: "AcceptItem",
@@ -24,9 +23,9 @@ export class OWAIncomingInvitation extends IncomingInvitation {
     this.itemID = event?.itemID;
   }
 
-  async respondToInvitationFromMail(response: InvitationResponseInMessage) {
+  async respondToInvitationFromMail(response: InvitationResponseInMessage, sendReply = true) {
     assert(this.invitationMessage == InvitationMessage.Invitation, "Only invitations can be responded to");
-    let request = new OWACreateItemRequest({MessageDisposition: "SendAndSaveCopy"});
+    let request = new OWACreateItemRequest({MessageDisposition: sendReply ? "SendAndSaveCopy" : "SaveOnly"});
     request.addField(ResponseTypes[response], "ReferenceItemId", {
       __type: "ItemId:#Exchange",
       Id: this.message.itemID,
@@ -36,7 +35,7 @@ export class OWAIncomingInvitation extends IncomingInvitation {
     // Exchange will have created a calendar item if there wasn't one already
     let itemID = result.Items.find(item => item?.__type == "CalendarItem:#Exchange")?.ItemId?.Id;
     if (itemID) {
-      await this.calendar.createOrUpdateEventFromServerByID(itemID);
+      await this.calendar.getEventFromServerByID(itemID);
     }
   }
 
@@ -46,9 +45,12 @@ export class OWAIncomingInvitation extends IncomingInvitation {
   async updateParticipantReply() {
     await this.updateFromOtherInvitationMessage();
   }
+  async updateChangedMeeting() {
+    await this.updateFromOtherInvitationMessage();
+  }
   /** Exchange server auto-processes these */
   async updateFromOtherInvitationMessage() {
     assert(this.itemID, "UI should have been disabled");
-    await this.calendar.getEvents([this.itemID], new ArrayColl<OWAEvent>());
+    await this.calendar.getEventFromServerByID(this.itemID);
   }
 }

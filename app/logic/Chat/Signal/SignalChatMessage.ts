@@ -9,7 +9,7 @@ import { gt } from "../../../l10n/l10n";
 /** A Signal chat message
  * UI renders, it parses a decrypted Signal `Content` into itself (`fromSignal` and
  * the `fromSignal*` side-channel appliers) and pushes per-message operations to the
- * server (`send`, `sendReaction`, …) by reaching into its room + account. The wire
+ * server (`send`, `setMyReaction`, …) by reaching into its room + account. The wire
  * encryption + transport live on `SignalAccount`; this stays crypto-free. */
 export class SignalChatMessage extends ChatMessage {
   declare to: SignalChatRoom;

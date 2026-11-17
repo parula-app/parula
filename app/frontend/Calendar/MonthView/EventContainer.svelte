@@ -1,38 +1,31 @@
-<hbox class="event font-small" on:click
-  style="--color: {event.color ?? event.calendar?.color}"
+<hbox class="event font-small"
+  style="grid-column: {item.startDay + 1} / {item.endDay + 1}; grid-row: {item.startRow + 1} / {item.endRow + 1}; --lane: {item.lane}; --lanes: {item.lanes}; --color: {$event.color ?? $event.calendar?.color}"
   class:all-day={$event.allDay}
-  class:cancelled={$event.isCancelled}
   class:selected={$selectedEvent == event}>
-  <EventContent {event} {start} />
+  <EventContent {event} showTime={!$event.allDay && !item.continuesBefore} />
 </hbox>
 
 <script lang="ts">
-  import type { Event } from "../../../logic/Calendar/Event";
+  import type { EventInWeekRow } from "./WeekRow";
   import { selectedEvent } from "../selected";
   import EventContent from "./EventContent.svelte";
 
-  export let event: Event;
-  /** Time where the cell (not the event) starts */
-  export let start: Date;
+  export let item: EventInWeekRow;
+
+  $: event = item.event;
 </script>
 
 <style>
   .event {
+    position: relative;
+    width: calc(100% / var(--lanes) - 1px);
     margin-block-end: 1px;
+    margin-inline-start: calc(100% * var(--lane) / var(--lanes) + 1px);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    max-height: 1.4em;
-    min-height: 1.4em;
   }
   .event.all-day {
     opacity: 85%;
-  }
-  /* Gap between all-day events and time-based events */
-  .event.all-day:has(+ :global(.event:not(.all-day))) {
-    margin-block-end: 6px;
-  }
-  .event.cancelled {
-    opacity: 30%;
   }
 </style>

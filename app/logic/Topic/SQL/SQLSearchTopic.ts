@@ -1,6 +1,6 @@
 import { SearchNotes } from "../SearchNotes";
 import { getDatabase } from "./SQLDatabase";
-import { backgroundError } from "../../../frontend/Util/error";
+import { dataError } from "../../util/error";
 import { ArrayColl } from "svelte-collections";
 import sql from "../../../../lib/rs-sqlite";
 import { Topic } from "../Topic";
@@ -11,7 +11,7 @@ export class SQLSearchTopic extends SearchNotes {
   /** Start a database search based on the critera set on this object */
   async startSearch(limit?: number): Promise<ArrayColl<Topic>> {
     throw new NotImplemented();
-    let parseError = backgroundError;
+    let parseError = dataError;
 
     // Search notes in the SQL database
     let query = sql`

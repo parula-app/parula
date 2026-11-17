@@ -10,14 +10,8 @@
         slot="control"
         onClick={() => isMenuOpen = !isMenuOpen}
         />
-      {#each appGlobal.calendars.each as calendar}
-        <hbox class="menuitem" style="--calendar-color: {calendar.color}">
-          <MenuItem
-            icon={CalendarIcon}
-            label={calendar.name}
-            onClick={() => createNewEvent(calendar, $selectedDate, false)}
-            />
-        </hbox>
+      {#each $shownCalendars.each as calendar}
+        <NewEventMenuItem {calendar} startTime={$selectedDate} exact={false} />
       {/each}
     </ButtonMenu>
   {:else}
@@ -34,17 +28,14 @@
 
 <script lang="ts">
   import { createNewEvent } from "./event";
-  import { selectedCalendar, selectedDate } from "./selected";
-  import { appGlobal } from "../../logic/app";
+  import { selectedCalendar, selectedDate, shownCalendars } from "./selected";
   import ButtonMenu from "../Shared/Menu/ButtonMenu.svelte";
-  import MenuItem from "../Shared/Menu/MenuItem.svelte";
+  import NewEventMenuItem from "./NewEventMenuItem.svelte";
   import RoundButton from "../Shared/RoundButton.svelte";
   import AddToCalendarIcon from "lucide-svelte/icons/plus";
-  import CalendarIcon from "lucide-svelte/icons/calendar";
   import { t } from "../../l10n/l10n";
 
-  $: calendars = appGlobal.calendars;
-  $: haveMultipleCalendars = $calendars.length > 1;
+  $: haveMultipleCalendars = $shownCalendars.length > 1;
   let isMenuOpen = false;
 </script>
 
@@ -61,8 +52,5 @@
     align-items: center;
     justify-content: center;
     position: relative;
-  }
-  .menuitem :global(.menuitem .icon) {
-    color: var(--calendar-color);
   }
 </style>

@@ -45,6 +45,35 @@ export class MailIdentity extends Observable {
     return this.emailAddress;
   }
 
+  /** The server may forbid deleting some identities */
+  get canDelete(): boolean {
+    return true;
+  }
+
+  /** @param emailAddress may be a catch-all, e.g. `*@example.com` */
+  protected setEMailAddress(emailAddress: string) {
+    sanitize.emailAddress(emailAddress.replace("*", "any"));
+    this.emailAddress = emailAddress;
+  }
+
+  async save(): Promise<void> {
+    await this.saveToServer();
+    await this.account.save();
+  }
+
+  /** Only for protocols which store the identities on the server */
+  async saveToServer(): Promise<void> {
+  }
+
+  /** Only for protocols which store the identities on the server */
+  async deleteIt(): Promise<void> {
+    await this.deleteFromServer();
+    await this.account.save();
+  }
+
+  async deleteFromServer(): Promise<void> {
+  }
+
   asPersonUID(): PersonUID {
     return new PersonUID(this.emailAddress, this.realname);
   }
@@ -74,37 +103,36 @@ export class MailIdentity extends Observable {
 
   /** @param config JSON object which contains the data for
    * this specific identity only, i.e. a subtree of the `MailAccount.config`. */
-  static fromConfigJSON(config: any, account: MailAccount): MailIdentity {
+  fromConfigJSON(config: any) {
     assert(typeof (config) == "object", "Config must be a JSON object");
-    let thiss = new MailIdentity(account);
-    thiss.id = sanitize.nonemptystring(config.id) as any;
-    thiss.realname = sanitize.label(config.realname);
-    sanitize.emailAddress(config.emailAddress.replace("*", ""));
-    thiss.emailAddress = config.emailAddress;
-    thiss.replyTo = sanitize.emailAddress(config.replyTo, null);
-    thiss.organisation = sanitize.label(config.organisation, null);
-    thiss.signatureHTML = sanitize.string(config.signatureHTML, null);
-    thiss.sendCC.clear();
-    thiss.sendBCC.clear();
-    thiss.sendCC.addAll(sanitize.array(config.sendCC).filter(e =>
+    this.id = sanitize.nonemptystring(config.id) as any;
+    this.pID = sanitize.string(config.pID, null);
+    this.realname = sanitize.label(config.realname);
+    this.setEMailAddress(config.emailAddress);
+    this.replyTo = sanitize.emailAddress(config.replyTo, null);
+    this.organisation = sanitize.label(config.organisation, null);
+    this.signatureHTML = sanitize.string(config.signatureHTML, null);
+    this.sendCC.clear();
+    this.sendBCC.clear();
+    this.sendCC.addAll(sanitize.array(config.sendCC).filter(e =>
       !!sanitize.emailAddress(e, null)));
-    thiss.sendBCC.addAll(sanitize.array(config.sendBCC).filter(e =>
+    this.sendBCC.addAll(sanitize.array(config.sendBCC).filter(e =>
       !!sanitize.emailAddress(e, null)));
-    thiss.smlAccount = SMLHTTPAccount.fromJSON(sanitize.json(config.smlAccount, null), thiss);
-    thiss.encryptionPrivateKeys.clear();
+    this.smlAccount = SMLHTTPAccount.fromJSON(sanitize.json(config.smlAccount, null), this);
+    this.encryptionPrivateKeys.clear();
     for (let keyJSON of sanitize.array(config.encryptionPrivateKeys, [])) {
       try {
         let key = privateKeyFromJSON(sanitize.json(keyJSON, null));
-        thiss.encryptionPrivateKeys.add(key);
+        this.encryptionPrivateKeys.add(key);
       } catch (ex) {
-        thiss.account.errorCallback(ex);
+        this.account.errorCallback(ex);
       }
     }
-    return thiss;
   }
   toConfigJSON(): any {
     return {
       id: this.id,
+      pID: this.pID,
       realname: this.realname,
       emailAddress: this.emailAddress,
       replyTo: this.replyTo,

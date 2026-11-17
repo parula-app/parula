@@ -7,6 +7,7 @@ import type { AttachmentStorage } from "../Abstract/Attachment";
 import { SQLChatRoom } from "./SQL/SQLChatRoom";
 import { appGlobal } from "../app";
 import { notifyChangedProperty } from "../util/Observable";
+import { RunOnce } from "../util/flow/RunOnce";
 import { ArrayColl, MapColl } from 'svelte-collections';
 
 export class ChatAccount extends TCPAccount {
@@ -37,14 +38,24 @@ export class ChatAccount extends TCPAccount {
 
   @notifyChangedProperty
   isOnline = false;
+  readDBRunOnce = new RunOnce();
 
+  /** Protocols that can list the rooms on the server override this,
+   * and call `super.listRooms()` first, for the rooms that we know already. */
   async listRooms(): Promise<void> {
-    if (!this.dbID) {
-      await this.save();
-    }
-    if (this.rooms.isEmpty) {
-      await SQLChatRoom.readAll(this);
-    }
+    await this.readFromDB();
+  }
+
+  async readFromDB(): Promise<void> {
+    await this.readDBRunOnce.runOnce(async () => {
+      if (!this.dbID) {
+        await this.save();
+      }
+      await Promise.all(appGlobal.addressbooks.contents.map(ab => ab.readContactsFromDB())); // ChatRooms need Persons
+      if (this.rooms.isEmpty) {
+        await SQLChatRoom.readAll(this);
+      }
+    });
   }
 
   /** @param isGroup true = chat with a `Group`, false = 1:1 chat.

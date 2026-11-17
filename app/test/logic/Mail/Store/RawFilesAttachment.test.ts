@@ -3,7 +3,9 @@ import { appGlobal } from "../../../../logic/app";
 import { setupTestFolder, newTestEMail, addTestAttachment } from "../SQL/setup";
 import type { Folder } from "../../../../logic/Mail/Folder";
 import type { EMail } from "../../../../logic/Mail/EMail";
+import type { Attachment } from "../../../../logic/Abstract/Attachment";
 import { SQLEMail } from "../../../../logic/Mail/SQL/SQLEMail";
+import { SQLMailStorage } from "../../../../logic/Mail/SQL/SQLMailStorage";
 import { getDatabase } from "../../../../logic/Mail/SQL/SQLDatabase";
 import { RawFilesAttachment } from "../../../../logic/Mail/Store/RawFilesAttachment";
 import fsPromises from "node:fs/promises";
@@ -27,6 +29,8 @@ beforeAll(async () => {
     },
     fs: fsPromises,
   }));
+  folder.account.storage = new SQLMailStorage();
+  folder.account.contentStorage.add(new RawFilesAttachment());
 });
 
 async function newSavedEMail(msgID: string): Promise<EMail> {
@@ -76,4 +80,37 @@ test("Failure to write an attachment file is reported to the caller", async () =
   } finally {
     appGlobal.remoteApp.writeFile = writeFileOrig;
   }
+});
+
+test("A mail without subject can be deleted", async () => {
+  let email = await newSavedEMail("msg3@example.com");
+  email.subject = null; // JMAP, IMAP and Graph leave it null
+  await new RawFilesAttachment().save(email);
+
+  await email.deleteMessageLocally();
+  expect(email.isDeleted).toBe(true);
+});
+
+/** The user deletes the mail while its attachments are still being written */
+class DeleteWhileSaving extends RawFilesAttachment {
+  async saveAttachment(attachment: Attachment) {
+    await super.saveAttachment(attachment);
+    attachment.message.dbID = null;
+  }
+}
+
+test("A mail deleted while its attachments are written is not made read-only", async () => {
+  let email = await newSavedEMail("msg4@example.com");
+  await new DeleteWhileSaving().save(email);
+  expect(email.attachments.first.filepathLocal).toBeTruthy();
+});
+
+test("Deleting a mail deletes its attachment files", async () => {
+  let email = await newSavedEMail("msg5@example.com");
+  await new RawFilesAttachment().save(email);
+  let dir = path.dirname(email.attachments.first.filepathLocal);
+  expect((await fsPromises.readdir(dir)).length).toBe(1);
+
+  await email.deleteMessageLocally();
+  await expect(fsPromises.stat(dir)).rejects.toThrow();
 });

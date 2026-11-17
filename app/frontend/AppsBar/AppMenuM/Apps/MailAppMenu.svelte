@@ -29,6 +29,7 @@
   import { Person } from "../../../../logic/Abstract/Person";
   import { newSearchEMail } from "../../../../logic/Mail/Store/setStorage";
   import { selectedAccount, selectedFolder } from "../../../Mail/Selected";
+  import { selectedWorkspace } from "../../../MainWindow/Selected";
   import { selectedPerson } from "../../../Contacts/Person/Selected";
   import { allAccountsAccount } from "../../../../logic/Mail/AccountsList/ShowAccounts";
   import { goTo } from "../../selectedApp";
@@ -39,7 +40,7 @@
   import PersonIcon from "lucide-svelte/icons/user";
   import PencilIcon from "lucide-svelte/icons/pencil";
   import FolderIcon from "lucide-svelte/icons/folder-open";
-  import { URLPart } from "../../../Util/util";
+  import { URLPart } from "../../../../logic/util/blob";
   import { ArrayColl, mergeColl } from "svelte-collections";
   import { t } from "../../../../l10n/l10n";
 
@@ -57,6 +58,7 @@
     goTo("/mail/person", { searchMessages });
 
     let search = newSearchEMail();
+    search.workspace = $selectedWorkspace;
     search.includesPerson = person;
     let result = await search.startSearch();
     searchMessages.addColl(result);

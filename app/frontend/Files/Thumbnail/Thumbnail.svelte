@@ -2,6 +2,8 @@
   <FileIcon {ext} localFilePath={$file.path} {size} />
 {:else if $file.url && kHTMLExt.includes(ext)}
   <HTMLThumbnail {file} {preview} />
+{:else if $file.url && kPDFExt.includes(ext)}
+  <PDFThumbnail {file} {preview} />
 {:else if $file.url && kOfficeExt.includes(ext)}
   <OfficeThumbnail {file} {preview} />
 {:else if $file.url && kAudioExt.includes(ext)}
@@ -20,6 +22,7 @@
   import VideoThumbnail, { kSupportedExt as kVideoExt} from "./VideoThumbnail.svelte";
   import AudioThumbnail, { kSupportedExt as kAudioExt} from "./AudioThumbnail.svelte";
   import HTMLThumbnail, { kSupportedExt as kHTMLExt} from "./HTMLThumbnail.svelte";
+  import PDFThumbnail, { kSupportedExt as kPDFExt } from "./PDFThumbnail.svelte";
   import OfficeThumbnail, { kSupportedExt as kOfficeExt } from "./OfficeThumbnail.svelte";
   import FileIcon from "./FileIcon.svelte";
 

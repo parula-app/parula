@@ -27,16 +27,17 @@
     if (urlObj.protocol == "mailto:") {
       startupArgs.handled();
       await onMailto(url);
+      bringAppToFront();
     }
   }
 
   async function onMailto(url: URLString) {
     let account = emailAccounts.first;
     assert(account, $t`Please set up an email account before sending mail`);
+    await waitForStartup();
     let mail = account.newEMailFrom();
     mail.compose.populateFromMailtoURL(url);
     mailMustangApp.writeMail(mail);
-    bringAppToFront();
   }
 
   async function openFile(file: string) {
@@ -50,7 +51,7 @@
     }
   }
 
-  /** `AllFolders.newEMail()` needs the Sent folder of an account,
+  /** `newEMailFrom()` and `AllFolders.newEMail()` need the Sent folder of an account,
    * so wait until we read the folders. `$selectedFolder` tells us that we have them. */
   async function waitForStartup(): Promise<boolean> {
     if ($selectedFolder) {

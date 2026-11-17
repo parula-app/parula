@@ -1,11 +1,12 @@
 import { FileOrDirectory } from "./FileOrDirectory";
+import { checkExecutableFile, executableMessage, ExecutableKind } from "./FileType/ExecutableFile";
 import type { WebAppListed } from "../WebApps/WebAppListed";
 import { openOSAppForFile } from "../util/os-integration";
 import { getFilesDir } from "../util/backend-wrapper";
 import { appGlobal } from "../app";
 import { RunOnce } from "../util/flow/RunOnce";
 import { notifyChangedProperty } from "../util/Observable";
-import { NotImplemented, assert, type URLString } from "../util/util";
+import { NotImplemented, UserError, assert, type URLString } from "../util/util";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { ArrayColl, type Collection } from "svelte-collections";
 
@@ -27,6 +28,10 @@ export class File extends FileOrDirectory {
   /** null/undefined = not loaded. Does not mean that the file is empty. */
   @notifyChangedProperty
   contents: Blob;
+  /** How opening this would run the code of whoever shared it. Checked once, when
+   * we get the contents, and saved in the DB. null = none. undefined = not checked. */
+  @notifyChangedProperty
+  executable: ExecutableKind | null | undefined;
   protected readonly downloadRunOnce = new RunOnce<void>();
   protected readonly readFileRunOnce = new RunOnce<void>();
   protected readonly getURLRunOnce = new RunOnce<URLString | null>();
@@ -160,8 +165,12 @@ export class File extends FileOrDirectory {
 
   async deleteLocalCache() {
     this.clearURL();
-    if (this.filepathLocal) {
-      await appGlobal.remoteApp.deleteFile(this.filepathLocal);
+    this.contents = null;
+    this.executable = undefined;
+    let filepathLocal = this.filepathLocal;
+    this.filepathLocal = null; // the "on disk" marker, @see saveAsLocalFile()
+    if (filepathLocal) {
+      await appGlobal.remoteApp.deleteFile(filepathLocal);
     }
   }
 
@@ -187,8 +196,33 @@ export class File extends FileOrDirectory {
     if (!this.contents) {
       await this.download();
     }
+    if (this.executable === undefined) { // `download()` is per protocol, so it may not have checked
+      await this.checkExecutable();
+    }
+    if (this.executable) {
+      throw new UserError(executableMessage(this.executable));
+    }
     console.log("open", this.filepathLocal);
     await openOSAppForFile(this.filepathLocal);
+  }
+  /** Call this whenever we got the contents */
+  async checkExecutable(): Promise<void> {
+    if (!this.contents) {
+      // The download gave us no contents, so read the file. Never open one that we could not check.
+      await this.readLocalFile();
+    }
+    this.executable = await checkExecutableFile(this.name, this.mimetype, this.filepathLocal, this.contents);
+  }
+  /** The `json` column of the DB row, for properties without a column of their own */
+  toExtraJSON(): any {
+    let json: any = {};
+    json.executable = this.executable;
+    return json;
+  }
+  fromExtraJSON(json: any) {
+    this.executable = json?.executable === undefined
+      ? undefined
+      : sanitize.enum(json.executable, Object.values(ExecutableKind), null);
   }
 
   async availableOnlineEditors(): Promise<Collection<WebAppListed>> {

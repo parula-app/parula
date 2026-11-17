@@ -1,22 +1,22 @@
-import { appGlobal } from "../../app";
-import { mailDatabaseSchema } from "./createDatabase";
+import { mailDatabaseSchema, emailPIDIndex } from "./createDatabase";
 import { createFolderIDDateSentIndex, addEMailStatusColumns } from "./SQLEMailMigrate";
 import sql, { type Database } from "../../../../lib/rs-sqlite/index";
 import { getSQLiteDatabase } from "../../util/backend-wrapper";
+import { RunOnce } from "../../util/flow/RunOnce";
 
 // <copied from="Mail/SQL/Account/SQLDatabase.ts">
 
 let mailDatabase: Database;
+let openRunOnce = new RunOnce<Database>();
 
 export async function getDatabase(): Promise<Database> {
-  if (mailDatabase) {
-    return mailDatabase;
-  }
-  mailDatabase = await getSQLiteDatabase("mail.db");
-  await mailDatabase.migrate(mailDatabaseSchema, createFolderIDDateSentIndex, addEMailStatusColumns);
-  await mailDatabase.pragma('foreign_keys = true');
-  await mailDatabase.pragma('journal_mode = WAL');
-  return mailDatabase;
+  return mailDatabase ?? await openRunOnce.runOnce(async () => {
+    let db = await getSQLiteDatabase("mail.db");
+    await db.migrate(mailDatabaseSchema, createFolderIDDateSentIndex, addEMailStatusColumns, emailPIDIndex);
+    await db.pragma('foreign_keys = true');
+    await db.pragma('journal_mode = WAL');
+    return mailDatabase = db;
+  });
 }
 
 /**

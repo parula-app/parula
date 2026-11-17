@@ -8,7 +8,7 @@
       disabled={showAddDialog}
       slot="buttons-top-right"
       />
-    {#if $sharedWith.isEmpty}
+    {#if $sharedWith.isEmpty && $availableAccounts.isEmpty}
       <hbox class="nothing">{$t`You are not accessing other accounts`}</hbox>
     {:else}
       {#each $sharedWith.each as otherAccount}
@@ -19,6 +19,18 @@
             label={$t`Delete`}
             icon={DeleteIcon}
             onClick={() => onDelete(otherAccount)}
+            border={false}
+            classes="plain"
+            />
+        </hbox>
+      {/each}
+      {#each $availableAccounts.each as person}
+        <hbox class="existing-person">
+          <hbox class="name available" flex>{person.nameOrEMail}</hbox>
+          <RoundButton
+            label={$t`Add`}
+            icon={AddIcon}
+            onClick={() => onAddAvailableAccount(person)}
             border={false}
             classes="plain"
             />
@@ -52,7 +64,7 @@
           {/if}
           <Button
             label={$t`Add`}
-            onClick={() => { onAddPerson(sharedPerson).catch(account.errorCallback); return; }}
+            onClick={() => onAddPerson(sharedPerson)}
             disabled={!sharedPerson || errorMessage}
             classes="primary"
             />
@@ -66,11 +78,11 @@
 </vbox>
 
 <script lang="ts">
+  import { MailAccount } from "../../../logic/Mail/MailAccount";
   import type { Account } from "../../../logic/Abstract/Account";
-  import { EWSAccount } from "../../../logic/Mail/EWS/EWSAccount";
-  import { OWAAccount } from "../../../logic/Mail/OWA/OWAAccount";
   import { PersonUID } from "../../../logic/Abstract/PersonUID";
   import { appName } from "../../../logic/build";
+  import { catchErrors } from "../../Util/error";
   import PersonAutocomplete from "../../Contacts/PersonAutocomplete/PersonAutocomplete.svelte";
   import HeaderGroupBox from "../../Shared/HeaderGroupBox.svelte";
   import StatusMessage from "../../Setup/Shared/StatusMessage.svelte";
@@ -79,12 +91,22 @@
   import AddIcon from "lucide-svelte/icons/plus";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import CloseIcon from "lucide-svelte/icons/x";
-  import { assert } from "../../../logic/util/util";
+  import { ArrayColl, type Collection } from "svelte-collections";
   import { gt, t } from "../../../l10n/l10n";
 
-  export let account: Account;
-  $: sharedWith = account.dependentAccounts().filterObservable(dep => dep.protocol == account.protocol);
-  $: skipPersons = sharedWith.map(account => new PersonUID(account.username));
+  export let account: MailAccount;
+  let sharedWith: Collection<Account> = new ArrayColl<Account>();
+  /** Offered by the server, but not set up here, e.g. deleted by the user */
+  let availableAccounts = new ArrayColl<PersonUID>();
+  $: account, catchErrors(() => listAccounts());
+  $: skipPersons = sharedWith.map(account => new PersonUID((account as MailAccount).emailAddress));
+
+  /** `dependentAccounts()` is a snapshot of the accounts, so re-read both lists
+   * whenever we added or deleted one. */
+  async function listAccounts() {
+    sharedWith = account.dependentAccounts().filterObservable(dep => dep.protocol == account.protocol);
+    availableAccounts = await account.availableSharedAccounts();
+  }
 
   async function onDelete(otherAccount: Account) {
     let confirmed = confirm($t`Are you sure that you want to delete the account ${otherAccount.name} and all related data from ${appName}?`);
@@ -92,13 +114,14 @@
       return;
     }
     await otherAccount.deleteIt();
-    sharedWith.remove(otherAccount);
+    await listAccounts();
   }
 
   let showAddDialog = false;
   let errorMessage: string | null = null;
   let sharedPerson: PersonUID | null = null;
   let sharedFolders: string[] = [];
+  const kSharedFolders = ["msgfolderroot", "inbox", "contacts", "calendar"];
 
   function resetAddDialog() {
     errorMessage = null;
@@ -109,16 +132,14 @@
   async function checkForShares(person: PersonUID) {
     try {
       resetAddDialog();
-      if (!(account instanceof EWSAccount || account instanceof OWAAccount)) {
-        return;
-      }
-      if (account.dependentAccounts().find(other => other.username == person.emailAddress && other.protocol == account.protocol)) {
-        errorMessage = gt`You have already added ${person.name ?? person.emailAddress}`;
-        return;
-      }
-      sharedFolders = await account.findSharedFolders(person, ["msgfolderroot", "inbox", "contacts", "calendar"]);
-      if (!sharedFolders.length) {
+      let shared = await account.findSharedFolders(person, kSharedFolders);
+      if (!shared.length) {
         errorMessage = gt`You have no access to the account of ${person.name ?? ""} ${person.emailAddress}`;
+        return;
+      }
+      sharedFolders = notYetAdded(person, shared);
+      if (!sharedFolders.length) {
+        errorMessage = gt`You have already added ${person.name ?? person.emailAddress}`;
         return;
       }
       sharedPerson = person;
@@ -127,8 +148,25 @@
     }
   }
 
+  /** The colleague may share their calendar only after we added their mailbox,
+   * or the other way round, so add whatever is not set up here yet.
+   * `addSharedAddressbook()` and `addSharedCalendar()` re-use the account that
+   * we already have, but `addSharedFolders()` would create a second mail account. */
+  function notYetAdded(person: PersonUID, sharedFolders: string[]): string[] {
+    let haveMailAccount = account.dependentAccounts().find(other =>
+      other.protocol == account.protocol && other instanceof MailAccount &&
+      other.isMyEMailAddress(person.emailAddress));
+    return haveMailAccount
+      ? sharedFolders.filter(folder => folder != "msgfolderroot" && folder != "inbox")
+      : sharedFolders;
+  }
+
+  async function onAddAvailableAccount(person: PersonUID) {
+    sharedFolders = notYetAdded(person, await account.findSharedFolders(person, kSharedFolders));
+    await onAddPerson(person);
+  }
+
   async function onAddPerson(person: PersonUID) {
-    assert(account instanceof EWSAccount || account instanceof OWAAccount, "Not supported");
     sharedPerson = null;
     if (sharedFolders.includes("msgfolderroot")) {
       await account.addSharedFolders(person, "msgfolderroot");
@@ -141,6 +179,7 @@
     if (sharedFolders.includes("calendar")) {
       await account.addSharedCalendar(person);
     }
+    await listAccounts();
   }
 
   function onCloseAddDialog() {
@@ -156,7 +195,10 @@
   .subtitle {
     font-weight: normal;
   }
-  .nothing {
+  .existing-person {
+    align-items: center;
+  }
+  .nothing, .name.available {
     opacity: 50%;
   }
   .person-input {

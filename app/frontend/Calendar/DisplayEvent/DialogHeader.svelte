@@ -86,7 +86,7 @@
         <RoundButton
           label={$t`Close`}
           icon={CloseIcon}
-          onClick={onClose}
+          onClick={() => onClose(true)}
           classes="plain right save-or-close"
           iconSize="16px"
           />
@@ -131,8 +131,7 @@
       event.parentEvent?.cancelEditing();
       await event.deleteIt();
     }
-    $selectedEvent = null;
-    onClose();
+    onClose(true);
   }
 
   async function onDeleteAll() {
@@ -141,28 +140,31 @@
     }
     let master = event.parentEvent;
     await master.deleteIt();
-    $selectedEvent = null;
-    onClose();
+    onClose(true);
   }
 
   async function onDeleteRemainder() {
     event.parentEvent.cancelEditing();
     event.cancelEditing();
     await event.truncateRecurrence(event.startTime);
-    $selectedEvent = null;
-    onClose();
+    onClose(true);
   }
 
-  function onClose() {
-    // If event was sidebar only: Close event display, go back to default sidebar (e.g. tasks view)
-    // If event was full screen: go back to calendar, and keep the event in the sidebar as display-only
-    let me = calendarMustangApp.subApps.find(app => app instanceof CalendarEventMustangApp && app.windowParams.event == event);
-    calendarMustangApp.subApps.remove(me);
+  /**
+   * If event was sidebar only: Close event display, go back to default sidebar (e.g. tasks view)
+   * If event was full screen: go back to the calendar
+   * @param deselect The user is done with the event, so drop it from the sidebar as
+   *   well. Not for `onShrink()`, which moves the full window into the sidebar.
+   */
+  function onClose(deselect = false) {
+    calendarMustangApp.closeEvent(event);
+    if (deselect || !isFullWindow) {
+      // Make sidebar disappear, see CalendarApp.svelte.
+      // Clears our `event` prop, so this must come after the last use of it. #1365
+      $selectedEvent = null;
+    }
     if (isFullWindow) {
       goBack();
-    } else {
-      // Make sidebar disappear, see CalendarApp.svelte
-      $selectedEvent = null;
     }
   }
 

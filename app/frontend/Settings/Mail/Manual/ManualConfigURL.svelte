@@ -58,7 +58,7 @@
   import { assert } from "../../../../logic/util/util";
   import { getStandardURL } from "../../../../logic/Mail/AutoConfig/configInfo";
   import { getDomainForEmailAddress } from "../../../../logic/util/netUtil";
-  import { backgroundError } from "../../../Util/error";
+  import { minorError } from "../../../Util/error";
 
   /** in/out */
   export let config: MailAccount;
@@ -76,7 +76,7 @@
       let domain = getDomainForEmailAddress(config.emailAddress);
       config.url = getStandardURL(config.protocol, domain);
     } catch (ex) {
-      backgroundError(ex);
+      minorError(ex);
     }
   }
 

@@ -54,7 +54,7 @@
   import PersonsIcon from "lucide-svelte/icons/users";
   import SearchIcon from "lucide-svelte/icons/search";
   import PlusIcon from "lucide-svelte/icons/plus";
-  import { URLPart } from "../Util/util";
+  import { URLPart } from "../../logic/util/blob";
   import { t } from "../../l10n/l10n";
 
   let isMenuOpen = false;

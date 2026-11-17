@@ -21,13 +21,13 @@ export class GraphChatAccount extends ChatAccount {
     return new GraphChatPerson(userID, name);
   }
 
-  async startup() {
+  async syncOnStartup() {
     await this.listRooms();
   }
 
   async listRooms(): Promise<void> {
     await super.listRooms();
-    let chatsJSON = await this.account.graphGetAll<TGraphChat>("chats", { top: 50 });
+    let chatsJSON = await this.account.graphGetAll<TGraphChat>("chats", { $top: 50 });
     for (let chatJSON of chatsJSON) {
       let room = this.newRoom();
       room.fromGraph(chatJSON);

@@ -11,7 +11,8 @@ import { owaDownloadMsgsRequest } from "./Request/OWAFolderRequests";
 import { owaGetEventsRequest } from "../../Calendar/OWA/Request/OWAEventRequests";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
 import { InvitationMessage } from "../../Calendar/Invitation/InvitationStatus";
-import { base64ToUint8Array, assert, ensureArray } from "../../util/util";
+import { assert, ensureArray } from "../../util/util";
+import { base64ToUint8Array } from "../../util/blob";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import type { ArrayColl } from "svelte-collections";
 
@@ -40,6 +41,7 @@ export class OWAEMail extends ExchangeEMail {
     this.itemID = sanitize.nonemptystring(json.ItemId.Id);
     this.id = sanitize.nonemptystring(json.InternetMessageId, "");
     this.subject = sanitize.nonemptystring(json.Subject, "");
+    this.size = sanitize.integer(json.Size, null);
     this.sent = sanitize.date(json.DateTimeSent, new Date());
     this.received = sanitize.date(json.DateTimeReceived, new Date());
     this.setFlags(json);
@@ -87,7 +89,15 @@ export class OWAEMail extends ExchangeEMail {
       SuppressReadReceipts: true,
     });
     request.addField("Message", "IsRead", read, "message:IsRead");
-    await this.folder.account.callOWA(request);
+    try {
+      await this.folder.account.callOWA(request);
+    } catch (ex) {
+      if (ex.type == "ErrorItemNotFound") { // it is gone on the server
+        await this.deleteMessageLocally();
+        return;
+      }
+      throw ex;
+    }
     await super.markRead(read);
   }
 
@@ -164,6 +174,9 @@ export class OWAEMail extends ExchangeEMail {
       let request = new OWADeleteItemRequest(this.itemID, {
         DeleteType: hardDelete ? "HardDelete" : "MoveToDeletedItems",
         SuppressReadReceipts: true,
+        // Otherwise server refuses to delete calendar and tasks, and they can be any mail
+        SendMeetingCancellations: "SendToNone",
+        AffectedTaskOccurrences: "AllOccurrences",
       });
       await this.folder.account.callOWA(request);
     } finally {

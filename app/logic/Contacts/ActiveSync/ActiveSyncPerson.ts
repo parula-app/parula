@@ -4,6 +4,7 @@ import { StreetAddress } from '../StreetAddress';
 import type { ActiveSyncAddressbook } from './ActiveSyncAddressbook';
 import { ActiveSyncError } from "../../Mail/ActiveSync/ActiveSyncError";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
+import { blobToBase64, dataURLToBlob } from "../../util/blob";
 import { parseOneAddress, type ParsedMailbox } from "email-addresses";
 
 export class ActiveSyncPerson extends ExchangePerson {
@@ -35,6 +36,12 @@ export class ActiveSyncPerson extends ExchangePerson {
     this.company = sanitize.nonemptystring(wbxmljs.CompanyName, "");
     this.department = sanitize.nonemptystring(wbxmljs.Department, "");
     this.position = sanitize.nonemptystring(wbxmljs.JobTitle, "");
+    if (wbxmljs.Picture) {
+      this.pictureFromServer(sanitize.nonemptystring(wbxmljs.Picture));
+    } else {
+      this.picture = null;
+      this.pictureOnServer = null;
+    }
   }
 
   protected static fromWBXMLToStreetAddress(wbxmljs: Record<string, any>, purpose: string): ContactEntry | null {
@@ -61,6 +68,12 @@ export class ActiveSyncPerson extends ExchangePerson {
       JobTitle: this.position || "",
       Department: this.department || "",
       CompanyName: this.company || "",
+    }
+    // ActiveSync sends the picture inline, unlike EWS and OWA.
+    // The picture is one of the few elements that the server keeps when we omit it,
+    // so send it only when the user changed it, and spare us the upload.
+    if (this.pictureChanged) {
+      fields.Picture = this.picture ? await blobToBase64(await dataURLToBlob(this.picture)) : {};
     }
     // Always send every slot. An empty element deletes the value,
     // whereas in ActiveSync 16.x, an omitted element would keep it.
@@ -108,6 +121,7 @@ export class ActiveSyncPerson extends ExchangePerson {
         this.serverID = sanitize.nonemptystring(response.Responses.Add.ServerId);
       }
     }
+    this.pictureOnServer = this.picture;
   }
 
   protected static streetAddressToActiveSync(str: string | undefined, purpose: string, fields: Record<string, any>) {
@@ -124,7 +138,7 @@ export class ActiveSyncPerson extends ExchangePerson {
       return;
     }
     let data = {
-      DeletesAsMoves: "1",
+      DeletesAsMoves: "0",
       GetChanges: "0",
       Commands: {
         Delete: {

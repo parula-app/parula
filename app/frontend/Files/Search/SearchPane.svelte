@@ -64,16 +64,21 @@
     $globalSearchTerm = "";
   }
 
+  $: search.contentText = $globalSearchTerm;
   $: isOpen, $globalSearchTerm, $search, $tags, $attachmentTypes, startSearchDebounced();
   const startSearchDebounced = debounce(() => startSearch(), 300);
+  let lastCriteria: string;
   async function startSearch() {
     try {
-      let searchTerm = $globalSearchTerm;
+      let criteria = JSON.stringify(search.toJSON());
+      if (criteria == lastCriteria) {
+        return; // backstop to break loops
+      }
+      lastCriteria = criteria;
       $selectedFile = null;
       listFiles = new ArrayColl<File>();
       listDirs = new ArrayColl<Directory>();
 
-      search.contentText = searchTerm;
       let result = await search.startSearch(kLimit + 1);
       if (!isOpen) {
         return;

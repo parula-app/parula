@@ -3,14 +3,16 @@
     <hbox class="title font-normal">{title}</hbox>
     <hbox class="spacer" flex />
     <hbox class="buttons">
-      <RoundButton
-        label={$t`Add a new account.\nTo move an account to this workspace, find it its current workspace and click the [Move] button next to the account.`}
-        icon={AddIcon}
-        iconSize="10px"
-        padding="3px"
-        classes="small"
-        onClick={onNewAccount}
-        />
+      {#if category?.newAccountURL}
+        <RoundButton
+          label={$t`Add a new account.\nTo move an account to this workspace, find it its current workspace and click the [Move] button next to the account.`}
+          icon={AddIcon}
+          iconSize="10px"
+          padding="3px"
+          classes="small"
+          onClick={onNewAccount}
+          />
+      {/if}
     </hbox>
   </hbox>
   <vbox class="accounts-list">
@@ -53,16 +55,17 @@
   export let accountSettingsID: string;
 
   $: accounts = $changedWorkspace && allAccounts.filter(acc => acc.workspace == workspace);
+  // Chat and Meet exist only in some builds
+  $: category = settingsCategories.find(cat => cat.id == accountSettingsID);
 
   function onOpenAccount(account: Account) {
     openSettingsCategoryForAccount(account);
   }
 
   function onNewAccount() {
-    let newAccountURL = settingsCategories.find(cat => cat.id == accountSettingsID).newAccountURL;
-    assert(newAccountURL, "newAccountUI for " + accountSettingsID + " not found");
+    assert(category?.newAccountURL, "newAccountUI for " + accountSettingsID + " not found");
     let setupApp = new SetupMustangApp();
-    setupApp.appURL = newAccountURL;
+    setupApp.appURL = category.newAccountURL;
     setupApp.onBack = () => onReOpenThis();
     openApp(setupApp, {});
   }

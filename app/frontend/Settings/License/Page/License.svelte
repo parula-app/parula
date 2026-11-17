@@ -48,7 +48,7 @@
   import SetupMail from "../../../Setup/Mail/SetupMail.svelte";
   import ErrorMessageInline from "../../../Shared/ErrorMessageInline.svelte";
   import Button from "../../../Shared/Button.svelte";
-  import { getDateString } from "../../../Util/date";
+  import { getDateString } from "../../../../logic/util/date";
   import { t } from "../../../../l10n/l10n";
   import { onDestroy } from "svelte";
 

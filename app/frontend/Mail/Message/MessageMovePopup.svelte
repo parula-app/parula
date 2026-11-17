@@ -29,13 +29,12 @@
   {#if !showAccounts}
     <vbox class="tags">
       <hbox class="header font-smallest">{$t`Tags`}</hbox>
-      <!-- TODO make work with multiple selected messages -->
       <TagSelector
         tags={availableTags}
-        selectedTags={messages.first.tags}
-        object={messages.first}
-        on:select={onClose}
-        on:unselect={onClose}
+        selectedTags={commonTags}
+        {partialTags}
+        on:select={event => catchErrors(() => onAddTag(event.detail))}
+        on:unselect={event => catchErrors(() => onRemoveTag(event.detail))}
         />
     </vbox>
   {/if}
@@ -85,7 +84,7 @@
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { Folder } from "../../../logic/Mail/Folder";
   import { selectedMessage } from "../Selected";
-  import { availableTags } from "../../../logic/Abstract/Tag";
+  import { availableTags, type Tag } from "../../../logic/Abstract/Tag";
   import { appGlobal } from "../../../logic/app";
   import TagSelector from "../../Shared/Tag/TagSelector.svelte";
   import AccountList from "../LeftPane/AccountList.svelte";
@@ -99,7 +98,8 @@
   import CopyIcon from "lucide-svelte/icons/mails";
   import AccountsIcon from "lucide-svelte/icons/share";
   import CloseIcon from "lucide-svelte/icons/x";
-  import { ArrayColl, Collection } from "svelte-collections";
+  import { catchErrors } from "../../Util/error";
+  import { ArrayColl, Collection, SetColl } from "svelte-collections";
   import { t } from "../../../l10n/l10n";
   import { createEventDispatcher } from 'svelte';
   const dispatch = createEventDispatcher<{ close: void }>();
@@ -114,9 +114,14 @@
   let selectedFolder = sourceFolder;
   let selectedFolders = new ArrayColl<Folder>();
   let selectedAccount = sourceFolder.account;
+  /** The tags that all selected messages have */
+  let commonTags = new SetColl<Tag>();
+  /** The tags that only some of the selected messages have */
+  let partialTags = new SetColl<Tag>();
   let selectedMessageIndex = sourceFolder.messages.getKeyForValue(messages.first);
   let wasSelected = $selectedMessage == messages.first; // just safety measure
   let showAccounts = false;
+  $: messages, updateTagStates();
 
   function onClose() {
     dispatch("close");
@@ -145,6 +150,31 @@
     }
     goToNextMessage();
   }
+  async function onAddTag(tag: Tag) {
+    for (let message of messages) {
+      await message.addTag(tag);
+    }
+    updateTagStates();
+  }
+  async function onRemoveTag(tag: Tag) {
+    for (let message of messages) {
+      await message.removeTag(tag);
+    }
+    updateTagStates();
+  }
+  function updateTagStates() {
+    commonTags.clear();
+    partialTags.clear();
+    for (let tag of availableTags) {
+      let messagesWithTag = messages.filterOnce(message => message.tags.contains(tag));
+      if (messagesWithTag.length == messages.length) {
+        commonTags.add(tag);
+      } else if (messagesWithTag.hasItems) {
+        partialTags.add(tag);
+      }
+    }
+  }
+
   async function onMoveTo(folder: Folder) {
     onClose();
     await folder.moveMessagesHere(messages);
@@ -163,7 +193,7 @@
       sourceFolder.messages.getIndex(selectedMessageIndex) ??
       sourceFolder.messages.first ??
       sourceFolder.account.inbox.messages.first ??
-      sourceFolder.newEMail();
+      null; // no message left: show the start page
   }
 </script>
 

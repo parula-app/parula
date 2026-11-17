@@ -61,12 +61,12 @@ function addDomain(arr: string[], domain: string) {
 
 async function tryIncoming(kIMAPHostnames: string[], kPOP3Hostnames: string[], abort: AbortController): Promise<IMAPAccount | POP3Account> {
   let priorityOrder = new PriorityAbortable(abort, [
-    ...kIMAPHostnames.map(hostname => tryIMAP(hostname, TLSSocketType.TLS, abort)),
-    ...kIMAPHostnames.map(hostname => tryIMAP(hostname, TLSSocketType.STARTTLS, abort)),
-    //...kPOP3Hostnames.map(hostname => tryPOP3(hostname, TLSSocketType.TLS, abort)),
-    //...kPOP3Hostnames.map(hostname => tryPOP3(hostname, TLSSocketType.STARTTLS, abort)),
-    ...kIMAPHostnames.map(hostname => tryIMAP(hostname, TLSSocketType.Plain, abort)),
-    //...kPOP3Hostnames.map(hostname => tryPOP3(hostname, TLSSocketType.Plain, abort)),
+    ...kIMAPHostnames.map(hostname => tryIncomingServer("imap", hostname, TLSSocketType.TLS, abort)),
+    ...kIMAPHostnames.map(hostname => tryIncomingServer("imap", hostname, TLSSocketType.STARTTLS, abort)),
+    ...kPOP3Hostnames.map(hostname => tryIncomingServer("pop3", hostname, TLSSocketType.TLS, abort)),
+    ...kPOP3Hostnames.map(hostname => tryIncomingServer("pop3", hostname, TLSSocketType.STARTTLS, abort)),
+    ...kIMAPHostnames.map(hostname => tryIncomingServer("imap", hostname, TLSSocketType.Plain, abort)),
+    ...kPOP3Hostnames.map(hostname => tryIncomingServer("pop3", hostname, TLSSocketType.Plain, abort)),
   ]);
   return await priorityOrder.run();
 }
@@ -88,11 +88,11 @@ async function tryMXDomain(domain: string, emailAddress: string, abort: AbortCon
   return await guessConfig(mxDomain, emailAddress, abort, false);
 }
 
-async function tryIMAP(hostname: string, tls: TLSSocketType, abort: AbortController): Promise<IMAPAccount | POP3Account> {
-  let port = kStandardPorts.find(p => p.protocol == "imap" && p.tls == tls)?.port ?? null;
+async function tryIncomingServer(protocol: "imap" | "pop3", hostname: string, tls: TLSSocketType, abort: AbortController): Promise<IMAPAccount | POP3Account> {
+  let port = kStandardPorts.find(p => p.protocol == protocol && p.tls == tls)?.port ?? null;
   assert(port, "Need port");
 
-  let config = newAccountForProtocol("imap");
+  let config = newAccountForProtocol(protocol);
   config.hostname = hostname;
   config.port = port;
   config.tls = tls;

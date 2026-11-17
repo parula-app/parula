@@ -2,6 +2,7 @@
   <vbox class="left-pane" slot="left">
     <Header bind:selectedAccount={$selectedAccount} {accounts} />
     <RoomList {rooms} bind:selectedRoom={$selectedRoom} />
+    <GlobalSearchBar />
   </vbox>
   <vbox class="right-pane  background-pattern" slot="right">
     {#if messages && $selectedRoom }
@@ -25,6 +26,7 @@
 </Splitter>
 
 <script lang="ts">
+  import GlobalSearchBar from "../MainWindow/GlobalSearchBar.svelte";
   import { Person } from "../../logic/Abstract/Person";
   import { ChatRoom } from "../../logic/Chat/ChatRoom";
   import { ChatPersonUID } from "../../logic/Chat/ChatPersonUID";
@@ -45,7 +47,6 @@
   import Splitter from "../Shared/Splitter.svelte";
   import { catchErrors } from "../Util/error";
   import { mergeColls } from "svelte-collections";
-  import { onMount } from "svelte";
 
   $: accounts = appGlobal.chatAccounts.filterObservable(acc => acc.workspace == $selectedWorkspace || !$selectedWorkspace);
   $: rooms = $selectedAccount ? $selectedAccount.rooms : mergeColls(accounts.map(a => a.rooms));
@@ -59,9 +60,22 @@
     await $selectedRoom?.listMessages();
   }
 
-  onMount(() => {
-    $selectedRoom = $selectedPerson && rooms.find(room => roomMatchesPerson(room, $selectedPerson));
-  });
+  /** The person that the other apps show, e.g. the sender of the mail that the user just read.
+   * Read before `linkSelectedPerson()` overwrites it with the person of the last open chat. */
+  let personFromOtherApp = $selectedPerson;
+
+  $: $rooms, selectRoom()
+  /** Show the chat with the person that the other apps show. Otherwise, keep the open chat. */
+  function selectRoom() {
+    let personRoom = personFromOtherApp &&
+      rooms.find(room => roomMatchesPerson(room, personFromOtherApp));
+    if (personRoom) {
+      personFromOtherApp = null; // Only when opening the app, not on every new chat
+      $selectedRoom = personRoom;
+    } else if (!rooms.contains($selectedRoom)) {
+      $selectedRoom = rooms.last;
+    }
+  }
   function roomMatchesPerson(room: ChatRoom, person: Person): boolean {
     return room.contact instanceof ChatPersonUID && room.contact.matchesPerson(person);
   }
@@ -76,19 +90,19 @@
       $selectedPerson = person;
     }
   }
-
-  $: $rooms, clearSelectedChat()
-  function clearSelectedChat() {
-    if (!rooms.contains($selectedRoom)) {
-      $selectedRoom = rooms.last;
-    }
-  }
 </script>
 
 <style>
   .left-pane {
-    box-shadow: 2px 0px 6px 0px rgba(0, 0, 0, 10%); /* Also on MessageList */
+    box-shadow: var(--pane-shadow, 2px 0px 6px 0px rgba(0, 0, 0, 10%)); /* Also on MessageList */
     background-color: var(--leftbar-bg);
     color: var(--leftbar-fg);
+    margin: var(--pane-margin);
+    border-radius: var(--pane-radius);
+  }
+  .right-pane {
+    margin: var(--pane-margin);
+    border-radius: var(--pane-radius);
+    box-shadow: var(--pane-shadow, none);
   }
 </style>

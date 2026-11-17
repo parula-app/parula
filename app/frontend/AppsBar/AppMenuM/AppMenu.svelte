@@ -34,7 +34,7 @@
 <AppMenuBarM />
 
 <script lang="ts">
-  import { getDateString, getFormattedDateString, getTimeString } from "../../Util/date";
+  import { getDateString, getFormattedDateString, getTimeString } from "../../../logic/util/date";
   import TopAppMenu from "./TopAppMenu.svelte";
   import WebAppsAppMenu from "./Apps/WebAppsAppMenu.svelte";
   import FilesAppMenu from "./Apps/FilesAppMenu.svelte";

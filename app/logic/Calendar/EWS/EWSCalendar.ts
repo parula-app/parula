@@ -1,10 +1,12 @@
 import { ExchangeCalendar } from "./ExchangeCalendar";
-import type { CalendarShareCombinedPermissions } from "../Calendar";
+import { CalendarShareCombinedPermissions } from "../Calendar";
 import type { Participant } from "../Participant";
+import { FreeBusyEvent } from "../FreeBusyEvent";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { EWSEvent } from "./EWSEvent";
 import { EWSIncomingInvitation } from "./EWSIncomingInvitation";
 import type { EWSAccount, EWSSubscribable } from "../../Mail/EWS/EWSAccount";
+import { ConnectionPurpose } from "../../Mail/EWS/ConnectionPurpose";
 import { getSharedPersons, ExchangePermission, deleteExchangePermissions, setExchangePermissions } from "../../Mail/EWS/ExchangePermission";
 import { EWSItemError } from "../../Mail/EWS/EWSError";
 import type { EWSEMail } from "../../Mail/EWS/EWSEMail";
@@ -38,8 +40,8 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
     await this.account.unsubscribeNotifications(this);
   }
 
-  async startup(): Promise<void> {
-    await super.startup();
+  async syncOnStartup(): Promise<void> {
+    await super.syncOnStartup();
     if (this.username != this.account.username) {
       await this.account.subscribeToNotificationsForSubaccount(this);
     }
@@ -49,7 +51,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
     return new EWSIncomingInvitation(this, message);
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: { from: Date, to: Date, free: boolean }[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
     let request = {
       m$GetUserAvailabilityRequest: {
         m$MailboxDataArray: {
@@ -65,7 +67,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
             t$StartTime: from.toISOString(),
             t$EndTime: to.toISOString(),
           },
-          t$RequestedView: "FreeBusy",
+          t$RequestedView: "Detailed",
         },
       },
     };
@@ -80,18 +82,24 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
       }
       availabilities.push({
         participant,
-        availability: ensureArray(result.FreeBusyView.CalendarEventArray?.CalendarEvent).map(event => ({
-          from: sanitize.date(sanitize.nonemptystring(event.StartTime) + "Z"),
-          to: sanitize.date(sanitize.nonemptystring(event.EndTime) + "Z"),
-          free: event.BusyType == "Free",
-        })),
+        availability: ensureArray(result.FreeBusyView.CalendarEventArray?.CalendarEvent)
+          .filter(event => this.freeBusyStatus(event.BusyType))
+          .map(event => {
+            let appointment = new FreeBusyEvent(
+              sanitize.date(sanitize.nonemptystring(event.StartTime) + "Z"),
+              sanitize.date(sanitize.nonemptystring(event.EndTime) + "Z"),
+              this.freeBusyStatus(event.BusyType));
+            let details = sanitize.boolean(event.CalendarEventDetails?.IsPrivate, false) ? null : event.CalendarEventDetails;
+            appointment.title = sanitize.label(details?.Subject, null);
+            appointment.location = sanitize.label(details?.Location, null);
+            return appointment;
+          }),
       });
     }
     return availabilities;
   }
 
-  async listEvents() {
-    await super.listEvents();
+  protected async listEventsFromServer() {
     await this.syncFolder();
     await this.save();
   }
@@ -118,13 +126,13 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
       let result: any = { IncludesLastItemInRange: "false" };
       while (result.IncludesLastItemInRange === "false") {
         try {
-          result = await this.account.callEWS(sync);
+          result = await this.account.callEWS(sync, ConnectionPurpose.Fetch);
         } catch (ex) {
           if (ex.error?.ResponseCode != 'ErrorInvalidSyncStateData') {
             throw ex;
           }
           sync.m$SyncFolderItems.m$SyncState = null;
-          result = await this.account.callEWS(sync);
+          result = await this.account.callEWS(sync, ConnectionPurpose.Fetch);
         }
         let eventIDs: any[] = [];
         for (let changes of [result.Changes.Update, result.Changes.Create]) {
@@ -191,7 +199,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
     };
     let result: any = { RootFolder: { IncludesLastItemInRange: "false" } };
     while (result?.RootFolder?.IncludesLastItemInRange === "false") {
-      result = await this.account.callEWS(request);
+      result = await this.account.callEWS(request, ConnectionPurpose.Fetch);
       if (!result?.RootFolder?.Items) {
         break;
       }
@@ -257,7 +265,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
       },
     };
     try {
-      let results = ensureArray(await this.account.callEWS(request));
+      let results = ensureArray(await this.account.callEWS(request, ConnectionPurpose.Fetch));
       for (let result of results) {
         try {
           if (result.ResponseClass == "Error") {
@@ -320,6 +328,11 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
 
   async deleteSharedPerson(otherPerson: PersonUID) {
     await deleteExchangePermissions(this, otherPerson);
+  }
+
+  get sharePermissionLevels(): CalendarShareCombinedPermissions[] {
+    return [CalendarShareCombinedPermissions.ReadAvailability, CalendarShareCombinedPermissions.ReadTitle,
+      CalendarShareCombinedPermissions.ReadAll, CalendarShareCombinedPermissions.Modify];
   }
 
   async addSharedPerson(otherPerson: PersonUID, access: CalendarShareCombinedPermissions) {

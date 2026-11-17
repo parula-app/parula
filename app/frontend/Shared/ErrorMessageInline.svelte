@@ -4,14 +4,14 @@
       <ErrorIcon />
     </hbox>
     <div class="value">
-      {console.error(ex), logError(ex), ""}
+      {console.error(ex), logErrorToServer(ex), ""}
       {ex.message ?? ex + ""}
     </div>
   </hbox>
 {/if}
 
 <script lang="ts">
-  import { logError } from "../Util/error";
+  import { logErrorToServer } from "../Util/error";
   import ErrorIcon from "lucide-svelte/icons/triangle-alert";
 
   export let ex: Error = null;

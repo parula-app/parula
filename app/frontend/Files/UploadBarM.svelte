@@ -67,7 +67,7 @@
   import PersonsIcon from "lucide-svelte/icons/users";
   import PictureIcon from "lucide-svelte/icons/image-plus";
   import FileIcon from "lucide-svelte/icons/file-plus";
-  import { URLPart } from "../Util/util";
+  import { URLPart } from "../../logic/util/blob";
   import { t } from "../../l10n/l10n";
   import { createEventDispatcher } from 'svelte';
   const dispatchEvent = createEventDispatcher<{ uploadFile: void, uploadPicture: void }>();

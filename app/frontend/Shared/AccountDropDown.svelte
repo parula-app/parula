@@ -7,7 +7,7 @@
         {#if accountIcon && typeof(accountIcon) == "string" }
           <img src={accountIcon} width={iconSize} height={iconSize} alt="" class="logo" />
         {:else if icon}
-          <svelte:component this={icon} />
+          <svelte:component this={icon} size={iconSize} />
         {/if}
       </hbox>
     </Clickable>
@@ -92,9 +92,6 @@
 <style>
   .account-selector {
     align-items: center;
-  }
-  .icon:has(:global(svg)) {
-    margin-block-end: 4px;
   }
   select {
     border: none;

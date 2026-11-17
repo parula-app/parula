@@ -5,7 +5,7 @@
     <input type="email" bind:value={editableCustom}
       name="customFrom" spellcheck="false"
       on:change={() => catchErrors(onCustomEdited)}
-      size={editableCustom?.length}
+      size={editableCustom?.length || 10}
       />
     <hbox class="after-custom">{afterCustom}</hbox>
     <hbox class="account">

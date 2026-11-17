@@ -43,7 +43,7 @@
   import Button from "../../../Shared/Button.svelte";
   import SendIcon from "lucide-svelte/icons/send";
   import BackIcon from "lucide-svelte/icons/chevron-left";
-  import { getDateString, getDurationString, getTimeString } from "../../../Util/date";
+  import { getDateString, getDurationString, getTimeString } from "../../../../logic/util/date";
   import { t } from "../../../../l10n/l10n";
   import RoundButton from "../../../Shared/RoundButton.svelte";
 

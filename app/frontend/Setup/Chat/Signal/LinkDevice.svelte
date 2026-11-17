@@ -108,6 +108,7 @@
         appGlobal.chatAccounts.add(config);
       }
       await config.save();
+      await config.syncOnStartup(); // `linkDevice()` logged us in already
       showPage = null; // finish the wizard
     } catch (ex) {
       if (!closing) {

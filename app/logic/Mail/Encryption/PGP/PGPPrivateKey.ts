@@ -1,6 +1,5 @@
 import { PGPPublicKey, type OpenPGPModule } from "./PGPPublicKey";
 import type { PrivateKey } from "../PrivateKey";
-import { PGPReadProcessor } from "./PGPReadProcessor";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
 import { assert } from "../../../util/util";
@@ -121,5 +120,3 @@ export class PGPPrivateKey extends PGPPublicKey implements PrivateKey {
     this.didBackup = sanitize.boolean(json.didBackup, null);
   }
 }
-
-PGPReadProcessor.hookup();

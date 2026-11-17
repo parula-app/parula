@@ -21,7 +21,7 @@ import { checkMediaURL } from "./WhatsAppMedia";
 import { kWaHttpUserAgent } from "./clientInfo";
 import { randomBytes } from "../Signal/Crypto/primitives";
 import { appGlobal } from "../../app";
-import { blobToDataURL } from "../../util/util";
+import { blobToDataURL } from "../../util/blob";
 
 export class WhatsAppContact extends ChatPersonUID {
   /** The non-device JID this contact is keyed by. */

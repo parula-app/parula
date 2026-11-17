@@ -7,9 +7,10 @@ import type { ActiveSyncCalendar } from "./ActiveSyncCalendar";
 import { ActiveSyncOutgoingInvitation } from "./ActiveSyncOutgoingInvitation";
 import { ActiveSyncError } from "../../Mail/ActiveSync/ActiveSyncError";
 import { ContentDisposition } from "../../Abstract/Attachment";
-import { k1MinuteMS } from "../../../frontend/Util/date";
+import { k1MinuteMS } from "../../util/date";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { assert, base64ToUint8Array, ensureArray } from "../../util/util";
+import { assert, ensureArray } from "../../util/util";
+import { base64ToUint8Array } from "../../util/blob";
 import type { ArrayColl } from "svelte-collections";
 
 const kSyncStatusItemNotFound = "8";
@@ -281,7 +282,7 @@ export class ActiveSyncEvent extends ExchangeEvent {
       }));
     } else {
       let data = {
-        DeletesAsMoves: "1",
+        DeletesAsMoves: "0",
         GetChanges: "0",
         Commands: {
           Delete: {
@@ -336,9 +337,11 @@ export class ActiveSyncEvent extends ExchangeEvent {
     await super.makeExclusions(exclusions);
   }
 
-  async respondToInvitation(response: InvitationResponseInMessage): Promise<void> {
+  async respondToInvitation(response: InvitationResponseInMessage, sendReply = true): Promise<void> {
     assert(this.isIncomingMeeting, "Only invitations can be responded to");
-    let SendResponse = this.calendar.account.protocolVersion == "16.1" ? {} : [];
+    // `{}` sends an empty element, and the server sends the reply, `[]` sends nothing
+    // In < 16.1, we send the reply ourselves, see below
+    let SendResponse = sendReply && this.calendar.account.protocolVersion == "16.1" ? {} : [];
     let request = {
       // TODO support ActiveSync 14.0
       Request: this.serverID ? {
@@ -357,7 +360,7 @@ export class ActiveSyncEvent extends ExchangeEvent {
     await this.calendar.account.callEAS("MeetingResponse", request);
     // We asked ActiveSync 16.1 to send the response for us.
     if (this.calendar.account.protocolVersion != "16.1") {
-      await super.respondToInvitation(response, this.calendar.account);
+      await super.respondToInvitation(response, sendReply, this.calendar.account, false);
     }
     await this.calendar.listEvents(); // Sync whatever Exchange decides to do
   }

@@ -17,15 +17,16 @@
 
   let fileSelector: FileSelector;
   async function addFile() {
-    let fileBlob = await fileSelector.selectFile();
-    if (!fileBlob) {
+    let fileBlobs = await fileSelector.selectFiles();
+    if (!fileBlobs?.length) {
       console.log("no file selected");
       return;
     }
-    console.log("Selected attachment file", fileBlob);
-    let ourFile = dir.newFile(fileBlob.name);
-    ourFile.fromBrowserFile(fileBlob);
-    await dir.addFile(ourFile);
+    for (let fileBlob of fileBlobs) {
+      let ourFile = dir.newFile(fileBlob.name);
+      ourFile.fromBrowserFile(fileBlob);
+      await dir.addFile(ourFile);
+    }
   }
   async function newFolder() {
     let newFolder = dir.newDirectory($t`New Folder`);

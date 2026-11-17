@@ -12,7 +12,7 @@
 
 <script lang="ts">
   import type { LogEntry } from "../../../logic/Contacts/History/History";
-  import { getDateString, getTimeString } from "../../Util/date";
+  import { getDateString, getTimeString } from "../../../logic/util/date";
   import { getDateTimeLocale } from "../../../l10n/l10n";
 
   export let message: LogEntry;

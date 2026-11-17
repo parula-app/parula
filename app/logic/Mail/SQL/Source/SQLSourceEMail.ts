@@ -30,11 +30,16 @@ export class SQLSourceEMail implements MailContentStorage {
     assert(email.dbID, "Have no email ID");
     let row = await (await getDatabase()).get(sql`
       SELECT
-        mime
+        messageID, mime
       FROM emailMIME
       WHERE emailID = ${email.dbID}
       `) as any;
     if (!row) {
+      return;
+    }
+    /* The other database frees the row ID when the mail goes, and gives it to
+     * the next mail: This row can be a stranger's, from any account. */
+    if ((row.messageID || null) != (email.messageID || null)) {
       return;
     }
     email.mime = row.mime;

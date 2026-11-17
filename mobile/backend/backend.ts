@@ -1,6 +1,6 @@
 import JPCWebSocket from '../../lib/jpc-ws';
 import { production } from '../../app/logic/build';
-import { Database } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
+import { Database, type Query } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
 import Zip from "adm-zip";
 import { createType1Message, decodeType2Message, createType3Message } from "../../desktop/backend/ntlm"; // TODO move to lib/?
 import path from "node:path";
@@ -8,6 +8,8 @@ import os from "node:os";
 import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import crypto from "node:crypto";
+import net from "node:net";
+import tls from "node:tls";
 
 // TODO Remove backend OWA.* entirely and
 // use standard HTTP requests and Auth window.
@@ -70,9 +72,12 @@ async function createSharedAppObject() {
     createTSDAVClient,
     createType1Message,
     createType3MessageFromType2Message,
+    getCACertificates,
     newAdmZIP,
     newHTTPServer,
     newHTTPConnection,
+    newTCPSocket,
+    startTLS,
     readFile,
     writeFile,
     getIconForLocalFile,
@@ -87,6 +92,14 @@ async function createSharedAppObject() {
       join: path.join,
     },
   };
+}
+
+function getCACertificates(type: string) {
+  if (tls.getCACertificates) {
+    return tls.getCACertificates(type);
+  }
+  // Fallback for old node.js
+  return type == "bundled" ? tls.rootCertificates : [];
 }
 
 function createType3MessageFromType2Message(WWWAuthenticate, username, password) {
@@ -143,7 +156,9 @@ async function kyCreate(defaultOptions) {
           // let json = await resultKy.json();
           return await kyFetch[resultType]();
         } catch (ex) {
-          throw new HTTPFetchError(ex);
+          let error = new HTTPFetchError(ex);
+          error.responseBody = await ex.response?.text().catch(() => undefined);
+          throw error;
         }
       } else {
         return kyFetch;
@@ -161,6 +176,10 @@ export class HTTPFetchError extends Error {
   httpStatusText: string;
   httpMethod: string;
   hostname: string;
+  /** `Retry-After`, in seconds, when the server rate-limited us */
+  retryAfterSeconds: number;
+  /** The body of the server's error response, e.g. its error message as JSON */
+  responseBody: string;
 
   constructor(ex: Error) {
     super(ex?.message ?? ex + "");
@@ -175,6 +194,7 @@ export class HTTPFetchError extends Error {
       this.httpStatusText = response.statusText;
       this.httpMethod = request.method;
       this.hostname = new URL(this.url).hostname;
+      this.retryAfterSeconds = parseInt(response.headers.get("Retry-After")) || undefined;
       this.message = `HTTP ${this.httpMethod} <${this.url}>${this.redirectedURL ? ` redirected to <${this.redirectedURL}>` : ''} failed with ${this.httpCode} ${this.httpStatusText}`;
     } else if (cause) {
       this.code = cause.code;
@@ -263,6 +283,23 @@ async function newHTTPConnection(url: string, options?: any) {
   return new HTTPConnection(url, options);
 }
 
+/** A new raw TCP socket, from the node net module.
+ * You can attach `connect`/`error`/`data` listeners and `connect()` */
+function newTCPSocket(): net.Socket {
+  return new net.Socket();
+}
+
+/** Wraps a connected `newTCPSocket()` in TLS, for implicit TLS and STARTTLS.
+ * Resolves once the handshake succeeded, so that you can attach listeners.
+ * @param tlsOptions node `tls.ConnectionOptions`, e.g. `rejectUnauthorized: false`
+ *   accepts self-signed and expired certificates, `minVersion: "TLSv1"` old servers. */
+function startTLS(socket: net.Socket, hostname: string, tlsOptions?: tls.ConnectionOptions): Promise<tls.TLSSocket> {
+  return new Promise((resolve, reject) => {
+    let tlsSocket = tls.connect({ socket, servername: hostname, ...tlsOptions }, () => resolve(tlsSocket));
+    tlsSocket.on("error", reject);
+  });
+}
+
 function setTrayIcon(imgDataURL: string, tooltip: string, onClick: () => void) {
   // Mobile OSes have no system tray
 }
@@ -303,10 +340,19 @@ async function createIMAPFlowConnection(...args): ImapFlow {
 }
 
 function getSQLiteDatabase(filename: string, options: any, buffer?: Uint8Array): Database {
-  if (buffer) {
-    return new Database(Buffer.from(buffer), options);
-  }
-  return new Database(filename, options);
+  let safeOptions = { readonly: !!options?.readonly }; // `nativeBinding` in it would `require()` any file as native code
+  let db = new Database(buffer ? Buffer.from(buffer) : filename, safeOptions);
+  // Lets the frontend run several statements with one call over JPC,
+  // each with its values as bound parameters.
+  // Not as a subclass of `Database`: JPC would then miss the functions of `Database`,
+  // because its parent class has the same name.
+  return Object.assign(db, {
+    runMultiple(queries: Query[]) {
+      for (let query of queries) {
+        db.run(query);
+      }
+    },
+  });
 }
 
 async function sendMailNodemailer(transport, mail) {
@@ -370,7 +416,7 @@ function maximizeMainWindow() {
   throw new Error("Not supported");
 }
 
-function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => void) {
+function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => Promise<void> | void, errorCallback: (ex: Error) => Promise<void> | void) {
   throw new Error("Not supported");
 }
 

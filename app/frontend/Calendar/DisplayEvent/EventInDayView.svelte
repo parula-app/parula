@@ -16,9 +16,8 @@
   <DayViewGrid
     events={appGlobal.calendarEvents}
     overlayEvents={isInCalendar ? null : new ArrayColl([event])}
-    start={calendarStart}
-    showHours={4}
-    showDays={1}
+    range={new CalendarRange("day", calendarStart)}
+    {showHours}
     defaultFocusHour={calendarStart.getHours() + calendarStart.getMinutes() / 60 - 1}
     >
     <hbox class="proposal" slot="event-overlay" let:start let:end let:event>
@@ -35,14 +34,16 @@
   import { openEvent } from "../open";
   import { appGlobal } from "../../../logic/app";
   import DayViewGrid from "../DayView/DayViewGrid.svelte";
+  import { CalendarRange } from "../CalendarRange";
   import EventProposal from "../SML/Shared/EventProposal.svelte";
   import RoundButton from "../../Shared/RoundButton.svelte";
   import CalendarIcon from "lucide-svelte/icons/calendar";
-  import { getFormattedDateString } from "../../Util/date";
+  import { getFormattedDateString } from "../../../logic/util/date";
   import { t } from "../../../l10n/l10n";
   import { ArrayColl } from "svelte-collections";
 
   export let event: Event;
+  export let showHours = 4;
 
   $: calendarStart = new Date($event?.startTime?.getTime());
 

@@ -2,6 +2,7 @@
   style="--color: {$tag.color}"
   on:click
   class:selected={selected == true}
+  class:partial={selected === null}
   class:unselected={selected == false}
   >
   {$tag.name}
@@ -15,7 +16,9 @@
   import type { Tag } from "../../../logic/Abstract/Tag";
 
   export let tag: Tag;
-  export let selected: boolean | undefined = undefined;
+  /** true = all objects have this tag, null = only some of them,
+   * false = none of them, undefined = tags are not being set here */
+  export let selected: boolean | null | undefined = undefined;
 </script>
 
 <style>
@@ -38,6 +41,10 @@
   }
   .tag.selected {
     border: 1px solid var(--button-border);
+  }
+  .tag.partial {
+    border: 1px dashed var(--button-border);
+    opacity: 75%;
   }
   .buttons-right :global(button) {
     align-self: center;

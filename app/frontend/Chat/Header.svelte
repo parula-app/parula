@@ -1,4 +1,4 @@
-<hbox class="persons-toolbar">
+<hbox class="persons-toolbar window-drag">
   <AccountSelectorRound bind:selectedAccount {accounts} iconDefault={ChatIcon} />
   <hbox flex />
   <hbox class="buttons">
@@ -8,7 +8,7 @@
         icon={LoginIcon}
         classes="small"
         iconSize="12px"
-        onClick={() => $selectedAccount.login(true)}
+        onClick={() => $selectedAccount.loginAndStartup(true)}
         />
     {/if}
     <ButtonMenu bind:isMenuOpen={isButtonMenuOpen}>

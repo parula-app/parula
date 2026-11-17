@@ -41,6 +41,9 @@
 </script>
 
 <style>
+  .tree-line-item {
+    background-color: inherit; /* so that line buttons can cover the label */
+  }
   hbox :global(button.expand) {
     color: #555555;
   }

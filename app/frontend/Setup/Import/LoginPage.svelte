@@ -3,7 +3,7 @@
 
   {#if account?.oAuth2}
     <OAuth2Login {account}
-      onContinue={onContinue}
+      onContinue={() => catchErrors(loginOAuth2, showError)}
       onCancel={onSkip}
       onError={showError} />
   {:else}
@@ -54,7 +54,7 @@
   import ButtonsBottom from "../Shared/ButtonsBottom.svelte";
   import Button from "../../Shared/Button.svelte";
   import { Cancelled } from "../../../logic/util/flow/Abortable";
-  import { catchErrors, logError } from "../../Util/error";
+  import { catchErrors, logErrorToServer } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
 
   export let account: MailAccount;
@@ -111,7 +111,7 @@
       return;
     }
     console.error(ex);
-    logError(ex);
+    logErrorToServer(ex);
     errorMessage = ex.message;
   }
 </script>

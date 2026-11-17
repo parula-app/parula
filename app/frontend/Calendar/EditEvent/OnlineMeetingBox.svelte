@@ -86,6 +86,7 @@
     event.isOnline = false;
     // TODO Remove meeting from server
     event.onlineMeetingURL = null;
+    event.createOnlineMeetingWithAccount = null;
   }
 </script>
 

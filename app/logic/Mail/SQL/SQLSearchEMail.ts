@@ -4,7 +4,7 @@ import { getDatabase } from "./SQLDatabase";
 import type { EMail } from "../EMail";
 import { Folder, SpecialFolder } from "../Folder";
 import { appGlobal } from "../../app";
-import { backgroundError } from "../../../frontend/Util/error";
+import { dataError } from "../../util/error";
 import { assert } from "../../util/util";
 import { ArrayColl, MapColl } from "svelte-collections";
 import sql, { type Query } from "../../../../lib/rs-sqlite";
@@ -13,7 +13,7 @@ import { gt } from "../../../l10n/l10n";
 export class SQLSearchEMail extends SearchEMail {
   /** Start a database search based on the critera set on this object */
   async startSearch(limit?: number): Promise<ArrayColl<EMail>> {
-    let parseError = backgroundError;
+    let parseError = dataError;
     if (this.folder && this.account) {
       assert(this.account == this.folder.account, "Folder and account need to match");
     }
@@ -22,17 +22,24 @@ export class SQLSearchEMail extends SearchEMail {
     }
     // TODO 1:n relations attachments and recipients
 
+    // The workspace shows only some of the accounts, so it finds only their emails
+    let accountIDs = this.account?.dbID
+      ? [this.account.dbID]
+      : this.workspace && !this.folder
+        ? appGlobal.emailAccounts.filterOnce(acc => acc.workspace == this.workspace).contents.map(acc => acc.dbID)
+        : null;
+
     // Search matching emails directly in the SQL database
     let query = sql`
       SELECT
         email.id as id, folderID
       FROM email
-      $${this.account?.dbID ? sql` LEFT JOIN folder ON (email.folderID = folder.id) ` : sql``}
+      $${accountIDs ? sql` LEFT JOIN folder ON (email.folderID = folder.id) ` : sql``}
       $${this.includesPerson ? sql` LEFT JOIN emailPersonRel ON (email.id = emailPersonRel.emailID) LEFT JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id) ` : sql``}
       $${this.hasAttachment === true || this.hasAttachment === false ? sql` LEFT JOIN emailAttachment ON (email.id = emailAttachment.emailID) ` : sql``}
       $${this.tags?.hasItems ? sql` LEFT JOIN emailTag ON (email.id = emailTag.emailID) ` : sql``}
       WHERE 1=1
-        $${this.account?.dbID ? sql` AND accountID = ${this.account.dbID} ` : sql``}
+        $${accountIDs ? sql` AND accountID IN ${accountIDs} ` : sql``}
         $${this.folder?.dbID ? sql` AND folderID = ${this.folder.dbID} ` : sql``}
         $${typeof (this.isOutgoing) == "boolean" ? sql` AND outgoing = ${this.isOutgoing ? 1 : 0} ` : sql``}
         $${typeof (this.isRead) == "boolean" ? sql` AND isRead = ${this.isRead ? 1 : 0} ` : sql``}
@@ -55,6 +62,10 @@ export class SQLSearchEMail extends SearchEMail {
       `;
     //console.log("query string", queryString(query));
     let rows = await (await getDatabase()).all(query) as any;
+    let emails = new ArrayColl<EMail>();
+    if (!rows.length) {
+      return emails;
+    }
 
     // Find existing email obj in `folder.messages`,
     // or create new temporary `EMail` objects for the results
@@ -83,7 +94,6 @@ export class SQLSearchEMail extends SearchEMail {
       this.account?.inbox ??
       appGlobal.emailAccounts.first?.inbox;
     assert(randomFolder, gt`Please set up a mail account first`);
-    let emails = new ArrayColl<EMail>();
     for (let row of rows) {
       let folder = findFolder(row.folderID);
       let existing = folder?.messages.find(msg => msg.dbID == row.id);

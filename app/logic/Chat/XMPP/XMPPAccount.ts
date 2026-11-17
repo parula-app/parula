@@ -11,9 +11,9 @@ import { Group } from '../../Abstract/Group';
 import { ChatPersonUID, nameFromChatID } from '../ChatPersonUID';
 import { ConnectError, LoginError } from '../../Abstract/Account';
 import { kImageMimeTypes } from '../../Files/FileType/MIMETypes';
-import { appGlobal } from '../../app';
 import { sanitize } from '../../../../lib/util/sanitizeDatatypes';
-import { assert, blobToDataURL } from '../../util/util';
+import { assert } from '../../util/util';
+import { blobToDataURL } from '../../util/blob';
 import { gt } from '../../../l10n/l10n';
 import { NS_OMEMO_AXOLOTL_DEVICELIST } from 'stanza/Namespaces';
 import { Buffer } from 'stanza/platform';
@@ -48,20 +48,22 @@ export class XMPPAccount extends ChatAccount {
   }
 
   /** Login to this account on the server. Opens network connection.
-   * You must call this after creating the object and having set its properties.
-   * This will populate `roster` and `rooms`. */
+   * You must call this after creating the object and having set its properties. */
   async login(interactive: boolean): Promise<void> {
     if (this.isLoggedIn) {
       return;
     }
     await super.login(interactive);
-    await Promise.all(appGlobal.addressbooks.contents.map(ab => ab.readContactsFromDB())); // ChatRooms need Persons
-    await this.listRooms(); // saves account, loads known chats from DB
+    await this.readFromDB();
     await this.connect();
+  }
+
+  /** This will populate `roster` and `rooms`. */
+  async syncOnStartup(): Promise<void> {
     await this.getRoster();
     await this.createChatsFromRoster();
     await this.getGroupChats();
-    this.client.sendPresence();
+    this.client.sendPresence(); // the server sends us messages only once we are available
     this.client.enableKeepAlive();
     this.client.enableCarbons()
       .catch(ex => console.log("XMPP carbons not enabled", ex?.error?.condition ?? ex));

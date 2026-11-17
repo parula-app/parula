@@ -35,7 +35,7 @@
   import { Route, useLocation } from "svelte-navigator";
 
   $: location = useLocation();
-  $: params = getParams($location.state);
+  $: params = getParams($location?.state);
 
   function findChatForPerson(person: Person): ChatRoom | null {
     if (!person) {

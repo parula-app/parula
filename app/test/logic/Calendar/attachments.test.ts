@@ -15,9 +15,13 @@ import { convertICalToEvent } from "../../../logic/Calendar/ICal/ICalToEvent";
 import { ICalEMailProcessor } from "../../../logic/Calendar/ICal/ICalEMailProcessor";
 import { CalDAVCalendar } from "../../../logic/Calendar/CalDAV/CalDAVCalendar";
 import { AuthMethod } from "../../../logic/Abstract/Account";
+import { IMAPAccount } from "../../../logic/Mail/IMAP/IMAPAccount";
+import { MailIdentity } from "../../../logic/Mail/MailIdentity";
+import { SpecialFolder } from "../../../logic/Mail/Folder";
 import { Attachment, ContentDisposition } from "../../../logic/Abstract/Attachment";
 import type { EMail } from "../../../logic/Mail/EMail";
 import { InProcessSQLiteDatabase } from "../util/inProcessSQLite";
+import { InMemoryFileReader } from "../util/fileReader";
 import { mkdtempSync } from "node:fs";
 import fsPromises from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -31,16 +35,7 @@ let tempDir: string;
 const kContent = new Uint8Array([1, 2, 3, 4]);
 
 beforeAll(async () => {
-  // node has no `FileReader`, which `blobToBase64()` uses for the iCal attachments
-  globalThis.FileReader ??= class {
-    result: string;
-    onloadend: () => void;
-    async readAsDataURL(blob: Blob) {
-      let base64 = Buffer.from(await blob.arrayBuffer()).toString("base64");
-      this.result = `data:${blob.type};base64,${base64}`;
-      this.onloadend();
-    }
-  } as any;
+  globalThis.FileReader ??= InMemoryFileReader as any; // for the iCal attachments
 
   tempDir = mkdtempSync(path.join(tmpdir(), "calendar-test-"));
   appGlobal.remoteApp = {
@@ -58,6 +53,9 @@ beforeAll(async () => {
     fs: fsPromises,
     createWebDAVClient: () => nextcloudFilesClient,
     kyCreate: () => nextcloudWeb,
+    createIMAPFlowConnection: () => {
+      throw new Error("The test should not talk to a server");
+    },
   } as any;
 
   calendar = new Calendar();
@@ -159,7 +157,12 @@ async function newInvitationEMail(): Promise<EMail> {
   organizerEvent.attachments.clear();
   let ics = await getICal(organizerEvent, "REQUEST");
 
-  let email = { attachments: new ArrayColl<Attachment>(), hasHTML: false } as any as EMail;
+  let email = {
+    attachments: new ArrayColl<Attachment>(),
+    hasHTML: false,
+    // Without calendars, so that nothing updates a calendar event
+    folder: { account: { calendarsAvailable: new ArrayColl() } },
+  } as any as EMail;
   let invitation = new Attachment();
   invitation.filename = "invite.ics";
   invitation.mimeType = "text/calendar";
@@ -296,16 +299,6 @@ test("An attachment URL that is relative to the server is read as absolute", () 
   expect(noBase.attachments.isEmpty).toBe(true);
 });
 
-test("An email invitation carries the files themselves, not their URL", async () => {
-  let event = newTestEvent("Kickoff");
-  event.calUID = "kickoff2@example.com";
-  event.attachments.first.url = `${kFilesURL}Calendar/agenda.pdf`;
-  let ics = await getICal(event, "REQUEST");
-  // The invitees have no access to our file storage
-  expect(ics).toContain("ATTACH;VALUE=BINARY;ENCODING=BASE64;FMTTYPE=application/pdf");
-  expect(ics).not.toContain(kFilesURL);
-});
-
 test("The URL of an attachment is saved in the DB", async () => {
   let event = newTestEvent("Roadmap");
   event.attachments.first.url = `${kFilesURL}Calendar/agenda.pdf`;
@@ -374,4 +367,47 @@ test("Migration adds the attachment URL to a pre-existing database", async () =>
 
   // Running it again on an up-to-date database is a no-op
   await addEventAttachmentURL(database);
+});
+
+/** The mail account of the organizer, with the sent emails captured */
+function setupOrganizerAccount(): EMail[] {
+  let account = new IMAPAccount();
+  account.emailAddress = "alice@example.com";
+  account.realname = "Alice";
+  account.contentStorage.clear();
+  let identity = new MailIdentity(account);
+  identity.emailAddress = account.emailAddress;
+  identity.realname = account.realname;
+  account.identities.add(identity);
+  let sentFolder = account.newFolder();
+  sentFolder.specialFolder = SpecialFolder.Sent;
+  account.rootFolders.add(sentFolder);
+  let sent: EMail[] = [];
+  account.send = async (email: EMail) => {
+    sent.push(email);
+  };
+  appGlobal.emailAccounts.add(account);
+  return sent;
+}
+
+test("The invitation email carries the files, and the iCal in it does not", async () => {
+  let sent = setupOrganizerAccount();
+  let event = newTestEvent("Kickoff");
+  event.startTime = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // we don't invite to past meetings
+  event.endTime = new Date(event.startTime.getTime() + 60 * 60 * 1000);
+  await event.saveLocally();
+
+  event.startEditing();
+  event.participants.add(new Participant("bob@example.com", "Bob", InvitationResponse.NoResponseReceived));
+  await event.save();
+
+  expect(sent.length).toBe(1);
+  let email = sent[0];
+  expect(email.iCalMethod).toBe("REQUEST");
+  expect(email.attachments.contents.map(a => a.filename)).toEqual(["agenda.pdf"]);
+  let attachment = email.attachments.first;
+  expect(attachment.mimeType).toBe("application/pdf");
+  expect(new Uint8Array(await attachment.content.arrayBuffer())).toEqual(kContent);
+  // The file must not be in the iCal as well, @see OutgoingInvitation.addAttachments()
+  expect(await getICal(email.event, email.iCalMethod)).not.toContain("ATTACH");
 });

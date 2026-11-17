@@ -45,10 +45,11 @@
 </vbox>
 
 <script lang="ts">
-  import { newSearchEMail } from "../../../logic/Mail/Store/setStorage";
+  import { newServerSearchEMail } from "../../../logic/Mail/Store/setStorage";
   import { globalSearchTerm } from "../../AppsBar/selectedApp";
   import type { EMail } from "../../../logic/Mail/EMail";
   import { selectedMessage } from "../Selected";
+  import { selectedWorkspace } from "../../MainWindow/Selected";
   import SearchCriteria from "./SearchCriteria.svelte";
   import SavedSearchUI from "./SavedSearchUI.svelte";
   import RulesFromSearchUI from "./RulesFromSearchUI.svelte";
@@ -70,15 +71,22 @@
 
   let isOpen = true;
   const kLimit = 200;
-  let search = newSearchEMail();
+  let search = newServerSearchEMail();
   let tags = search.tags;
   let attachmentTypes = search.hasAttachmentMIMETypes;
 
   $: search.bodyText = $globalSearchTerm;
+  $: search.workspace = $selectedWorkspace;
   $: isOpen && $globalSearchTerm, $search, $tags, $attachmentTypes, startSearchDebounced();
   const startSearchDebounced = debounce(() => startSearch(), 300);
+  let lastCriteria: string;
   async function startSearch() {
     try {
+      let criteria = JSON.stringify(search.toJSON());
+      if (criteria == lastCriteria) {
+        return; // backstop to break loops
+      }
+      lastCriteria = criteria;
       $selectedMessage = null;
       if (search.bodyText == null) { // <==> $globalSearchTerm == null
         searchMessages = null;

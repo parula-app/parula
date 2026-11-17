@@ -1,7 +1,7 @@
 import { kCalendars } from './logins';
 import { newCalendarForProtocol } from '../../../logic/Calendar/AccountsList/Calendars';
 import { AuthMethod } from '../../../logic/Abstract/Account';
-import { connectToBackend, stopBackend } from '../util/backend.test';
+import { connectToBackend, stopBackend } from '../util/backend';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 
 beforeAll(connectToBackend);

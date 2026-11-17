@@ -33,7 +33,7 @@
   import VideoIcon from 'lucide-svelte/icons/video';
   import PinIcon from 'lucide-svelte/icons/map-pin';
   import { showError } from "../../Util/error";
-  import { getDateTimeString } from "../../Util/date";
+  import { getDateTimeString } from "../../../logic/util/date";
   import type { Collection } from "svelte-collections";
 
   export let meetings: Collection<CalendarEvent>;

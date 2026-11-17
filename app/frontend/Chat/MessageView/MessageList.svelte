@@ -19,7 +19,7 @@
 
   export let messages: Collection<Message>;
 
-  $: sortedMessages = messages.sortBy(msg => msg.sent);
+  $: sortedMessages = messages.sortBy(msg => msg.sent.getTime());
 
   let scroller: Scroll;
   $: $messages && scroller && catchErrors(scrollDown);

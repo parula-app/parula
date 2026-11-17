@@ -78,6 +78,9 @@
   }
   async function onNameChange() {
     assert(folderName, $t`Name cannot be empty`);
+    if (folderName == folder.name) {
+      return;
+    }
     await folder.rename(folderName);
     await save();
   }

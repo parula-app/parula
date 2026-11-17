@@ -44,7 +44,7 @@
   import SendIcon from "lucide-svelte/icons/send";
   import CheckIcon from "lucide-svelte/icons/check-check";
   import { assert } from "../../../../logic/util/util";
-  import { getDateString, getDurationString, getTimeString } from "../../../Util/date";
+  import { getDateString, getDurationString, getTimeString } from "../../../../logic/util/date";
   import { t } from "../../../../l10n/l10n";
 
   export let bookMe: TSMLBookMe;

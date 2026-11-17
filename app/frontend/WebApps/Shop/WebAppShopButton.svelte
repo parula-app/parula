@@ -26,17 +26,10 @@
           {#each $instances.each as iapp, i}
             <hbox class="instance">
               {#if iapp.account}
-                <RoundButton
-                  label={iapp.account.name}
-                  icon={iapp.account.icon}
-                  classes="account plain" border={false}
-                  />
                 <hbox class="account-name" flex>
                   {iapp.account.name}
                 </hbox>
               {:else}
-                <RoundButton label="" icon={CircleIcon} disabled border={false}
-                  classes="no-account plain" />
                 <hbox class="account-name" flex>
                   {iapp.nameTranslated?.split(" ").pop() + " " + i}
                 </hbox>
@@ -59,7 +52,7 @@
 </vbox>
 
 <script lang="ts">
-  import type { WebAppListed } from "../../../logic/WebApps/WebAppListed";
+  import { WebAppLoginType, type WebAppListed } from "../../../logic/WebApps/WebAppListed";
   import { selectedWebApp, showingWebApp, webAppsRunning } from "../Runner/WebAppsRunning";
   import { Account } from "../../../logic/Abstract/Account";
   import { appGlobal } from "../../../logic/app";
@@ -85,6 +78,10 @@
   $: instances = myApps.filterObservable(a => a.id == app.id);
 
   function onAdd() {
+    if (app.loginType == WebAppLoginType.None) {
+      myApps.add(app.instantiate());
+      return;
+    }
     adding = true;
   }
   function onAddDone() {

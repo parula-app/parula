@@ -31,7 +31,8 @@
   import type { VideoConfMeeting } from "../../../logic/Meet/VideoConfMeeting";
   import { MeetingParticipant } from "../../../logic/Meet/Participant";
   import { invitePerson } from "../../../logic/Meet/Invite";
-  import { Notification, showNotificationError, showNotificationToast } from "../../MainWindow/Notification";
+  import type { Notification } from "../../../logic/util/Notification";
+  import { showNotificationError, showNotificationToast } from "../../MainWindow/Notification";
   import PersonAutocomplete from "../../Contacts/PersonAutocomplete/PersonAutocomplete.svelte";
   import NotificationBar from "../../MainWindow/NotificationBar.svelte";
   import RoundButton from "../../Shared/RoundButton.svelte";
@@ -83,7 +84,7 @@
 
   $: $participants, removeJoinedParticipant()
   function removeJoinedParticipant() {
-    for (let invited of meeting.invited) {
+    for (let invited of meeting.invited.contents) { // copy: remove alters invited
       if (participants.find(p => p.name == invited.name)) {
         meeting.invited.remove(invited);
       }

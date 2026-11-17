@@ -1,5 +1,4 @@
 import { OAuth2UI } from "./OAuth2UI";
-import type { LoginDialogMustangApp } from "../../../frontend/Mail/MailMustangApp";
 import { UserCancelled, assert, type URLString } from "../../util/util";
 import { ArrayColl } from "svelte-collections";
 import { gt } from "../../../l10n/l10n";
@@ -12,7 +11,7 @@ export class OAuth2Tab extends OAuth2UI {
   startURL: URLString;
   protected doneFunc: (authCode: string) => void;
   protected failFunc: (ex: Error) => void;
-  mustangApp: LoginDialogMustangApp;
+  mustangApp: any; // LoginDialogMustangApp
 
   /**
    * Does an interactive login

@@ -13,14 +13,14 @@ export interface TJMAPCalendar {
   defaultAlertsWithTime?: any;
   defaultAlertsWithoutTime?: any;
   timeZone?: TTimeZoneID;
-  shareWith?: Record<string, TJMAPAddressbookRights>;
-  readonly myRights: TJMAPAddressbookRights;
+  shareWith?: Record<string, TJMAPCalendarRights>;
+  readonly myRights: TJMAPCalendarRights;
   onDestroyRemoveContents: boolean;
   onSuccessSetIsDefault?: string;
 }
 
 /** <https://www.ietf.org/archive/id/draft-ietf-jmap-calendars-26.html#name-calendars> */
-export interface TJMAPAddressbookRights {
+export interface TJMAPCalendarRights {
   mayReadFreeBusy: boolean;
   mayReadItems: boolean;
   mayWriteAll: boolean;

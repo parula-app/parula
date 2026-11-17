@@ -66,6 +66,7 @@ export class IMAPEMail extends EMail {
     // <https://imapflow.com/global.html#FetchMessageObject>
     this.uid = sanitize.integer(msgInfo.uid, null);
     this.seq = sanitize.integer(msgInfo.seq, null);
+    this.size = sanitize.integer(msgInfo.size, null);
     if (this.downloadComplete) {
       return;
     }

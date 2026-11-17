@@ -27,7 +27,7 @@
   import { Route, useLocation } from "svelte-navigator";
 
   $: location = useLocation();
-  $: params = getParams($location.state);
+  $: params = getParams($location?.state);
   // Set only when params.event changes, not when $selectedEvent changes
   $: params, setEvent()
   let lastEvent = null;

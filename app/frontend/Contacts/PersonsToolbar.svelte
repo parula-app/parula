@@ -1,4 +1,4 @@
-<hbox class="persons-toolbar">
+<hbox class="persons-toolbar window-drag">
   <vbox class="dropdown">
     <AccountDropDown
       bind:selectedAccount={selectedAddressbook}
@@ -6,6 +6,7 @@
       showAllOption={true}
       filterByWorkspace={true}
       icon={AddressbookIcon}
+      iconSize="20px"
       />
   </vbox>
   <hbox flex />
@@ -89,10 +90,6 @@
   }
   .dropdown :global(.icon) {
     margin-inline-end: 4px;
-  }
-  .dropdown :global(.icon svg) {
-    width: 20px;
-    height: 20px;
   }
   .buttons {
     align-items: end;

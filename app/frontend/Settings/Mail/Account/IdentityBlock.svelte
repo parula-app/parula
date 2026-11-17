@@ -103,10 +103,12 @@
   import RemoveIcon from "lucide-svelte/icons/circle-x";
   import type { Editor } from "@tiptap/core";
   import { appName, siteRoot } from "../../../../logic/build";
+  import { isLicensed } from "../../../../logic/util/LicenseClient";
+  import { catchErrors } from "../../../Util/error";
   import { checkInputField } from "../../../Util/util";
   import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
   import { t } from "../../../../l10n/l10n";
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   const dispatchEvent = createEventDispatcher();
 
   export let identity: MailIdentity;
@@ -138,6 +140,10 @@
       identity.signatureHTML = null;
     }
   }
+
+  onMount(() => catchErrors(async () => {
+    showSentBy = !await isLicensed();
+  }));
 </script>
 
 <style>

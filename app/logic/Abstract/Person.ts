@@ -3,7 +3,11 @@ import type { Addressbook } from '../Contacts/Addressbook';
 import { StreetAddress } from '../Contacts/StreetAddress';
 import type { PublicKey } from '../Mail/Encryption/PublicKey';
 import { publicKeyFromJSON } from '../Mail/Encryption/KeyFromJSON';
-import { notifyChangedProperty, Observable } from '../util/Observable';
+import { getPublicKeyForPerson } from '../Mail/Encryption/KeyUtils';
+import { SMIMEPublicKey } from '../Mail/Encryption/SMIME/SMIMEPublicKey';
+import { appGlobal } from '../app';
+import { notifyChangedObservable, notifyChangedProperty, Observable } from '../util/Observable';
+import { ObservableMapToCollection } from '../util/collections';
 import { ArrayColl } from 'svelte-collections';
 import { sanitize } from '../../../lib/util/sanitizeDatatypes';
 import { gt } from '../../l10n/l10n';
@@ -16,6 +20,10 @@ export class Person extends ContactBase {
   lastName: string | null;
   readonly groups = new ArrayColl<ContactEntry>();
   readonly emailAddresses = new ArrayColl<ContactEntry>();
+  /** Each email address in lowercase, with this person. Follows the changes.
+   * For `Addressbook.personsByEMailAddress` */
+  readonly emailAddressesLowercase = new ObservableMapToCollection(this.emailAddresses,
+    entry => ({ emailAddress: entry.value?.toLowerCase(), person: this as Person }));
   readonly chatAccounts = new ArrayColl<ContactEntry>();
   readonly phoneNumbers = new ArrayColl<ContactEntry>();
   /** `StreetAddress` */
@@ -25,6 +33,7 @@ export class Person extends ContactBase {
   /** Custom user-defined fields */
   readonly custom = new ArrayColl<ContactEntry>();
   /** PGP public keys and S/MIME certiticates for this contact */
+  @notifyChangedObservable
   readonly encryptionPublicKeys = new ArrayColl<PublicKey>();
   @notifyChangedProperty
   notes: string | null = "";
@@ -56,9 +65,14 @@ export class Person extends ContactBase {
       this.custom,
     ]);
     await super.save();
-    await this.saveToServer();
-    // Why locally after server: Exchange assigns item ID etc., so need to store it locally
-    await this.saveLocally();
+    try {
+      await this.saveToServer();
+    } finally {
+      // Why locally after server: Exchange assigns item ID etc., so need to store it locally.
+      // Even a failed save may have created the contact, and losing its ID
+      // would create a second one on the next save.
+      await this.saveLocally();
+    }
   }
 
   /**
@@ -104,6 +118,23 @@ export class Person extends ContactBase {
 
   async deleteFromServer(): Promise<void> {
     // nothing to do for local persons
+  }
+
+  /** Fetches the S/MIME certificate that the company directories have for
+   * this person, unless we already have one.
+   * Reports errors, does not throw. */
+  async fetchEncryptionKeys(): Promise<void> {
+    if (getPublicKeyForPerson(this, SMIMEPublicKey)) {
+      return;
+    }
+    let emailAddresses = new ArrayColl(this.emailAddresses.contents.map(entry => entry.value));
+    let found = await Promise.all(appGlobal.searchOnlyAddressbooks.contents.map(ab =>
+      ab.fetchEncryptionKeys(emailAddresses)));
+    for (let keys of found) {
+      for (let key of keys) {
+        this.addEncryptionPublicKey(key);
+      }
+    }
   }
 
   /** Adds a PGP key or S/MIME certificate for this contact,
@@ -176,7 +207,9 @@ export class Person extends ContactBase {
       return this;
     }
     let newPerson = newAddressbook.newPerson();
-    if (Object.getPrototypeOf(this) == Object.getPrototypeOf(newPerson)) {
+    // Server contacts have server IDs of the old account, so they need to be re-created.
+    if (Object.getPrototypeOf(this) == Object.getPrototypeOf(newPerson) &&
+        newAddressbook.protocol == "addressbook-local") {
       this.addressbook?.persons.remove(this);
       this.addressbook = newAddressbook;
       newAddressbook.persons.add(this);

@@ -2,18 +2,19 @@ import sql, { type Database } from "../../../../lib/rs-sqlite/index";
 import { filesDatabaseSchema } from "./createDatabase";
 import { addLastModOnServer } from "./SQLFileMigrate";
 import { getSQLiteDatabase } from "../../util/backend-wrapper";
+import { RunOnce } from "../../util/flow/RunOnce";
 
 let filesDatabase: Database;
+let openRunOnce = new RunOnce<Database>();
 
 export async function getDatabase(): Promise<Database> {
-  if (filesDatabase) {
-    return filesDatabase;
-  }
-  filesDatabase = await getSQLiteDatabase("files.db");
-  await filesDatabase.migrate(filesDatabaseSchema, addLastModOnServer);
-  await filesDatabase.pragma('foreign_keys = true');
-  await filesDatabase.pragma('journal_mode = WAL');
-  return filesDatabase;
+  return filesDatabase ?? await openRunOnce.runOnce(async () => {
+    let db = await getSQLiteDatabase("files.db");
+    await db.migrate(filesDatabaseSchema, addLastModOnServer);
+    await db.pragma('foreign_keys = true');
+    await db.pragma('journal_mode = WAL');
+    return filesDatabase = db;
+  });
 }
 
 export async function makeTestDatabase(): Promise<Database> {

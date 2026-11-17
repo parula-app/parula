@@ -44,7 +44,7 @@
         {/if}
         <slot name="inner-top" />
           <div class="text value font-normal">
-            {@html $message.html || ""}
+            {@html sanitizeHTMLWithoutStyleTag($message.html || "")}
             <!-- TODO Security: Jail HTML into untrusted <iframe> for additional protection.
             <WebView title={$t`Text`} html={$message.html || ""} {headHTML} autoSize />
             -->
@@ -84,7 +84,8 @@
   import PersonPicture from "../../Contacts/Person/PersonPicture.svelte";
   import WebView from "../../Shared/WebView.svelte";
   import Attachments from "./Attachments.svelte";
-  import { getDateTimeString } from "../../Util/date";
+  import { sanitizeHTMLWithoutStyleTag } from "../../../logic/util/convertHTML";
+  import { getDateTimeString } from "../../../logic/util/date";
 
   export let message: Message;
   export let previousMessage: Message = null;
@@ -209,6 +210,7 @@
   }
   .text {
     overflow-wrap: anywhere;
+    contain: paint; /* Prevent CSS on remote content from rendering outside the area */
   }
   .text > :global(p) {
     margin: 0;

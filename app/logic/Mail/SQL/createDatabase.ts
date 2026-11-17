@@ -1,5 +1,11 @@
 import sql from "../../../../lib/rs-sqlite/index";
 
+/** Separate from the schema below, so that the migration for
+ * pre-existing databases can create the same index. */
+export const emailPIDIndex = sql`
+  CREATE INDEX IF NOT EXISTS index_email_folderID_pID ON email (folderID, pID);
+`;
+
 export const mailDatabaseSchema = sql`
   -- Email addresses, as found in received emails.
   -- They are not necessarily in the personal address book.
@@ -33,7 +39,9 @@ export const mailDatabaseSchema = sql`
   CREATE INDEX index_emailPersonRel_emailPersonID ON emailPersonRel (emailPersonID);
 
   CREATE TABLE "email" (
-    "id" INTEGER PRIMARY KEY,
+    -- The MIME source DB and varous files are keyed by this ID.
+    -- AUTOINCREMENT avoids that SQLite gives the ID of a deleted mail to another mail.
+    "id" INTEGER PRIMARY KEY AUTOINCREMENT,
     -- We're explicity designing that an email can only be in one folder at a time. Greetings to Gmail.
     "folderID" INTEGER not null,
     -- Protocol-specific ID for this email. @see EMail.pid.
@@ -89,6 +97,8 @@ export const mailDatabaseSchema = sql`
       ON DELETE CASCADE
   );
   CREATE INDEX index_email_folderID_dateSent ON email (folderID, dateSent DESC);
+  -- Finds the email by its server ID, e.g. before saving it, so that it is not added twice
+  $${emailPIDIndex}
 
   CREATE TABLE "emailAttachment" (
     "id" INTEGER PRIMARY KEY,

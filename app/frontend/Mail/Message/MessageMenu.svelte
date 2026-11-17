@@ -93,6 +93,7 @@
   import { saveBlobAsFile } from "../../Util/util";
   import { showError } from "../../Util/error";
   import { NotImplemented } from "../../../logic/util/util";
+  import { tick } from "svelte";
   import { t } from "../../../l10n/l10n";
   import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 
@@ -143,7 +144,7 @@
   }
 
   function goToNextMessage() {
-    message = message.nextMessage();
+    message = message.nextMessage() ?? message;
   }
 
   async function save() {
@@ -164,9 +165,10 @@
     setting.value = setting.value == "source" ? "html" : "source";
   }
   let domE: HTMLDivElement;
-  function showDOMInspector() {
+  async function showDOMInspector() {
     let setting = getLocalStorage("mail.contentRendering", "html");
     setting.value = "html";
+    await tick(); // The <webview> reaches the DOM only after the update
     let messageE = domE.ownerDocument.querySelector(".message-body");
     let webviewE = messageE.querySelector("webview") as HTMLIFrameElement as any;
     webviewE.openDevTools();

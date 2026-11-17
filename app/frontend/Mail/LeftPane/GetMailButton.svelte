@@ -52,7 +52,7 @@
       let account = folder.account;
       if (!account.isLoggedIn) {
         status = Status.Login;
-        await account.login(true);
+        await account.loginAndStartup(true);
       }
       status = Status.Fetching;
       await folder.getNewMessages();
@@ -91,9 +91,5 @@
     100% {
       transform: translateY(-3px);
     }
-  }
-  .get-mail :global(.loader) {
-    /* Override Spinner.svelte margin: -4px, which makes the button move */
-    margin: 0px;
   }
 </style>

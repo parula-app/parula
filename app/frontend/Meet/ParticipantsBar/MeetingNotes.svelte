@@ -16,22 +16,16 @@
         />
     </hbox>
     {#if showDescription}
-      <Scroll>
-        <div class="description value font-small">
-          {#if event.descriptionHTML}
-            {@html event.descriptionHTML}
-          {:else}
-            {event.descriptionText}
-          {/if}
-        </div>
-      </Scroll>
+      <WebView html={event.descriptionHTML} title="" {headHTML} />
     {/if}
   </vbox>
 {/if}
 
 <script lang="ts">
   import type { VideoConfMeeting } from "../../../logic/Meet/VideoConfMeeting";
-  import Scroll from "../../Shared/Scroll.svelte";
+  import cssContent from "../../Mail/Message/content.css?inline";
+  import cssBody from "../../Mail/Message/content-body.css?inline";
+  import WebView from "../../Shared/WebView.svelte";
   import Button from "../../Shared/Button.svelte";
   import ExpandIcon from "lucide-svelte/icons/chevron-down";
   import CollapseIcon from "lucide-svelte/icons/chevron-up";
@@ -41,6 +35,8 @@
 
   $: event = meeting?.event;
   let showDescription = !!meeting?.event?.descriptionHTML;
+
+  let headHTML = `<style>\n${cssBody}\n${cssContent}\n</style>`;
 </script>
 
 <style>
@@ -61,7 +57,5 @@
   }
   .title {
     font-weight: bold;
-  }
-  .description {
   }
 </style>

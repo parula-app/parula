@@ -113,12 +113,9 @@ export class WhatsAppAccount extends ChatAccount {
     return this.isOnline;
   }
 
-  async startup(): Promise<void> {
-    await this.listRooms();
-  }
-
   async login(interactive: boolean): Promise<void> {
     await super.login(interactive);
+    await this.readFromDB(); // so that new messages land in the known chats
     await this.connect();
   }
 

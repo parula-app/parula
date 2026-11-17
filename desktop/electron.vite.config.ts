@@ -6,6 +6,18 @@ import replace from '@rollup/plugin-replace';
 import conditionalCompile from "vite-plugin-conditional-compile";
 import { production, webMail, includeProprietary } from '../app/logic/build';
 import { defaultClientConditions } from 'vite';
+import { resolve } from 'node:path';
+
+const conditionalCompilePlugin: any = conditionalCompile({ // its types say that it returns an array, but it returns one plugin
+  // <https://github.com/LZS911/vite-plugin-conditional-compile/blob/master/README.md>
+  env: {
+    // For conditional `// #if [FOO]` statements in the code
+    WEBMAIL: webMail && includeProprietary ? webMail : undefined,
+    PROPRIETARY: includeProprietary ? true : undefined,
+    PRODUCTION: production ? true : undefined,
+    DEV: !production ? true : undefined,
+  },
+});
 
 export default defineConfig({
   main: {
@@ -22,21 +34,24 @@ export default defineConfig({
     ],
   },
   renderer: {
+    /* The same HTML shell as the browser and mobile builds. `electron-vite` would
+     * otherwise default to `src/renderer/index.html`, and that copy drifted. */
+    root: resolve(import.meta.dirname, '../app'),
+    /* Not `app/node_modules/.vite` of the `app/` dev server: with different configs, the 2 servers would
+     * overwrite each other's pre-bundled dependencies there, and the dev window would load 2 copies of Svelte. */
+    cacheDir: resolve(import.meta.dirname, 'node_modules/.vite/renderer'),
     build: {
       sourcemap: production,
+      rollupOptions: {
+        input: resolve(import.meta.dirname, '../app/index.html'),
+      },
     },
     plugins: [
-      conditionalCompile({
-        // <https://github.com/LZS911/vite-plugin-conditional-compile/blob/master/README.md>
-        env: {
-          // For conditional `// #if [FOO]` statements in the code
-          WEBMAIL: webMail && includeProprietary ? webMail : undefined,
-          PROPRIETARY: includeProprietary ? true : undefined,
-          PRODUCTION: production ? true : undefined,
-          DEV: !production ? true : undefined,
-        },
-      }),
-      nodePolyfills({include: ['buffer'], globals: {global: false, process: false}}),
+      {
+        ...conditionalCompilePlugin,
+        transform: { filter: { code: "#if" }, handler: conditionalCompilePlugin.transform }, // the plugin parses every file with Babel, which is slow, so give it only the files that use `#if`
+      },
+      nodePolyfills({include: ['buffer'], globals: {global: true, process: false}}),
       svelte(),
       sentryVitePlugin({
         url: "https://errorlog.parula.app/",
@@ -50,6 +65,5 @@ export default defineConfig({
       // Explicitly set the resolve conditions for Vite 7+
       conditions: [...defaultClientConditions],
     },
-    publicDir: '../../../app/public',
   }
 })

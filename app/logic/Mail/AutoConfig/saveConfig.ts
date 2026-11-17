@@ -1,7 +1,6 @@
 import { MailAccount } from "../MailAccount";
 import { ContactEntry } from "../../Abstract/Person";
 import { Folder, SpecialFolder } from "../../Mail/Folder";
-import { MailIdentity } from "../MailIdentity";
 import { type PersonUID, nameFromEmailAddress } from "../../Abstract/PersonUID";
 import type { Account } from "../../Abstract/Account";
 import { Calendar } from "../../Calendar/Calendar";
@@ -10,9 +9,10 @@ import { FileSharingAccount } from "../../Files/FileSharingAccount";
 import { ChatAccount } from "../../Chat/ChatAccount";
 import { MeetAccount } from "../../Meet/MeetAccount";
 import { appGlobal } from "../../app";
-import { backgroundError } from "../../../frontend/Util/error";
+import { minorError } from "../../util/error";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { NotReached, assert } from "../../util/util";
+import { NotReached, UserError, assert } from "../../util/util";
+import { gt } from "../../../l10n/l10n";
 import { SetColl } from "svelte-collections";
 
 export async function saveAndInitConfig(config: MailAccount, emailAddress: string, password: string): Promise<void> {
@@ -29,13 +29,14 @@ export async function saveAndInitConfig(config: MailAccount, emailAddress: strin
   }
 
   getFirstMessages(config)
-    .catch(backgroundError);
+    .catch(minorError);
 }
 
 export async function saveConfig(config: MailAccount, emailAddress: string, password: string): Promise<void> {
+  sanitize.emailAddress(emailAddress); // Otherwise account fails on the next start
   fillConfig(config, emailAddress, password);
 
-  let identity = new MailIdentity(config);
+  let identity = config.newIdentity();
   identity.realname = config.realname;
   identity.emailAddress = config.emailAddress;
   config.identities.add(identity);
@@ -85,7 +86,7 @@ export function fillConfig(config: MailAccount, emailAddress: string, password: 
   if (existingAccount && !existingAccount.name.includes(emailAddress)) {
     config.name += " " + emailAddress;
     existingAccount.name += " " + existingAccount.emailAddress;
-    existingAccount.save().catch(backgroundError);
+    existingAccount.save().catch(minorError);
   }
 
   if (config.outgoing) {
@@ -114,7 +115,7 @@ function replaceVar(str: string, emailAddress: string): string {
  * 2. Sets the realname of the user based on the From in messages in Sent
  * 3. Pre-populates the Collected Addresses. */
 export async function getFirstMessages(config: MailAccount) {
-  await config.login(true);
+  await config.loginAndStartup(true);
   let sent = config.getSpecialFolder(SpecialFolder.Sent);
   let inbox = config.getSpecialFolder(SpecialFolder.Inbox);
   if (sent) {

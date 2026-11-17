@@ -42,6 +42,9 @@ export class HTTPConnection {
     let agentOptions: https.AgentOptions = {
       keepAlive: true,
       maxSockets: 1, // the whole point of this class
+      /** Idle authenticated connections occupy a slot on our end and on the server.
+          Close before VPN terminates the connection after 5 mins. */
+      timeout: 3 * k1MinuteMS,
     };
     if (secure) {
       agentOptions.ca = getCACertificates();
@@ -53,6 +56,7 @@ export class HTTPConnection {
   }
 
   /**
+   * @param options.timeoutSec Give up if the server does not answer. Default 30s.
    * @param onChunk If given, a 2xx response body is streamed: `onChunk` is
    *   awaited for each chunk, `body` stays empty, and the returned promise
    *   resolves only once the stream ended. Non-2xx responses are returned
@@ -64,6 +68,7 @@ export class HTTPConnection {
     method?: string,
     headers?: Record<string, string>,
     body?: string,
+    timeoutSec?: number,
   }, onChunk?: (chunk: string) => Promise<void>): Promise<HTTPConnectionResponse> {
     if (this._closed) {
       throw newErrorWithCode("HTTP connection is closed", "ECONNCLOSED");
@@ -76,10 +81,14 @@ export class HTTPConnection {
       "Accept-Encoding": onChunk ? "identity" : "gzip",
       ...options.headers,
     };
+    let timeoutSec = options.timeoutSec ?? 30;
     let req = this.protocolModule.request(this.url, {
       method: options.method ?? "POST",
       headers,
       agent: this.agent,
+      timeout: onChunk // onChunk = streaming
+        ? 0 // no timeout
+        : timeoutSec * 1000,
     });
     this.requests.add(req);
     try {
@@ -103,6 +112,9 @@ export class HTTPConnection {
           reusedSocket = req.reusedSocket;
         });
         req.on("error", fail);
+        // No retry, because server may have processed the request
+        req.on("timeout", () => req.destroy(newErrorWithCode(
+          `Server did not answer within ${timeoutSec} seconds`, "ETIMEDOUT")));
         req.on("response", res => {
           responseStarted = true;
           this.readResponse(res, socketID, reusedSocket, onChunk)
@@ -140,8 +152,9 @@ export class HTTPConnection {
 
   /**
    * Whether the authenticated TCP connection is (still) open.
-   * Between two requests, the server may have closed it. If so, the caller
-   * knows to re-authenticate without wasting a request that would fail.
+   * Between two requests, the server may have closed it, or we dropped it
+   * because it sat unused. If so, the caller knows to re-authenticate
+   * without wasting a request that would fail.
    * The socket can still die right after this check, but the caller detects
    * that from `socketID` of the next response.
    */
@@ -214,3 +227,5 @@ function getCACertificates(): string[] {
   }
   return caCertificates;
 }
+
+const k1MinuteMS = 60 * 1000;

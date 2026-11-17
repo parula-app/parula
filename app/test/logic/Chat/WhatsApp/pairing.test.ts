@@ -1,5 +1,6 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
-import "../../../../logic/app";
+import { appGlobal } from "../../../../logic/app";
+import { Person } from "../../../../logic/Abstract/Person";
 import { WhatsAppPairing } from "../../../../logic/Chat/WhatsApp/WhatsAppPairing";
 import { WhatsAppAccount } from "../../../../logic/Chat/WhatsApp/WhatsAppAccount";
 import { WhatsAppConnection, kConnectionHeader, type WhatsAppTransport } from "../../../../logic/Chat/WhatsApp/WhatsAppConnection";
@@ -21,6 +22,8 @@ import { decodeNode } from "../../../../logic/Chat/WhatsApp/Binary/decoder";
 import { JID } from "../../../../logic/Chat/WhatsApp/Binary/JID";
 import { getLoginPayload } from "../../../../logic/Chat/WhatsApp/clientInfo";
 import { expect, test } from "vitest";
+
+appGlobal.me = new Person(); // as `startup.ts` does
 
 const kAccountSignaturePrefix = new Uint8Array([6, 0]);
 const kDeviceSignaturePrefix = new Uint8Array([6, 1]);

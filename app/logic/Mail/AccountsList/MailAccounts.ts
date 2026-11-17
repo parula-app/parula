@@ -18,6 +18,7 @@ import { GraphAccount } from '../Graph/GraphAccount';
 // #endif
 import { setStorage } from '../Store/setStorage';
 import { dataProcessorsHookup } from '../SML/DataProcessors';
+import { encryptionProcessorsHookup } from '../Encryption/Processors';
 import { NotReached, NotSupported } from '../../util/util';
 import type { Collection } from 'svelte-collections';
 
@@ -75,17 +76,17 @@ export async function readMailAccounts(): Promise<Collection<MailAccount>> {
 const kProtocolLabel: Record<string, string> = {
   // Displayed to user, but do not translate (technical term)
   "imap": "IMAP",
+  "pop3": "POP3",
   "smtp": "SMTP",
   "ews": "EWS",
   "owa": "OWA",
   "activesync": "ActiveSync",
   "graph": "MS Graph (beta)",
   "jmap": "JMAP (alpha)",
-  "pop3": "POP3 (later)",
 }
 
 export function listMailProtocols(): string[] {
-  return Object.keys(kProtocolLabel).filter(p => p != "smtp" && p != "pop3" &&
+  return Object.keys(kProtocolLabel).filter(p => p != "smtp" &&
     (/*!appGlobal.isMobile*/ true || p != "owa"));
 }
 
@@ -95,3 +96,4 @@ export function labelForMailProtocol(protocol: string): string {
 
 // TODO Find better spot to call this
 dataProcessorsHookup();
+encryptionProcessorsHookup();

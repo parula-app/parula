@@ -20,7 +20,7 @@
   import { Route, useLocation } from "svelte-navigator";
 
   $: location = useLocation();
-  $: params = getParams($location.state);
+  $: params = getParams($location?.state);
   $: params, setTopic()
   // Set only when params.foo changes, not when $selectedFoo changes
   let lastTopic = null;

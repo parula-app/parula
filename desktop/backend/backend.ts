@@ -3,11 +3,13 @@ import { HTTPConnection, type HTTPConnectionOptions } from './HTTPConnection';
 import { NetSession } from './NetSession';
 import JPCWebSocket from '../../lib/jpc-ws';
 import * as OWA from './owa';
-import { appName, production } from '../../app/logic/build';
+import { dataAppName, production } from '../../app/logic/build';
 import { WebContents } from './WebContents';
+import { SecondaryBrowserWindow } from './SecondaryBrowserWindow';
 import { Observable, notifyChangedProperty } from '../../lib/util/Observable';
+import { sanitize } from '../../lib/util/sanitizeDatatypes';
 import { ImapFlow } from 'imapflow';
-import { Database } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
+import { Database, type Query } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
 import Zip from "adm-zip";
 import ky from 'ky';
 import { shell, nativeTheme, Notification, Tray, nativeImage, app, BrowserWindow, webContents, Menu, MenuItemConstructorOptions, clipboard, NativeImage, session, desktopCapturer, type DesktopCapturerSource, autoUpdater, systemPreferences, powerMonitor } from "electron";
@@ -65,12 +67,15 @@ async function createSharedAppObject() {
     minimizeMainWindow,
     unminimizeMainWindow,
     maximizeMainWindow,
+    openBrowserWindow,
+    newSecondaryBrowserWindow,
     addEventListenerWebContents,
     getWebContents,
     writeTextToClipboard,
     openExternalURL,
     openFileInNativeApp,
     showFileInFolder,
+    startDrag,
     startupArgs,
     computerOn,
     isDefaultApp,
@@ -99,6 +104,7 @@ async function createSharedAppObject() {
     newHTTPConnection,
     newNetSession,
     newTCPSocket,
+    startTLS,
     newWebSocket,
     gunzip,
     getCACertificates,
@@ -209,7 +215,9 @@ function kyCreate(defaultOptions) {
           // let json = await resultKy.json();
           return await kyFetch[resultType]();
         } catch (ex) {
-          throw new HTTPFetchError(ex);
+          let error = new HTTPFetchError(ex);
+          error.responseBody = await ex.response?.text().catch(() => undefined);
+          throw error;
         }
       } else {
         return kyFetch;
@@ -227,6 +235,10 @@ export class HTTPFetchError extends Error {
   httpStatusText: string;
   httpMethod: string;
   hostname: string;
+  /** `Retry-After`, in seconds, when the server rate-limited us */
+  retryAfterSeconds: number;
+  /** The body of the server's error response, e.g. its error message as JSON */
+  responseBody: string;
 
   constructor(ex: Error) {
     super(ex?.message ?? ex + "");
@@ -241,6 +253,7 @@ export class HTTPFetchError extends Error {
       this.httpStatusText = response.statusText;
       this.httpMethod = request.method;
       this.hostname = new URL(this.url).hostname;
+      this.retryAfterSeconds = parseInt(response.headers.get("Retry-After")) || undefined;
       this.message = `HTTP ${this.httpMethod} <${this.url}>${this.redirectedURL ? ` redirected to <${this.redirectedURL}>` : ''} failed with ${this.httpCode} ${this.httpStatusText}`;
     } else if (cause) {
       this.code = cause.code;
@@ -274,6 +287,17 @@ function newNetSession(url: string, partition: string, username: string, passwor
  * You can attach `connect`/`error`/`data` listeners and `connect()` */
 function newTCPSocket(): net.Socket {
   return new net.Socket();
+}
+
+/** Wraps a connected `newTCPSocket()` in TLS, for implicit TLS and STARTTLS.
+ * Resolves once the handshake succeeded, so that you can attach listeners.
+ * @param tlsOptions node `tls.ConnectionOptions`, e.g. `rejectUnauthorized: false`
+ *   accepts self-signed and expired certificates, `minVersion: "TLSv1"` old servers. */
+function startTLS(socket: net.Socket, hostname: string, tlsOptions?: tls.ConnectionOptions): Promise<tls.TLSSocket> {
+  return new Promise((resolve, reject) => {
+    let tlsSocket = tls.connect({ socket, servername: hostname, ...tlsOptions }, () => resolve(tlsSocket));
+    tlsSocket.on("error", reject);
+  });
 }
 
 /** A new `ws` WebSocket, for the Signal chat-service socket. The renderer's browser
@@ -409,11 +433,36 @@ function setTheme(theme: "system" | "light" | "dark") {
 }
 
 async function openExternalURL(url: string) {
+  // <copied to="../../app/logic/util/os-integration.ts">
+  let scheme = new URL(url).protocol; // throws on a malformed URL
+
+  /** Schemes that we let the OS open. A mail fully controls the URL of its links,
+   * and `shell.openExternal()` starts whichever app the OS registered for the scheme.
+   * E.g. `file:` runs a `.desktop` file or an `.exe`, and `ms-msdt:` and `search-ms:`
+   * are remote code execution on Windows.
+   * A page can't get around this by going to such a URL itself:
+   * `isPermissionAllowed()` in `desktop/src/main/index.ts` denies it `openExternal`. */
+  const kAllowedURLSchemes = [
+    "https:",
+    "http:",
+    "mailto:",
+    "tel:",
+    "xmpp:",
+    "matrix:",
+  ];
+  if (!kAllowedURLSchemes.includes(scheme)) {
+    throw new Error(`Refusing to open a ${scheme} URL in an OS app`);
+  }
+  // </copied>
+
   await shell.openExternal(url);
 }
 
 async function openFileInNativeApp(filePath: string) {
-  await shell.openPath(filePath);
+  let error = await shell.openPath(filePath);
+  if (error) {
+    throw new Error(error);
+  }
 }
 
 class StartupArgs extends Observable {
@@ -439,6 +488,22 @@ class StartupArgs extends Observable {
 }
 export const startupArgs = new StartupArgs();
 
+// <copied to="../../app/test/logic/util/httpPool.test.ts">
+/** The server closed our idle keep-alive connections while the computer slept, but we
+ * don't know that yet, and the next request on one of them would fail with "fetch failed".
+ * Chromium closes them when the computer wakes up, Node's `fetch()` doesn't.
+ * Requests that are still running finish on the old connections. */
+function closeIdleHTTPConnections(): void {
+  const kGlobalDispatcher = Symbol.for("undici.globalDispatcher.1"); // Shared by `fetch()` and the `undici` package
+  let dispatcher = (globalThis as any)[kGlobalDispatcher];
+  if (!dispatcher) {
+    return;
+  }
+  (globalThis as any)[kGlobalDispatcher] = new dispatcher.constructor();
+  dispatcher.close().catch(console.error);
+}
+// </copied>
+
 /** Tells the UI whether the computer is awake or in sleep mode.
  * The UI subscribes to it via `computerOn` in app/logic/util/backend-wrapper.ts */
 export class DesktopComputerOn extends Observable {
@@ -447,7 +512,10 @@ export class DesktopComputerOn extends Observable {
 
   start(): void {
     powerMonitor.on("suspend", () => this.isSleeping = true);
-    powerMonitor.on("resume", () => this.isSleeping = false);
+    powerMonitor.on("resume", () => {
+      closeIdleHTTPConnections();
+      this.isSleeping = false;
+    });
   }
 }
 const computerOn = new DesktopComputerOn();
@@ -465,6 +533,11 @@ function setAsDefaultApp(protocol: string) {
 
 function showFileInFolder(filePath: string) {
   shell.showItemInFolder(filePath);
+}
+
+async function startDrag(filePath: string) {
+  let icon = await app.getFileIcon(filePath);
+  mainWindow.webContents.startDrag({ file: filePath, icon });
 }
 
 async function askForMediaAccess(mediaType: string) {
@@ -520,13 +593,22 @@ function createIMAPFlowConnection(...args): ImapFlow {
 }
 
 function getSQLiteDatabase(filename: string, options: any, buffer?: Uint8Array): Database {
-  if (buffer) {
-    return new Database(Buffer.from(buffer), options);
-  }
-  if (!filename.startsWith("/")) {
+  let safeOptions = { readonly: !!options?.readonly }; // `nativeBinding` in it would `require()` any file as native code
+  if (!buffer && !filename.startsWith("/")) {
     filename = path.join(getConfigDir(), filename);
   }
-  return new Database(filename, options);
+  let db = new Database(buffer ? Buffer.from(buffer) : filename, safeOptions);
+  // Lets the frontend run several statements with one call over JPC,
+  // each with its values as bound parameters.
+  // Not as a subclass of `Database`: JPC would then miss the functions of `Database`,
+  // because its parent class has the same name.
+  return Object.assign(db, {
+    runMultiple(queries: Query[]) {
+      for (let query of queries) {
+        db.run(query);
+      }
+    },
+  });
 }
 
 async function sendMailNodemailer(transport, mail) {
@@ -574,6 +656,17 @@ let mainWindow: BrowserWindow;
 
 export function setMainWindow(mainWin: BrowserWindow) {
   mainWindow = mainWin;
+  // The main window holds the JS context for all windows, so close all secondary windows as well
+  mainWindow.on("closed", () => {
+    for (let win of BrowserWindow.getAllWindows()) {
+      win.close();
+    }
+  });
+}
+
+/** The frontend calls this before it opens a secondary window. @see `SecondaryBrowserWindow` */
+function newSecondaryBrowserWindow(): SecondaryBrowserWindow {
+  return new SecondaryBrowserWindow();
 }
 
 function minimizeMainWindow() {
@@ -588,15 +681,65 @@ function maximizeMainWindow() {
   mainWindow.maximize();
 }
 
-function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => void) {
+/**
+ * The OAuth2 login window of `OAuth2Window.ts`.
+ * Not the window of `window.open()`: Electron gives that the cookies of our app,
+ * and its login page an `opener`, through which it could navigate our app window.
+ * Instead, a window with the cookies of the account, like `<webview partition>` in `Browser.svelte`.
+ * @param sessionID `Account.webSessionID`
+ * @param onNavigate Called with each URL that the window loads. It's in the frontend.
+ * @param onClosed Called when the window closed, also when the user closed it. It's in the frontend.
+ * @returns Closes the window
+ */
+function openBrowserWindow(url: string, sessionID: string, onNavigate: (url: string) => Promise<void>, onClosed: () => Promise<void>): () => void {
+  url = sanitize.url(url, undefined, ["https"]);
+  sessionID = sanitize.alphanumdash(sessionID);
+  let browserWindow = new BrowserWindow({
+    center: true,
+    webPreferences: {
+      partition: "persist:" + sessionID,
+      sandbox: true,
+    },
+  });
+  browserWindow.on('closed', () => {
+    onClosed()
+      .catch(console.error);
+  });
+  browserWindow.webContents.on('did-navigate', (_event, url) => {
+    onNavigate(url)
+      .catch(console.error);
+  });
+  browserWindow.loadURL(url)
+    .catch(console.error);
+  return () => {
+    if (!browserWindow.isDestroyed()) {
+      browserWindow.close();
+    }
+  };
+}
+
+/**
+ * @param eventHandler Called for each event. It's in the frontend.
+ * @param errorCallback Gets the errors of `eventHandler`, e.g. `showError()` in the frontend
+ */
+function addEventListenerWebContents(webContentsID: number, webviewEvent: string, eventHandler: (event: Event) => Promise<void> | void, errorCallback: (ex: Error) => Promise<void> | void) {
   const win = webContents.fromId(webContentsID);
   if (!win) {
     // race?
     console.error(`WebContents ID ${webContentsID} not found`);
     return;
   }
-  win.on(webviewEvent as any, (_: any, event: Event) => {
-    eventHandler(event);
+  win.on(webviewEvent as any, async (_: any, event: Event) => {
+    try {
+      await eventHandler(event);
+    } catch (ex) {
+      ex.stack = ex.backendStack ?? ex.stack;
+      try {
+        await errorCallback(ex);
+      } catch (ex2) {
+        console.error(ex);
+      }
+    }
   });
 }
 
@@ -717,7 +860,7 @@ function directory(type: string): string {
   return app.getPath(type as any);
 }
 
-const kAppDir = production ? appName : appName + "Dev"; // e.g. "Mustang" or "Parula" or "MustangDev"
+const kAppDir = production ? dataAppName : dataAppName + "Dev"; // e.g. "Mustang" or "Parula" or "MustangDev"
 
 /**
  * Get the user config directory on disk.

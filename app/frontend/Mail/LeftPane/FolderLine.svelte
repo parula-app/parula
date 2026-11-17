@@ -53,6 +53,8 @@
     align-items: center;
     padding-block-start: 2px;
     padding-block-end: 2px;
+    min-width: 0;
+    background-color: inherit;
   }
   .icon :global(.cls-2) {
     stroke: black;
@@ -61,6 +63,8 @@
     padding-inline-start: 8px;
     font-weight: 300;
     height: 20px; /* avoid line break */
+    min-width: 0; /* avoid pushing out the buttons */
+    overflow: hidden;
   }
   :global(.mobile) .label {
     height: 40px;
@@ -84,6 +88,7 @@
   }
   .buttons {
     justify-content: end;
+    background-color: inherit;
   }
   .folder:not(:hover) .buttons {
     display: none;

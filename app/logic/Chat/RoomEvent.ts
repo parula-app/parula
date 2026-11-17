@@ -45,6 +45,10 @@ export class ChatRoomEvent extends Message {
   set room(val: ChatRoom) {
     this.to = val;
   }
+
+  async save() {
+    await this.to.account.storage.saveMessage(this);
+  }
 }
 
 export class JoinLeave extends ChatRoomEvent {

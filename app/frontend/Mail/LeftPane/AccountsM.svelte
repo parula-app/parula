@@ -26,7 +26,7 @@
   import FolderList from "./FolderList.svelte";
   import AccountsBarM from "./AccountsBarM.svelte";
   import AccountIcon from "lucide-svelte/icons/mail";
-  import { URLPart } from "../../Util/util";
+  import { URLPart } from "../../../logic/util/blob";
   import { catchErrors } from "../../Util/error";
   import { sleep, assert } from "../../../logic/util/util";
   import type { ArrayColl, Collection } from 'svelte-collections';

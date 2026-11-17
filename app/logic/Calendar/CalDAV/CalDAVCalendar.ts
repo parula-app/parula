@@ -1,5 +1,6 @@
 import { Calendar } from "../Calendar";
 import type { Participant } from "../Participant";
+import type { FreeBusyEvent } from "../FreeBusyEvent";
 import { CalDAVEvent } from "./CalDAVEvent";
 import { NextcloudAttachments } from "./NextcloudAttachments";
 import { AuthMethod, type Account } from "../../Abstract/Account";
@@ -9,7 +10,7 @@ import { appGlobal } from "../../app";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { Lock } from "../../util/flow/Lock";
 import { RunOnce } from "../../util/flow/RunOnce";
-import { NotReached, assert, type URLString } from "../../util/util";
+import { NotReached, UserError, assert, type URLString } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl, Collection } from "svelte-collections";
 import type { DAVClient, DAVCalendar, DAVObject } from "tsdav";
@@ -69,6 +70,9 @@ export class CalDAVCalendar extends Calendar {
       if (this.client && (!useOAuth2 || this.clientAccessToken == oAuth2.accessToken)) {
         return; // already logged in. The client caches the auth headers, so re-create it once the access token changed.
       }
+      if (!URL.canParse(this.url)) {
+        throw new UserError(gt`Please enter the server URL, e.g. https://dav.example.com/`);
+      }
       let options = {
         serverUrl: this.url,
         authMethod: useOAuth2 ? "Bearer" : "Basic",
@@ -95,7 +99,7 @@ export class CalDAVCalendar extends Calendar {
     return davAB;
   };
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: { from: Date, to: Date, free: boolean }[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
     return [];
   }
 
@@ -109,8 +113,7 @@ export class CalDAVCalendar extends Calendar {
     }
   }
 
-  async listEvents() {
-    await super.listEvents();
+  protected async listEventsFromServer() {
     await this.sync();
     await this.save();
   }

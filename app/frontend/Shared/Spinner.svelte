@@ -1,14 +1,17 @@
-<grid class="loader" style="width: {size}; height: {size}" />
+<grid class="loader" style="width: {size}; height: {size}; --border-width: {borderWidth}" />
 
 <script lang="ts">
   export let size: string = "100%";
+
+  /** The ring is drawn inside `size`, so it must be thinner for small icons */
+  $: borderWidth = Math.min(4, Math.round(parseInt(size) / 6)) + "px";
 </script>
 <style>
   .loader {
     aspect-ratio: 1;
     display: grid;
-    border: 4px solid white;
-    margin: -4px; /* TODO remove? */
+    box-sizing: border-box;
+    border: var(--border-width) solid white;
     border-radius: 50%;
     border-right-color: #20AE9E;
     animation: l15 1s infinite linear;
@@ -17,13 +20,13 @@
   .loader::after {
     content: "";
     grid-area: 1/1;
-    margin: 2px;
+    box-sizing: border-box;
+    margin: calc(var(--border-width) / 2);
     border: inherit;
     border-radius: 50%;
     animation: l15 2s infinite;
   }
   .loader::after {
-    /* margin: 8px; TODO Makes inner part better on <StatusMessage>, but completely breaks layout in other sizes, e.g. in <RoundButton> */
     animation-duration: 3s;
   }
   @keyframes l15 {

@@ -80,8 +80,9 @@
   import ButtonsBottom from "../Shared/ButtonsBottom.svelte";
   import BackgroundVideo from "../Shared/BackgroundVideo.svelte";
   import Button from "../../Shared/Button.svelte";
-  import { logError } from "../../Util/error";
+  import { logErrorToServer } from "../../Util/error";
   import { assert, NotReached } from "../../../logic/util/util";
+  import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
   import { gt, t } from "../../../l10n/l10n";
   import type { ArrayColl } from "svelte-collections";
 
@@ -157,7 +158,7 @@
   let manualConfigEl: ManualConfigPage;
 
   $: canContinue =
-    step == Step.EmailAddress && !!emailAddress && !!password ||
+    step == Step.EmailAddress && sanitize.emailAddress(emailAddress, null) && !!password ||
     step == Step.FoundConfig ||
     step == Step.ManualConfig ||
     step == Step.FinalizeConfig;
@@ -228,7 +229,7 @@
       return;
     }
     console.error(ex);
-    logError(ex);
+    logErrorToServer(ex);
     errorMessage = ex.message;
     errorGravity = ErrorGravity.Error;
   }

@@ -1,4 +1,4 @@
-import { assert } from "vitest";
+import { assert } from "./util";
 
 /**
  * Implements format=flowed (RFC 2646, RFC 3676),
@@ -235,7 +235,7 @@ export function convertFormatFlowedToHTML(formatFlowed: string,
     }
 
     if (inlineTextToHTMLConverter && line) {
-      currentE.innerHTML += inlineTextToHTMLConverter(textBlock);
+      currentE.insertAdjacentHTML("beforeend", inlineTextToHTMLConverter(textBlock));
     } else {
       let pE = document.createElement("p");
       pE.textContent = textBlock;
@@ -246,8 +246,8 @@ export function convertFormatFlowedToHTML(formatFlowed: string,
   }
 
   // Convert HTML DOM to HTML string
-  return new XMLSerializer().serializeToString(htmlE)
-    .replace(/^<html xmlns="[^"]+">/, "<html>");
+  // (XMLSerializer would escape `>` in `<style>` etc.)
+  return htmlE.outerHTML;
 }
 
 function getPath(currentE: HTMLElement): string {

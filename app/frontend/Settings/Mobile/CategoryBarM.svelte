@@ -44,7 +44,7 @@
   import { settingsCategories, type SettingsCategory } from "../SettingsCategory";
   import { settingsMustangApp } from "../Window/SettingsMustangApp";
   import { goTo } from "../../AppsBar/selectedApp";
-  import { URLPart } from "../../Util/util";
+  import { URLPart } from "../../../logic/util/blob";
   import AppBarM from "../../AppsBar/AppBarM.svelte";
   import AppMenuButton from "../../AppsBar/AppMenuM/AppMenuButton.svelte";
   import Button from "../../Shared/Button.svelte";

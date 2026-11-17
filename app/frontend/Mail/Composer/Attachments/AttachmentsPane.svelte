@@ -29,12 +29,12 @@
 
   let fileSelector: FileSelector;
   export async function onAdd() {
-    let file = await fileSelector.selectFile();
-    if (!file) {
+    let files = await fileSelector.selectFiles();
+    if (!files?.length) {
       console.log("no file selected");
       return;
     }
-    addFilesAsAttachments(message, [file]);
+    addFilesAsAttachments(message, files);
   }
 </script>
 
