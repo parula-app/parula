@@ -70,20 +70,15 @@
               {$t`Don't reply`}
             </label>
             {#if autoResponder.supportsContacts}
-              <label class="radio" class:disabled={$autoResponder.maxAudience == AutoResponderAudience.None}>
-                <input type="radio" value={AutoResponderAudience.Contacts} bind:group={autoResponder.externalAudience}
-                  disabled={$autoResponder.maxAudience == AutoResponderAudience.None} />
+              <label class="radio">
+                <input type="radio" value={AutoResponderAudience.Contacts} bind:group={autoResponder.externalAudience} />
                 {$t`Only to my contacts`}
               </label>
             {/if}
-            <label class="radio" class:disabled={$autoResponder.maxAudience != AutoResponderAudience.All}>
-              <input type="radio" value={AutoResponderAudience.All} bind:group={autoResponder.externalAudience}
-                disabled={$autoResponder.maxAudience != AutoResponderAudience.All} />
+            <label class="radio">
+              <input type="radio" value={AutoResponderAudience.All} bind:group={autoResponder.externalAudience} />
               {$t`Anyone outside my organization`}
             </label>
-            {#if $autoResponder.maxAudience != AutoResponderAudience.All}
-              <hbox class="hint font-small">{$t`Your administrator limits automatic replies outside your organization.`}</hbox>
-            {/if}
           </vbox>
           {#if $autoResponder.externalAudience != AutoResponderAudience.None}
             <vbox class="editor-box external">
@@ -178,9 +173,6 @@
     align-items: center;
     gap: 8px;
   }
-  .radio.disabled {
-    opacity: 50%;
-  }
   .details {
     margin-block-start: 8px;
     margin-inline-start: 32px;
@@ -194,9 +186,6 @@
   }
   .date-time {
     gap: 8px;
-  }
-  .hint {
-    opacity: 70%;
   }
   .editor-box {
     border: 1px solid var(--border);

@@ -19,7 +19,7 @@
   import type { EMail } from "../../../logic/Mail/EMail";
   import { availableTags, type Tag } from "../../../logic/Abstract/Tag";
   import { MessageActions } from "../MessageActions";
-  import { openColorCategories } from "../../Shared/Tag/ColorCategoriesDialog.svelte";
+  import { openColorCategories } from "../Selected";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuLabel from "../../Shared/Menu/MenuLabel.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";

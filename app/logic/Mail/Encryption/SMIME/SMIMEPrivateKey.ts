@@ -1,6 +1,6 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, AlgorithmIdentifier, DigestAlgorithm, RSAESOAEPParams, algorithmName } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SubjectPublicKeyInfo, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, AlgorithmIdentifier, DigestAlgorithm, RSAESOAEPParams, algorithmName } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
@@ -8,6 +8,8 @@ import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
 import { assert, NotImplemented } from "../../../util/util";
 import { gt } from "../../../../l10n/l10n";
+import { uint8ArrayToHex } from "../../../util/blob";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
   /**
@@ -35,7 +37,11 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     }
   }
 
-  async matches(key: RSAPublicKey): Promise<boolean> {
+  async matches(publicKey: SubjectPublicKeyInfo): Promise<boolean> {
+    if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
+      return false;
+    }
+    let key = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
     let rawKey = await this.decryptKey();
     return key.n == rawKey.n && key.e == rawKey.e;
   }
@@ -166,6 +172,11 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     return this.keyAsFile(CertificationRequest.encodePEM(request, { label: "CERTIFICATE REQUEST" }), "application/pkcs10", "CertificateRequest", "csr");
   }
 
+  /** As `publicKeyID()` of its certificate, which has the key in DER (RFC 5280 section 4.1), for a key that has no certificate yet */
+  protected keyID(rsa: RSAPublicKey): string {
+    return uint8ArrayToHex(sha256(RSAPublicKey.encode(rsa)));
+  }
+
   /** Generates a new private key from scratch.
    * @param emailAddress of the identity that the key is for
    * Factory function. */
@@ -180,6 +191,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     key.id = key.keyID(rsaKey);
     key.name = key.defaultName;
     key.userIDs.add(emailAddress);
+    key.cipher = "RSA";
     key.keyLengthInBits = 4096;
     key.justCreated = true;
     key.created = new Date();
@@ -205,6 +217,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     let id = sanitize.bigint(rawKey.n).toString(16);
     key.id = key.keyID(rawKey);
     key.name = key.defaultName;
+    key.cipher = "RSA";
     key.keyLengthInBits = id.length * 4;
     key.justCreated = true;
     key.created = new Date();
