@@ -1,0 +1,22 @@
+[
+  4,
+  {
+    "title": "Project meeting",
+    "startTime": "2026-10-28T16:30:00.000Z",
+    "endTime": "2026-10-28T17:15:00.000Z",
+    "allDay": false,
+    "calUID": "tzid-windows-display-name@example.com",
+    "participants": [
+      {
+        "emailAddress": "organizer@example.com",
+        "name": "Organizer",
+        "response": 1
+      },
+      {
+        "emailAddress": "attendee@example.com",
+        "name": "Attendee",
+        "response": 0
+      }
+    ]
+  }
+]

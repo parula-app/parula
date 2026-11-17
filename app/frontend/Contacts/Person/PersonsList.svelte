@@ -81,4 +81,17 @@
     background-color: var(--main-bg);
     color: var(--fg);
   }
+  :global(.lookout-window) .persons {
+    --person-picture-size: 40px;
+  }
+  :global(.lookout-window) .persons :global(.search) {
+    flex-shrink: 0;
+    margin: 12px 12px 8px 12px;
+  }
+  :global(.lookout-window) .persons :global(.fast-list) {
+    border-block-start: 1px solid var(--lo-divider);
+  }
+  :global(.lookout-window) .persons :global(.row.odd:not(.selected):not(:hover) hbox.person) {
+    background-color: transparent;
+  }
 </style>

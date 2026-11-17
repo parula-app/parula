@@ -12,7 +12,7 @@
  * @throws on malformed data
  */
 export function berToDER(data: Uint8Array): Uint8Array {
-  let element = convert(data, 0);
+  let element = convert(data, 0, 0);
   return element.changed ? element.bytes : data;
 }
 
@@ -24,7 +24,11 @@ interface Element {
   changed: boolean;
 }
 
-function convert(data: Uint8Array, start: number): Element {
+function convert(data: Uint8Array, start: number, depth: number): Element {
+  const kMaxDepth = 30;
+  if (depth > kMaxDepth) {
+    throw new Error("ASN.1 nesting is too deep");
+  }
   let pos = start;
   let tag = data[pos++];
   if ((tag & 0x1f) == 0x1f) { // multi-octet tag number
@@ -79,7 +83,7 @@ function convert(data: Uint8Array, start: number): Element {
         throw new Error("Missing ASN.1 end-of-contents octets");
       }
       childTags.push(data[pos]);
-      let child = convert(data, pos);
+      let child = convert(data, pos, depth + 1);
       children.push(child);
       changed ||= child.changed;
       pos = child.end;
@@ -92,7 +96,7 @@ function convert(data: Uint8Array, start: number): Element {
     }
     while (pos < contentEnd) {
       childTags.push(data[pos]);
-      let child = convert(data, pos);
+      let child = convert(data, pos, depth + 1);
       children.push(child);
       changed ||= child.changed;
       pos = child.end;

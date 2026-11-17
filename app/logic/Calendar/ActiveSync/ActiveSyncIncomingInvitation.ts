@@ -14,21 +14,23 @@ export class ActiveSyncIncomingInvitation extends IncomingInvitation {
   declare readonly calendar: ActiveSyncCalendar;
   declare readonly message: ActiveSyncEMail;
 
-  async respondToInvitationFromMail(response: InvitationResponseInMessage) {
+  async respondToInvitationFromMail(response: InvitationResponseInMessage, sendReply = true) {
     assert(this.invitationMessage == InvitationMessage.Invitation, "Only invitations can be responded to");
     let request = {
       Request: {
         UserResponse: ActiveSyncResponse[response],
         CollectionId: this.message.folder.id,
         RequestId: this.message.serverID,
-        SendResponse: this.calendar.account.protocolVersion == "16.1" ? {} : [],
+        // `{}` sends an empty element, and the server sends the reply, `[]` sends nothing
+        // In < 16.1, we send the reply ourselves, see below
+        SendResponse: sendReply && this.calendar.account.protocolVersion == "16.1" ? {} : [],
       },
     };
     await this.calendar.account.callEAS("MeetingResponse", request);
     this.event.myParticipation = response;
     // We asked ActiveSync 16.1 to send the response for us.
     if (this.calendar.account.protocolVersion != "16.1") {
-      await this.event.respondToInvitation(response, this.calendar.account, false);
+      await this.event.respondToInvitation(response, sendReply, this.calendar.account, false);
     }
     await this.message.deleteMessageLocally(); // Exchange deletes the message from the inbox
     await this.calendar.listEvents(); // Exchange will have created a calendar item if there wasn't one already
@@ -38,6 +40,9 @@ export class ActiveSyncIncomingInvitation extends IncomingInvitation {
     await this.updateFromOtherInvitationMessage();
   }
   async updateParticipantReply() {
+    await this.updateFromOtherInvitationMessage();
+  }
+  async updateChangedMeeting() {
     await this.updateFromOtherInvitationMessage();
   }
   /** Exchange server auto-processes these */

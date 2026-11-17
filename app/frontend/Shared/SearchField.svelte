@@ -67,8 +67,8 @@
     border: 1px solid var(--border);
     padding-inline-start: 8px;
     padding-inline-end: 4px;
-    border-radius: 100px;
-    background-color: field;
+    border-radius: var(--search-field-radius);
+    background-color: var(--search-field-bg);
     color: fieldtext;
   }
   .search:has(input:focus) {
@@ -86,7 +86,7 @@
     height: 24px;
     border: none;
     margin-inline-start: 4px;
-    border-radius: 100px;
+    border-radius: var(--search-field-radius);
     background-color: inherit;
     color: inherit;
   }

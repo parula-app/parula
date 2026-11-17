@@ -62,7 +62,10 @@ export class DecoderBuffer extends Reporter {
   }
 
   raw(save?: { offset: number }) {
-    return this.base.slice(save ? save.offset : this.offset, this.length);
+    if (save) {
+      return this.base.slice(save.offset, this.offset);
+    }
+    return this.base.slice(this.offset, this.length);
   }
 }
 

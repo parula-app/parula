@@ -10,9 +10,9 @@ export class EWSCalendarShortcut {
   readonly itemClass: string | null;
   readonly type: number | null;
   readonly section: number | null;
-  readonly folderEntryID: MAPIEntryID | null;
-  readonly storeEntryID: MAPIStoreEntryID | null;
-  readonly addressBookEntryID: MAPIAddressBookEntryID | null;
+  readonly folderEntryID: MAPIEntryID;
+  readonly storeEntryID: MAPIStoreEntryID;
+  readonly addressBookEntryID: MAPIAddressBookEntryID;
 
   static readonly kFolderName = "Common Views";
   static readonly kItemClass = "IPM.Microsoft.WunderBar.Link";
@@ -37,9 +37,9 @@ export class EWSCalendarShortcut {
     this.itemClass = sanitize.string(item?.ItemClass, null);
     this.type = sanitize.integer(values.get(properties.type.tag), null);
     this.section = sanitize.integer(values.get(properties.section.tag), null);
-    this.folderEntryID = MAPIEntryID.fromBase64(values.get(properties.folderEntryID.tag));
-    this.storeEntryID = MAPIStoreEntryID.fromBase64(values.get(properties.storeEntryID.tag));
-    this.addressBookEntryID = MAPIAddressBookEntryID.fromBase64(values.get(properties.addressBookEntryID.tag));
+    this.folderEntryID = new MAPIEntryID(values.get(properties.folderEntryID.tag));
+    this.storeEntryID = new MAPIStoreEntryID(values.get(properties.storeEntryID.tag));
+    this.addressBookEntryID = new MAPIAddressBookEntryID(values.get(properties.addressBookEntryID.tag));
   }
 
   static async listCalendars(account: EWSAccount): Promise<EWSCalendar[]> {
@@ -127,11 +127,11 @@ export class EWSCalendarShortcut {
   }
 
   get ownerLegacyDN(): string | null {
-    return this.addressBookEntryID?.legacyDN ?? this.storeEntryID?.mailboxDN ?? null;
+    return this.addressBookEntryID.legacyDN ?? this.storeEntryID.mailboxDN;
   }
 
   get hasFolder(): boolean {
-    return !!this.folderEntryID?.bytes.length;
+    return this.folderEntryID.bytes.length > 0;
   }
 
   get isCalendarOfOtherUser(): boolean {
@@ -139,7 +139,7 @@ export class EWSCalendarShortcut {
       this.section == EWSCalendarShortcut.kCalendarSection &&
       this.type == EWSCalendarShortcut.kSharedFolderType &&
       !!this.ownerLegacyDN &&
-      (this.hasFolder || !!this.addressBookEntryID?.legacyDN);
+      (this.hasFolder || !!this.addressBookEntryID.legacyDN);
   }
 
   async createCalendar(): Promise<EWSCalendar | null> {
