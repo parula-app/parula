@@ -18,7 +18,8 @@ test("Nothing stays nothing", () => {
   expect(addHTTPSToHostname(null)).toBeNull();
 });
 
-test("Something that only looks like a script after trimming is not made a link to one", () => {
-  // Browsers ignore leading spaces in `href`, so this must not stay as it is
-  expect(addHTTPSToHostname(" javascript:alert(1)")).toMatch(/^https:\/\//);
+test("Something that is not a host name stays as it is", () => {
+  for (let value of ["erika", "erika example", "erika@example.com", "javascript:alert(1)", "javascript://erika.example/%0aalert(1)"]) {
+    expect(addHTTPSToHostname(value)).toBe(value);
+  }
 });

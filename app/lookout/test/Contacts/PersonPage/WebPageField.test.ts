@@ -33,15 +33,18 @@ function typeIn(input: HTMLInputElement, value: string) {
   flushSync();
 }
 
-test("General: a web page address typed without https:// is saved with it", () => {
+test("General: a web page address typed without https:// is saved with it, one that is not a web address shows an error", () => {
   let person = new Person();
   component = mount(ContactForm, { target: document.body, props: { person } });
   flushSync();
   typeIn(document.querySelector<HTMLInputElement>("#contact-web"), "erika.example");
   expect(person.urls.first.value).toBe("https://erika.example");
+  expect(document.body.textContent).not.toContain("not a web address");
+  typeIn(document.querySelector<HTMLInputElement>("#contact-web"), "erika example");
+  expect(document.body.textContent).toContain("not a web address");
 });
 
-test("All Fields: a web page typed without https:// is saved with it", () => {
+test("All Fields: a web page typed without https:// is saved with it, one that is not a web address shows an error", () => {
   let person = new Person();
   person.urls.add(new ContactEntry("https://old.erika.example/", "work"));
   component = mount(AllFieldsPage, { target: document.body, props: { person } });
@@ -52,4 +55,7 @@ test("All Fields: a web page typed without https:// is saved with it", () => {
   flushSync();
   typeIn(document.querySelector<HTMLInputElement>('input[aria-label="Web page"]'), "erika.example");
   expect(person.urls.first.value).toBe("https://erika.example");
+  expect(document.body.textContent).not.toContain("not a web address");
+  typeIn(document.querySelector<HTMLInputElement>('input[aria-label="Web page"]'), "erika example");
+  expect(document.body.textContent).toContain("not a web address");
 });

@@ -18,6 +18,9 @@
       ? $t`This contact has no user-defined fields. Click New… to add one.`
       : $t`This contact has no fields of this kind`}</span>
   </ListView>
+  {#if isWebPageInvalid}
+    <span class="field-error">{$t`This is not a web address`}</span>
+  {/if}
   <hbox class="buttons">
     <DialogButton label={$t`New… *=> Add a new user-defined field`} onClick={() => { isNewOpen = true; }} />
     <DialogButton label={$t`Delete`}
@@ -56,6 +59,7 @@
   let selected: FieldRow = null;
   let isNewOpen = false;
   let newName = "";
+  let isWebPageInvalid = false;
   let revision = 0;
 
   $: fieldSets = [
@@ -83,6 +87,7 @@
   function onValueChange(item: FieldRow, event: Event & { currentTarget: HTMLInputElement }) {
     if (item.kind == "web") {
       item.entry.value = event.currentTarget.value = addHTTPSToHostname(event.currentTarget.value.trim());
+      isWebPageInvalid = !!item.entry.value && !URL.canParse(item.entry.value);
     }
   }
 
@@ -129,6 +134,9 @@
     outline: none;
     border-color: var(--lo-accent);
     background-color: var(--lo-input-bg);
+  }
+  .field-error {
+    color: var(--lo-danger);
   }
   .buttons {
     gap: 8px;

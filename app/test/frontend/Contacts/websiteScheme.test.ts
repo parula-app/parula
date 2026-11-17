@@ -34,6 +34,12 @@ test("Editing: a website typed without https:// is saved with it", () => {
 
 test("Editing: a website with http:// stays as it is", () => {
   expect(typeWebsite("http://erika.example/")).toBe("http://erika.example/");
+  expect(document.body.textContent).not.toContain("not a web address");
+});
+
+test("Editing: a value that is not a web address shows an error", () => {
+  expect(typeWebsite("erika example")).toBe("erika example");
+  expect(document.body.textContent).toContain("not a web address");
 });
 
 test("Display: a website saved without https:// links to https://", () => {

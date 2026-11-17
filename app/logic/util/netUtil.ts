@@ -56,10 +56,11 @@ export function removeTrackingURL(url: string): string {
   return url;
 }
 
-/** A website that the user typed: `example.com` → `https://example.com`. Addresses with a scheme, e.g. `http:…` or `mailto:…`, stay. */
+/** A website without scheme: `example.com/foo` → `https://example.com/foo`. Anything else, e.g. `http:…`, `mailto:…` or not a host name, stays. */
 export function addHTTPSToHostname(address: string): string {
-  // A dot before the colon is a host name with a port, e.g. `example.com:8080`, not a scheme
-  if (!address || /^[a-z][a-z0-9+-]*:/i.test(address)) {
+  let url = URL.parse("https://" + address);
+  // `https://example.com` would have the host name `https`, `mailto:fred@example.com` the user `mailto`
+  if (!url || url.username || !url.hostname.includes(".")) {
     return address;
   }
   return "https://" + address;

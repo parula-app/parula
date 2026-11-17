@@ -4,6 +4,7 @@ import type { JMAPPerson } from './JMAPPerson';
 import type { TID } from '../../Mail/JMAP/TJMAPGeneric';
 import { sanitize } from '../../../../lib/util/sanitizeDatatypes';
 import { assert, ensureArray, getOwnProperty, randomID, setOwnProperty } from '../../util/util';
+import { addHTTPSToHostname } from '../../util/netUtil';
 import type { ArrayColl } from 'svelte-collections';
 
 export class JSContact {
@@ -30,8 +31,10 @@ export class JSContact {
       sanitize.nonemptystring(e.uri ?? e.user, null),
       null, e.service));
     JSContact.toContactEntries(person.urls, jscontact.links, e => {
-      let url = sanitize.url(e.uri, null, ["https", "http", "mailto", "tel", "fax"]); // ["*"] ?
-      return new ContactEntry(url, null, url ? url.slice(0, url.indexOf(":")) : null);
+      // Older versions and other clients may have saved just the host name, e.g. `erika.example`
+      let url = sanitize.url(addHTTPSToHostname(e.uri), null, ["https", "http", "mailto", "tel", "fax"]); // ["*"] ?
+      let protocol = url && URL.parse(url)?.protocol.slice(0, -1); // `new URL()` would throw on a malformed link and drop the whole contact
+      return new ContactEntry(protocol ? url : null, null, protocol);
     });
 
     person.picture = sanitize.url(jscontact.media?.avatar?.uri, null, ["https", "data", "blob"]);

@@ -10,14 +10,20 @@ function readLinks(links: Record<string, any>): Person {
   return person;
 }
 
-test("Links that sanitize.url() rejects are not shown", () => {
-  // `erika.example`: a website that older versions saved without https://
-  let person = readLinks({ l1: { uri: "javascript:alert(1)" }, l2: { uri: "erika.example" }, l3: { uri: "https://erika.example/" } });
-  expect(person.urls.contents.map(entry => entry.value)).toEqual(["https://erika.example/"]);
+test("A website without https:// from the server gets it", () => {
+  // Older versions saved what the user typed into `<input type="url">`, e.g. just the host name
+  let person = readLinks({ l1: { uri: "erika.example" } });
+  expect(person.urls.first.value).toBe("https://erika.example");
+  expect(person.urls.first.protocol).toBe("https");
 });
 
-test("A malformed link from a buggy server keeps the rest of the contact", () => {
-  let person = readLinks({ l1: { uri: "https://exa mple/" }, l2: { uri: { evil: true } }, l3: { uri: "https://erika.example/" } });
-  expect(person.urls.contents.map(entry => entry.value)).toContain("https://erika.example/");
+test("Links that sanitize.url() or URL rejects are dropped, and the contact stays", () => {
+  let person = readLinks({ l1: { uri: "javascript:alert(1)" }, l2: { uri: " javascript:alert(1)" }, l3: { uri: "https://exa mple/" }, l4: { uri: { evil: true } }, l5: { uri: "https://erika.example/" } });
+  expect(person.urls.contents.map(entry => entry.value)).toEqual(["https://erika.example/"]);
   expect(person.notes).toBe("Still here");
+});
+
+test("The protocol of a link is its URL scheme", () => {
+  let person = readLinks({ l1: { uri: "https://erika.example/" }, l2: { uri: "mailto:erika@example.com" }, l3: { uri: "tel:+49301234567" } });
+  expect(person.urls.contents.map(entry => entry.protocol)).toEqual(["https", "mailto", "tel"]);
 });
