@@ -73,6 +73,9 @@
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
   import type { ComboOption } from "../../Shared/Form/ComboOption";
   import { t } from "../../../l10n/l10n";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let defaultAccount: MailAccount | null = null;
 
@@ -117,8 +120,8 @@
     let folder = new SavedSearchFolder(search);
     folder.name = selected.name(values);
     await folder.save();
-    $selectedAccount = allAccountsAccount;
-    $selectedFolder = folder;
+    appWindow.uiState(selectedAccount).set(allAccountsAccount);
+    appWindow.uiState(selectedFolder).set(folder);
   }
 </script>
 

@@ -66,7 +66,7 @@
   <NewEMailContactDialog onAdd={addNewContact} on:close={() => { isNewContactOpen = false; }} />
 {/if}
 
-<svelte:window on:keydown={onKeyDown} />
+<AppWindowEvents on:keydown={onKeyDown} />
 
 <script lang="ts">
   import type { Group } from "../../../logic/Abstract/Group";
@@ -74,6 +74,7 @@
   import { ContactActions } from "../ContactActions";
   import { catchErrors } from "../../../frontend/Util/error";
   import { getOSName } from "../../../frontend/Util/util";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import Ribbon from "../../Shared/Ribbon/Ribbon.svelte";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
@@ -178,7 +179,7 @@
   let pageEl: HTMLElement;
   function onKeyDown(event: KeyboardEvent) {
     let target = event.target as HTMLElement;
-    if (!pageEl?.contains(target) && target != document.body) {
+    if (!pageEl?.contains(target) && target != pageEl?.ownerDocument.body) {
       return;
     }
     if (event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() == "s") {

@@ -162,6 +162,7 @@
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
   import { showMessageBox } from "../Shared/Dialog/MessageBox";
   import { minorError } from "../../logic/util/error";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
   import Ribbon from "../Shared/Ribbon/Ribbon.svelte";
   import RibbonTab from "../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../Shared/Ribbon/RibbonGroup.svelte";
@@ -198,6 +199,7 @@
   import type { Collection } from "svelte-collections";
   import { t } from "../../l10n/l10n";
 
+  const appWindow = AppWindow.current();
   const viewSetting = getLocalStorage("files.view", "table");
   const sortSetting = getLocalStorage("files.sort", SortCriteria.Name);
 
@@ -287,10 +289,10 @@
     }
     await entry.deleteIt();
     if ($selectedFile == entry) {
-      $selectedFile = null;
+      appWindow.uiState(selectedFile).set(null);
     }
     if ($selectedFolder == entry && entry instanceof Directory) {
-      $selectedFolder = entry.parent;
+      appWindow.uiState(selectedFolder).set(entry.parent);
     }
   }
 
@@ -301,9 +303,9 @@
     }
     await entry.deleteIt();
     if ($selectedFile == entry) {
-      $selectedFile = null;
+      appWindow.uiState(selectedFile).set(null);
     }
-    $selectedFolder = entry.parent;
+    appWindow.uiState(selectedFolder).set(entry.parent);
   }
 
   // <copied from="../../frontend/Files/MainPane/FilesHeader.svelte">

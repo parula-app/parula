@@ -23,6 +23,9 @@
   import TextField from "../../Shared/Form/TextField.svelte";
   import { assert } from "../../../logic/util/util";
   import { t } from "../../../l10n/l10n";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let account: MailAccount;
   export let parent: Folder | null = null;
@@ -46,8 +49,8 @@
       onCreated(folder);
       return;
     }
-    $selectedAccount = folder.account;
-    $selectedFolder = folder;
+    appWindow.uiState(selectedAccount).set(folder.account);
+    appWindow.uiState(selectedFolder).set(folder);
   }
 
 </script>

@@ -172,43 +172,6 @@ export class SMIMEPublicKey extends PublicKey {
     }
   }
 
-  /**
-   * @param digestAlgorithm Only for mail, where the signature algorithm may also name only the key, RFC 5652 section 10.1.2
-   * @param hashes The signature algorithms for this type of key, with their hash
-   * @returns null, if not supported, or if the two algorithms disagree
-   */
-  protected signatureHash(signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm: AlgorithmIdentifier | undefined, hashes: Record<string, WebCryptoAlgorithm>): WebCryptoAlgorithm | null {
-    let hash = sanitize.translate(signatureAlgorithm.algorithm, hashes, null);
-    if (!digestAlgorithm) {
-      return hash;
-    }
-    let digestHash = sanitize.translate(digestAlgorithm.algorithm, DigestAlgorithm, null);
-    if (signatureAlgorithm.algorithm == this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm) {
-      return digestHash;
-    }
-    return hash == digestHash ? hash : null;
-  }
-
-  /** @param signature as X.509 and CMS have it, an `ECDSASigValue` */
-  async verifyECDSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
-    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
-    let curve = this.curveBits(publicKey);
-    let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, ECDSASignatureAlgorithm);
-    if (!curve || !hash) {
-      return false;
-    }
-    let key = await crypto.subtle.importKey("spki", SubjectPublicKeyInfo.encode(publicKey) as BufferSource, { name: "ECDSA", namedCurve: "P-" + curve }, false, ["verify"]);
-    // WebCrypto wants r and s one after the other, each in the size of the curve
-    let size = curve + 7 >> 3;
-    let max = 1n << BigInt(size * 8);
-    let { r, s } = ECDSASigValue.decode(signature);
-    if (r <= 0n || s <= 0n || r >= max || s >= max) {
-      return false;
-    }
-    let rs = Uint8ArrayFromHex(r.toString(16).padStart(size * 2, "0") + s.toString(16).padStart(size * 2, "0"));
-    return await crypto.subtle.verify({ name: "ECDSA", hash }, key, rs as BufferSource, content as BufferSource);
-  }
-
   /** Encrypts the content key to the EC key of this certificate with ECDH, as Outlook does. RFC 5753 section 3.1.1 */
   async keyAgreeRecipientInfo(symmetricKey: Uint8Array): Promise<any> {
     let cert = this.decodedCertificate;
@@ -331,6 +294,79 @@ export class SMIMEPublicKey extends PublicKey {
       return KeyStatus.SelfSignedRoot;
     }
     return KeyStatus.ChainIncomplete;
+  }
+
+  /** @param digestAlgorithm Only for mail, from its SignerInfo */
+  async verify(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
+    switch (this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm) {
+    case "rsaEncryption":
+      return await this.verifyRSA(signature, content, signatureAlgorithm, digestAlgorithm);
+    case "ecPublicKey":
+      return await this.verifyECDSA(signature, content, signatureAlgorithm, digestAlgorithm);
+    default:
+      return false;
+    }
+  }
+
+  /** RSASSA-PKCS1-v1_5, RFC 8017 section 8.2.2 */
+  protected async verifyRSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
+    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
+    let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, SignatureAlgorithm);
+    if (!hash) {
+      return false;
+    }
+    let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
+    let block = encrypt(signature, rsa);
+    let digestInfo = DigestInfo.decode(unpadPKCS(block, BlockType.Signed));
+    if (sanitize.translate(digestInfo.digestAlgorithm.algorithm, DigestAlgorithm, null) != hash) {
+      return false;
+    }
+    let digest = new Uint8Array(await crypto.subtle.digest(hash, content as BufferSource));
+    if (indexedDB.cmp(digestInfo.digest, digest)) {
+      return false;
+    }
+    // Rebuild the whole PKCS#1 v1.5 block and compare byte-for-byte, so that
+    // trailing bytes after the DigestInfo or non-canonical padding are rejected
+    // rather than silently ignored (RFC8017 EMSA-PKCS1-v1_5 verification).
+    digestInfo.digestAlgorithm.parameters = Null.encode();
+    return !indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa));
+  }
+
+  /** @param signature as X.509 and CMS have it, an `ECDSASigValue` */
+  protected async verifyECDSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
+    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
+    let curve = this.curveBits(publicKey);
+    let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, ECDSASignatureAlgorithm);
+    if (!curve || !hash) {
+      return false;
+    }
+    let key = await crypto.subtle.importKey("spki", SubjectPublicKeyInfo.encode(publicKey) as BufferSource, { name: "ECDSA", namedCurve: "P-" + curve }, false, ["verify"]);
+    // WebCrypto wants r and s one after the other, each in the size of the curve
+    let size = curve + 7 >> 3;
+    let max = 1n << BigInt(size * 8);
+    let { r, s } = ECDSASigValue.decode(signature);
+    if (r <= 0n || s <= 0n || r >= max || s >= max) {
+      return false;
+    }
+    let rs = Uint8ArrayFromHex(r.toString(16).padStart(size * 2, "0") + s.toString(16).padStart(size * 2, "0"));
+    return await crypto.subtle.verify({ name: "ECDSA", hash }, key, rs as BufferSource, content as BufferSource);
+  }
+
+  /**
+   * @param digestAlgorithm Only for mail, where the signature algorithm may also name only the key, RFC 5652 section 10.1.2
+   * @param hashes The signature algorithms for this type of key, with their hash
+   * @returns null, if not supported, or if the two algorithms disagree
+   */
+  protected signatureHash(signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm: AlgorithmIdentifier | undefined, hashes: Record<string, WebCryptoAlgorithm>): WebCryptoAlgorithm | null {
+    let hash = sanitize.translate(signatureAlgorithm.algorithm, hashes, null);
+    if (!digestAlgorithm) {
+      return hash;
+    }
+    let digestHash = sanitize.translate(digestAlgorithm.algorithm, DigestAlgorithm, null);
+    if (signatureAlgorithm.algorithm == this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm) {
+      return digestHash;
+    }
+    return hash == digestHash ? hash : null;
   }
 
   /** @param subCAs How many CA certificates are between this one and the leaf */
@@ -487,34 +523,9 @@ export async function verifySignature(cert: Certificate, signer: Certificate): P
       console.log("subject did not match issuer");
       return false;
     }
-    if (signer.tbsCertificate.publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
-      let signerKey = new SMIMEPublicKey();
-      await signerKey.setCertificate(signer);
-      return await signerKey.verifyECDSA(cert.signatureValue.data, TBSCertificate.encode(cert.tbsCertificate), cert.signatureAlgorithm);
-    }
-    let algorithm = sanitize.translate(cert.signatureAlgorithm.algorithm, SignatureAlgorithm);
-    let signedCert = TBSCertificate.encode(cert.tbsCertificate);
-    let signedDigest = new Uint8Array(await crypto.subtle.digest(algorithm, signedCert));
-    let rsa = RSAPublicKey.decode(signer.tbsCertificate.publicKey.subjectPublicKey.data);
-    let block = encrypt(cert.signatureValue.data, rsa);
-    let digestInfo = DigestInfo.decode(unpadPKCS(block, BlockType.Signed));
-    if (sanitize.translate(digestInfo.digestAlgorithm.algorithm, DigestAlgorithm) != algorithm) {
-      console.log("mismatched digest signature algorithm");
-      return false;
-    }
-    if (indexedDB.cmp(digestInfo.digest, signedDigest)) {
-      console.log("signature mismatch");
-      return false;
-    }
-    // Rebuild the whole PKCS#1 v1.5 block and compare byte-for-byte, so that
-    // trailing bytes after the DigestInfo or non-canonical padding are rejected
-    // rather than silently ignored (RFC8017 EMSA-PKCS1-v1_5 verification).
-    digestInfo.digestAlgorithm.parameters = Null.encode();
-    if (indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa))) {
-      console.log("non-canonical signature padding");
-      return false;
-    }
-    return true;
+    let signerKey = new SMIMEPublicKey();
+    await signerKey.setCertificate(signer);
+    return await signerKey.verify(cert.signatureValue.data, TBSCertificate.encode(cert.tbsCertificate), cert.signatureAlgorithm);
   } catch (ex) {
     // Typically a decryption error, but the validation should fail anyway.
     console.error(ex);

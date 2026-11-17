@@ -34,7 +34,7 @@
   <MessageBoxHost />
 </vbox>
 
-<svelte:window on:keydown|capture={onKeyDownCapture} />
+<AppWindowEvents capture on:keydown={onKeyDownCapture} />
 
 <script lang="ts">
   import lookoutCSS from "../app.css?inline";
@@ -52,6 +52,8 @@
   import { calendarMustangApp } from "../../frontend/Calendar/CalendarMustangApp";
   import { contactsMustangApp } from "../../frontend/Contacts/ContactsMustangApp";
   import { catchErrors } from "../../frontend/Util/error";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../frontend/MainWindow/AppWindowEvents.svelte";
   import WindowHeader from "./WindowHeader.svelte";
   import { tabsInTitleBar } from "../Shared/Ribbon/Ribbon.svelte";
   import StatusBar from "./StatusBar.svelte";
@@ -98,21 +100,23 @@
     $isBackstageOpen = false;
   }
 
+  const appWindow = AppWindow.current();
+
   function onKeyDownCapture() {
     // Appended anew for every key, so that it runs after the pages' own window listeners, which take precedence
-    window.removeEventListener("keydown", onKeyDown);
-    window.addEventListener("keydown", onKeyDown);
+    appWindow.window.removeEventListener("keydown", onKeyDown);
+    appWindow.window.addEventListener("keydown", onKeyDown);
   }
-  onDestroy(() => window.removeEventListener("keydown", onKeyDown));
+  onDestroy(() => appWindow.window.removeEventListener("keydown", onKeyDown));
 
   function onKeyDown(event: KeyboardEvent) {
     catchErrors(() => onKeyOnWindow(event));
   }
 
   function onKeyOnWindow(event: KeyboardEvent) {
-    // <copied to="../Shared/Ribbon/TellMe.svelte">
+    // <copied to="../Shared/Ribbon/TellMe.svelte, ../Shared/Ribbon/Ribbon.svelte">
     let target = event.target as HTMLElement;
-    if (event.defaultPrevented || event.cancelBubble || document.querySelector("dialog:modal") ||
+    if (event.defaultPrevented || event.cancelBubble || appWindow.window.document.querySelector("dialog:modal") ||
         target?.closest?.("[contenteditable]:not([contenteditable='false'])")) {
       return;
     }
@@ -142,7 +146,7 @@
         event.stopPropagation();
         windowHeader?.focusSearch();
         return;
-      } else if (key == "F1") {
+      } else if (key == "F1") { // Only when no ribbon took it
         event.preventDefault();
         event.stopPropagation();
         $ribbonCollapsed.value = !$ribbonCollapsed.value;
@@ -210,17 +214,21 @@
 <style>
   .lookout-window {
     min-width: 640px;
+    /* <copied to="SecondaryWindow.svelte"> */
     min-height: 0;
     background-color: var(--lo-window-bg);
     color: var(--lo-fg);
     font-family: var(--lo-font);
     font-size: var(--lo-font-size);
     overflow: hidden;
+    /* </copied> */
   }
   /* There's no tab row below the title bar */
+  /* <copied to="SecondaryWindow.svelte"> */
   .lookout-window.tabs-in-title-bar {
     --lo-ribbon-tab-row-height: 0px;
   }
+  /* </copied> */
   .below-title {
     position: relative;
     min-height: 0;
@@ -232,46 +240,6 @@
   .app-area {
     min-width: 0;
     min-height: 0;
-  }
-  .app-area > :global(.notification-bar) {
-    min-height: 34px;
-    margin: 0 8px 6px 8px;
-    padding-inline-start: 4px;
-    border: 1px solid var(--lo-infobar-border);
-    border-radius: var(--lo-radius);
-    background-color: var(--lo-infobar-bg);
-    color: var(--lo-fg);
-    box-shadow: none;
-  }
-  .app-area > :global(.notification-bar[severity="error"]) {
-    border-color: var(--lo-infobar-error-border);
-    background-color: var(--lo-infobar-error-bg);
-  }
-  .app-area > :global(.notification-bar[severity="meltdown"]) {
-    border-color: var(--lo-danger);
-    background-color: var(--lo-danger);
-    color: var(--lo-danger-fg);
-  }
-  .app-area > :global(.notification-bar[severity="info"]),
-  .app-area > :global(.notification-bar[severity="logged-out"]) {
-    border-color: var(--lo-selected-bg);
-    background-color: var(--lo-accent-tint);
-  }
-  .app-area > :global(.notification-bar > hbox:first-child) {
-    display: none;
-  }
-  .app-area > :global(.notification-bar button) {
-    border-color: transparent;
-    background-color: transparent;
-    color: inherit;
-  }
-  .app-area > :global(.notification-bar button:hover) {
-    background-color: var(--lo-hover-bg);
-  }
-  .app-area > :global(.notification-bar button.action) {
-    border-color: var(--lo-input-border);
-    background-color: var(--lo-pane-bg);
-    color: var(--lo-fg);
   }
   .sidebar {
     box-shadow: var(--lo-shadow-card);
