@@ -39,6 +39,19 @@ export function booleanHasValue(value: boolean | null | undefined): value is boo
   return value === true || value === false;
 }
 
+/** `obj[key]`, but only a property of `obj` itself, so that a key from the server
+ * like `__proto__` or `constructor` can't reach a prototype and change `Object.prototype` */
+export function getOwnProperty<T>(obj: Record<string, T> | null | undefined, key: string): T | undefined {
+  return obj && typeof (obj) == "object" && Object.hasOwn(obj, key) ? obj[key] : undefined;
+}
+
+/** `obj[key] = value`, but throws for the key `__proto__`, which would replace the prototype of `obj` */
+export function setOwnProperty<T>(obj: Record<string, T>, key: string, value: T): T {
+  assert(key != "__proto__", "The property name __proto__ is not allowed");
+  obj[key] = value;
+  return value;
+}
+
 // <copied from="../../frontend/Util/LocalStorage.ts">
 /** HACK: Assumes that `getLocalStorage()` in the frontend saves the value there, in this format. */
 export function getUserPreference<T>(key: string, defaultValue?: T): T {

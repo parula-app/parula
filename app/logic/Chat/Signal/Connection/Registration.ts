@@ -17,6 +17,7 @@ import type { KyberKeyPair } from "../Encryption/kyber";
 import { KeyPair } from "../Crypto/KeyPair";
 import { djbEncode } from "../Crypto/curve";
 import { deriveUnidentifiedAccessKey } from "../Encryption/SealedSender";
+import { LoopGuard } from "../../../util/flow/LoopGuard";
 
 /** The two challenge kinds a verification session may demand (Docs/02 §A.2). */
 export type RequestedInformation = "captcha" | "pushChallenge";
@@ -116,8 +117,10 @@ export class Registration {
   /** Submit a captcha for each pending challenge until the session is allowed to
    * request a code (a captcha alone satisfies the push challenge too, §A.2). */
   async satisfyChallenges(session: VerificationSessionResponse): Promise<VerificationSessionResponse> {
-    let guard = 0;
-    while (!session.allowedToRequestCode && session.requestedInformation.length && guard++ < 5) {
+    let loop = new LoopGuard(5, () => {
+      throw new Error("Signal registration: The server keeps asking for another captcha. Stopped.");
+    });
+    while (!session.allowedToRequestCode && session.requestedInformation.length && loop.nextRound()) {
       if (session.requestedInformation.includes("captcha")) {
         session = await this.submitCaptcha(session.id, await this.callbacks.getCaptcha());
       } else {

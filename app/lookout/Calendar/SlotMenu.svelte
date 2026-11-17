@@ -27,7 +27,8 @@
 {/if}
 
 <script lang="ts">
-  import { eventPeek, selectedSlots, type CalendarViewType } from "./selected";
+  import { eventPeek, selectedSlots } from "./selected";
+  import type { CalendarViewType } from "../../frontend/Calendar/CalendarRange";
   import { CalendarActions } from "./CalendarActions";
   import { selectedDate, startDate } from "../../frontend/Calendar/selected";
   import { getToday } from "../../logic/util/date";
