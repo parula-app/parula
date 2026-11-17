@@ -104,3 +104,14 @@ test("Manage signatures opens the identity settings of the account", async () =>
   (await openMenu()).find(item => item.textContent.includes("Manage signatures")).click();
   expect(openSettingsCategoryForAccount).toHaveBeenCalledWith(account, "mail-identity");
 });
+
+test("With only one signature, the composer has no Signature button", async () => {
+  unmount(app);
+  identity.altSignatures.clear();
+  let target = document.createElement("div");
+  document.body.append(target);
+  app = mount(MailComposer, { target, props: { mail: account.newEMailFrom() } });
+  flushSync();
+  await vi.waitFor(() => expect(signatureInEditor()).toBe("Test User"));
+  expect(Array.from(document.querySelectorAll("button")).map(button => button.title)).not.toContain("Signature");
+});

@@ -1,28 +1,28 @@
-<ButtonMenu bind:isMenuOpen boundaryElSel=".mail-composer-window">
-  <Button
-    label={$t`Signature`}
-    icon={SignatureIcon}
-    iconOnly
-    onClick={onMenuToggle}
-    selected={isMenuOpen}
-    slot="control"
-    />
-  {#each signatures.each as signatureHTML}
-    <MenuItem
-      label={new MailBody(signatureHTML).textLine}
-      selected={current.isOwnSignature(signatureHTML)}
-      onClick={() => editor.commands.editSignature(body => body.putOwnSignature(signatureHTML))}
+{#if identity.signatures.length > 1}
+  <ButtonMenu bind:isMenuOpen boundaryElSel=".mail-composer-window">
+    <Button
+      label={$t`Signature`}
+      icon={SignatureIcon}
+      iconOnly
+      onClick={onMenuToggle}
+      selected={isMenuOpen}
+      slot="control"
       />
-  {/each}
-  {#if signatures.hasItems}
+    {#each signatures.each as signatureHTML}
+      <MenuItem
+        label={new MailBody(signatureHTML).textLine}
+        selected={current.isOwnSignature(signatureHTML)}
+        onClick={() => editor.commands.editSignature(body => body.putOwnSignature(signatureHTML))}
+        />
+    {/each}
     <MenuDivider />
-  {/if}
-  <MenuItem
-    label={$t`Manage signatures…`}
-    icon={SettingsIcon}
-    onClick={() => openSettingsCategoryForAccount(identity.account, "mail-identity")}
-    />
-</ButtonMenu>
+    <MenuItem
+      label={$t`Manage signatures…`}
+      icon={SettingsIcon}
+      onClick={() => openSettingsCategoryForAccount(identity.account, "mail-identity")}
+      />
+  </ButtonMenu>
+{/if}
 
 <script lang="ts">
   import type { MailIdentity } from "../../../logic/Mail/MailIdentity";
@@ -32,7 +32,7 @@
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
   import Button from "../../Shared/Button.svelte";
-  import SignatureIcon from "lucide-svelte/icons/signature";
+  import SignatureIcon from "lucide-svelte/icons/pen-line";
   import SettingsIcon from "lucide-svelte/icons/settings";
   import type { ArrayColl } from "svelte-collections";
   import type { Editor } from "@tiptap/core";
