@@ -12,6 +12,16 @@ class TestEWSAccount extends EWSAccount {
   readonly streamedIDs: string[] = [];
   /** The response code that the first stream fails with */
   responseCode = "ErrorMissedNotificationEvents";
+  /** How often we checked the inbox for new mail */
+  inboxChecks = 0;
+
+  get inbox(): any {
+    return {
+      getNewMessages: async () => {
+        this.inboxChecks++;
+      },
+    };
+  }
 
   async callEWS(request: any): Promise<any> {
     if (request.m$Subscribe) {
@@ -90,5 +100,14 @@ test("The server forgot the subscription, so we get a new one and stream that", 
   await account.subscribeToNotifications();
 
   await waitFor(() => account.streamedIDs.length == 2);
+  expect(account.streamedIDs).toEqual(["subscription-1", "subscription-2"]);
+});
+
+test("After the server lost the subscription, we check the inbox for mail that arrived meanwhile", async () => {
+  let account = newTestAccount();
+
+  await account.subscribeToNotifications();
+
+  await waitFor(() => account.inboxChecks == 1);
   expect(account.streamedIDs).toEqual(["subscription-1", "subscription-2"]);
 });

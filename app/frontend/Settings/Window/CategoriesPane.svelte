@@ -1,15 +1,19 @@
-<vbox flex class="settings-categories-pane">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<vbox flex class="settings-categories-pane" tabindex="-1" on:keydown={event => onListKey(event, ".settings-category, .account")}>
   <Scroll>
     {#each $categories.each as category}
       <CategoryItem {category} />
     {/each}
   </Scroll>
+  <GlobalSearchBar />
 </vbox>
 
 <script lang="ts">
+  import GlobalSearchBar from "../../MainWindow/GlobalSearchBar.svelte";
   import type { SettingsCategory } from "../SettingsCategory";
   import CategoryItem from "./CategoryItem.svelte";
   import Scroll from "../../Shared/Scroll.svelte";
+  import { onListKey } from "../../Util/util";
   import type { Collection } from "svelte-collections";
 
   /* Which apps to show on the app bar
@@ -21,7 +25,8 @@
   .settings-categories-pane {
     background-color: var(--leftbar-bg);
     color: var(--leftbar-fg);
-    box-shadow: 1px 0px 3px 0px rgba(22, 12, 39, 20%); /* #160C27 */
+    box-shadow: var(--left-pane-shadow, 1px 0px 3px 0px rgba(22, 12, 39, 20%)); /* #160C27 */
+    margin: var(--pane-margin);
     padding-block-start: 24px;
     z-index: 4;
   }

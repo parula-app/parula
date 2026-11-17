@@ -20,9 +20,11 @@
 </script>
 
 <style>
+  h2 {
+    margin-block-end: 0;
+  }
   .subtitle {
     opacity: 70%;
-    margin-block-start: -20px;
     margin-block-end: 20px;
   }
 </style>
