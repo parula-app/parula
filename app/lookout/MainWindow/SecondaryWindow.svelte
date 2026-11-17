@@ -1,4 +1,4 @@
-<vbox flex class="secondary-window lookout-window" dir={rtl}>
+<vbox flex class="secondary-window lookout-window" class:tabs-in-title-bar={$tabsInTitleBar.value} dir={rtl}>
   <WindowHeader {title} />
   <vbox flex class="app-area">
     <NotificationBar notifications={$notifications} />
@@ -12,6 +12,7 @@
   import { AppWindow } from "../../frontend/MainWindow/AppWindow";
   import { notifications } from "../../logic/util/Notification";
   import WindowHeader from "./WindowHeader.svelte";
+  import { tabsInTitleBar } from "../Shared/Ribbon/Ribbon.svelte";
   import NotificationBar from "../../frontend/MainWindow/NotificationBar.svelte";
   import SettingsDialogHost from "../Settings/SettingsDialogHost.svelte";
   import MessageBoxHost from "../Shared/Dialog/MessageBoxHost.svelte";
@@ -44,6 +45,11 @@
     overflow: hidden;
     /* </copied> */
   }
+  /* <copied from="MainWindow.svelte"> */
+  .lookout-window.tabs-in-title-bar {
+    --lo-ribbon-tab-row-height: 0px;
+  }
+  /* </copied> */
   .app-area {
     min-width: 0;
     min-height: 0;

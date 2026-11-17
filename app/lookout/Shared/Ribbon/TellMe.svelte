@@ -50,13 +50,15 @@
   import MenuItem from "../Menu/MenuItem.svelte";
   import MenuLabel from "../Menu/MenuLabel.svelte";
   import TellMeIcon from "lucide-svelte/icons/lightbulb";
+  import type { RibbonState } from "./RibbonGroup";
   import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import { getOSName } from "../../../frontend/Util/util";
+  import { get } from "svelte/store";
   import { tick } from "svelte";
   import { t } from "../../../l10n/l10n";
 
-  export let ribbonEl: HTMLElement;
+  export let ribbon: RibbonState;
 
   const appWindow = AppWindow.current();
 
@@ -68,21 +70,21 @@
   let isMenuOpen = false;
   let isExpanded = false;
   let isActive = false;
-  export let isSurveying = false;
+  $: isSurveying = ribbon.isTellMeSurveying;
   let entries: RibbonCommandEntry[] = [];
   let results: RibbonCommandEntry[] = [];
 
   async function startSurvey() {
-    if (!isSurveying) {
-      isSurveying = true;
+    if (!$isSurveying) {
+      $isSurveying = true;
     }
     await tick();
-    entries = collect(ribbonEl);
+    entries = collect(ribbon.ribbonEl);
   }
 
   function endSurvey() {
-    if (isSurveying) {
-      isSurveying = false;
+    if ($isSurveying) {
+      $isSurveying = false;
     }
   }
 
@@ -126,7 +128,7 @@
   }
 
   async function onInput() {
-    if (!isSurveying) {
+    if (!$isSurveying) {
       await startSurvey();
     }
     updateResults();
@@ -175,15 +177,14 @@
   async function run(entry: RibbonCommandEntry) {
     isMenuOpen = false;
     searchTerm = "";
-    let tabEl = Array.from(ribbonEl.querySelectorAll<HTMLElement>(".tabs [role=tab]"))
-      .find(candidate => candidate.textContent.trim() == entry.tabLabel);
-    if (tabEl && tabEl.getAttribute("aria-selected") != "true") {
-      tabEl.click();
+    let tab = get(ribbon.shownTabs).find(candidate => candidate.label == entry.tabLabel);
+    if (tab && tab != get(ribbon.selectedTab)) {
+      ribbon.onSelectTab(tab);
     }
     await tick();
     close();
     await tick();
-    let el = entry.el.isConnected ? entry.el : collect(ribbonEl)
+    let el = entry.el.isConnected ? entry.el : collect(ribbon.ribbonEl)
       .find(candidate => candidate.tabLabel == entry.tabLabel && candidate.groupLabel == entry.groupLabel && candidate.label == entry.label)?.el;
     if (!el) {
       return;
@@ -240,13 +241,15 @@
 <style>
   .tell-me {
     flex: 0 0 auto;
+    align-self: center;
     align-items: center;
     gap: 2px;
-    height: 28px;
-    margin-inline-end: 4px;
+    height: 30px;
+    margin-inline: 4px;
     border: 1px solid transparent;
     border-radius: var(--lo-radius-small);
     color: var(--lo-fg-secondary);
+    app-region: no-drag;
   }
   .tell-me.expanded {
     flex: 0 1 240px;

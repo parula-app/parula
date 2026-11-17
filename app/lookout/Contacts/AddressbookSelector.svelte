@@ -1,5 +1,6 @@
 <vbox flex class="addressbook-pane">
-  <vbox class="scroll nav-list">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <vbox class="scroll nav-list" on:keydown={event => onListKey(event, ".addressbook-item")}>
     <AddressbookItem
       label={$t`All contacts`}
       icon={AllContactsIcon}
@@ -48,6 +49,7 @@
   import AllContactsIcon from "lucide-svelte/icons/contact-round";
   import DirectoryIcon from "lucide-svelte/icons/building-2";
   import CollapsibleHeader from "../Shared/CollapsibleHeader.svelte";
+  import { onListKey } from "../../frontend/Util/util";
   import { mergeColls, type Collection } from "svelte-collections";
   import { t } from "../../l10n/l10n";
 

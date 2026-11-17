@@ -81,7 +81,7 @@
     overflow: hidden;
   }
   .tray {
-    background-color: rgba(0, 0, 0, 25%);
+    background-color: rgba(0, 0, 0, 5%);
   }
   .add {
     height: 28px;
@@ -116,5 +116,12 @@
     .more {
       border-right: 1px dotted grey;
     }
+  }
+  :global(.lookout-window) .launch-bar,
+  :global(.lookout-window) .more {
+    border-right: none;
+  }
+  :global(.lookout-window) .more {
+    box-shadow: var(--lo-shadow-popup);
   }
 </style>

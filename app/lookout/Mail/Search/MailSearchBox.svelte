@@ -1,9 +1,10 @@
 <vbox class="mail-search-box" bind:this={boxEl}>
   <hbox class="search" class:has-search={!!typed}>
     <button type="button" class="scope" bind:this={scopeButton}
-      title={$t`Choose where to search`}
+      title={$t`Choose where to search`} aria-label={scopeLabel(scope)}
       aria-haspopup="menu" aria-expanded={isScopeOpen}
       on:click|stopPropagation={() => isScopeOpen = !isScopeOpen}>
+      <svelte:component this={scopeIcon(scope)} size={16} class="scope-icon" />
       <span class="scope-label">{scopeLabel(scope)}</span>
       <ChevronIcon size={14} />
     </button>
@@ -64,7 +65,7 @@
 <script lang="ts">
   import { globalSearchTerm } from "../../../frontend/AppsBar/selectedApp";
   import { selectedAccount, selectedFolder } from "../../../frontend/Mail/Selected";
-  import { isScopeAvailable, effectiveScope, scopeLabel, SearchScope } from "./MailSearch";
+  import { isScopeAvailable, effectiveScope, scopeLabel, scopeIcon, SearchScope } from "./MailSearch";
   import { isAdvancedSearchOpen, isMailSearchFocused, mailSearchInput, searchOptions } from "../Selected";
   import { AdvancedSearchDraft } from "./AdvancedSearchDraft";
   import SearchCriteria from "./SearchCriteria.svelte";
@@ -234,6 +235,10 @@
   .scope-label {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .scope :global(.scope-icon) {
+    display: none;
+    flex-shrink: 0;
   }
   .divider {
     align-self: stretch;

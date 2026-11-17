@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import TellMe from "../../../Shared/Ribbon/TellMe.svelte";
+import type { RibbonState } from "../../../Shared/Ribbon/RibbonGroup";
+import { writable } from "svelte/store";
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -8,7 +10,8 @@ let app: Record<string, any> | null = null;
 beforeEach(() => {
   let ribbonEl = document.createElement("div");
   document.body.append(ribbonEl);
-  app = mount(TellMe, { target: ribbonEl, props: { ribbonEl } });
+  let ribbon = { ribbonEl, isTellMeSurveying: writable(false), shownTabs: writable([]), selectedTab: writable(null) } as Partial<RibbonState>;
+  app = mount(TellMe, { target: ribbonEl, props: { ribbon: ribbon as RibbonState } });
   flushSync();
 });
 

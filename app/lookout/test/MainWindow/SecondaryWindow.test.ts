@@ -5,6 +5,7 @@ import { Notification, NotificationSeverity, notifications } from "../../../logi
 import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 import SecondaryWindow from "../../MainWindow/SecondaryWindow.svelte";
 import WindowHeader from "../../MainWindow/WindowHeader.svelte";
+import Ribbon, { tabsInTitleBar } from "../../Shared/Ribbon/Ribbon.svelte";
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeAll, expect, test, vi } from "vitest";
 
@@ -16,11 +17,13 @@ beforeAll(() => {
   };
 });
 
-let app: Record<string, any> | null = null;
+let apps: Record<string, any>[] = [];
 
 afterEach(() => {
-  unmount(app);
-  app = null;
+  for (let app of apps) {
+    unmount(app);
+  }
+  apps = [];
   document.body.innerHTML = "";
   notifications.clear();
   localStorage.removeItem("lookout.quickaction.shown");
@@ -37,7 +40,7 @@ function mountIn(appWindow: AppWindow | null, component: any, props: Record<stri
   let target = document.createElement("div");
   document.body.append(target);
   let context = appWindow ? new Map([["appWindow", appWindow]]) : undefined;
-  app = mount(component, { target, props, context });
+  apps.push(mount(component, { target, props, context }));
   flushSync();
 }
 
@@ -96,4 +99,22 @@ test("Notifications show in the secondary window too", () => {
   notifications.add(new Notification("The server is not reachable", NotificationSeverity.Warning));
   flushSync();
   expect(document.querySelector(".lookout-window").textContent).toContain("The server is not reachable");
+});
+
+test("With the ribbon tabs in the title bar, each window's title bar shows the ribbon of its own window", () => {
+  tabsInTitleBar.value = true;
+  let appWindow = newSecondaryWindow();
+  mountIn(null, WindowHeader, {});
+  mountIn(appWindow, WindowHeader, { title: "Lunch on Friday" });
+  mountIn(appWindow, Ribbon, { id: "mail-write" });
+  let [mainTitleBar, secondaryTitleBar] = document.querySelectorAll(".title-bar");
+  expect(secondaryTitleBar.querySelector(".tab-row")).toBeTruthy();
+  expect(secondaryTitleBar.querySelector(".tell-me-button")).toBeTruthy();
+  expect(secondaryTitleBar.querySelector(".file-tab")).toBeNull();
+  expect(mainTitleBar.querySelector(".tab-row")).toBeNull();
+
+  mountIn(null, Ribbon, { id: "mail" });
+  expect(mainTitleBar.querySelector(".tab-row .file-tab")).toBeTruthy();
+  expect(secondaryTitleBar.querySelectorAll(".tab-row")).toHaveLength(1);
+  expect(secondaryTitleBar.querySelector(".file-tab")).toBeNull();
 });

@@ -22,11 +22,13 @@
 
 <script lang="ts">
   import { assignKeyTips, quickAccessKeyTip } from "./KeyTips";
+  import type { RibbonState } from "./RibbonGroup";
   import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import { tick } from "svelte";
 
-  export let ribbonEl: HTMLElement;
+  export let ribbon: RibbonState;
+  export let tabRowEl: HTMLElement;
 
   const appWindow = AppWindow.current();
 
@@ -52,6 +54,7 @@
   let isAltPending = false;
 
   function isActiveRibbon(): boolean {
+    let ribbonEl = ribbon.ribbonEl;
     return !!ribbonEl?.isConnected && ribbonEl.getClientRects().length > 0;
   }
 
@@ -91,8 +94,8 @@
   function showTabTips() {
     let quickAccess = Array.from(appWindow.window.document.querySelectorAll<HTMLElement>("[data-keytip-qat]"))
       .filter(el => el.dataset.keytipQat != "customize" && isVisible(el));
-    let fileTab = ribbonEl.querySelector<HTMLElement>(".file-tab");
-    let tabs = Array.from(ribbonEl.querySelectorAll<HTMLElement>(".tabs [role=tab]")).filter(isVisible);
+    let fileTab = tabRowEl.querySelector<HTMLElement>(".file-tab");
+    let tabs = Array.from(tabRowEl.querySelectorAll<HTMLElement>(".tabs [role=tab]")).filter(isVisible);
     let tabTargets: Target[] = tabs.map(tabEl => ({
       el: tabEl,
       label: labelOf(tabEl),
@@ -100,8 +103,9 @@
       disabled: false,
       activate: () => selectTab(tabEl),
     }));
-    let tellMe = ribbonEl.querySelector<HTMLElement>(".tell-me-button");
-    let tellMeTargets: Target[] = tellMe && isVisible(tellMe) ? [{
+    // In the tab row, or in the window title bar
+    let tellMe = Array.from(appWindow.window.document.querySelectorAll<HTMLElement>(".tell-me-button")).find(isVisible);
+    let tellMeTargets: Target[] = tellMe ? [{
       el: tellMe, label: labelOf(tellMe), centered: true, disabled: false,
       activate: () => {
         exit();
@@ -127,7 +131,7 @@
   }
 
   function commandTargets(): Target[] {
-    let content = ribbonEl.querySelector<HTMLElement>(".ribbon-content");
+    let content = ribbon.ribbonEl.querySelector<HTMLElement>(".ribbon-content");
     if (!content) {
       return [];
     }

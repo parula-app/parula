@@ -13,7 +13,7 @@ import MailApp from "../../Mail/MailApp.svelte";
 import { MessageActions } from "../../Mail/MessageActions";
 import { SearchScope } from "../../Mail/Search/MailSearch";
 import { isAdvancedSearchOpen, isMailSearchFocused, mailSearchInput, searchOptions, openMoveMessages, openNewFolder, openNewSearchFolder, printMessage } from "../../Mail/Selected";
-import { statusBarContent } from "../../MainWindow/Selected";
+import { statusBarContent, currentRibbon } from "../../MainWindow/Selected";
 import { selectedAccount, selectedFolder, selectedMessage, selectedMessages } from "../../../frontend/Mail/Selected";
 import { globalSearchTerm, openApp } from "../../../frontend/AppsBar/selectedApp";
 import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
@@ -364,7 +364,8 @@ test("Escape closes the search", () => {
 });
 
 test("The Search tab shows while the search box has the focus, and stays while the focus moves into the ribbon", () => {
-  let tabNames = () => [...document.querySelectorAll(".mail-page [role=tab]")].map(tab => tab.textContent.trim());
+  // The tabs may be in the window title bar
+  let tabNames = () => get(get(currentRibbon).shownTabs).map(tab => tab.label);
   expect(tabNames()).not.toContain("Search");
   isMailSearchFocused.set(true);
   flushSync();

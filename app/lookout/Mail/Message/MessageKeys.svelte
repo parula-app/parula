@@ -4,7 +4,7 @@
   import type { EMail } from "../../../logic/Mail/EMail";
   import { MessageActions } from "../MessageActions";
   import { printMessage } from "../Selected";
-  import { isTextField } from "../../Util/util";
+  import { isTextField } from "../../../frontend/Util/util";
   import { catchErrors } from "../../../frontend/Util/error";
   import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
 

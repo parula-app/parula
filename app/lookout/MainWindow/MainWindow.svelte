@@ -1,8 +1,10 @@
-<vbox flex class="main-window desktop lookout-window" dir={rtl}>
-  <WindowHeader selectedApp={$selectedApp} bind:this={windowHeader} />
+<vbox flex class="main-window desktop lookout-window" class:tabs-in-title-bar={$tabsInTitleBar.value} dir={rtl}>
+  {#if !noTitleBar}
+    <WindowHeader selectedApp={$selectedApp} bind:this={windowHeader} />
+  {/if}
   <vbox flex class="below-title">
     <hbox flex class="window-body">
-      <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} />
+      <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} {noTitleBar} />
       <vbox flex class="app-area">
         <NotificationBar notifications={$notifications} />
         {#if $selectedApp}
@@ -16,8 +18,12 @@
           </RouterWithContent>
         {/if}
       </vbox>
+      <!-- Here, so that the 2nd bar of the web apps in the nav rail can be on top -->
+      <WebAppsInBackground {noTitleBar} />
     </hbox>
-    <StatusBar />
+    {#if !noTitleBar}
+      <StatusBar />
+    {/if}
     {#if $isBackstageOpen}
       <vbox class="backstage-overlay">
         <Backstage />
@@ -49,6 +55,7 @@
   import { AppWindow } from "../../frontend/MainWindow/AppWindow";
   import AppWindowEvents from "../../frontend/MainWindow/AppWindowEvents.svelte";
   import WindowHeader from "./WindowHeader.svelte";
+  import { tabsInTitleBar } from "../Shared/Ribbon/Ribbon.svelte";
   import StatusBar from "./StatusBar.svelte";
   import AppBar from "../AppsBar/AppBar.svelte";
   import AppContentRoutes from "../AppsBar/AppContentRoutes.svelte";
@@ -56,6 +63,8 @@
   import SettingsDialogHost from "../Settings/SettingsDialogHost.svelte";
   import MessageBoxHost from "../Shared/Dialog/MessageBoxHost.svelte";
   import NotificationBar from "../../frontend/MainWindow/NotificationBar.svelte";
+  import WebAppsInBackground from "../../frontend/WebApps/Runner/WebAppsInBackground.svelte";
+  import { webAppsMustangApp } from "../../frontend/WebApps/WebAppsMustangApp";
   import Splitter from "../../frontend/Shared/Splitter.svelte";
   import { getUILocale } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
@@ -71,6 +80,10 @@
   $: sidebar = $sidebarApp?.sidebar;
   $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
   /* </copied> */
+  /** The web apps need neither the title bar with the search and the ribbon tabs, nor the status bar.
+   * So the Apps app gets the whole window, also while it shows no web app,
+   * and the window buttons are on the app bar. */
+  $: noTitleBar = $selectedApp == webAppsMustangApp;
 
   // Not a plain CSS import: the global CSS must go away when the user switches to the classic frontend at runtime
   const globalStyle = document.createElement("style");
@@ -210,6 +223,12 @@
     overflow: hidden;
     /* </copied> */
   }
+  /* There's no tab row below the title bar */
+  /* <copied to="SecondaryWindow.svelte"> */
+  .lookout-window.tabs-in-title-bar {
+    --lo-ribbon-tab-row-height: 0px;
+  }
+  /* </copied> */
   .below-title {
     position: relative;
     min-height: 0;

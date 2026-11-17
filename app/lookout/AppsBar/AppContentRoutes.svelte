@@ -32,7 +32,7 @@
     </vbox>
   </Route>
   <Route path="webapp/*">
-    <vbox flex class="frontend-panes">
+    <vbox flex class="frontend-panes web-apps">
       <WebAppsRoutes />
     </vbox>
   </Route>
@@ -104,5 +104,9 @@
     min-width: 0;
     min-height: 0;
     margin: 4px 4px 0 4px;
+  }
+  /* Up to the window edges, like the web apps */
+  .frontend-panes.web-apps {
+    margin: 0;
   }
 </style>

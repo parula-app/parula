@@ -25,19 +25,7 @@
   {/if}
   {#if !webMail}
     <hbox class="right">
-      <Button label={$t`Minimize`}
-        icon={MinimizeIcon} iconSize="16px" plain iconOnly classes="minimize"
-        onClick={onMinimize}
-        />
-      <Button label={$t`Maximize`} tooltip={canMaximize ? $t`Maximize` : $t`Restore window`}
-        icon={canMaximize ? MaximizeIcon : UnmaximizeIcon}
-        iconSize="12px" plain iconOnly classes="restore-window"
-        onClick={onMaximizeOrRestore}
-        />
-      <Button label={isFirstWindow ? $t`Close entire app` : $t`Close window`}
-        icon={XIcon} iconSize="16px" plain iconOnly classes="close"
-        onClick={onClose}
-        />
+      <WindowButtons />
     </hbox>
   {/if}
 </hbox>
@@ -47,14 +35,11 @@
   import { globalSearchTerm } from "../AppsBar/selectedApp";
   import { appName, webMail } from "../../logic/build";
   import WorkspaceHeader from "./WorkspaceHeader.svelte";
+  import WindowButtons from "./WindowButtons.svelte";
   import SearchField from "../Shared/SearchField.svelte";
   import Button from "../Shared/Button.svelte";
   import Icon from 'svelte-icon/Icon.svelte';
   import logo from '../asset/icon/general/logo.svg?raw';
-  import MinimizeIcon from 'lucide-svelte/icons/minus';
-  import MaximizeIcon from 'lucide-svelte/icons/square';
-  import UnmaximizeIcon from 'lucide-svelte/icons/copy';
-  import XIcon from 'lucide-svelte/icons/x';
   import { getOSName } from "../Util/util";
   import { t } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
@@ -68,30 +53,11 @@
   export let title: string | null = null;
 
   const appWindow = AppWindow.current();
-  const isFirstWindow = appWindow == AppWindow.main;
 
   // Enable Mac Styles
   const mac = (!webMail && getOSName() == "macintosh") ? true : false;
   // Check mac system text direction
   const osRTL = (rtlLocales.includes(navigator.language) && mac) ? true : false;
-
-  async function onMinimize() {
-    await appWindow.minimize();
-  }
-
-  let canMaximize = true;
-  async function onMaximizeOrRestore() {
-    if (canMaximize) {
-      await appWindow.maximize();
-    } else {
-      await appWindow.restore();
-    }
-    canMaximize = !canMaximize;
-  }
-
-  function onClose() {
-    appWindow.close();
-  }
 
   async function onNewWindow() {
     await AppWindow.openMainWindow(MainWindow, {}, appWindow.window.outerWidth, appWindow.window.outerHeight);
@@ -135,9 +101,6 @@
   .right :global(.maximize) {
     padding-inline-start: 10px;
     padding-inline-end: 10px;
-  }
-  .right :global(.minimize svg) {
-    margin-block-start: 8px; /* Find better icon */
   }
   .free {
     app-region: drag;
