@@ -1,3 +1,4 @@
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 import { get, writable } from "svelte/store";
 import { gt } from "../../../l10n/l10n";
 
@@ -9,10 +10,11 @@ export interface MessageBoxQuestion {
   answer: (ok: boolean) => void;
 }
 
-export const messageBoxQuestion = writable<MessageBoxQuestion | null>(null);
+export const messageBoxQuestion = AppWindow.perWindow(() => writable<MessageBoxQuestion | null>(null));
 
 export function showMessageBox(title: string, message: string, okLabel = gt`OK`, cancelLabel = gt`Cancel`): Promise<boolean> {
-  get(messageBoxQuestion)?.answer(false);
+  let windowQuestion = AppWindow.current().uiState(messageBoxQuestion);
+  get(windowQuestion)?.answer(false);
   return new Promise(resolve => {
     let question: MessageBoxQuestion = {
       title,
@@ -20,14 +22,14 @@ export function showMessageBox(title: string, message: string, okLabel = gt`OK`,
       okLabel,
       cancelLabel,
       answer: ok => {
-        if (get(messageBoxQuestion) != question) {
+        if (get(windowQuestion) != question) {
           return;
         }
-        messageBoxQuestion.set(null);
+        windowQuestion.set(null);
         resolve(ok);
       },
     };
-    messageBoxQuestion.set(question);
+    windowQuestion.set(question);
   });
 }
 

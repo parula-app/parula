@@ -10,6 +10,9 @@
   import MessagePrint from "../../../frontend/Mail/Message/MessagePrint.svelte";
   import { catchErrors } from "../../../frontend/Util/error";
   import { onDestroy, tick } from "svelte";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   let message: EMail | null = null;
   let printE: MessagePrint;
@@ -24,7 +27,7 @@
     await printE.print();
   }
   onDestroy(() => {
-    $printMessage = null;
+    appWindow.uiState(printMessage).set(null);
   });
 </script>
 

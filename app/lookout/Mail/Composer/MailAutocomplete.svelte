@@ -46,7 +46,7 @@
         aria-activedescendant={isListOpen ? `${listID}-${highlighted}` : null}
         autocomplete="off" spellcheck="false"
         placeholder={$addresses.isEmpty ? placeholder : null}
-        {tabindex} {autofocus}
+        {tabindex}
         on:input={onInput}
         on:keydown={onKeyDown}
         on:paste={onPaste}
@@ -97,7 +97,7 @@
 {#if isListOpen}
   <AutocompleteList {suggestions} bind:highlighted anchor={fieldEl} id={listID} bind:this={list} on:select={event => choose(event.detail)} />
 {/if}
-<svelte:window on:click|capture={event => catchErrors(() => onClickOutside(event))} />
+<AppWindowEvents capture on:click={event => catchErrors(() => onClickOutside(event))} />
 <ContextMenu bind:this={contextMenu}>
   <MenuItem label={$t`Copy`} icon={CopyIcon} onClick={() => onCopy(menuRecipient)} />
   <MenuItem label={$t`Cut`} icon={CutIcon} disabled={disabled} onClick={() => onCut(menuRecipient)} />
@@ -116,6 +116,7 @@
   import { UserError } from "../../../logic/util/util";
   import { catchErrors, showError, minorError } from "../../../frontend/Util/error";
   import AutocompleteList from "./AutocompleteList.svelte";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import PersonCircle from "../../Contacts/Person/PersonCircle.svelte";
   import ContextMenu from "../../Shared/Menu/ContextMenu.svelte";
   import Menu from "../../Shared/Menu/Menu.svelte";
@@ -134,7 +135,7 @@
   import { t } from "../../../l10n/l10n";
   import { appGlobal } from "../../../logic/app";
   import { openPersonFromOtherApp } from "../../../frontend/Contacts/open";
-  import { createEventDispatcher, tick } from "svelte";
+  import { createEventDispatcher, onMount, tick } from "svelte";
 
   export let addresses: ArrayColl<PersonUID>;
   export let label: string;
@@ -158,6 +159,15 @@
   let suggestions: PersonUID[] = [];
   let highlighted = 0;
   let searchCounter = 0;
+
+  // Svelte's `autofocus` checks the focus in the main window, also when this field is in another window
+  onMount(() => {
+    let doc = inputEl?.ownerDocument;
+    if (autofocus && doc?.activeElement == doc?.body) {
+      inputEl.focus();
+    }
+  });
+
   $: isListOpen = suggestions.length > 0 && !!typed.trim();
 
   export function focus() {

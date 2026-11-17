@@ -12,8 +12,8 @@
           <DialogButton label={$t`Discard`} icon={DiscardIcon} classes="plain"
             tooltip={$t`Discard this response`}
             onClick={onDiscard} />
-          <DialogButton label={$t`Pop Out *=> Open this reply in its own message page`} icon={PopOutIcon} classes="plain"
-            tooltip={$t`Open this response in its own message page`}
+          <DialogButton label={$t`Pop Out *=> Open the message in its own window`} icon={PopOutIcon} classes="plain"
+            tooltip={$t`Open in a separate window`}
             onClick={onPopOut} />
         </hbox>
       {:else}
@@ -27,6 +27,11 @@
               onClick={onSave} />
             <DialogButton label={$t`Discard`} icon={DiscardIcon} classes="plain"
               onClick={onDiscard} />
+            {#if appWindow.isMainWindow}
+              <DialogButton label={$t`Pop Out *=> Open the message in its own window`} icon={PopOutIcon} classes="plain"
+                tooltip={$t`Open in a separate window`}
+                onClick={onPopOut} />
+            {/if}
             <button class="close" title={$t`Close`} aria-label={$t`Close`} on:click={onCloseRequest}>
               <CloseIcon size={18} />
             </button>
@@ -143,9 +148,9 @@
   import type { RibbonLayout } from "../../Shared/Ribbon/RibbonGroup";
   import { EditorTool } from "../../Shared/Editor/EditorTool";
   import { removeInlineReply } from "./InlineReplies";
+  import { MessageActions } from "../MessageActions";
   import { inlineRibbon } from "../Selected";
   import { get } from "svelte/store";
-  import { MessageActions } from "../MessageActions";
   import { goBack } from "../../../frontend/AppsBar/selectedApp";
   import { minorError, catchErrors, showError, showUserError } from "../../../frontend/Util/error";
   import { getOSName, isTextField } from "../../../frontend/Util/util";
@@ -175,6 +180,9 @@
   import { t } from "../../../l10n/l10n";
   import { onDestroy, tick } from "svelte";
   import type { Editor } from "@tiptap/core";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let mail: EMail;
   export let isInline = false;
@@ -203,7 +211,7 @@
   let ccField: MailAutocomplete;
   let bccField: MailAutocomplete;
 
-  // <copied from="../../../frontend/Mail/Composer/MailComposer.svelte">
+  // <copied from="../../../frontend/Mail/Composer/MailComposer.svelte">, plus inline replies
   // HACK to reload the HTMLEditor to force it to load the new text
   // See <https://github.com/ueberdosis/tiptap/issues/4918>
   let lastMail = null;
@@ -316,7 +324,7 @@
       await mail.compose.send(onClose);
     } catch (ex) {
       if (closing) { // Already closed. Re-open, to not lose the mail.
-        mailMustangApp.writeMail(mail);
+        MessageActions.writeMail(mail);
       }
       throw ex;
     }
@@ -331,14 +339,35 @@
     }
     doOnClose = [];
     if (isInline) {
-      removeInlineReply(mail);
+      removeInlineReply(mail, appWindow);
       return;
     }
 
+    if (!appWindow.isMainWindow) {
+      appWindow.close();
+      return;
+    }
     let me = mailMustangApp.subApps.find(app => app instanceof WriteMailMustangApp && app.windowParams.mail == mail);
     mailMustangApp.subApps.remove(me);
     goBack();
   }
+
+  async function onPopOut() {
+    onClose();
+    await MessageActions.writeMailInNewWindow(mail);
+  }
+
+  /** The user closed the separate window of the composer */
+  onDestroy(() => {
+    if (closing || appWindow.isMainWindow || !new MailBody(mail.html).hasUserText) {
+      return;
+    }
+    mail.compose.saveAsDraft()
+      .catch(ex => {
+        showError(ex);
+        MessageActions.writeMail(mail);
+      });
+  });
 
   $: bccList = mail.bcc;
   $: attachmentsList = mail.attachments;
@@ -382,15 +411,11 @@
     $inlineRibbon = { draft: mail, editor, onSelectNames, onCheckNames, onOpenTool };
   }
   onDestroy(() => {
-    if (get(inlineRibbon)?.draft == mail) {
-      inlineRibbon.set(null);
+    let ribbon = appWindow.uiState(inlineRibbon);
+    if (get(ribbon)?.draft == mail) {
+      ribbon.set(null);
     }
   });
-
-  function onPopOut() {
-    closing = true;
-    MessageActions.popOut(mail);
-  }
 
   async function onSendRequest() {
     if (sendDisabledTooltip) {
