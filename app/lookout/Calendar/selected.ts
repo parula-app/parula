@@ -11,8 +11,6 @@ import { getLocalStorage } from "../../frontend/Util/LocalStorage";
 import { AppWindow } from "../../frontend/MainWindow/AppWindow";
 import { derived, readable, writable, type Readable } from "svelte/store";
 
-export type CalendarViewType = "day" | "workweek" | "week" | "month" | "schedule" | "dual";
-
 export enum CalendarCurrentView {
   Calendar = "calendar",
   Preview = "preview",

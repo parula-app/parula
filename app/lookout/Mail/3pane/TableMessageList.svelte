@@ -413,6 +413,11 @@
     if (event.altKey) {
       return;
     }
+    if (!event.ctrlKey && !event.metaKey && onMessageKey(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (event.key == "ArrowDown") {
       newPos = pos + 1;
     } else if (event.key == "ArrowUp") {
@@ -466,6 +471,28 @@
       anchor = target;
     }
     scrollIntoView(target);
+  }
+
+  /** Single-key shortcuts for the selected messages, like `frontend/Mail/Message/MessageKeyboard.ts`
+   * @returns whether the key was handled */
+  function onMessageKey(event: KeyboardEvent): boolean {
+    let messages = selectedMessages.contents;
+    if (!messages.length) {
+      return false;
+    }
+    if (event.key == "j" && !event.shiftKey) { // Thunderbird
+      // The list then selects the next message, when the junk is gone
+      catchErrors(() => Promise.all(messages.map(message => message.treatSpam(true))));
+      return true;
+    } else if (event.key == "J" && event.shiftKey) { // Thunderbird
+      catchErrors(() => Promise.all(messages.map(message => message.treatSpam(false))));
+      return true;
+    } else if (event.key == "m" && !event.shiftKey) { // Thunderbird
+      let mostAreRead = messages.filter(message => message.isRead).length > messages.length / 2;
+      catchErrors(() => Promise.all(messages.map(message => message.markRead(!mostAreRead))));
+      return true;
+    }
+    return false;
   }
 
   let lastPosition = 0;

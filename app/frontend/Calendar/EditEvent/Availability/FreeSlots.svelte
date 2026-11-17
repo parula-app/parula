@@ -1,7 +1,7 @@
 <vbox class="free-slots" flex>
   <hbox class="range-header">
     <hbox class="range">
-      <DateRange bind:date={day} dateInterval={7} {showDays} />
+      <DateRange bind:date={day} range={new CalendarRange(showDays == 5 ? "workweek" : "week", day)} />
     </hbox>
     <hbox class="days-switcher">
       <IslandSwitcher faint={false}>
@@ -86,6 +86,7 @@
   import AvailabilityLoader from "./AvailabilityLoader.svelte";
   import TimeLabel from "../../DayView/TimeLabel.svelte";
   import DateRange from "../../DateRange.svelte";
+  import { CalendarRange } from "../../CalendarRange";
   import Scroll from "../../../Shared/Scroll.svelte";
   import Clickable from "../../../Shared/Clickable.svelte";
   import Button from "../../../Shared/Button.svelte";

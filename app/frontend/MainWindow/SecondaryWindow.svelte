@@ -22,7 +22,7 @@
     see `AppWindow.current()`.
   - The window closes when the first main window closes or reloads.
 -->
-<vbox flex class="secondary-window" dir={rtl}>
+<vbox flex class="secondary-window" dir={rtl ? "rtl" : null}>
   <WindowHeader {title} />
   <NotificationBar notifications={$notifications} />
   <slot />
@@ -44,7 +44,7 @@
   $: appWindow.title = title;
 
   // <copied from="MainWindow.svelte">
-  $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
+  $: rtl = rtlLocales.includes(getUILocale());
   let colorsSetting = getLocalStorage("appearance.colors", {});
   $: applyColors($colorsSetting.value, appWindow.window.document);
   // </copied>

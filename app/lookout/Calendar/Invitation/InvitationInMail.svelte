@@ -76,6 +76,7 @@
 </vbox>
 
 <script lang="ts">
+  import { personDisplayName } from "../../../logic/Abstract/PersonUID";
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { Event } from "../../../logic/Calendar/Event";
   import type { Calendar } from "../../../logic/Calendar/Calendar";
@@ -176,7 +177,7 @@
 
   function replyText(message: EMail): string {
     let participant = message.event?.participants.find(participant => participant.matches(message.from)) ?? null;
-    let name = participant?.name || participant?.emailAddress || message.from?.name || message.from?.emailAddress || "";
+    let name = personDisplayName(participant) || message.from?.name || message.from?.emailAddress || "";
     if (message.outgoing) {
       return myResponseText(participant?.response);
     }

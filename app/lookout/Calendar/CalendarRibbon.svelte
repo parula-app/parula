@@ -164,12 +164,13 @@
   import { CalendarActions } from "./CalendarActions";
   import { globalSearchTerm, openApp } from "../../frontend/AppsBar/selectedApp";
   import { contactsMustangApp } from "../../frontend/Contacts/ContactsMustangApp";
-  import { CalendarGroups } from "./CalendarGroups";
+  import { CalendarGroups } from "../../frontend/Calendar/CalendarGroups";
   import { calendarColors } from "./CalendarColors";
   import { MailAccount } from "../../logic/Mail/MailAccount";
   import { openSettingsDialog, openOptions } from "../Settings/SettingsDialogs";
   import { selectedCalendar, selectedDate, startDate } from "../../frontend/Calendar/selected";
-  import { calendarSearchOptions, isGoToDateOpen, openCalendarProperties, CalendarCurrentView, CalendarFolderPane, type CalendarViewType } from "./selected";
+  import { calendarSearchOptions, isGoToDateOpen, openCalendarProperties, CalendarCurrentView, CalendarFolderPane } from "./selected";
+  import type { CalendarViewType } from "../../frontend/Calendar/CalendarRange";
   import { EventTable, EventTableColumn, EventTableGrouping } from "./ListView/EventTable";
   import { getToday } from "../../logic/util/date";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";

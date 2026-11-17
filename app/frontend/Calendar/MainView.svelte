@@ -3,33 +3,18 @@
     <slot name="top-left" slot="top-left" />
     <slot name="top-right" slot="top-right" />
   </ListViewWithSearch>
-{:else if dateInterval == 1}
-  <WeekView bind:start {events} showDays={1}>
-    <slot name="top-left" slot="top-left" />
-    <slot name="top-right" slot="top-right" />
-  </WeekView>
-{:else if dateInterval > 3 && dateInterval <= 7}
-  <WeekView bind:start {events} showDays={dateInterval} enlargeSelectedDay={true}>
-    <slot name="top-left" slot="top-left" />
-    <slot name="top-right" slot="top-right" />
-  </WeekView>
-{:else if dateInterval == 28}
-  <MonthView bind:start {events} showDays={28}>
-    <slot name="top-left" slot="top-left" />
-    <slot name="top-right" slot="top-right" />
-  </MonthView>
-{:else if dateInterval == 31}
-  <MonthView bind:start {events}>
-    <slot name="top-left" slot="top-left" />
-    <slot name="top-right" slot="top-right" />
-  </MonthView>
-{:else if dateInterval == 2}
-  <DualView bind:start {events}>
+{:else if range.view == "dual"}
+  <DualView bind:start {range} {events}>
     <slot name="top-left" slot="top-left" />
     <slot name="top-right" slot="top-right" />
   </DualView>
+{:else if range.view == "month" || range.view == "4weeks"}
+  <MonthView bind:start {range} {events}>
+    <slot name="top-left" slot="top-left" />
+    <slot name="top-right" slot="top-right" />
+  </MonthView>
 {:else}
-  <WeekView bind:start {events} showDays={7}>
+  <WeekView bind:start {range} {events}>
     <slot name="top-left" slot="top-left" />
     <slot name="top-right" slot="top-right" />
   </WeekView>
@@ -38,6 +23,7 @@
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
   import type { DateInterval } from "./selected";
+  import type { CalendarRange } from "./CalendarRange";
   import { globalSearchTerm } from "../AppsBar/selectedApp";
   import WeekView from "./DayView/WeekView.svelte";
   import MonthView from "./MonthView/MonthView.svelte";
@@ -48,4 +34,6 @@
   export let start: Date;
   export let events: Collection<Event>;
   export let dateInterval: DateInterval;
+  /** The days that the view shows. Day/Month: The days of the day view */
+  export let range: CalendarRange;
 </script>

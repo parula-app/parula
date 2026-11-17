@@ -152,6 +152,15 @@ export function getWeekStart(date: Date): Date {
   return startTime;
 }
 
+/** @returns The same day of the month and time as `date`, but in the month of `month`.
+ * If that month is shorter, its last day, e.g. Feb 28 for Jan 31. */
+export function changeMonth(date: Date, month: Date): Date {
+  let lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  let result = new Date(date);
+  result.setFullYear(month.getFullYear(), month.getMonth(), Math.min(date.getDate(), lastDay));
+  return result;
+}
+
 /** @returns Mon-Sun around `start` */
 export function getWeekDays(start: Date): Date[] {
   let startTime = getWeekStart(start);
@@ -161,6 +170,13 @@ export function getWeekDays(start: Date): Date[] {
     startTime.setDate(startTime.getDate() + 1)
   }
   return weekDays;
+}
+
+export function getWeekNumber(day: Date): number {
+  let thursday = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 3 - (day.getDay() + 6) % 7);
+  let firstThursday = new Date(thursday.getFullYear(), 0, 4);
+  firstThursday.setDate(firstThursday.getDate() + 3 - (firstThursday.getDay() + 6) % 7);
+  return 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / (7 * k1DayMS));
 }
 
 export function getDurationString(durationInMS: number): string {
