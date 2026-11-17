@@ -18,8 +18,7 @@ export class OWAError extends Error {
         message = body.MessageText;
         type = body.ResponseCode;
       }
-      // Only the Options calls, which Outlook on the web uses for its settings,
-      // e.g. `SetMailboxAutoReplyConfiguration`. All other calls use `MessageText`.
+      // Only the Options calls for settings, e.g. AutoReply. All other calls use `MessageText`.
       if (body.WasSuccessful === false) {
         message = body.ErrorMessage || message;
         type = "ErrorCode " + body.ErrorCode;
