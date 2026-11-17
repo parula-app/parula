@@ -31,6 +31,7 @@ export class AutoResponder extends Observable {
   /** For senders outside the organization */
   @notifyChangedProperty
   externalHTML = "";
+  /** Which senders outside the organization get `externalHTML` */
   @notifyChangedProperty
   externalAudience = AutoResponderAudience.None;
   /** Limit of `externalAudience`, set by the admin */
@@ -40,7 +41,7 @@ export class AutoResponder extends Observable {
   constructor(account: MailAccount) {
     super();
     this.account = account;
-    // Like Outlook: From the next full hour, for 1 day
+    // Default start value. Like Outlook: From the next full hour, for 1 day
     this.startTime = new Date();
     this.startTime.setHours(this.startTime.getHours() + 1, 0, 0, 0);
     this.endTime = new Date(this.startTime);
@@ -98,10 +99,23 @@ export class AutoResponder extends Observable {
   }
 }
 
-/** The values are Graph's `externalAudience` */
+/** Which senders outside the organization get an automatic reply.
+ * Senders inside the organization always get `internalHTML`.
+ *
+ * The user chooses it separately from the message, because a reply tells
+ * the sender that the user is away and that the address is valid. That's fine
+ * for colleagues and contacts, but the user may not want to tell spammers and strangers.
+ * Exchange stores it as `ExternalAudience`, and the admin may limit it (`maxAudience`).
+ *
+ * It matters only if `supportsExternal`, i.e. for Exchange.
+ * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders.
+ *
+ * The values are Graph's `externalAudience`. */
 export enum AutoResponderAudience {
+  /** No replies outside the organization */
   None = "none",
   /** Only senders in the user's addressbook */
   Contacts = "contactsOnly",
+  /** Everybody */
   All = "all",
 }
