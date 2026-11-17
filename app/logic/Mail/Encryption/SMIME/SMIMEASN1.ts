@@ -89,6 +89,7 @@ const oids = {
   "2.5.29.15": "keyUsage",
   "2.5.29.17": "subjectAlternativeName",
   "2.5.29.19": "basicConstraints",
+  "2.5.29.30": "nameConstraints",
   "2.5.29.35": "authorityKeyIdentifier",
   "2.5.29.37": "extKeyUsage",
   "2.5.29.37.0": "anyExtendedKeyUsage",
@@ -243,6 +244,7 @@ const GeneralName = define("GeneralName", function() {
     otherName: this.seq().obj(this.key("typeid").objid(oids), this.key("value").any().explicit(0)).implicit(0),
     rfc822Name: this.ia5str().implicit(1),
     DNSName: this.ia5str().implicit(2),
+    directoryName: this.seqof(AttributeValue).explicit(4),
     uri: this.ia5str().implicit(6),
     ipAddress: this.octstr().implicit(7),
     id: this.objid(oids).implicit(8),
@@ -293,6 +295,22 @@ export const KeyUsage = define<BitString>("KeyUsage", function() {
 
 export const ExtKeyUsage = define<string[]>("ExtKeyUsage", function() {
   this.seqof(Oid);
+});
+
+const GeneralSubtree = define("GeneralSubtree", function() {
+  this.seq().obj(
+    this.key("base").use(GeneralName),
+    this.key("minimum").optional().implicit(0).int(),
+    this.key("maximum").optional().implicit(1).int(),
+  );
+});
+
+/** The names that a CA may issue certificates for, RFC 5280 section 4.2.1.10 */
+export const NameConstraints = define("NameConstraints", function() {
+  this.seq().obj(
+    this.key("permittedSubtrees").optional().implicit(0).seqof(GeneralSubtree),
+    this.key("excludedSubtrees").optional().implicit(1).seqof(GeneralSubtree),
+  );
 });
 
 /** The part of a certificate that is (to be) signed */
