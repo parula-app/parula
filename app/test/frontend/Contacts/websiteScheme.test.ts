@@ -16,24 +16,24 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-test("Editing: a website typed without https:// gets it when the user leaves the field", () => {
-  component = mount(URLEdit, { target: document.body, props: { value: "" } });
+/** Types `value` into the website field, leaves it, and returns what the field saves */
+function typeWebsite(value: string): string {
+  let saved = "";
+  component = mount(URLEdit, { target: document.body, props: { get value() { return saved; }, set value(value) { saved = value; } } });
   let input = document.querySelector("input");
-  input.value = "erika.example";
+  input.value = value;
   input.dispatchEvent(new Event("input"));
   input.dispatchEvent(new Event("change"));
   flushSync();
-  expect(input.value).toBe("https://erika.example");
+  return saved;
+}
+
+test("Editing: a website typed without https:// is saved with it", () => {
+  expect(typeWebsite("erika.example")).toBe("https://erika.example");
 });
 
-test("Editing: a website with https:// stays as it is", () => {
-  component = mount(URLEdit, { target: document.body, props: { value: "" } });
-  let input = document.querySelector("input");
-  input.value = "http://erika.example/";
-  input.dispatchEvent(new Event("input"));
-  input.dispatchEvent(new Event("change"));
-  flushSync();
-  expect(input.value).toBe("http://erika.example/");
+test("Editing: a website with http:// stays as it is", () => {
+  expect(typeWebsite("http://erika.example/")).toBe("http://erika.example/");
 });
 
 test("Display: a website saved without https:// links to https://", () => {

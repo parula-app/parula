@@ -10,14 +10,9 @@ function readLinks(links: Record<string, any>): Person {
   return person;
 }
 
-test("A website that was saved without https:// is shown", () => {
-  // Older versions saved what the user typed into `<input type="url">`, e.g. just the host name
-  let person = readLinks({ l1: { uri: "erika.example" }, l2: { uri: "https://blog.erika.example/" } });
-  expect(person.urls.contents.map(entry => entry.value).sort()).toEqual(["erika.example", "https://blog.erika.example/"]);
-});
-
-test("Links with a scheme that is not allowed are not shown", () => {
-  let person = readLinks({ l1: { uri: "javascript:alert(1)" }, l2: { uri: "https://erika.example/" } });
+test("Links that sanitize.url() rejects are not shown", () => {
+  // `erika.example`: a website that older versions saved without https://
+  let person = readLinks({ l1: { uri: "javascript:alert(1)" }, l2: { uri: "erika.example" }, l3: { uri: "https://erika.example/" } });
   expect(person.urls.contents.map(entry => entry.value)).toEqual(["https://erika.example/"]);
 });
 

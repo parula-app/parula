@@ -161,7 +161,7 @@
   import { newPerson } from "../../../frontend/Contacts/Person/Selected";
   import { catchErrors } from "../../../frontend/Util/error";
   import { getOSName } from "../../../frontend/Util/util";
-  import { urlWithScheme } from "../../../logic/util/netUtil";
+  import { addHTTPSToHostname } from "../../../logic/util/netUtil";
   import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import Ribbon from "../../Shared/Ribbon/Ribbon.svelte";
@@ -239,7 +239,7 @@
   }
 
   function onWebPageChange(event: Event & { currentTarget: HTMLInputElement }) {
-    event.currentTarget.value = urlWithScheme(event.currentTarget.value.trim());
+    event.currentTarget.value = addHTTPSToHostname(event.currentTarget.value.trim());
     setFirstValue(urls, event.currentTarget.value, null);
   }
 

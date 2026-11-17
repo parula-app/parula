@@ -1,5 +1,5 @@
 <hbox class="value">
-  <a href={urlWithScheme(value)}
+  <a href={addHTTPSToHostname(value)}
     target="_blank"
     class="link-button"
     on:click={event => event.stopPropagation()}>
@@ -8,7 +8,7 @@
 </hbox>
 
 <script lang="ts">
-  import { urlWithScheme } from "../../../logic/util/netUtil";
+  import { addHTTPSToHostname } from "../../../logic/util/netUtil";
 
   export let value: string;
 </script>

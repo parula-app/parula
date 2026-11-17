@@ -40,7 +40,7 @@
   import { ContactEntry, type Person } from "../../../logic/Abstract/Person";
   import { allFieldRows, type FieldRow, type FieldSet } from "./AllFields";
   import { addressText } from "../Person/ContactColumns";
-  import { urlWithScheme } from "../../../logic/util/netUtil";
+  import { addHTTPSToHostname } from "../../../logic/util/netUtil";
   import ListView from "../../Shared/Form/ListView.svelte";
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
   import FormGrid from "../../Shared/Form/FormGrid.svelte";
@@ -82,7 +82,7 @@
 
   function onValueChange(item: FieldRow, event: Event & { currentTarget: HTMLInputElement }) {
     if (item.kind == "web") {
-      item.entry.value = event.currentTarget.value = urlWithScheme(event.currentTarget.value.trim());
+      item.entry.value = event.currentTarget.value = addHTTPSToHostname(event.currentTarget.value.trim());
     }
   }
 
