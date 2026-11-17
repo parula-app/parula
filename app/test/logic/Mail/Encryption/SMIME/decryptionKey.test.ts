@@ -108,17 +108,19 @@ test("A message whose key is encrypted with RSA-OAEP without parameters decrypts
 
 test("A message whose key is encrypted with RSA-OAEP and 2 different hashes tells the user both", async () => {
   let folder = await addAccount("dana@example.com", kDanaKey, kDanaCert);
-  let { errors } = await read(folder, "Dana <dana@example.com>", kOAEPMixedHashes);
+  let { email, errors } = await read(folder, "Dana <dana@example.com>", kOAEPMixedHashes);
   expect(errors).toEqual([expect.stringMatching(/sha-?256/i)]);
   expect(errors[0]).toMatch(/sha-?1\b/i);
+  expect(email.html).toMatch(/sha-?256/i); // shown in the mail viewer
 });
 
 test("A message whose RSA-OAEP encrypted key is damaged says that it cannot be decrypted", async () => {
   let folder = await addAccount("dana@example.com", kDanaKey, kDanaCert);
   let envelopedData = EnvelopedData.decodeFromBase64(kOAEP);
   envelopedData.content.recipientInfos[0].value.encryptedKey[100] ^= 1;
-  let { errors } = await read(folder, "Dana <dana@example.com>", EnvelopedData.encodeToBase64(envelopedData));
+  let { email, errors } = await read(folder, "Dana <dana@example.com>", EnvelopedData.encodeToBase64(envelopedData));
   expect(errors).toEqual([expect.stringMatching(/decrypt/i)]);
+  expect(email.html).toMatch(/decrypt/i); // shown in the mail viewer
 });
 
 test("A message whose key is encrypted with an algorithm that we do not know names it", async () => {
@@ -126,8 +128,9 @@ test("A message whose key is encrypted with an algorithm that we do not know nam
   let envelopedData = EnvelopedData.decodeFromBase64(kBcc);
   // RSA-KEM, RFC 5990
   envelopedData.content.recipientInfos[0].value.keyEncryptionAlgorithm = { algorithm: [1, 2, 840, 113549, 1, 9, 16, 3, 14] };
-  let { errors } = await read(folder, "Dana <dana@example.com>", EnvelopedData.encodeToBase64(envelopedData));
+  let { email, errors } = await read(folder, "Dana <dana@example.com>", EnvelopedData.encodeToBase64(envelopedData));
   expect(errors).toEqual([expect.stringContaining("1.2.840.113549.1.9.16.3.14")]);
+  expect(email.html).toContain("1.2.840.113549.1.9.16.3.14"); // shown in the mail viewer
 });
 
 /** @returns the INBOX of a new account with this identity */

@@ -6,7 +6,8 @@ import { decrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
-import { assert, NotImplemented } from "../../../util/util";
+import { assert } from "../../../util/util";
+import { CannotReadMail } from "../../EMailProcessor";
 import { gt } from "../../../../l10n/l10n";
 import { uint8ArrayToHex } from "../../../util/blob";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -93,14 +94,14 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     let maskHashFunc = maskGenFunc.parameters ? AlgorithmIdentifier.decode(maskGenFunc.parameters) : { algorithm: "sha1" };
     let hash = sanitize.translate(hashFunc.algorithm, DigestAlgorithm, null);
     if (!hash || maskGenFunc.algorithm != "mgf1" || maskHashFunc.algorithm != hashFunc.algorithm) {
-      throw new NotImplemented(gt`The key of this message is encrypted with RSA-OAEP using ${algorithmName(hashFunc.algorithm)} and ${algorithmName(maskGenFunc.algorithm)} using ${algorithmName(maskHashFunc.algorithm)}, which is not supported`);
+      throw new CannotReadMail(null, gt`The key of this message is encrypted with RSA-OAEP using ${algorithmName(hashFunc.algorithm)} and ${algorithmName(maskGenFunc.algorithm)} using ${algorithmName(maskHashFunc.algorithm)}, which is not supported`);
     }
     let label = pSourceFunc.parameters ? OctetString.decode(pSourceFunc.parameters) : undefined;
     let key = await crypto.subtle.importKey("pkcs8", await this.decryptKeyPKCS8() as BufferSource, { name: "RSA-OAEP", hash }, false, ["decrypt"]);
     try {
       return new Uint8Array(await crypto.subtle.decrypt({ name: "RSA-OAEP", label: label as BufferSource }, key, encryptedKey));
     } catch (ex) {
-      throw new Error(gt`Could not decrypt this message`);
+      throw new CannotReadMail(null, gt`Could not decrypt this message`);
     }
   }
 
