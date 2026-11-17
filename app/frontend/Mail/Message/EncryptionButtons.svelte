@@ -37,8 +37,9 @@
   $: encrypted = $message.wasEncrypted;
   $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : expired ? TrustLevel.Sender : $signingKey?.trustLevel ?? "none";
   $: keyName = $signingKey?.name ?? $message.signedByKeyID?.substring(2, 6);
+  $: signer = signingKey && $message.signedBy(signingKey);
   $: msg = signed && encrypted
-      ? $t`This message was end-to-end-encrypted to you, and signed by ${$message.from?.name ?? $t`somebody`} with ${signingKey?.system} key ${keyName}`
+      ? $t`This message was end-to-end-encrypted to you, and signed by ${signer?.name ?? $t`somebody`} with ${signingKey?.system} key ${keyName}`
       : signed
         ? $t`This message was signed with ${signingKey?.system} key ${keyName}`
         : $t`This message was end-to-end-encrypted, but not signed`;

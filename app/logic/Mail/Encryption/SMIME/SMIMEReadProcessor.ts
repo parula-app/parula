@@ -49,7 +49,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
         await this.readAuthEncrypted(email, blob);
       }
     } else if (contentType == "multipart/signed") {
-      await this.readClearSigned(email, contentTypeHeader);
+      await this.readClearSigned(email, contentTypeHeader, postal.sender?.address);
     }
   }
 
@@ -128,12 +128,13 @@ export class SMIMEReadProcessor extends EMailProcessor {
     let parsed = await this.unwrapMIME(email, content); // changes all of `email`, not just return value
     let signedFrom = parsed.from?.address;
     let signer = await verifySignedData(signedData, content, email.received);
-    email.rememberSigner(signedFrom?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
+    email.rememberSigner(signedFrom?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null, parsed.sender?.address);
   }
 
   /** Verifies a cleartext message with a detached signature
-   * (`multipart/signed`). */
-  protected async readClearSigned(email: EMail, contentTypeHeader: string) {
+   * (`multipart/signed`).
+   * @param sender `Sender:` address */
+  protected async readClearSigned(email: EMail, contentTypeHeader: string, sender: string) {
     let signatureMimeType = email.attachments.last?.mimeType.toLowerCase();
     if (signatureMimeType != "application/pkcs7-signature" &&
         signatureMimeType != "application/x-pkcs7-signature") { // legacy type name
@@ -151,7 +152,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
     let signedData = SignedData.decodeFromBase64(signatureBase64, { berToDER: true });
     let signer = await verifySignedData(signedData, clearText, email.received);
     let innerFrom = (await EMail.getHeadersFromMIME(clearText)).from;
-    email.rememberSigner(!innerFrom || innerFrom.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
+    email.rememberSigner(!innerFrom || innerFrom.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null, sender);
   }
 
   /** Replaces the message with the MIME entity extracted from the CMS

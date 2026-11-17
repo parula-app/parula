@@ -111,7 +111,7 @@ export class EMail extends Message {
   @notifyChangedProperty
   wasEncrypted = false;
   /** This email was correctly signed with this public key.
-   * The signature was valid and the public key matches `From:`.
+   * The signature was valid and the public key matches `From:` or `Sender:`, see `rememberSigner()`.
    * This gives you the specific public key that was used to sign.
    * Format: `PublicKey.id` */
   @notifyChangedProperty
@@ -185,21 +185,29 @@ export class EMail extends Message {
    * in the AutoCrypt header for PGP - so this is the only place where we
    * have it for senders who are not in the addressbook.
    * Only keys that were issued for the `From:` address describe the sender,
+   * or for the `Sender:` address, who sent it on behalf of `From:` (RFC 8550 section 3),
    * otherwise the message is not signed.
-   * @param signer null, if the signature did not verify */
-  rememberSigner(signer: PublicKey | null) {
-    if (!signer?.isForEMailAddress(this.from?.emailAddress)) {
+   * @param signer null, if the signature did not verify
+   * @param sender `Sender:` address. S/MIME only: PGP verifies only with the keys of `From:`. */
+  rememberSigner(signer: PublicKey | null, sender?: string) {
+    let isFrom = signer?.isForEMailAddress(this.from?.emailAddress);
+    if (!isFrom && !signer?.isForEMailAddress(sender)) {
       signer = null;
     }
     this.signedKey = signer;
     this.signedByKeyID = signer?.id ?? null;
-    if (!signer) {
+    if (!isFrom) { // a delegate's key is not a key of `From:`
       return;
     }
     let known = this.from.encryptionPublicKey;
     if (!known || known.obsolete) {
       this.from.encryptionPublicKey = signer;
     }
+  }
+
+  /** Who signed with this key: `From:`, or the delegate who sent it on behalf of `From:`, see `rememberSigner()` */
+  signedBy(key: PublicKey): PersonUID {
+    return key.isForEMailAddress(this.from?.emailAddress) ? this.from : findOrCreatePersonUID(key.userIDs.first, null);
   }
 
   /** Marks as spam, and deletes or moves the message, as configured */

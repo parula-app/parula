@@ -3,7 +3,7 @@
     <svelte:component this={isEncrypted && isSigned ? EncryptedIcon : isSigned ? SignedIcon : EncryptedUnsignedIcon} size={16} />
     <span class="text">
       {#if isSigned}
-        {isEncrypted ? $t`Encrypted. Signed by: ${$message.from?.emailAddress ?? ""}` : $t`Signed by: ${$message.from?.emailAddress ?? ""}`}
+        {isEncrypted ? $t`Encrypted. Signed by: ${signer?.emailAddress ?? ""}` : $t`Signed by: ${signer?.emailAddress ?? ""}`}
       {:else}
         {$t`Encrypted, but not signed`}
       {/if}
@@ -36,6 +36,7 @@
   $: isSigned = $message && !!message.signedByKeyID && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
   /* </copied> */
   $: isEncrypted = !!$message.wasEncrypted;
+  $: signer = signingKey && $message.signedBy(signingKey);
 </script>
 
 <style>

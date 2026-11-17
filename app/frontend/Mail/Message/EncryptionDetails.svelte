@@ -24,7 +24,7 @@
     {#if signingKey && !mySigningKey}
       <EncryptionKey short showIcon={false}
         key={signingKey}
-        personUID={$message.from}
+        personUID={signer}
         bind:isExpanded={isExpanded} />
     {/if}
   </vbox>
@@ -67,13 +67,14 @@
       : signed
         ? $t`Signed`
         : $t`End-to-end-encrypted, but not signed`;
-  $: fromName = $message.from?.findPerson()?.name ?? $message.from?.nameOrEMail;
+  $: signer = signingKey && $message.signedBy(signingKey);
+  $: signerName = signer?.findPerson()?.name ?? signer?.nameOrEMail;
   $: msg = mySigningKey
       ? $t`You sent this email`
       : signed && encrypted
-        ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${fromName}. Only the recipients can read it, but the email provider cannot.`
+        ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${signerName}. Only the recipients can read it, but the email provider cannot.`
         : signed
-          ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${fromName}. It was not encrypted, meaning that it was not protected from surveillance.`
+          ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${signerName}. It was not encrypted, meaning that it was not protected from surveillance.`
           : $t`Only the recipients can read this email, but there is no assurance about who wrote it.`;
   $: validityMsg = received < signingKey?.created
       ? $t`The certificate is not valid before ${getDateString(signingKey.created)}`

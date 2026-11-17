@@ -3,7 +3,7 @@ import { setupTestFolder } from "../../SQL/setup";
 import { Addressbook } from "../../../../../logic/Contacts/Addressbook";
 import { findOrCreatePersonUID, type PersonUID } from "../../../../../logic/Abstract/PersonUID";
 import type { EMail } from "../../../../../logic/Mail/EMail";
-import { kClearSigned } from "./signedMessages";
+import { kClearSigned, kOpaqueSigned } from "./signedMessages";
 import { expect, test, describe } from "vitest";
 
 // The browser has this, but Node does not.
@@ -59,11 +59,41 @@ describe("S/MIME signature with a certificate for another address than From:", (
   });
 });
 
+/** "Send on behalf of": Alice sends for the CEO and signs with her own certificate, RFC 8550 section 3 */
+const kOnBehalfOfCEO = "From: CEO <ceo@example.com>\nSender: Alice <alice@example.com>";
+const kClearSignedForCEO = kClearSigned.replace("From: Alice <alice@example.com>", kOnBehalfOfCEO);
+const kOpaqueSignedForCEO = kOpaqueSigned.replace("From: Alice <alice@example.com>", kOnBehalfOfCEO);
+
+describe("S/MIME signature with a certificate for the Sender: address", () => {
+  test("is signed by the sender", async () => {
+    let email = await readMessage(kClearSignedForCEO);
+    expectSigned(email);
+    expect(email.signedBy(email.signedKey).emailAddress).toBe("alice@example.com");
+  });
+
+  test("opaque-signed, as by Outlook, is signed by the sender", async () => {
+    let email = await readMessage(kOpaqueSignedForCEO);
+    expectSigned(email);
+    expect(email.signedBy(email.signedKey).emailAddress).toBe("alice@example.com");
+  });
+
+  test("is not stored as the key of From:", async () => {
+    let email = await readMessage(kClearSignedForCEO);
+    expect(email.from.encryptionPublicKey).toBeFalsy();
+  });
+
+  test("of another person than Sender: is not signed", async () => {
+    let email = await readMessage(kClearSignedForCEO.replace("Sender: Alice <alice@example.com>", "Sender: Mallory <mallory@example.com>"));
+    expectNotSigned(email);
+  });
+});
+
 describe("S/MIME signature with a certificate for the From: address", () => {
   test("in another case is signed", async () => {
     let email = await readMessage(kClearSigned, findOrCreatePersonUID("Alice@Example.COM", "Alice"));
     expectSigned(email);
     expect(email.from.encryptionPublicKey).toBe(email.signedKey);
+    expect(email.signedBy(email.signedKey)).toBe(email.from);
   });
 
   test("only in the subject E= is signed", async () => {
