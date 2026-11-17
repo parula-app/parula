@@ -1,4 +1,4 @@
-<hbox class="persons-toolbar">
+<hbox class="persons-toolbar window-drag">
   <vbox class="dropdown">
     <AccountDropDown
       bind:selectedAccount={selectedAddressbook}

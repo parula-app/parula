@@ -37,6 +37,7 @@
     background-color: transparent;
     color: var(--lo-fg-secondary);
     font-family: inherit;
+    app-region: no-drag;
   }
   .nav-rail-button:hover {
     background-color: var(--lo-hover-bg);
