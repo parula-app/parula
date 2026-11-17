@@ -1,6 +1,6 @@
 import { PGPPublicKey } from "./PGPPublicKey";
 import type { PGPPrivateKey } from "./PGPPrivateKey";
-import { TrustLevel } from "../enums";
+import { TrustLevel, trustOrder } from "../enums";
 import type { EMail } from "../../EMail";
 import type { MailIdentity } from "../../MailIdentity";
 import { addArmorHeader, extractBase64FromArmorned } from "../KeyUtils";
@@ -53,6 +53,11 @@ export async function importAutoCryptKeys(mail: EMail) {
     return;
   }
   let preferEncrypted = publicKey.encryptByDefault;
+  // Anybody can send a mail with this From: and AutoCrypt header. So it must not
+  // add to or change the keys of a contact for whom the user or a CA confirmed a key.
+  if (mail.from.findPerson()?.encryptionPublicKeys.some(key => !key.obsolete && trustOrder(key.trustLevel) > trustOrder(TrustLevel.Sender))) {
+    return;
+  }
 
   let person = mail.from.createPerson(appGlobal.collectedAddressbook);
   let existing = person.encryptionPublicKeys.find(key => key.id == publicKey.id);
