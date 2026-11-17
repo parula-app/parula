@@ -140,7 +140,7 @@ test("Alt+Q goes to the search box when no Tell me took it", () => {
   expect(document.activeElement).not.toBe(searchInput());
 });
 
-test("Ctrl+F1 collapses and expands the ribbon", () => {
+test("Ctrl+F1 collapses and expands the ribbon also when no ribbon is shown", () => {
   let ribbonCollapsed = getLocalStorage<boolean>("lookout.ribbon.collapsed", false);
   let wasCollapsed = !!ribbonCollapsed.value;
   expect(handled("F1", { code: "F1", ctrlKey: true })).toBe(true);
@@ -148,6 +148,12 @@ test("Ctrl+F1 collapses and expands the ribbon", () => {
   expect(handled("F1", { code: "F1", ctrlKey: true })).toBe(true);
   expect(!!ribbonCollapsed.value).toBe(wasCollapsed);
   expect(handled("F1", { code: "F1" })).toBe(false);
+  // A shown ribbon handles the key before
+  let ribbon = (event: KeyboardEvent) => event.preventDefault();
+  window.addEventListener("keydown", ribbon);
+  expect(handled("F1", { code: "F1", ctrlKey: true })).toBe(true);
+  window.removeEventListener("keydown", ribbon);
+  expect(!!ribbonCollapsed.value).toBe(wasCollapsed);
 });
 
 test("Plain keys and other combinations are left to the pages", () => {

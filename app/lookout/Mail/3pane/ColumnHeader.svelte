@@ -52,7 +52,7 @@
   <MenuDivider />
   <MenuItem label={$t`View Settings…`} icon={SettingsIcon} onClick={() => { $openViewSettings = { folder }; }} />
 </ContextMenu>
-<svelte:window on:mousemove={onResizeMove} on:mouseup={onResizeEnd} />
+<AppWindowEvents on:mousemove={onResizeMove} on:mouseup={onResizeEnd} />
 
 <script lang="ts">
   import type { Folder } from "../../../logic/Mail/Folder";
@@ -63,6 +63,7 @@
   import ContextMenu from "../../Shared/Menu/ContextMenu.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import ImportantIcon from "lucide-svelte/icons/circle-alert";
   import IconIcon from "lucide-svelte/icons/mail";
   import AttachmentIcon from "lucide-svelte/icons/paperclip";

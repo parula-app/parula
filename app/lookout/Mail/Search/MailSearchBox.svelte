@@ -60,7 +60,7 @@
     </vbox>
   {/if}
 </vbox>
-<svelte:window on:mousedown={onClickOutside} />
+<AppWindowEvents on:mousedown={onClickOutside} />
 
 <script lang="ts">
   import { globalSearchTerm } from "../../../frontend/AppsBar/selectedApp";
@@ -75,6 +75,7 @@
   import PersonCircle from "../../Contacts/Person/PersonCircle.svelte";
   import Menu from "../../Shared/Menu/Menu.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import SearchIcon from "lucide-svelte/icons/search";
   import ClearIcon from "lucide-svelte/icons/x";
   import ChevronIcon from "lucide-svelte/icons/chevron-down";
@@ -82,7 +83,9 @@
   import { get } from "svelte/store";
   import { onDestroy } from "svelte";
   import { t } from "../../../l10n/l10n";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 
+  const appWindow = AppWindow.current();
   const scopes = [SearchScope.AllAccounts, SearchScope.CurrentAccount, SearchScope.CurrentFolder];
   $: scope = effectiveScope($searchOptions, $selectedAccount, $selectedFolder);
 
@@ -90,8 +93,8 @@
   let inputEl: HTMLInputElement;
   $: $mailSearchInput = inputEl ?? null;
   onDestroy(() => {
-    $mailSearchInput = null;
-    $isMailSearchFocused = false;
+    appWindow.uiState(mailSearchInput).set(null);
+    appWindow.uiState(isMailSearchFocused).set(false);
   });
   let scopeButton: HTMLButtonElement;
   let isScopeOpen = false;

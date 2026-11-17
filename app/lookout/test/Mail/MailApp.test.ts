@@ -13,12 +13,13 @@ import MailApp from "../../Mail/MailApp.svelte";
 import { MessageActions } from "../../Mail/MessageActions";
 import { SearchScope } from "../../Mail/Search/MailSearch";
 import { isAdvancedSearchOpen, isMailSearchFocused, mailSearchInput, searchOptions, openMoveMessages, openNewFolder, openNewSearchFolder, printMessage } from "../../Mail/Selected";
-import { statusBarContent } from "../../MainWindow/Selected";
-import { currentRibbon } from "../../Shared/Ribbon/Ribbon.svelte";
+import { statusBarContent, currentRibbon } from "../../MainWindow/Selected";
 import { selectedAccount, selectedFolder, selectedMessage, selectedMessages } from "../../../frontend/Mail/Selected";
 import { globalSearchTerm, openApp } from "../../../frontend/AppsBar/selectedApp";
 import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
 import { contactsMustangApp } from "../../../frontend/Contacts/ContactsMustangApp";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+import MessageWindow from "../../Mail/Message/MessageWindow.svelte";
 import { ArrayColl } from "svelte-collections";
 import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
 import { flushSync, mount, unmount } from "svelte";
@@ -282,6 +283,37 @@ test("Folders and dialogs", () => {
   expect(handled("y", { ctrlKey: true })).toBe(true);
   flushSync();
   expect(document.querySelector("dialog")).not.toBe(null);
+});
+
+test("Double-click opens an email in its own window, and a draft in the composer, but not on the buttons of the row", async () => {
+  let open = vi.spyOn(AppWindow.prototype, "open").mockImplementation(async () => null);
+  let openDraft = vi.spyOn(MessageActions, "openDraft").mockImplementation(async () => {});
+  function rowOf(email: EMail): HTMLElement {
+    return [...document.querySelectorAll<HTMLElement>(".message-row, .message-item")]
+      .find(row => row.textContent.includes(email.subject));
+  }
+  function doubleClick(target: Element) {
+    target.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+  }
+
+  doubleClick(rowOf(message(1)));
+  await sleep(0.01);
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(open).toHaveBeenCalledWith(MessageWindow, { message: message(1) }, 1000);
+  expect(openDraft).not.toHaveBeenCalled();
+
+  message(2).isDraft = true;
+  doubleClick(rowOf(message(2)));
+  await sleep(0.01);
+  expect(openDraft).toHaveBeenCalledWith(message(2));
+  expect(open).toHaveBeenCalledTimes(1);
+
+  let button = document.createElement("button");
+  rowOf(message(0)).append(button);
+  doubleClick(button);
+  await sleep(0.01);
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(openDraft).toHaveBeenCalledTimes(1);
 });
 
 test("Next and previous message", () => {
