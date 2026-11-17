@@ -15,6 +15,7 @@ import {
   owaMoveOrCopyMsgsIntoFolderRequest, owaRenameFolderRequest,
   owaSetFolderPermissionsRequest, owaGetPermissionsRequest
 } from "./Request/OWAFolderRequests";
+import { OWASubscribeToRowNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
 import type { EMailCollection } from "../Store/EMailCollection";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { CreateMIME } from "../SMTP/CreateMIME";
@@ -30,6 +31,10 @@ export class OWAFolder extends ExchangeFolder {
   declare readonly deletions: Set<string>;
   // Whether a folder scan or notification changed the counts
   dirty: boolean = false;
+  // Whether this folder has been subscribed to RowNotification events
+  listening: boolean = false;
+  // Mapping from OWA InstanceKey to ItemId
+  instanceMap = new Map<string, string>;
 
   newEMail(): OWAEMail {
     return new OWAEMail(this);
@@ -89,6 +94,10 @@ export class OWAFolder extends ExchangeFolder {
     await this.readFolder();
     let lock = await this.listMessagesLock.lock();
     try {
+      if (!this.listening) {
+        await this.account.callOWA(new OWASubscribeToRowNotificationRequest(this.id));
+        this.listening = true;
+      }
       if (!await this.folderCountsChanged()) {
         // Avoid unnecessarily rereading the message list.
         return new ArrayColl<OWAEMail>();
@@ -112,6 +121,9 @@ export class OWAFolder extends ExchangeFolder {
           let id = sanitize.nonemptystring(message.ItemId.Id);
           if (this.deletions.has(id)) {
             continue;
+          }
+          if (message.InstanceKey) {
+            this.instanceMap.set(message.InstanceKey, id);
           }
           let email = this.getEmailByItemID(id);
           if (email) {

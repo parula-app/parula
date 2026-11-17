@@ -16,7 +16,7 @@ export class ICalEMailProcessor extends EMailProcessor {
     email.invitationMessage = iTIPMethod(ics);
     const { InvitationEvent } = await import("../Invitation/InvitationEvent"); // avoid circular import: InvitationEvent extends Event
     let event = new InvitationEvent();
-    let vevent = ics.containers.vevent?.[0];
+    let vevent = ics.containers.vcalendar?.[0].containers.vevent?.[0];
     if (!vevent) {
       return;
     }
@@ -32,7 +32,8 @@ export class ICalEMailProcessor extends EMailProcessor {
     }
     email.event = event;
 
-    if (email.invitationMessage == InvitationMessage.ParticipantReply ||
+    if (email.invitationMessage == InvitationMessage.Invitation ||
+        email.invitationMessage == InvitationMessage.ParticipantReply ||
         email.invitationMessage == InvitationMessage.CancelledEvent) {
       let foundEventInCalendars = email.folder.account.calendarsAvailable.filterOnce(cal => cal.hasMatchingEvent(event));
       for (let calendar of foundEventInCalendars) {

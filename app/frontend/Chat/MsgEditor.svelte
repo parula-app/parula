@@ -80,6 +80,9 @@
   import { catchErrors } from "../Util/error";
   import { assert } from "../../logic/util/util";
   import type { Editor } from '@tiptap/core';
+  import { AppWindow } from "../MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let to: ChatRoom;
 
@@ -133,7 +136,7 @@
 
   function onEmojiBackspace() {
     editor.view.focus();
-    document.execCommand("delete");
+    appWindow.window.document.execCommand("delete");
   }
 </script>
 

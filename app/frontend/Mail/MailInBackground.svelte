@@ -27,6 +27,7 @@
     if (urlObj.protocol == "mailto:") {
       startupArgs.handled();
       await onMailto(url);
+      bringAppToFront();
     }
   }
 
@@ -37,7 +38,6 @@
     let mail = account.newEMailFrom();
     mail.compose.populateFromMailtoURL(url);
     mailMustangApp.writeMail(mail);
-    bringAppToFront();
   }
 
   async function openFile(file: string) {
