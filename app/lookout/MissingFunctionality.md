@@ -113,8 +113,6 @@ Rules and Alerts and Create Rule. All Mustang rules are client rules that run wh
 
 ## Automatic Replies (Out of Office)
 
-File > Info > Automatic Replies, and the "Automatic replies are being sent for this account" bar with Turn off below the ribbon, for EWS, OWA, ActiveSync and Graph accounts.
-
 | Outlook feature | Where in Outlook | What the logic would need |
 |---|---|---|
 | Automatic replies for IMAP and JMAP accounts | File > Info > Automatic Replies | JMAP `VacationResponse`, ManageSieve `vacation` for IMAP, as `AutoResponder` subclasses |

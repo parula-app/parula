@@ -140,8 +140,8 @@ test("Shows the settings from the server, and OK saves them", async () => {
   let { account, onClose } = await show(AutomaticRepliesDialog);
   await account.autoResponder.load();
 
-  expect(radio("Send automatic replies").checked).toBe(true);
-  expect(checkbox("Only send during this time range:").checked).toBe(false);
+  expect(radio("Always send automatic replies").checked).toBe(true);
+  expect(radio("Only send during this time range:").checked).toBe(false);
   expect(editor().textContent).toContain("Back on Monday");
 
   await click(radio("Do not send automatic replies"));
@@ -163,18 +163,25 @@ test("Cancel keeps the settings on the server and in the account", async () => {
   expect(account.autoResponder.isOn).toBe(true);
 });
 
-test("Without automatic replies, the time range and the message are disabled", async () => {
+test("Only send during this time range, and without automatic replies, the time range and the message are disabled", async () => {
   await show(AutomaticRepliesDialog);
-  await click(checkbox("Only send during this time range:"));
+  expect(target.querySelector<HTMLInputElement>(".lo-datefield input").disabled).toBe(true);
+  await click(radio("Only send during this time range:"));
+  expect(radio("Always send automatic replies").checked).toBe(false);
   expect(target.querySelector<HTMLInputElement>(".lo-datefield input").disabled).toBe(false);
   expect(editor().getAttribute("contenteditable")).toBe("true");
   expect(target.querySelector<HTMLButtonElement>("button[aria-label=Bold]").disabled).toBe(false);
 
   await click(radio("Do not send automatic replies"));
-  expect(checkbox("Only send during this time range:").disabled).toBe(true);
+  expect(radio("Only send during this time range:").checked).toBe(false);
   expect(target.querySelector<HTMLInputElement>(".lo-datefield input").disabled).toBe(true);
   expect(editor().getAttribute("contenteditable")).toBe("false");
   expect(target.querySelector<HTMLButtonElement>("button[aria-label=Bold]").disabled).toBe(true);
+
+  await click(radio("Only send during this time range:"));
+  await click(button("OK"));
+  expect(server.isOn).toBe(true);
+  expect(server.scheduled).toBe(true);
 });
 
 test("Outside the organization: on with the checkbox, the tab says so, and its own message", async () => {
@@ -194,13 +201,25 @@ test("Outside the organization: on with the checkbox, the tab says so, and its o
   expect(server.externalAudience).toBe(AutoResponderAudience.Contacts);
 });
 
+test("Outside the organization: Copy the message from inside", async () => {
+  await show(AutomaticRepliesDialog);
+  await click(find(".dialog-tab", "Outside My Organization"));
+  expect(button("Copy from Inside My Organization").disabled).toBe(true);
+
+  await click(checkbox("Auto-reply to people outside my organization"));
+  await click(button("Copy from Inside My Organization"));
+  expect(editor().textContent).toContain("Back on Monday");
+  await click(button("OK"));
+  expect(server.externalHTML).toContain("Back on Monday");
+});
+
 test("Missing permission: Allow access, then the settings", async () => {
   await show(AutomaticRepliesDialog, DeniedResponder);
   expect(target.textContent).toContain("allow access");
   expect(target.querySelector(".lo-radio")).toBeNull();
 
   await click(button("Allow access"));
-  expect(radio("Send automatic replies").checked).toBe(true);
+  expect(radio("Always send automatic replies").checked).toBe(true);
 });
 
 test("The bar shows while automatic replies are being sent, and turns them off", async () => {

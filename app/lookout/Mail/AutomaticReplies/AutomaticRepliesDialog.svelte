@@ -16,28 +16,28 @@
     </vbox>
   {:else}
     <vbox class="state">
-      <Radio name="state" value={false} bind:group={autoResponder.isOn} label={$t`Do not send automatic replies`} />
-      <Radio name="state" value={true} bind:group={autoResponder.isOn} label={$t`Send automatic replies`} />
-      <vbox class="time-range">
-        <Checkbox bind:checked={autoResponder.scheduled} disabled={!$autoResponder.isOn}
-          label={$t`Only send during this time range:`} />
-        <FormGrid classes="times">
-          <span class="lo-form-label" class:disabled={!isTimeRange}>{$t`Start time:`}</span>
-          <hbox class="date-time">
-            <DateField required date={$autoResponder.startTime} label={$t`Start date`} disabled={!isTimeRange}
-              on:change={ev => setStartTime(autoResponder, ev.detail)} />
-            <TimeInput time={$autoResponder.startTime} options={startTimeOptions($autoResponder.startTime)} label={$t`Start time`} disabled={!isTimeRange}
-              on:change={ev => setStartTime(autoResponder, ev.detail)} />
-          </hbox>
-          <span class="lo-form-label" class:disabled={!isTimeRange}>{$t`End time:`}</span>
-          <hbox class="date-time">
-            <DateField required date={$autoResponder.endTime} min={$autoResponder.startTime} label={$t`End date`} disabled={!isTimeRange}
-              on:change={ev => { autoResponder.endTime = ev.detail; }} />
-            <TimeInput time={$autoResponder.endTime} options={startTimeOptions($autoResponder.endTime)} label={$t`End time`} disabled={!isTimeRange}
-              on:change={ev => { autoResponder.endTime = ev.detail; }} />
-          </hbox>
-        </FormGrid>
-      </vbox>
+      <Radio name="state" value="off" group={state} label={$t`Do not send automatic replies`}
+        on:change={() => { autoResponder.isOn = false; }} />
+      <Radio name="state" value="always" group={state} label={$t`Always send automatic replies`}
+        on:change={() => { autoResponder.isOn = true; autoResponder.scheduled = false; }} />
+      <Radio name="state" value="scheduled" group={state} label={$t`Only send during this time range:`}
+        on:change={() => { autoResponder.isOn = true; autoResponder.scheduled = true; }} />
+      <FormGrid classes="times">
+        <span class="lo-form-label" class:disabled={!isTimeRange}>{$t`Start time:`}</span>
+        <hbox class="date-time">
+          <DateField required date={$autoResponder.startTime} label={$t`Start date`} disabled={!isTimeRange}
+            on:change={ev => setStartTime(autoResponder, ev.detail)} />
+          <TimeInput time={$autoResponder.startTime} options={startTimeOptions($autoResponder.startTime)} label={$t`Start time`} disabled={!isTimeRange}
+            on:change={ev => setStartTime(autoResponder, ev.detail)} />
+        </hbox>
+        <span class="lo-form-label" class:disabled={!isTimeRange}>{$t`End time:`}</span>
+        <hbox class="date-time">
+          <DateField required date={$autoResponder.endTime} min={$autoResponder.startTime} label={$t`End date`} disabled={!isTimeRange}
+            on:change={ev => { autoResponder.endTime = ev.detail; }} />
+          <TimeInput time={$autoResponder.endTime} options={startTimeOptions($autoResponder.endTime)} label={$t`End time`} disabled={!isTimeRange}
+            on:change={ev => { autoResponder.endTime = ev.detail; }} />
+        </hbox>
+      </FormGrid>
     </vbox>
     <hbox class="caption" class:disabled={!$autoResponder.isOn}>
       {autoResponder.supportsExternal
@@ -70,7 +70,13 @@
       </vbox>
     {/if}
     <vbox flex class="message" class:disabled={!isEditable}>
-      <EditorToolbar {editor} disabled={!isEditable} />
+      <hbox class="toolbar-row">
+        <EditorToolbar {editor} disabled={!isEditable} />
+        {#if tab == "outside"}
+          <DialogButton label={$t`Copy from Inside My Organization`} icon={CopyIcon} classes="plain" disabled={!isEditable}
+            onClick={() => { autoResponder.externalHTML = autoResponder.internalHTML; }} />
+        {/if}
+      </hbox>
       <vbox flex class="editor">
         {#if tab == "outside"}
           <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor />
@@ -99,6 +105,7 @@
   import EditorToolbar from "../../Shared/Editor/EditorToolbar.svelte";
   import HTMLEditor from "../../../frontend/Shared/Editor/HTMLEditor.svelte";
   import WarningIcon from "lucide-svelte/icons/triangle-alert";
+  import CopyIcon from "lucide-svelte/icons/copy";
   import type { Editor } from "@tiptap/core";
   import { onMount } from "svelte";
   import { t } from "../../../l10n/l10n";
@@ -112,7 +119,8 @@
   let tab = "inside";
   let editor: Editor;
 
-  $: isTimeRange = $autoResponder.isOn && $autoResponder.scheduled;
+  $: state = !$autoResponder.isOn ? "off" : $autoResponder.scheduled ? "scheduled" : "always";
+  $: isTimeRange = state == "scheduled";
   $: isEditable = $autoResponder.isOn && (tab == "inside" || $autoResponder.externalAudience != AutoResponderAudience.None);
   // Like Outlook, one of the 2 is checked, even while there are no replies outside
   $: shownAudience = $autoResponder.externalAudience == AutoResponderAudience.Contacts ? AutoResponderAudience.Contacts : AutoResponderAudience.All;
@@ -163,11 +171,8 @@
     flex-shrink: 0;
     gap: 4px;
   }
-  .time-range {
-    gap: 8px;
-    margin-inline-start: 24px;
-  }
   .state :global(.times) {
+    margin-block-start: 4px;
     margin-inline-start: 24px;
   }
   .date-time {
@@ -189,6 +194,10 @@
   .audience-choice {
     gap: 24px;
     margin-inline-start: 24px;
+  }
+  .toolbar-row {
+    align-items: center;
+    justify-content: space-between;
   }
   .message {
     min-height: 120px;
