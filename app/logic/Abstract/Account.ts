@@ -362,7 +362,8 @@ export class LoginError extends SpecificError {
 }
 
 /** The login works, but lacks a permission that this function needs.
- * E.g. a login from an older app version, which asked for fewer scopes. */
+ * E.g. a login from an older app version, which asked for fewer scopes.
+ * `MailAccount.upgradeScopes()` asks for them. */
 export class PermissionMissing extends LoginError {
 }
 

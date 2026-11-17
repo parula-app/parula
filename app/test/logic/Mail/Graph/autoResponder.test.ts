@@ -183,8 +183,7 @@ test("Allowing access logs in with the scopes that we need now", async () => {
   (account.oAuth2 as any).loginWithUI = async () => {
     loginScopes.push((account.oAuth2 as any).scope);
   };
-  let autoResponder = account.autoResponder;
-  await autoResponder.grantPermission();
+  await account.upgradeScopes();
 
   expect(loginScopes.length).toBe(1);
   expect(loginScopes[0]).toContain("MailboxSettings.ReadWrite");
@@ -198,7 +197,7 @@ test("If the login has the scopes already, it does not log in again", async () =
   (account.oAuth2 as any).loginWithUI = async () => {
     logins++;
   };
-  await account.autoResponder.grantPermission();
+  await account.upgradeScopes();
 
   expect(logins).toBe(0);
 });
@@ -209,6 +208,6 @@ test("If the user does not allow access, the old login stays", async () => {
     throw new Error("Cancelled");
   };
 
-  await expect(account.autoResponder.grantPermission()).rejects.toThrow("Cancelled");
+  await expect(account.upgradeScopes()).rejects.toThrow("Cancelled");
   expect((account.oAuth2 as any).scope).toBe(kOldScope);
 });

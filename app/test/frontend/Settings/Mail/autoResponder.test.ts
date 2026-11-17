@@ -50,10 +50,6 @@ class DeniedResponder extends TestAutoResponder {
     }
     await super.load();
   }
-
-  async grantPermission() {
-    this.granted = true;
-  }
 }
 
 let responderClass: typeof TestAutoResponder;
@@ -61,6 +57,10 @@ let responderClass: typeof TestAutoResponder;
 class TestMailAccount extends MailAccount {
   newAutoResponder() {
     return new responderClass(this);
+  }
+
+  async upgradeScopes() {
+    (this.autoResponder as DeniedResponder).granted = true;
   }
 }
 

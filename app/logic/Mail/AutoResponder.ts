@@ -1,6 +1,6 @@
 import type { MailAccount } from "./MailAccount";
 import { notifyChangedProperty, Observable } from "../util/Observable";
-import { AbstractFunction, NotReached, assert } from "../util/util";
+import { AbstractFunction, assert } from "../util/util";
 import { gt } from "../../l10n/l10n";
 
 /** Automatic replies to incoming mail, e.g. during vacation.
@@ -76,12 +76,6 @@ export class AutoResponder extends Observable {
   /** Writes these settings to the server */
   async save(): Promise<void> {
     throw new AbstractFunction();
-  }
-
-  /** Asks the user to log in again and allow the missing permission,
-   * after `load()` threw `PermissionMissing` */
-  async grantPermission(): Promise<void> {
-    throw new NotReached();
   }
 
   protected validate() {

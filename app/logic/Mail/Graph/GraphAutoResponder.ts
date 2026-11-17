@@ -33,10 +33,6 @@ export class GraphAutoResponder extends AutoResponder {
     await this.call(() => this.account.graphPatch("mailboxSettings", { automaticRepliesSetting: this.toGraph() }));
   }
 
-  async grantPermission(): Promise<void> {
-    await this.account.upgradeScopes();
-  }
-
   protected async call<T>(func: () => Promise<T>): Promise<T> {
     try {
       return await func();

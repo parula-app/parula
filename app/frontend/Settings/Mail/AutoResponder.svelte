@@ -155,7 +155,7 @@
   }
 
   async function onAllow() {
-    await autoResponder.grantPermission();
+    await account.upgradeScopes();
     await load(account);
   }
 </script>
