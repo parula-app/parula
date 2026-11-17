@@ -46,6 +46,7 @@ export class PGPPrivateKey extends PGPPublicKey implements PrivateKey {
     if (this.passphrase) {
       key = await openPGP.decryptKey({ privateKey: key, passphrase: this.passphrase });
     }
+    this._openPGPPrivateKey = key;
     return key;
   }
 
