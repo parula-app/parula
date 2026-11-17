@@ -103,6 +103,23 @@ test("Audiences that the admin disallowed are missing", async () => {
   expect(autoResponder.maxAudience).toBe(AutoResponderAudience.None);
 });
 
+test("While it's off, the audience is the most that the admin allows", async () => {
+  let account = newAccount();
+  // As Exchange sends it while OOF is off
+  account.response = settingsResponse(
+    open(T.Get),
+    ...text(T.OofState, "0"),
+    ...oofMessage(T.AppliesToInternal, "0", ""),
+    ...oofMessage(T.AppliesToExternalKnown, "0", ""),
+    ...oofMessage(T.AppliesToExternalUnknown, "0", ""),
+    kEnd);
+  let autoResponder = account.autoResponder;
+  await autoResponder.load();
+
+  expect(autoResponder.isOn).toBe(false);
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.All);
+});
+
 test("Writes the settings to the server", async () => {
   let account = newAccount();
   account.response = kSetResponse;
