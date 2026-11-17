@@ -146,7 +146,7 @@ export class MailBody {
   }
 
   protected normalizedText(e: Element | null): string {
-    return (e?.textContent ?? "").replace(/\s+/g, " ").trim();
+    return e?.textContent.replace(/\s+/g, " ").trim() ?? "";
   }
 
   /** The start of the text in one line, with " · " between the lines,
