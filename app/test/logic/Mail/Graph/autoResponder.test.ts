@@ -3,6 +3,7 @@ import { appGlobal } from "../../../../logic/app";
 import { GraphAccount } from "../../../../logic/Mail/Graph/GraphAccount";
 import { AutoResponderAudience } from "../../../../logic/Mail/AutoResponder";
 import { PermissionMissing } from "../../../../logic/Abstract/Account";
+import { getOAuth2BuiltIn } from "../../../../logic/Auth/OAuth2Util";
 import { expect, test, vi } from "vitest";
 
 // DOMPurify needs a real browser DOM
@@ -168,6 +169,14 @@ test("Other server errors are not about the permission", async () => {
   await expect(autoResponder.load()).rejects.not.toBeInstanceOf(PermissionMissing);
 });
 
+test("If the login has the scope, a 403 is not about the permission", async () => {
+  let account = setupAccount();
+  (account.oAuth2 as any).scope = (getOAuth2BuiltIn(account) as any).scope;
+  response = httpError(403);
+
+  await expect(account.autoResponder.load()).rejects.not.toBeInstanceOf(PermissionMissing);
+});
+
 test("Allowing access logs in with the scopes that we need now", async () => {
   let account = setupAccount();
   let loginScopes: string[] = [];
@@ -180,6 +189,18 @@ test("Allowing access logs in with the scopes that we need now", async () => {
   expect(loginScopes.length).toBe(1);
   expect(loginScopes[0]).toContain("MailboxSettings.ReadWrite");
   expect((account.oAuth2 as any).scope).toContain("MailboxSettings.ReadWrite");
+});
+
+test("If the login has the scopes already, it does not log in again", async () => {
+  let account = setupAccount();
+  (account.oAuth2 as any).scope = (getOAuth2BuiltIn(account) as any).scope;
+  let logins = 0;
+  (account.oAuth2 as any).loginWithUI = async () => {
+    logins++;
+  };
+  await account.autoResponder.grantPermission();
+
+  expect(logins).toBe(0);
 });
 
 test("If the user does not allow access, the old login stays", async () => {

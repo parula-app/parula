@@ -4,6 +4,7 @@ import type { TGraphAutoReplies, TGraphDateTimeZone } from "./TGraphMail";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { sanitizeHTML } from "../../util/convertHTML";
 import { PermissionMissing } from "../../Abstract/Account";
+import type { OAuth2 } from "../../Auth/OAuth2";
 import { gt } from "../../../l10n/l10n";
 
 /** `mailboxSettings/automaticRepliesSetting`. Exchange replies once per sender. */
@@ -40,8 +41,9 @@ export class GraphAutoResponder extends AutoResponder {
     try {
       return await func();
     } catch (ex) {
-      // Logins from before we asked for `MailboxSettings.ReadWrite`
-      if ((ex?.httpCode ?? ex?.status) == 403) {
+      // Logins from before we asked for `MailboxSettings.ReadWrite`.
+      // If the login has it, a new login would not help, so show the server error.
+      if ((ex?.httpCode ?? ex?.status) == 403 && !(this.account.oAuth2 as OAuth2)?.scope?.includes("MailboxSettings.ReadWrite")) {
         throw new PermissionMissing(ex, gt`To see and change your automatic replies, please log in once more and allow access.`);
       }
       throw ex;

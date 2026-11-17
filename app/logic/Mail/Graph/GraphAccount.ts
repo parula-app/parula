@@ -101,6 +101,9 @@ export class GraphAccount extends ExchangeMailAccount {
     let newScope = (getOAuth2BuiltIn(this) as OAuth2)?.scope;
     assert(oAuth2 && newScope, this.name + `: ` + gt`Need OAuth2 configuration`);
     let oldScope = oAuth2.scope;
+    if (oldScope == newScope) {
+      return; // A new login would not get more
+    }
     oAuth2.scope = newScope;
     try {
       await oAuth2.loginWithUI();
