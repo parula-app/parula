@@ -3,7 +3,7 @@
   draggable={!isComposing}
   on:dblclick={() => catchErrors(onOpen)}
   on:contextmenu|preventDefault={openMenu}
-  on:dragstart={onDragStart}>
+  on:dragstart={event => catchErrors(() => onDragStart(event))}>
   <hbox class="icon" bind:this={iconEl}>
     <FileIcon ext={$attachment.ext} localFilePath={$attachment.filepathLocal} size={24} />
   </hbox>
@@ -51,6 +51,7 @@
   import SaveAllIcon from "lucide-svelte/icons/save-all";
   import RemoveIcon from "lucide-svelte/icons/x";
   import { catchErrors } from "../../../frontend/Util/error";
+  import { appGlobal } from "../../../logic/app";
   import { assert } from "../../../logic/util/util";
   import { createEventDispatcher } from "svelte";
   import { t } from "../../../l10n/l10n";
@@ -82,7 +83,14 @@
     }
   }
 
-  function onDragStart(event: DragEvent) {
+  async function onDragStart(event: DragEvent) {
+    // #if [!WEBMAIL && !MOBILE]
+    if (attachment.filepathLocal) {
+      event.preventDefault();
+      await appGlobal.remoteApp.startDrag(attachment.filepathLocal);
+      return;
+    }
+    // #endif
     assert(attachment.content instanceof File, $t`Attachment file is missing`);
     event.dataTransfer.items.clear();
     event.dataTransfer.items.add(attachment.content);

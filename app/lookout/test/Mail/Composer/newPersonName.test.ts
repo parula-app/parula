@@ -125,6 +125,11 @@ test("Shows the guessed name while the user types the email address", () => {
   expect(nameInput().value).toEqual("Fred");
 });
 
+test("No guessed name, while nothing is typed before the @", () => {
+  type(emailInput(), "@example.com");
+  expect(nameInput().value).toEqual("");
+});
+
 test("No name field for a search by name, or for a list of addresses", () => {
   type(emailInput(), "Fred Smi");
   expect(nameInput()).toBeNull();

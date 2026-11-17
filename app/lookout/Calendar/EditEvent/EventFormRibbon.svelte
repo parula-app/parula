@@ -7,19 +7,16 @@
             onClick={onDelete} />
         {:else}
           <RibbonMenuButton label={$t`Accept *=> Accept the invitation to the meeting`} icon={AcceptIcon} classes="accept">
-            <MenuItem label={$t`Send the Response Now`} icon={SendIcon}
-              checked={$event.myParticipation == InvitationResponse.Accept}
-              onClick={() => respond(InvitationResponse.Accept)} />
+            <ResponseMenuItems response={InvitationResponse.Accept} checked={$event.myParticipation == InvitationResponse.Accept}
+              onRespond={sendReply => respond(InvitationResponse.Accept, sendReply)} />
           </RibbonMenuButton>
           <RibbonMenuButton label={$t`Tentative *=> Not sure to join this business meeting`} icon={TentativeIcon} classes="tentative">
-            <MenuItem label={$t`Send the Response Now`} icon={SendIcon}
-              checked={$event.myParticipation == InvitationResponse.Tentative}
-              onClick={() => respond(InvitationResponse.Tentative)} />
+            <ResponseMenuItems response={InvitationResponse.Tentative} checked={$event.myParticipation == InvitationResponse.Tentative}
+              onRespond={sendReply => respond(InvitationResponse.Tentative, sendReply)} />
           </RibbonMenuButton>
           <RibbonMenuButton label={$t`Decline *=> Decline the invitation to the meeting`} icon={DeclineIcon} classes="decline">
-            <MenuItem label={$t`Send the Response Now`} icon={SendIcon}
-              checked={$event.myParticipation == InvitationResponse.Decline}
-              onClick={() => respond(InvitationResponse.Decline)} />
+            <ResponseMenuItems response={InvitationResponse.Decline} checked={$event.myParticipation == InvitationResponse.Decline}
+              onRespond={sendReply => respond(InvitationResponse.Decline, sendReply)} />
           </RibbonMenuButton>
         {/if}
       </RibbonGroup>
@@ -35,8 +32,12 @@
             tooltip={$t`Delete the meeting and decline it`}
             onClick={onDelete} />
         {/if}
+        <RibbonButton label={$t`Reply`} icon={ReplyIcon}
+          onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, false))} />
+        <RibbonButton label={$t`Reply All`} icon={ReplyAllIcon}
+          onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, true))} />
         <RibbonButton label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
-          onClick={async () => openComposer(await OutgoingInvitation.forwardEventByMail(event))} />
+          onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
       </RibbonGroup>
       <RibbonGroup label={$t`Calendar`}>
         <RibbonButton label={$t`Calendar… *=> Show this day in the calendar`} icon={CalendarIcon}
@@ -78,7 +79,7 @@
         {/if}
         <RibbonButton label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
           disabled={!flow.isSaved && (isMeeting ? $t`Send the meeting first` : $t`Save the appointment first`)}
-          onClick={async () => openComposer(await OutgoingInvitation.forwardEventByMail(event))} />
+          onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
       </RibbonGroup>
       <RibbonGroup label={$t`Online Meeting`}>
         {#if $event.isOnline}
@@ -131,7 +132,7 @@
     {/if}
   </RibbonTab>
 
-  {#if canSchedule && isMeeting && !isIncoming}
+  {#if !isIncoming}
     <RibbonTab label={schedulingLabel} bind:isSelected={isSchedulingSelected}>
       <RibbonGroup label={$t`Scheduling *=> Ribbon group to find a time when all attendees are available`}>
         <RibbonButton label={$t`Refresh Availability`} icon={RefreshIcon}
@@ -192,19 +193,22 @@
   import type { MeetAccount } from "../../../logic/Meet/MeetAccount";
   import type { EventEditFlow } from "./EventEditFlow";
   import type { InvitationResponseInMessage } from "../../../logic/Calendar/Invitation/InvitationStatus";
-  import { OutgoingInvitation } from "../../../logic/Calendar/Invitation/OutgoingInvitation";
+  import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
   import { openExternalURL } from "../../../logic/util/os-integration";
   import { appGlobal } from "../../../logic/app";
   import { openComposer } from "../../../frontend/Mail/open";
   import { selectedDate, selectedEvent, startDate } from "../../../frontend/Calendar/selected";
   import { askYesNo } from "../../Shared/Dialog/MessageBox";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
+  import ResponseMenuItems from "../Invitation/ResponseMenuItems.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
   import SaveIcon from "lucide-svelte/icons/save";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import CancelIcon from "lucide-svelte/icons/calendar-x-2";
   import RemoveIcon from "lucide-svelte/icons/calendar-minus-2";
   import ForwardIcon from "lucide-svelte/icons/forward";
+  import ReplyIcon from "lucide-svelte/icons/reply";
+  import ReplyAllIcon from "lucide-svelte/icons/reply-all";
   import AcceptIcon from "lucide-svelte/icons/check";
   import TentativeIcon from "lucide-svelte/icons/circle-help";
   import DeclineIcon from "lucide-svelte/icons/x";
@@ -212,7 +216,6 @@
   import JoinIcon from "lucide-svelte/icons/log-in";
   import OfflineIcon from "lucide-svelte/icons/video-off";
   import LinkIcon from "lucide-svelte/icons/link";
-  import SendIcon from "lucide-svelte/icons/send";
   import CalendarIcon from "lucide-svelte/icons/calendar-days";
   import CheckNamesIcon from "lucide-svelte/icons/user-check";
   import AddressBookIcon from "lucide-svelte/icons/book-user";
@@ -230,7 +233,6 @@
   export let editor: Editor;
   export let openedTool: EditorTool | null = null;
   export let showEmojis = false;
-  export let canSchedule = false;
   export let schedulingLabel: string;
   export let trackingLabel: string;
   export let isSchedulingSelected = false;
@@ -300,8 +302,8 @@
     await navigator.clipboard.writeText(lines.join("\n"));
   }
 
-  async function respond(response: InvitationResponseInMessage) {
-    await event.respondToInvitation(response);
+  async function respond(response: InvitationResponseInMessage, sendReply: boolean) {
+    await event.respondToInvitation(response, sendReply);
     flow.close();
   }
 

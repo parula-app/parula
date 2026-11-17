@@ -6,7 +6,10 @@
     initialRightRatio={0.25} rightMinWidth={200}
     rightFixedWidth={$isRightSidebarExpanded ? null : 40}
     slot="right">
-    <vbox class="main-pane" slot="left">
+    <vbox class="main-pane" slot="left"
+      on:drop={event => $selectedFolder && catchErrors(() => onDropFile(event, $selectedFolder))}
+      on:dragover={event => $selectedFolder && catchErrors(() => onDragOverFile(event, $selectedFolder))}
+      >
       {#if $viewFile}
         {#if $fileViewer}
           <WebAppRunner app={$fileViewer} />
@@ -43,6 +46,7 @@
   import { Directory } from "../../logic/Files/Directory";
   import { getLocalStorage } from "../Util/LocalStorage";
   import { selectedFile, selectedFolder, selectedLeftTab, viewFile, fileViewer, isRightSidebarExpanded } from "./selected";
+  import { onDropFile, onDragOverFile } from "./drag";
   import LeftPane from "./LeftPane/LeftPane.svelte";
   import FilesList from "./FilesList/FilesList.svelte";
   import Gallery from "./Gallery/Gallery.svelte";

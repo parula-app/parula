@@ -1,16 +1,16 @@
 <vbox class="day-view-grid" flex bind:offsetHeight={visibleHeight}>
-  <Scroll bind:this={scrollE}>
+  <Scroll bind:this={scrollE} on:scroll={onScroll}>
     <grid flex class="week"
-      columns={showDays}
-      style="--rows: {(endHour - startHour) * kRowsPerHour}; --row-height: {pxPerHour / kRowsPerHour}px; --selected-calendar-color: {$selectedCalendar?.color ?? "black"}; {columnWidths}"
+      columns={range.days.length}
+      style="--rows: {(endHour - startHour) * kRowsPerHour}; --row-height: {rowHeight}px; --head-height: {headHeight}px; --selected-calendar-color: {$selectedCalendar?.color ?? "black"}; {columnWidths}"
       class:enlargeSelectedDay
       class:compact={scrollHeight <= 1000}
-      on:swipeleft={onNextDay}
-      on:swiperight={onPreviousDay}
+      on:swipeleft
+      on:swiperight
       >
-      <grid class="headers">
+      <grid class="headers" bind:offsetHeight={headHeight}>
         <hbox class="top-left header" /><!-- needed for grid -->
-        {#each days as day, i}
+        {#each range.days as day, i}
           <vbox class="day-header header" style="grid-column: {i + 2}">
             <slot name="day-header" {day}>
               <vbox class="date-day">
@@ -20,7 +20,7 @@
             </slot>
           </vbox>
         {/each}
-        <AllDayEvents {days} events={allDayEvents} maxHeight={visibleHeight / 3} />
+        <AllDayEvents days={range.days} events={allDayEvents} maxHeight={visibleHeight / 3} />
       </grid>
       {#each startTimes as time, i}
         <hbox class="time-label" style="grid-row: {i * kRowsPerHour + 3} / span {kRowsPerHour}">
@@ -29,8 +29,9 @@
           </slot>
         </hbox>
       {/each}
-      {#each days as day, i}
-        <DayColumn {day} column={i + 2} {startHour} {endHour} events={visibleEvents} {overlayEvents} on:celldblclick>
+      {#each range.days as day, i}
+        <DayColumn {day} column={i + 2} {startHour} {endHour} events={visibleEvents} {overlayEvents}
+          {visibleFromRow} {visibleToRow} on:scrolltorow={event => scrollToRow(event.detail)} on:celldblclick>
           <slot name="event-overlay" slot="event-overlay" let:start {start} let:end {end} let:event {event} />
           <slot name="event-hover" slot="event-hover" let:start {start} let:end {end} let:empty {empty} />
         </DayColumn>
@@ -41,23 +42,24 @@
 
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
-  import { selectedCalendar, type DateInterval } from "../selected";
+  import type { CalendarRange } from "../CalendarRange";
+  import { selectedCalendar } from "../selected";
   import { kRowsPerHour } from "./DayColumn";
   import { appGlobal } from "../../../logic/app";
   import TimeLabel from "./TimeLabel.svelte";
   import DayColumn from "./DayColumn.svelte";
   import AllDayEvents from "./AllDayEvents.svelte";
   import Scroll from "../../Shared/Scroll.svelte";
-  import { getToday, getWeekStart } from "../../../logic/util/date";
+  import { getToday } from "../../../logic/util/date";
   import { getDateTimeLocale } from "../../../l10n/l10n";
   import type { Collection } from "svelte-collections";
   import { tick } from "svelte";
 
-  export let start: Date;
+  /** 1, 2, 5 or 7 days. If you add other day counts, adapt the styles below. */
+  export let range: CalendarRange;
   export let events: Collection<Event>;
   /** UI elements that appear in the event slots. Optional */
   export let overlayEvents: Collection<Event> | null = null;
-  export let showDays: DateInterval; // If you add new options, adapt styles below
   /* Number of hours visible at the same time. Larger range reduces size per hour.
    * Other hours are available on scroll. */
   export let showHours = 10;
@@ -68,11 +70,12 @@
   let endHour = 24;
   let intervalHour = 1;
 
+  // <copied to="../EditEvent/Availability/ParticipantsDayView.svelte">
   let scrollE: Scroll;
   let visibleHeight = 0;
   $: pxPerHour =  visibleHeight / showHours;
   $: scrollHeight = pxPerHour * (endHour - startHour);
-  $: focusHour = defaultFocusHour ?? (start.toDateString() == new Date().toDateString()
+  $: focusHour = defaultFocusHour ?? (range.contains(new Date())
     ? new Date().getHours()
     : 8);
   $: focusHour, pxPerHour, scrollToFocusHour();
@@ -80,11 +83,27 @@
     await tick(); // The new grid height reaches the DOM only after the update
     scrollE?.scrollTo((focusHour - 0.5) * pxPerHour);
   }
+  // </copied>
+
+  let headHeight = 0;
+  let scrollTop = 0;
+  function onScroll(scrollEvent: UIEvent) {
+    scrollTop = (scrollEvent.target as HTMLElement).scrollTop;
+  }
+
+  $: rowHeight = pxPerHour / kRowsPerHour;
+  // An event that shows less than 10px counts as scrolled out
+  $: visibleFromRow = (scrollTop + 10) / rowHeight;
+  $: visibleToRow = (scrollTop + visibleHeight - headHeight - 10) / rowHeight;
+
+  function scrollToRow(row: number) {
+    scrollE.scrollTo(row * rowHeight - pxPerHour / 2);
+  }
 
   let startTimes: Date[] = [];
-  $: start, setStartTimes();
+  $: range, setStartTimes();
   function setStartTimes() {
-    let startTime = new Date(start);
+    let startTime = new Date(range.start);
     startTime.setMinutes(0, 0, 0);
     startTimes = [];
     for (let i = startHour; i < endHour; i += intervalHour) {
@@ -93,46 +112,25 @@
     }
   }
 
-  let days: Date[] = [];
   let visibleEvents: Collection<Event>;
   let allDayEvents: Collection<Event>;
-  $: start, showDays, setDays();
-  function setDays() {
-    let startTime = showDays > 3 ? getWeekStart(start) : new Date(start);
-    startTime.setHours(startHour, 0, 0, 0);
-    let filterStart = new Date(startTime);
-    days = [];
-    for (let i = 0; i < showDays; i++) {
-      days.push(new Date(startTime));
-      startTime.setDate(startTime.getDate() + 1);
-    }
-    let filterEnd = startTime;
-    let filtered = events.filterObservable(ev => ev.startTime && ev.startTime < filterEnd && filterStart < ev.endTime);
+  $: events, range, filterEvents();
+  function filterEvents() {
+    let { start, end } = range;
+    let filtered = events.filterObservable(ev => ev.startTime && ev.startTime < end && start < ev.endTime);
     visibleEvents = filtered.filterObservable(ev => !ev.allDay);
     allDayEvents = filtered.filterObservable(ev => ev.allDay);
   }
 
   let today = getToday();
+  $: todayTime = today.getTime();
   // Update today at midnight
   $: setTimeout(() => today = getToday(), new Date(today).setDate(today.getDate() + 1) - Date.now());
 
   // Shows today wider. Sets e.g. `grid-template-columns: max-content 1fr 1fr 1.5fr 1fr 1fr` on the `<grid>`
-  $: columnWidths = showDays > 3 && days.some(day => day.getTime() == today.getTime())
-    ? "grid-template-columns: max-content " + days.map(day => day.getTime() == today.getTime() ? "1.5fr" : "1fr").join(" ")
+  $: columnWidths = range.days.length > 3 && range.contains(today)
+    ? "grid-template-columns: max-content " + range.days.map(day => day.getTime() == todayTime ? "1.5fr" : "1fr").join(" ")
     : "";
-
-  function onNextDay() {
-    // Week views snap to Monday, so page whole weeks
-    let pageDays = showDays > 3 ? 7 : 1;
-    start.setDate(start.getDate() + pageDays);
-    start = start;
-  }
-
-  function onPreviousDay() {
-    let pageDays = showDays > 3 ? 7 : 1;
-    start.setDate(start.getDate() - pageDays);
-    start = start;
-  }
 </script>
 
 <style>
@@ -157,6 +155,7 @@
     grid-template-columns: max-content 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
     /* overridden by $: above */
   }
+  /* <copied to="../EditEvent/Availability/ParticipantsDayView.svelte"> */
   .headers {
     grid-column: 1 / -1;
     grid-row: 1 / span 2;
@@ -181,6 +180,10 @@
     border-left: 1px dotted var(--border);
     min-width: 0px; /* Long titles must not widen the column */
   }
+  .time-label {
+    grid-column: 1;
+  }
+  /* </copied> */
   .date-day {
     padding: 8px 16px;
   }
@@ -189,13 +192,12 @@
     overflow-wrap: break-word;
   }
   .weekday {
+    display: block; /* for the ellipsis */
     margin-block-start: -4px;
     margin-block-end: 4px;
-    max-height: 1.3em;
     overflow: hidden;
-  }
-  .time-label {
-    grid-column: 1;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   :where(.compact) .day-header .date-day {
     flex-direction: row;
@@ -206,7 +208,7 @@
   }
   :where(.compact) .day-header .weekday {
     font-size: 90%;
-    align-items: center;
+    align-self: center;
     flex: 1 0 0;
     margin-block-start: 1px;
     margin-inline-start: 8px;

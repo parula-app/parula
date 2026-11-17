@@ -1,5 +1,5 @@
 import { OWANotifications } from "./OWANotifications";
-import { OWASubscribeToNotificationRequest } from "../Request/OWASubscribeToNotificationRequest";
+import { OWASubscribeToHierarchyNotificationRequest, OWASubscribeToRowNotificationRequest } from "../Request/OWASubscribeToNotificationRequest";
 import { EventDecoder } from "../../../util/eventSource";
 import { ensureArray, sleep } from "../../../util/util";
 import { URLPart } from "../../../util/blob";
@@ -9,7 +9,7 @@ import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 export class OWAOffice365Notifications extends OWANotifications {
   static readonly kRecordSeparator = "\x1e";
 
-  async start(): Promise<never> {
+  protected async listen(): Promise<never> {
     const kMinConnectionSeconds = 60;
     let cid = "00000000-0000-0000-0000-000000000000".replace(/0/g, () => Math.floor(Math.random() * 16).toString(16));
     // This loop only ends by exception (e.g. logout) or app shutdown.
@@ -19,6 +19,7 @@ export class OWAOffice365Notifications extends OWANotifications {
       if (Date.now() - started < kMinConnectionSeconds * 1000) {
         throw new Error("Office 365 ended the notification channel right after it opened");
       }
+      this.isReconnect = true; // The new connection doesn't get what changed meanwhile
     }
   }
 
@@ -55,7 +56,7 @@ export class OWAOffice365Notifications extends OWANotifications {
           Accept: "text/event-stream",
           "Cache-Control": "no-cache",
         },
-        signal: connection.signal,
+        signal: AbortSignal.any([connection.signal, this.abort.signal]), // `abort`: e.g. a newer listener took over
       });
       if (!stream.ok) {
         throw new Error(`stream fetch failed with HTTP ${stream.status} ${stream.statusText}`);
@@ -69,6 +70,7 @@ export class OWAOffice365Notifications extends OWANotifications {
       let handshakeDone = false;
       let eventStream = stream.body.pipeThrough(new TextDecoderStream()).pipeThrough(new TransformStream(new EventDecoder()));
       for await (let event of eventStream) {
+        this.watchdog.fulfilled(); // processing the notifications may take longer
         for (let record of event.data.split(OWAOffice365Notifications.kRecordSeparator)) {
           if (!record) {
             continue;
@@ -83,7 +85,13 @@ export class OWAOffice365Notifications extends OWANotifications {
             let notifications = ensureArray(message.arguments).map(argument => ensureArray(argument));
             // Subscriptions apply only to the connections that are ready at that time
             if (notifications.flat().some(notification => notification?.id == "ChannelReady")) {
-              await this.account.callOWA(new OWASubscribeToNotificationRequest());
+              await this.account.callOWA(new OWASubscribeToHierarchyNotificationRequest());
+              for (let folder of this.account.folderMap.values()) {
+                if (folder.listening) {
+                  await this.account.callOWA(new OWASubscribeToRowNotificationRequest(folder.id));
+                }
+              }
+              this.connected();
             }
             await sleep(0.1); // Avoid racing with ourselves, if we caused the notification
             await this.account.onNotificationMessages(notifications);
@@ -91,9 +99,11 @@ export class OWAOffice365Notifications extends OWANotifications {
             if (message.error && !message.allowReconnect) {
               throw new Error("Office 365 closed the notification channel: " + sanitize.label(message.error, ""));
             }
+            this.watchdog.restart(); // while we connect again
             return;
           }
         }
+        this.watchdog.restart();
       }
     } catch (ex) {
       throw connection.signal.reason ?? ex;

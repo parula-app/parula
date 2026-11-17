@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 import { appGlobal } from "../../../../logic/app.ts"; // defeats circular import
 import { OWAAccount } from "../../../../logic/Mail/OWA/OWAAccount";
+import { OWAFolder } from "../../../../logic/Mail/OWA/OWAFolder";
 import { OWAOffice365Notifications } from "../../../../logic/Mail/OWA/Notification/OWAOffice365Notifications";
+import { waitTime } from "../../../../logic/util/util";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 /** Ends each SignalR message */
@@ -10,9 +12,12 @@ const kRecordSeparator = "\x1e";
 class TestOWAAccount extends OWAAccount {
   server: TestServer;
   readonly notifications: any[] = [];
+  /** The `SubscriptionId`s that we subscribed to */
+  readonly subscriptions: string[] = [];
 
   async callOWA(request: any): Promise<any> {
     if (request.action == "SubscribeToNotification") {
+      this.subscriptions.push(...request.subscriptionData.map(data => data.SubscriptionId));
       this.server.subscribe();
       return {};
     }
@@ -209,7 +214,7 @@ function newTestAccount(): TestOWAAccount {
 /** Starts the notifications, and catches the error that ends them */
 function startNotifications(account: TestOWAAccount): { error: Error | null } {
   let result = { error: null };
-  new OWAOffice365Notifications(account).start()
+  new OWAOffice365Notifications(account, false).start()
     .catch(ex => result.error = ex);
   return result;
 }
@@ -220,6 +225,7 @@ function newMailNotifications(account: TestOWAAccount): any[] {
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+  waitTime.factor = 1; // fake timers don't wait anyway, and the watchdog must wait as long as the server's keep-alives
 });
 
 afterEach(() => {
@@ -240,6 +246,21 @@ test("OWA: Office 365: New mail arrives over SignalR v2", async () => {
   // The handshake must be the first message
   expect(server.connections[0].received[0].message).toEqual({ protocol: "json", version: 1 });
   expect(newMailNotifications(account).map(notification => notification.ItemId)).toEqual(["item-1"]);
+});
+
+test("OWA: Office 365: When the channel is ready, we subscribe to the changes of the folders and of the emails in the listed folders", async () => {
+  let account = newTestAccount();
+  new TestServer(account);
+  let folder = new OWAFolder(account);
+  folder.id = "inbox-folder";
+  folder.listening = true; // `OWAFolder.listMessages()` subscribed it, maybe before the channel was ready
+  account.folderMap.set(folder.id, folder);
+
+  startNotifications(account);
+  await vi.advanceTimersByTimeAsync(60 * 1000);
+
+  expect(account.subscriptions).toContain("HierarchyNotification");
+  expect(account.subscriptions).toContain("RowNotification inbox-folder");
 });
 
 test("OWA: Office 365: The notification channel stays open for hours, also when the access token of the account changes", async () => {

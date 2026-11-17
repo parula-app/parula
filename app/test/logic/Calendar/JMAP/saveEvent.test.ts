@@ -7,7 +7,8 @@ import type { TJMAPCalendarEvent } from "../../../../logic/Calendar/JMAP/TJSCale
 import { MailIdentity } from "../../../../logic/Mail/MailIdentity";
 import { DummyCalendarStorage } from "../../../../logic/Calendar/SQL/DummyCalendarStorage";
 import { Frequency } from "../../../../logic/Calendar/RecurrenceRule";
-import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { expectDaylightSavingTime } from "../timeZone";
+import { beforeAll, describe, expect, test } from "vitest";
 
 beforeAll(() => {
   appGlobal.remoteApp ??= {
@@ -114,6 +115,15 @@ test("An absolute alert time is read as the reminder", async () => {
   let { event } = await listEvents([json]);
 
   expect(event.alarm.toISOString()).toBe("2026-01-05T08:00:00.000Z");
+});
+
+test("An alert whose trigger has no @type is an offset from the start", async () => {
+  // draft-ietf-calext-jscalendarbis 3.5.1: "trigger: OffsetTrigger|AbsoluteTrigger|UnknownTrigger (mandatory; defaultType: OffsetTrigger)"
+  let json = serverEvent();
+  json.alerts = { "1": { trigger: { offset: "-PT20M" } } } as any;
+  let { event } = await listEvents([json]);
+
+  expect(event.startTime.getTime() - event.alarm.getTime()).toBe(20 * 60 * 1000);
 });
 
 test("An alert relative to the end is read as the reminder", async () => {
@@ -257,11 +267,8 @@ describe("Sequence", () => {
  * lasts "P1D". On the days when the clocks change, a day has 23 or 25 hours.
  * The dates are created within the tests, after the time zone has been set. */
 describe("All-day events on the days when the clocks change", () => {
-  beforeAll(() => {
-    vi.stubEnv("TZ", "Europe/Berlin");
-  });
-  afterAll(() => {
-    vi.unstubAllEnvs();
+  test("The time zone has daylight saving time", () => {
+    expectDaylightSavingTime();
   });
 
   function allDayServerEvent(start: string): TJMAPCalendarEvent {

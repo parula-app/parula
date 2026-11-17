@@ -21,7 +21,7 @@ export class SMIMESend {
    * @returns a new email that is encrypted and/or signed.
    *   The original email is untouched.
    */
-  static async encryptAndSign(mail: EMail): Promise<EMail> {
+  static async encryptAndSign(mail: EMail, recipients = mail.allRecipients()): Promise<EMail> {
     let privateKey = getMyPrivateKey(mail.identity, SMIMEPrivateKey);
     assert(privateKey, gt`Please first set up S/MIME encryption for yourself, in Settings | Mail | Identity | Encryption`);
     assert(privateKey.certificate, gt`Your S/MIME key does not have a certificate yet. Please add it, in Settings | Mail | Identity | Encryption`);
@@ -122,7 +122,7 @@ export class SMIMESend {
       // Only the body and the Content-* headers are encrypted, not the other headers.
       let { content, otherHeaders } = await SMIMESend.splitOffContent(mimeAsText);
       mime = new TextEncoder().encode(content);
-      let recipientKeys = mail.allRecipients().contents.flatMap(puid =>
+      let recipientKeys = recipients.contents.flatMap(puid =>
         getPublicKeyForPersonUID(puid, SMIMEPublicKey));
       if (!(await Promise.all(recipientKeys.map(key => key.matches(rawKey)))).some(Boolean)) {
         recipientKeys.push(privateKey);

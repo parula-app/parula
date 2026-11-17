@@ -1,11 +1,15 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
 import "../../../../logic/app";
+import { appGlobal } from "../../../../logic/app";
 import { OWAGAL } from "../../../../logic/Contacts/OWA/OWAGAL";
 import type { OWAPerson } from "../../../../logic/Contacts/OWA/OWAPerson";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { kCertificate, kCertificateEmailAddress, kSMIMECertificate, kSMIMECertificateEmailAddress } from "../testCertificate";
+import { kCertificate, kCertificateEmailAddress, kSMIMECertificate, kSMIMECertificateEmailAddress, trustTestCAs } from "../testCertificate";
+import { addSMIMEIdentities } from "../smimeIdentities";
 import { ArrayColl } from "svelte-collections";
 import { expect, test } from "vitest";
+
+trustTestCAs();
 
 const kPersons = [{
   DisplayName: "Ben Bucksch",
@@ -76,8 +80,12 @@ function matching(searchTerm: string): typeof kPersons {
       .some(field => field.toLowerCase().startsWith(term)));
 }
 
+/** As the composer and the calendar use it: our identity is in `example.com` and has an S/MIME certificate */
 async function search(searchTerm: string, account = fakeAccount()): Promise<ArrayColl<OWAPerson>> {
+  addSMIMEIdentities(account, "me@example.com");
   let gal = new OWAGAL(account);
+  appGlobal.searchOnlyAddressbooks.clear();
+  appGlobal.searchOnlyAddressbooks.add(gal);
   let results = new ArrayColl<OWAPerson>();
   await gal.quickSearchAsync(searchTerm, results);
   return results;

@@ -1,6 +1,7 @@
 import { ExchangeCalendar } from "../EWS/ExchangeCalendar";
 import { CalendarShareCombinedPermissions } from "../Calendar";
 import type { Participant } from "../Participant";
+import { FreeBusyEvent } from "../FreeBusyEvent";
 import type { Attachment } from "../../Abstract/Attachment";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { OWAEvent } from "./OWAEvent";
@@ -55,23 +56,33 @@ export class OWACalendar extends ExchangeCalendar {
     return new OWAIncomingInvitation(this, message);
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: { from: Date, to: Date, free: boolean }[] }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
     let results = await this.callOWA(new OWAGetUserAvailabilityRequest(participants, from, to));
     let availabilities = [];
     for (let [i, participant] of participants.entries()) {
       let result = results.Responses[i];
-      if (result.ResponseMessage.ResponseClass == "Error" || result.FreeBusyViewType == "None") {
+      let viewType = result.CalendarView?.FreeBusyViewType;
+      if (result.ResponseMessage.ResponseClass == "Error" || !viewType || viewType == "None") {
         // Don't report unknown as Free
         availabilities.push({ participant, availability: undefined });
         continue;
       }
+      // Without details, the subject is the status, e.g. "Busy"
+      let hasDetails = viewType.startsWith("Detailed");
       availabilities.push({
         participant,
-        availability: ensureArray(result.CalendarView.Items).map(event => ({
-          from: new Date(event.Start + "Z"),
-          to: new Date(event.End + "Z"),
-          free: event.FreeBusyType == "Free",
-        })),
+        availability: ensureArray(result.CalendarView.Items)
+          .filter(event => this.freeBusyStatus(event.FreeBusyType))
+          .map(event => {
+            let appointment = new FreeBusyEvent(
+              new Date(event.Start + "Z"),
+              new Date(event.End + "Z"),
+              this.freeBusyStatus(event.FreeBusyType));
+            let details = hasDetails && event.Sensitivity != "Private" ? event : null;
+            appointment.title = sanitize.label(details?.Subject, null);
+            appointment.location = sanitize.label(details?.Location?.DisplayName, null);
+            return appointment;
+          }),
       });
     }
     return availabilities;

@@ -130,7 +130,7 @@
   const notificationsSetting = getLocalStorage<string[]>("notifications.mail", ["popup"]);
   const onlyFromContactsSetting = getLocalStorage<boolean>("notifications.mail.only.addressbook", true);
   const readingPaneSetting = getLocalStorage<ReadingPanePosition>("lookout.mail.readingPane", "right");
-  const separateAccountListSetting = getLocalStorage<boolean>("lookout.mail.separateAccountList", false);
+  const separateAccountListSetting = getLocalStorage<boolean>("lookout.mail.separateAccountList", true);
   const readAfterSetting = getLocalStorage<number>("mail.read.after", 0);
 
   let isMarkingRead = readAfterSetting.value >= 0;
