@@ -17,29 +17,26 @@ import { appGlobal } from "../../app";
 import { UserError, assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
-export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Promise<PublicKey | null> {
-  if (!id) {
+/** The key that signed the email, by fingerprint, because another PGP key can
+ * have the same 64-bit key ID, and an S/MIME key pair can have several certificates.
+ * The contact's or our own copy of the key, if we have it, else the one from the email. */
+export async function getPublicKeyByFingerprint(fingerprint: string | null, email?: EMail): Promise<PublicKey | null> {
+  if (!fingerprint) {
     return null;
   }
-  let signedKey = email?.signedKey?.id == id ? email.signedKey : null;
+  let signedKey = email?.signedKey?.fingerprint == fingerprint ? email.signedKey : null;
   if (!signedKey && email?.signedKeyJSON) {
     let key = publicKeyFromJSON(email.signedKeyJSON);
-    if (key.id == id) {
+    if (key.fingerprint == fingerprint) {
       email.signedKey = key;
       signedKey = key;
     }
-  }
-  // The very key or certificate that signed: Another PGP key can have the
-  // same 64-bit key ID, and an S/MIME key pair can have several certificates.
-  let fingerprint = signedKey?.fingerprint ?? email?.signedKeyFingerprint;
-  function isSigner(key: PublicKey): boolean {
-    return key.id == id && (!fingerprint || key.fingerprint == fingerprint);
   }
   if (email?.from) {
     let person = email.from.findPerson();
     if (person) {
       for (let key of person.encryptionPublicKeys.each) {
-        if (isSigner(key)) {
+        if (key.fingerprint == fingerprint) {
           return key;
         }
       }
@@ -47,7 +44,7 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   } else {
     for (let person of appGlobal.persons.each) {
       for (let key of person.encryptionPublicKeys.each) {
-        if (isSigner(key)) {
+        if (key.fingerprint == fingerprint) {
           return key;
         }
       }
@@ -55,7 +52,7 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   }
   for (let identity of findAllIdentities()) {
     for (let key of identity.encryptionPrivateKeys.each) {
-      if (isSigner(key)) {
+      if (key.fingerprint == fingerprint) {
         return key;
       }
     }
@@ -65,14 +62,14 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   }
   if (email && email.system != EncryptionSystem.SMIME) {
     let key = await readAutoCryptKeys(email);
-    if (key && isSigner(key)) {
+    if (key?.fingerprint == fingerprint) {
       return key;
     }
   }
   if (email) {
-    // Last resort, for messages that we stored before we kept the key
+    // Last resort, when the contact had the key as we saved the message, but no longer has it
     await email.loadMIME(); // calls `rememberSigner()` via processors
-    if (email.signedKey?.id == id) {
+    if (email.signedKey?.fingerprint == fingerprint) {
       await email.saveWritablePropsLocally();
       return email.signedKey;
     }

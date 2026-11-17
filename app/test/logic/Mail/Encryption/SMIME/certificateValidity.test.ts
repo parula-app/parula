@@ -1,7 +1,7 @@
 import "../../../../../logic/app";
 import { setupTestFolder } from "../../SQL/setup";
 import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { getPublicKeyByKeyID } from "../../../../../logic/Mail/Encryption/KeyUtils";
+import { getPublicKeyByFingerprint } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import type { Folder } from "../../../../../logic/Mail/Folder";
@@ -112,7 +112,7 @@ describe("The signature counts as valid only if the certificate was valid when t
   test("A message that arrived while the certificate was valid stays valid after it expired", async () => {
     setToday("2027-02-01T12:00:00Z"); // both Alice's and the intermediate certificate expired
     let email = await readMessage("2026-10-22T12:00:00Z");
-    let key = await getPublicKeyByKeyID(email.signedByKeyID, email);
+    let key = await getPublicKeyByFingerprint(email.signedKeyFingerprint, email);
     expect(key.trustLevel).toBe(TrustLevel.OS);
     expect(key.isValidAt(email.received)).toBe(true);
   });
@@ -120,7 +120,7 @@ describe("The signature counts as valid only if the certificate was valid when t
   test("A message that arrived after the certificate expired is not valid, although it was signed before", async () => {
     setToday("2026-12-15T12:00:00Z");
     let email = await readMessage("2026-12-15T12:00:00Z");
-    let key = await getPublicKeyByKeyID(email.signedByKeyID, email);
+    let key = await getPublicKeyByFingerprint(email.signedKeyFingerprint, email);
     expect(key.trustLevel).toBe(TrustLevel.Sender);
     expect(key.isValidAt(email.received)).toBe(false);
   });

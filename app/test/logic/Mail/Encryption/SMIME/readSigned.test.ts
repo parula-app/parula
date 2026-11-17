@@ -1,6 +1,6 @@
 import "../../../../../logic/app";
 import { setupTestFolder } from "../../SQL/setup";
-import { getPublicKeyByKeyID } from "../../../../../logic/Mail/Encryption/KeyUtils";
+import { getPublicKeyByFingerprint } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { kClearSigned, kOpaqueSigned, kECClearSigned } from "./signedMessages";
@@ -47,7 +47,7 @@ function toCRLF(mime: string): string {
 
 /** What the message reader shows the signature for */
 async function signedWithKeyName(email: EMail): Promise<string | null> {
-  let key = await getPublicKeyByKeyID(email.signedByKeyID, email);
+  let key = await getPublicKeyByFingerprint(email.signedKeyFingerprint, email);
   if (!key || key.trustLevel == TrustLevel.Distrusted) {
     return null;
   }
@@ -77,7 +77,7 @@ describe("Signature of a received message, without an own private key", () => {
 
   test("an unknown CA leaves the trust level to the user", async () => {
     let email = await readMessage(kClearSigned);
-    let key = await getPublicKeyByKeyID(email.signedByKeyID, email);
+    let key = await getPublicKeyByFingerprint(email.signedKeyFingerprint, email);
     expect(key.trustLevel).toBe(TrustLevel.Sender);
   });
 
@@ -114,7 +114,7 @@ ${signedFile}
     let email = await readMessage(mime);
     expect(email.text.trim()).toBe("Please find the invoice attached.");
     expect(email.attachments.contents.map(attachment => attachment.filename)).toEqual(["IT01234567890_FPA01.xml.p7m"]);
-    expect(email.signedByKeyID).toBeFalsy();
+    expect(email.signedKeyFingerprint).toBeFalsy();
     expect(new TextDecoder().decode(email.mime)).toBe(toCRLF(mime));
   });
 });

@@ -86,7 +86,7 @@ async function send(signedHeaders: string, encrypt: boolean, sender = alice): Pr
   mail.identity = sender;
   mail.from = findOrCreatePersonUID(sender.emailAddress, sender.realname);
   mail.to.add(userUID);
-  mail.signedByKeyID = sender.encryptionPrivateKeys.first.id;
+  mail.shouldSign = true;
   mail.shouldEncrypt = encrypt;
   return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
 }
@@ -99,12 +99,12 @@ async function receive(mime: string): Promise<EMail> {
 }
 
 function expectSigned(email: EMail) {
-  expect(email.signedByKeyID).toBeTruthy();
-  expect(email.signedByKeyID).toBe(email.signedKey?.id);
+  expect(email.signedKeyFingerprint).toBeTruthy();
+  expect(email.signedKeyFingerprint).toBe(email.signedKey?.fingerprint);
 }
 
 function expectNotSigned(email: EMail) {
-  expect(email.signedByKeyID).toBe(null);
+  expect(email.signedKeyFingerprint).toBe(null);
   expect(email.signedKey).toBe(null);
 }
 
@@ -201,7 +201,7 @@ describe("PGP message that we signed", () => {
     expectSigned(email);
     email.received = new Date();
     let saved = JSON.stringify(JSONEMail.save(email));
-    expect(saved).toContain(email.signedByKeyID);
+    expect(saved).toContain(email.signedKeyFingerprint);
     expect(saved).not.toContain("PRIVATE KEY");
     expect(saved).not.toContain((user.encryptionPrivateKeys.first as PGPPrivateKey).passphrase);
   });

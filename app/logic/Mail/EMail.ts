@@ -103,6 +103,9 @@ export class EMail extends Message {
   /** For composer/send only: This email should be end-to-end encrypted. */
   @notifyChangedProperty
   shouldEncrypt = false;
+  /** For composer/send only: This email should be signed. */
+  @notifyChangedProperty
+  shouldSign = false;
   /** For composer/send only: This email must be end-to-end encrypted, e.g.
    * because it quotes from an encrypted email. */
   @notifyChangedProperty
@@ -114,17 +117,15 @@ export class EMail extends Message {
   /** This email was correctly signed with this public key.
    * The signature was valid and the public key matches `From:`.
    * This gives you the specific public key that was used to sign.
-   * Format: `PublicKey.id` */
+   * Not the key ID, because another key can have the same key ID.
+   * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
-  signedByKeyID: string | null = null;
-  /** `PublicKey.fingerprint` of the key that signed.
-   * Unlike the key ID, it tells apart keys with the same key ID. */
   signedKeyFingerprint: string | null = null;
-  /** As `signed` but giving you the actual PublicKey object.
+  /** As `signedKeyFingerprint` but giving you the actual PublicKey object.
    * Set this using @see rememberSigner() */
   signedKey: PublicKey | null = null;
   /** As `signedKey`, but not parsed yet.
-   * `getPublicKeyByKeyID()` parses it when the reader needs it. */
+   * `getPublicKeyByFingerprint()` parses it when the reader needs it. */
   signedKeyJSON: any = null;
   /** Contains the complete MIME message for sending.
    * Used for encrypted messages. */
@@ -196,7 +197,6 @@ export class EMail extends Message {
       signer = null;
     }
     this.signedKey = signer;
-    this.signedByKeyID = signer?.id ?? null;
     this.signedKeyFingerprint = signer?.fingerprint ?? null;
     if (!signer) {
       return;
@@ -771,7 +771,7 @@ export class EMail extends Message {
     other.mustEncrypt = this.mustEncrypt;
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
-    other.signedByKeyID = this.signedByKeyID;
+    other.shouldSign = this.shouldSign;
     other.signedKeyFingerprint = this.signedKeyFingerprint;
     other.system = this.system;
   }

@@ -1,6 +1,6 @@
 import "../../../../../logic/app";
 import { setupTestFolder } from "../../SQL/setup";
-import { getPublicKeyByKeyID } from "../../../../../logic/Mail/Encryption/KeyUtils";
+import { getPublicKeyByFingerprint } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { EncryptionSystem, TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
 import { expect, test } from "vitest";
 
@@ -18,7 +18,7 @@ test("PGP signature of a sender who is not in the addressbook", async () => {
   expect(email.system).toBe(EncryptionSystem.PGP);
   expect(email.text.trim()).toBe("Hello, this is PGP signed.");
   // The reader looks the key up by ID, and finds the one that came with the message
-  let signingKey = await getPublicKeyByKeyID(email.signedByKeyID, email);
+  let signingKey = await getPublicKeyByFingerprint(email.signedKeyFingerprint, email);
   expect(signingKey).toBe(email.signedKey);
   expect(signingKey.userIDs.contents).toEqual(["alice@example.com"]);
   expect(signingKey.trustLevel).toBe(TrustLevel.Sender);
@@ -41,7 +41,7 @@ test("PGP signature nested inside a multipart/mixed", async () => {
 
   expect(errors).toEqual([]);
   expect(email.text).toContain("Hello, this is PGP signed.");
-  expect(email.signedByKeyID).toBe(null);
+  expect(email.signedKeyFingerprint).toBe(null);
 });
 
 /** gpg detached signature, with the sender key in the AutoCrypt header.

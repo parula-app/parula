@@ -15,7 +15,7 @@
 <script lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { PublicKey } from "../../../logic/Mail/Encryption/PublicKey";
-  import { getPublicKeyByKeyID } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { getPublicKeyByFingerprint } from "../../../logic/Mail/Encryption/KeyUtils";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
   import SignedIcon from "lucide-svelte/icons/signature";
   import EncryptedIcon from "lucide-svelte/icons/lock";
@@ -28,12 +28,12 @@
 
   let signingKey: PublicKey = null;
   // <copied from="../../../frontend/Mail/Message/EncryptionButtons.svelte">
-  $: getPublicKeyByKeyID($message.signedByKeyID, message)
+  $: getPublicKeyByFingerprint($message.signedKeyFingerprint, message)
     .then(key => signingKey = key)
     .catch(showError);
   // </copied>
   /* <copied to="EncryptionDetails.svelte"> */
-  $: isSigned = $message && !!message.signedByKeyID && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
+  $: isSigned = $message && !!message.signedKeyFingerprint && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
   /* </copied> */
   $: isEncrypted = !!$message.wasEncrypted;
 </script>

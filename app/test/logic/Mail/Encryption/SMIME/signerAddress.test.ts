@@ -32,12 +32,12 @@ async function readMessage(mime: string, from?: PersonUID): Promise<EMail> {
 }
 
 function expectSigned(email: EMail) {
-  expect(email.signedByKeyID).toBeTruthy();
-  expect(email.signedByKeyID).toBe(email.signedKey?.id);
+  expect(email.signedKeyFingerprint).toBeTruthy();
+  expect(email.signedKeyFingerprint).toBe(email.signedKey?.fingerprint);
 }
 
 function expectNotSigned(email: EMail) {
-  expect(email.signedByKeyID).toBe(null);
+  expect(email.signedKeyFingerprint).toBe(null);
   expect(email.signedKey).toBe(null);
 }
 

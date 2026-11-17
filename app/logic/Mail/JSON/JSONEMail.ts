@@ -75,15 +75,15 @@ export class JSONEMail {
       json.invitationMessage = email.invitationMessage;
     }
 
-    if (email.signedByKeyID || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt) {
+    if (email.signedKeyFingerprint || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt || email.shouldSign) {
       let e = json.encryption = {} as any;
       e.system = email.system;
-      e.signedPublicKeyID = email.signedByKeyID;
       e.signedPublicKeyFingerprint = email.signedKeyFingerprint;
       e.signedPublicKey = this.saveSigner(email);
       e.wasEncrypted = email.wasEncrypted;
       e.mustEncrypt = email.mustEncrypt;
       e.shouldEncrypt = email.shouldEncrypt;
+      e.shouldSign = email.shouldSign;
     }
   }
 
@@ -239,12 +239,12 @@ export class JSONEMail {
     let e = json.encryption;
     if (e) {
       email.system = sanitize.enum<EncryptionSystem>(e.system, Object.values(EncryptionSystem), null);
-      email.signedByKeyID = sanitize.alphanumdash(e.signedPublicKeyID, null);
       email.signedKeyFingerprint = sanitize.alphanumdash(e.signedPublicKeyFingerprint, null);
-      // Parsed on demand, @see `getPublicKeyByKeyID()`
+      // Parsed on demand, @see `getPublicKeyByFingerprint()`
       email.signedKeyJSON = e.signedPublicKey ?? null;
       email.wasEncrypted = sanitize.boolean(e.wasEncrypted, false);
       email.shouldEncrypt = sanitize.boolean(e.shouldEncrypt, false);
+      email.shouldSign = sanitize.boolean(e.shouldSign, false);
       email.mustEncrypt = sanitize.boolean(e.mustEncrypt, false);
     }
   }

@@ -5,7 +5,7 @@ import "../../../../logic/app";
 import { PersonUID } from "../../../../logic/Abstract/PersonUID";
 import { setUpAccount, type TestMailAccount } from "../TestMailAccount";
 import { SpecialFolder } from "../../../../logic/Mail/Folder";
-import { getEncryptionSystem, getPublicKeyByKeyID, getPublicKeyForPerson, getPublicKeyForPersonUID } from "../../../../logic/Mail/Encryption/KeyUtils";
+import { getEncryptionSystem, getPublicKeyByFingerprint, getPublicKeyForPerson, getPublicKeyForPersonUID } from "../../../../logic/Mail/Encryption/KeyUtils";
 import { EncryptionSystem } from "../../../../logic/Mail/Encryption/enums";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { SMIMEPrivateKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
@@ -98,7 +98,7 @@ describe("Key that signed the email, as the mail viewer shows it", () => {
     signer.fingerprint = "6d616c6c6f7279";
     signer.userIDs.add("mallory@example.com");
     mail.rememberSigner(signer);
-    expect(await getPublicKeyByKeyID(mail.signedByKeyID, mail)).toBe(signer);
+    expect(await getPublicKeyByFingerprint(mail.signedKeyFingerprint, mail)).toBe(signer);
   });
 });
 
