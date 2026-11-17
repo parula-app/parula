@@ -82,6 +82,20 @@ describe("PGP message with non-ASCII sender name and a long subject", () => {
   });
 });
 
+describe("PGP message signed with the key that the composer chose", () => {
+  test("is signed with that key, not with our default key", async () => {
+    let defaultKey = await PGPPrivateKey.createNewPrivateKey({ realname: "User Müller", emailAddress: "user@example.com" });
+    defaultKey.useToSign = true;
+    identity.encryptionPrivateKeys.add(defaultKey);
+    try {
+      let email = await receive(await send(false)); // `send()` chooses `key`
+      expect(email.signedKeyFingerprint).toBe(key.fingerprint);
+    } finally {
+      identity.encryptionPrivateKeys.remove(defaultKey);
+    }
+  });
+});
+
 describe("A draft", () => {
   let drafts: Folder;
   let savedMIME: Uint8Array;

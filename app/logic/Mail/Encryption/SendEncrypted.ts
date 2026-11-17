@@ -41,7 +41,7 @@ export class SendEncrypted {
       } else {
         throw new UserError(gt`Cannot encrypt to all recipients using PGP or S/MIME`);
       }
-    } else if (mail.signedKeyFingerprint) {
+    } else if (mail.shouldSign) {
       if (privateKey instanceof PGPPrivateKey) {
         return await PGPSend.encryptAndSign(mail);
       } else if (privateKey instanceof SMIMEPrivateKey) {

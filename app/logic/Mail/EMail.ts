@@ -163,6 +163,11 @@ export class EMail extends Message {
     return this.folder.account.storage;
   }
 
+  /** For composer/send only: Sign this email, with our key `signedKeyFingerprint` */
+  get shouldSign(): boolean {
+    return !!this.signedKeyFingerprint;
+  }
+
   get mustEncrypt(): boolean {
     return this._mustEncrypt;
   }

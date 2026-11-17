@@ -84,7 +84,7 @@
           </hbox>
         </grid>
       </hbox>
-      {#if $mail.shouldEncrypt || $mail.signedKeyFingerprint}
+      {#if $mail.shouldEncrypt || $mail.shouldSign}
         <hbox class="info-bar">
           {#if $mail.shouldEncrypt}
             <LockIcon size={16} />
@@ -379,7 +379,7 @@
   function changedIdentity() {
     let extra = mail as any;
     if (privateKey) {
-      if (!mail.signedKeyFingerprint && privateKey.useToSign) {
+      if (!mail.shouldSign && privateKey.useToSign) {
         mail.signedKeyFingerprint = privateKey.fingerprint;
         extra.signOnlyByDefault = true;
       }
@@ -387,7 +387,7 @@
         mail.shouldEncrypt = true;
         extra.encryptOnlyByDefault = true;
       }
-      if (mail.signedKeyFingerprint && extra.signOnlyByDefault && !privateKey.useToSign) {
+      if (mail.shouldSign && extra.signOnlyByDefault && !privateKey.useToSign) {
         mail.signedKeyFingerprint = null;
         extra.signOnlyByDefault = false;
       }
