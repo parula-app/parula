@@ -1,6 +1,6 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, algorithmName } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
@@ -64,7 +64,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     if (this.passphrase) {
       let encryptedKey = EncryptedPrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "ENCRYPTED PRIVATE KEY" });
       if (encryptedKey.encryptionAlgorithm.algorithm != "pkcs5PBES2") {
-        throw new Error("Unsupported private key encryption algorithm");
+        throw new Error("Unsupported private key encryption algorithm " + algorithmName(encryptedKey.encryptionAlgorithm.algorithm));
       }
       pkcs8 = await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
     } else {
@@ -72,7 +72,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     }
     let privateKeyInfo = PrivateKeyInfo.decode(pkcs8);
     if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
-      throw new Error("Unsupported private key algorithm");
+      throw new Error("Unsupported private key algorithm " + algorithmName(privateKeyInfo.privateKeyAlgorithm.algorithm));
     }
     return RSAPrivateKey.decode(privateKeyInfo.privateKey);
   }
