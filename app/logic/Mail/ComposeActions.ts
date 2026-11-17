@@ -200,7 +200,7 @@ export class ComposeActions {
   async redirect(): Promise<EMail> {
     await this.email.loadAttachments();
     let redirect = this.email.folder.account.newEMailFrom();
-    redirect.needsSignature = false;
+    redirect.needsFooter = false;
     redirect.replyTo = this.email.from;
     redirect.subject = this.email.subject;
     redirect.html = this.email.html;
@@ -211,7 +211,7 @@ export class ComposeActions {
   async editAsNew(): Promise<EMail> {
     await this.email.loadAttachments();
     let clone = this.email.folder.account.newEMailFrom();
-    clone.needsSignature = false;
+    clone.needsFooter = false;
     clone.to.addAll(this.email.to);
     clone.cc.addAll(this.email.cc);
     clone.subject = this.email.subject;
@@ -323,10 +323,10 @@ export class ComposeActions {
    * @returns false, if nothing changed
    */
   addSignature(identity: MailIdentity, body: MailBody): boolean {
-    if (!this.email.needsSignature) {
+    if (!this.email.needsFooter) {
       return false;
     }
-    this.email.needsSignature = false;
+    this.email.needsFooter = false;
     return body.putOwnSignature(identity.signatureHTML);
   }
 
@@ -368,11 +368,11 @@ export class ComposeActions {
     }
     let account = fromIdentity.account;
 
-    if (this.email.needsSignature) {
+    if (this.email.needsFooter) {
       let body = new MailBody(this.email.html);
       body.putOwnSignature(fromIdentity.signatureHTML, false);
       this.email.html = body.html;
-      this.email.needsSignature = false;
+      this.email.needsFooter = false;
     }
     await this.convertInlineAttachmentsURLs();
     const kSentByHTML = `<p style="color: #777777">Sent by © <a href="https://parula.app" style="color: #20AE9E; text-decoration: none"><strong><em>Parula</em></strong></a></p>`;

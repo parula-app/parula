@@ -109,7 +109,7 @@ test("A new mail gets the signature at the end, below an empty line to type in",
   let html = addSignature(mail, personal, "<p></p>");
   expect(topLevel(html)).toEqual(["P", "FOOTER"]);
   expect(ownSignatureText(html)).toBe("Fred MillerExample Inc.");
-  expect(mail.needsSignature).toBe(false);
+  expect(mail.needsFooter).toBe(false);
   // Only once
   expect(addSignature(mail, personal, html)).toBeNull();
 });

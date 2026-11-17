@@ -192,7 +192,7 @@ export class MailAccount extends TCPAccount {
     let email = folder.newEMail();
     email.compose.generateMessageID();
     email.loadedBody = true;
-    email.needsSignature = true;
+    email.needsFooter = true;
     email.from.emailAddress = this.emailAddress;
     email.from.name = this.realname;
     return email;
