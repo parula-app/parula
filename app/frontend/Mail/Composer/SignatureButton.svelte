@@ -32,7 +32,7 @@
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
   import Button from "../../Shared/Button.svelte";
-  import SignatureIcon from "lucide-svelte/icons/pen-line";
+  import SignatureIcon from "lucide-svelte/icons/stamp";
   import SettingsIcon from "lucide-svelte/icons/settings";
   import type { ArrayColl } from "svelte-collections";
   import type { Editor } from "@tiptap/core";

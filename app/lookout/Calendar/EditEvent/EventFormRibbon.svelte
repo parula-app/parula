@@ -219,7 +219,7 @@
   import ReminderIcon from "lucide-svelte/icons/bell";
   import RecurrenceIcon from "lucide-svelte/icons/repeat-2";
   import RefreshIcon from "lucide-svelte/icons/refresh-cw";
-  import SignatureIcon from "lucide-svelte/icons/pen-line";
+  import SignatureIcon from "lucide-svelte/icons/stamp";
   import CopyIcon from "lucide-svelte/icons/clipboard-copy";
   import { t } from "../../../l10n/l10n";
 

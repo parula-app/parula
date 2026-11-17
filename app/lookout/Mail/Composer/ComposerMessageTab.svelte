@@ -105,7 +105,7 @@
   import AttachIcon from "lucide-svelte/icons/paperclip";
   import LinkIcon from "lucide-svelte/icons/link";
   import SpellingIcon from "lucide-svelte/icons/spell-check";
-  import SignatureIcon from "lucide-svelte/icons/pen-line";
+  import SignatureIcon from "lucide-svelte/icons/stamp";
   import PasteIcon from "lucide-svelte/icons/clipboard-paste";
   import PasteTextIcon from "lucide-svelte/icons/clipboard-type";
   import CutIcon from "lucide-svelte/icons/scissors";

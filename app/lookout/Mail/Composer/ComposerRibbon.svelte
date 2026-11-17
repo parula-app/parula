@@ -38,7 +38,7 @@
   import PollsGroup from "./PollsGroup.svelte";
   import type { RecipientField } from "./SelectNamesDialog.svelte";
   import FileSelector from "../../../frontend/Mail/Composer/Attachments/FileSelector.svelte";
-  import SignatureIcon from "lucide-svelte/icons/pen-line";
+  import SignatureIcon from "lucide-svelte/icons/stamp";
   import { t } from "../../../l10n/l10n";
   import type { Editor } from "@tiptap/core";
 
