@@ -20,8 +20,8 @@ export class MailMustangApp extends MustangApp {
   name = gt`Mail`;
   icon = mailIcon;
   appURL = "/mail";
-  /** Mails that the user is writing outside of the composer sub-apps, e.g. Lookout's inline replies */
-  inlineDrafts: Collection<EMail> = new ArrayColl<EMail>();
+  /** Mails that the user is writing outside of the composer sub-apps, e.g. Lookout's inline replies. Per window, see `AppWindow.perWindow()`. */
+  inlineDrafts: Collection<EMail> = AppWindow.perWindow(() => new ArrayColl<EMail>());
 
   /**
    * Opens the mail composer.
@@ -53,9 +53,11 @@ export class MailMustangApp extends MustangApp {
         drafts.add(app.windowParams.mail);
       }
     }
-    for (let mail of this.inlineDrafts) {
-      if (hasOwnText(mail)) {
-        drafts.add(mail);
+    for (let appWindow of AppWindow.all) {
+      for (let mail of appWindow.uiState(this.inlineDrafts)) {
+        if (hasOwnText(mail)) {
+          drafts.add(mail);
+        }
       }
     }
     return drafts;

@@ -1,12 +1,12 @@
-<svelte:window on:keydown={event => catchErrors(() => onKey(event))} />
+<AppWindowEvents on:keydown={event => catchErrors(() => onKey(event))} />
 
 <script lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
   import { MessageActions } from "../MessageActions";
   import { printMessage } from "../Selected";
   import { isTextField } from "../../../frontend/Util/util";
-  import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
   import { catchErrors } from "../../../frontend/Util/error";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
 
   export let messages: EMail[];
   export let pageEl: HTMLElement;
@@ -14,8 +14,8 @@
   async function onKey(event: KeyboardEvent) {
     // <copied from="../MailApp.svelte">
     let target = event.target as HTMLElement;
-    if (event.defaultPrevented || document.querySelector("dialog:modal") || isTextField(target) ||
-        !pageEl?.contains(target) && target != document.body) {
+    if (event.defaultPrevented || pageEl?.ownerDocument.querySelector("dialog:modal") || isTextField(target) ||
+        !pageEl?.contains(target) && target != pageEl?.ownerDocument.body) {
       return;
     }
     let isCtrl = event.ctrlKey || event.metaKey;
@@ -30,7 +30,7 @@
         event.preventDefault();
         event.stopPropagation();
         if (message) {
-          mailMustangApp.writeMail(await message.compose.forwardAsAttachment());
+          MessageActions.writeMail(await message.compose.forwardAsAttachment());
         }
         return;
       } else if (letter == "j") {

@@ -75,6 +75,7 @@
   import { appGlobal } from "../../logic/app";
   import { appName } from "../../logic/build";
   import { catchErrors } from "../../frontend/Util/error";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
   import OptionsPage from "./Shared/OptionsPage.svelte";
   import OptionsSection from "./Shared/OptionsSection.svelte";
   import OptionsRow from "./Shared/OptionsRow.svelte";
@@ -83,10 +84,12 @@
   import MainAccountIcon from "lucide-svelte/icons/link";
   import RemoveIcon from "lucide-svelte/icons/user-x";
   import debounce from "lodash/debounce";
+  import { get } from "svelte/store";
   import { t } from "../../l10n/l10n";
 
   export let account: Account;
 
+  const appWindow = AppWindow.current();
   const workspaces = appGlobal.workspaces;
 
   $: icon = getAccountIcon(account);
@@ -111,14 +114,17 @@
     }
     let appCategory = settingsCategories.find(cat => cat.accounts.contains(account));
     await account.deleteIt();
-    if ($selectedAccount == account) {
-      $selectedAccount = appGlobal.emailAccounts.first;
-      $selectedFolder = $selectedAccount?.inbox;
-      $selectedMessage = null;
-      $selectedMessages?.clear();
+    for (let eachWindow of AppWindow.all) {
+      if (get(eachWindow.uiState(selectedAccount)) == account) {
+        let firstAccount = appGlobal.emailAccounts.first;
+        eachWindow.uiState(selectedAccount).set(firstAccount);
+        eachWindow.uiState(selectedFolder).set(firstAccount?.inbox);
+        eachWindow.uiState(selectedMessage).set(null);
+        get(eachWindow.uiState(selectedMessages))?.clear();
+      }
     }
-    $selectedSettingsAccount = null;
-    $selectedCategory = appCategory ?? settingsCategories.first;
+    appWindow.uiState(selectedSettingsAccount).set(null);
+    appWindow.uiState(selectedCategory).set(appCategory ?? settingsCategories.first);
   }
 </script>
 

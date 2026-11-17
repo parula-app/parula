@@ -50,7 +50,7 @@
   </hbox>
 </vbox>
 
-<svelte:window on:keydown={onKeyDown} />
+<AppWindowEvents on:keydown={onKeyDown} />
 
 <script lang="ts">
   import type { Contact } from "../../logic/Abstract/Contact";
@@ -69,6 +69,8 @@
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
   import { statusBarContent, type StatusBarContent } from "../MainWindow/Selected";
   import Splitter from "../../frontend/Shared/Splitter.svelte";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../frontend/MainWindow/AppWindowEvents.svelte";
   import ContactsRibbon from "./ContactsRibbon.svelte";
   import ContactSearchTab from "./Search/ContactSearchTab.svelte";
   import ContactSearchBox from "./Search/ContactSearchBox.svelte";
@@ -86,6 +88,7 @@
   import { get } from "svelte/store";
   import { t } from "../../l10n/l10n";
 
+  const appWindow = AppWindow.current();
   let addressbooks = appGlobal.addressbooks;
   let searchOnlyAddressbooks = appGlobal.searchOnlyAddressbooks;
   const allContacts = mergeColls(appGlobal.addressbooks.map(addressbook => addressbook.contacts)) as Collection<Contact>;
@@ -215,8 +218,9 @@
   // <copied from="../Mail/MailApp.svelte">
   $: $statusBarContent = status;
   onDestroy(() => {
-    if (get(statusBarContent) == status) {
-      statusBarContent.set(null);
+    let store = appWindow.uiState(statusBarContent);
+    if (get(store) == status) {
+      store.set(null);
     }
   });
   // </copied>
@@ -224,7 +228,7 @@
   let pageEl: HTMLElement;
   function onKeyDown(event: KeyboardEvent) {
     let target = event.target as HTMLElement;
-    if (event.defaultPrevented || !pageEl?.contains(target) && target != document.body) {
+    if (event.defaultPrevented || !pageEl?.contains(target) && target != pageEl?.ownerDocument.body) {
       return;
     }
     let isTextField = target?.closest?.("input, textarea, select, [contenteditable]");

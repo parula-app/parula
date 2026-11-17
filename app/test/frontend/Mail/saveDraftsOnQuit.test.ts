@@ -2,6 +2,7 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
 import "../../../logic/app";
 import { mailMustangApp, WriteMailMustangApp, LoginDialogMustangApp } from "../../../frontend/Mail/MailMustangApp";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 import { ComposeActions } from "../../../logic/Mail/ComposeActions";
 import type { EMail } from "../../../logic/Mail/EMail";
 import { ArrayColl } from "svelte-collections";
@@ -26,7 +27,7 @@ function openComposer(mail: EMail) {
 
 beforeEach(() => {
   mailMustangApp.subApps.clear();
-  mailMustangApp.inlineDrafts = new ArrayColl<EMail>();
+  mailMustangApp.inlineDrafts = AppWindow.perWindow(() => new ArrayColl<EMail>());
 });
 
 test("Quitting saves the mails in the open composers that have text of the user", async () => {
@@ -42,7 +43,7 @@ test("Quitting saves the mails in the open composers that have text of the user"
 
 test("Quitting saves the mails that the user writes outside of a composer", async () => {
   let inline = draft(kLongText);
-  mailMustangApp.inlineDrafts = new ArrayColl([inline]);
+  mailMustangApp.inlineDrafts = AppWindow.perWindow(() => new ArrayColl([inline]));
   await mailMustangApp.saveDraftsOnQuit();
   expect(inline.compose.saveDraftOnQuit).toHaveBeenCalledTimes(1);
 });

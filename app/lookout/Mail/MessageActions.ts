@@ -10,7 +10,7 @@ import type { Calendar } from "../../logic/Calendar/Calendar";
 import { appGlobal } from "../../logic/app";
 import { showMessageBox } from "../Shared/Dialog/MessageBox";
 import type { ReadingPanePosition } from "./3pane/3Pane.svelte";
-import { startInlineReply, removeInlineReply } from "./Composer/InlineReplies";
+import { startInlineReply } from "./Composer/InlineReplies";
 import { updatingFolders } from "./Selected";
 import { recentFolders } from "./RecentFolders";
 import { mailMustangApp } from "../../frontend/Mail/MailMustangApp";
@@ -19,12 +19,15 @@ import { selectedCalendar } from "../../frontend/Calendar/selected";
 import { createNewEvent } from "../../frontend/Calendar/event";
 import { CalendarActions } from "../Calendar/CalendarActions";
 import { newPerson } from "../../frontend/Contacts/Person/Selected";
-import { selectedFolder, selectedMessage, selectedMessages } from "../../frontend/Mail/Selected";
+import { selectedMessage, selectedMessages } from "../../frontend/Mail/Selected";
 import { openPersonFromOtherApp } from "../../frontend/Contacts/open";
 import { goTo, openApp, selectedApp } from "../../frontend/AppsBar/selectedApp";
 import { getLocalStorage } from "../../frontend/Util/LocalStorage";
 import { saveBlobAsFile } from "../../frontend/Util/util";
 import { draggedMessages } from "../../frontend/Mail/Message/drag";
+import { AppWindow } from "../../frontend/MainWindow/AppWindow";
+import { showError } from "../../frontend/Util/error";
+import ComposerWindow from "./Composer/ComposerWindow.svelte";
 import { URLPart } from "../../logic/util/blob";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../logic/util/util";
@@ -41,10 +44,27 @@ export class MessageActions {
     return account;
   }
 
-  static writeMailTo(recipient: PersonUID) {
-    let mail = MessageActions.accountForNewMail(get(selectedFolder)).newEMailFrom();
+  /**
+   * Opens the composer.
+   * In a main window, as a page of the Mail app. In the composer and email windows, in a new window.
+   */
+  static writeMail(mail: EMail) {
+    if (AppWindow.current().isMainWindow) {
+      mailMustangApp.writeMail(mail);
+      return;
+    }
+    MessageActions.writeMailInNewWindow(mail)
+      .catch(showError);
+  }
+
+  static async writeMailInNewWindow(mail: EMail) {
+    await AppWindow.current().open(ComposerWindow, { mail }, 1000);
+  }
+
+  static writeMailTo(recipient: PersonUID, folder: Folder | null) {
+    let mail = MessageActions.accountForNewMail(folder).newEMailFrom();
     mail.to.add(recipient);
-    mailMustangApp.writeMail(mail);
+    MessageActions.writeMail(mail);
   }
 
   static newMeeting(calendar: Calendar | null = null) {
@@ -59,7 +79,7 @@ export class MessageActions {
     let person = addressbook.newPerson();
     person.name = "";
     person.addressbook = addressbook;
-    newPerson.set(person);
+    AppWindow.current().mainWindow.uiState(newPerson).set(person);
     // <copied from="../../frontend/AppsBar/AppMenuM/Apps/ContactsAppMenu.svelte">
     goTo(URLPart`/contacts/person/${person.id}/edit`, { person });
     // </copied>
@@ -69,21 +89,17 @@ export class MessageActions {
     if (MessageActions.respondsInline(original)) {
       await startInlineReply(original, draft);
     } else {
-      mailMustangApp.writeMail(draft);
+      MessageActions.writeMail(draft);
     }
   }
 
   static respondsInline(original: EMail): boolean {
-    return !getLocalStorage<boolean>("lookout.mail.compose.repliesInNewWindow", false).value &&
+    return AppWindow.current().isMainWindow &&
+      !getLocalStorage<boolean>("lookout.mail.compose.repliesInNewWindow", false).value &&
       getLocalStorage<ReadingPanePosition>("lookout.mail.readingPane", "right").value != "off" &&
       get(selectedApp) == mailMustangApp &&
       get(selectedMessage) == original &&
       (get(selectedMessages)?.length ?? 0) <= 1;
-  }
-
-  static popOut(draft: EMail) {
-    removeInlineReply(draft);
-    mailMustangApp.writeMail(draft);
   }
 
   static async forward(message: EMail, event?: MouseEvent | KeyboardEvent) {
@@ -106,7 +122,7 @@ export class MessageActions {
     }
     // <copied from="../../frontend/Mail/Message/MessageToolbar.svelte" editDraft()>
     await message.compose.editDraft();
-    mailMustangApp.writeMail(message);
+    MessageActions.writeMail(message);
     // </copied>
   }
 

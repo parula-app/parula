@@ -34,6 +34,7 @@
   import type { PersonUID } from "../../logic/Abstract/PersonUID";
   import type { Calendar } from "../../logic/Calendar/Calendar";
   import { selectedCalendar } from "../../frontend/Calendar/selected";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
   import { appGlobal } from "../../logic/app";
   import { assert } from "../../logic/util/util";
   import Dialog from "../Shared/Dialog/Dialog.svelte";
@@ -47,6 +48,7 @@
 
   export let fromAddressBook = false;
 
+  const appWindow = AppWindow.current();
   const accounts = appGlobal.emailAccounts.contents.filter(account => !account.isDependentAccount && account.canShareWithPersons());
   let account: MailAccount | null = accounts[0];
 
@@ -95,7 +97,7 @@
     for (let person of persons.contents) {
       let calendar = await openCalendarOf(person);
       persons.remove(person);
-      $selectedCalendar = calendar;
+      appWindow.uiState(selectedCalendar).set(calendar);
     }
   }
 </script>

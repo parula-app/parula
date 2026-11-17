@@ -99,7 +99,7 @@
   {/if}
 </vbox>
 
-<svelte:window on:keydown={(event) => catchErrors(() => onKeyOnCalendar(event))} />
+<AppWindowEvents on:keydown={(event) => catchErrors(() => onKeyOnCalendar(event))} />
 
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
@@ -141,6 +141,8 @@
   import CalendarSearchTab from "./ListView/CalendarSearchTab.svelte";
   import { eventOrganizers } from "./ListView/CalendarSearch";
   import Splitter from "../../frontend/Shared/Splitter.svelte";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../frontend/MainWindow/AppWindowEvents.svelte";
   import SplitterBidirectional from "../../frontend/Shared/SplitterBidirectional.svelte";
   import { globalSearchTerm } from "../../frontend/AppsBar/selectedApp";
   import type { ArrayColl, Collection } from "svelte-collections";
@@ -168,6 +170,7 @@
   const folderPaneSetting = getLocalStorage<CalendarFolderPane>("lookout.calendar.folderPaneMode", CalendarFolderPane.Normal);
   $: showFolderPane = ($folderPaneSetting.value ?? CalendarFolderPane.Normal) == CalendarFolderPane.Normal;
 
+  const appWindow = AppWindow.current();
   let folderPaneHeight = 0;
   let slotMenu: SlotMenu;
   let pageEl: HTMLElement;
@@ -248,8 +251,9 @@
   // <copied from="../Mail/MailApp.svelte">
   $: $statusBarContent = status;
   onDestroy(() => {
-    if (get(statusBarContent) == status) {
-      statusBarContent.set(null);
+    let store = appWindow.uiState(statusBarContent);
+    if (get(store) == status) {
+      store.set(null);
     }
   });
   // </copied>
@@ -387,7 +391,7 @@
 
   async function onKeyOnCalendar(event: KeyboardEvent) {
     let target = event.target as HTMLElement;
-    if (event.defaultPrevented || !pageEl?.contains(target) && target != document.body ||
+    if (event.defaultPrevented || !pageEl?.contains(target) && target != pageEl?.ownerDocument.body ||
         isTextField(target) || target?.closest?.("dialog")) {
       return;
     }
