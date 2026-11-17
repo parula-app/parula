@@ -135,7 +135,7 @@ test("Without time range, there are no times", async () => {
   let settings = calls[0].options.json.automaticRepliesSetting;
   expect(settings.status).toBe("alwaysEnabled");
   expect(settings.externalAudience).toBe("contactsOnly");
-  expect("scheduledStartDateTime" in settings).toBe(false);
+  expect(settings.scheduledStartDateTime).toBeUndefined();
 
   autoResponder.enabled = false;
   await autoResponder.save();

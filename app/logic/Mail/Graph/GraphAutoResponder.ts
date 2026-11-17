@@ -64,21 +64,19 @@ export class GraphAutoResponder extends AutoResponder {
   }
 
   toGraph(): TGraphAutoReplies {
-    let settings: TGraphAutoReplies = {
+    return {
       status: !this.enabled ? "disabled" : this.scheduled ? "scheduled" : "alwaysEnabled",
       externalAudience: this.externalAudience,
       internalReplyMessage: this.stripEmptyParagraph(this.internalHTML),
       externalReplyMessage: this.stripEmptyParagraph(this.externalHTML),
+      // JSON omits `undefined`. `null` would go to the server.
+      scheduledStartDateTime: this.scheduled ? this.toTime(this.startTime) : undefined,
+      scheduledEndDateTime: this.scheduled ? this.toTime(this.endTime) : undefined,
     };
-    // Omit, not null, which the backend would send
-    if (this.scheduled) {
-      settings.scheduledStartDateTime = this.toTime(this.startTime);
-      settings.scheduledEndDateTime = this.toTime(this.endTime);
-    }
-    return settings;
   }
 
-  /** Exchange keeps them in UTC */
+  /** We send UTC, and we don't ask for another time zone with
+   * `Prefer: outlook.timezone`, so Graph returns UTC, its default */
   protected parseTime(time: TGraphDateTimeZone): Date | null {
     if (!time?.dateTime || time.timeZone && time.timeZone != "UTC") {
       return null;
