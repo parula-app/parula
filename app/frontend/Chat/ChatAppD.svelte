@@ -2,6 +2,7 @@
   <vbox class="left-pane" slot="left">
     <Header bind:selectedAccount={$selectedAccount} {accounts} />
     <RoomList {rooms} bind:selectedRoom={$selectedRoom} />
+    <GlobalSearchBar />
   </vbox>
   <vbox class="right-pane  background-pattern" slot="right">
     {#if messages && $selectedRoom }
@@ -25,6 +26,7 @@
 </Splitter>
 
 <script lang="ts">
+  import GlobalSearchBar from "../MainWindow/GlobalSearchBar.svelte";
   import { Person } from "../../logic/Abstract/Person";
   import { ChatRoom } from "../../logic/Chat/ChatRoom";
   import { ChatPersonUID } from "../../logic/Chat/ChatPersonUID";
@@ -92,8 +94,15 @@
 
 <style>
   .left-pane {
-    box-shadow: 2px 0px 6px 0px rgba(0, 0, 0, 10%); /* Also on MessageList */
+    box-shadow: var(--pane-shadow, 2px 0px 6px 0px rgba(0, 0, 0, 10%)); /* Also on MessageList */
     background-color: var(--leftbar-bg);
     color: var(--leftbar-fg);
+    margin: var(--pane-margin);
+    border-radius: var(--pane-radius);
+  }
+  .right-pane {
+    margin: var(--pane-margin);
+    border-radius: var(--pane-radius);
+    box-shadow: var(--pane-shadow, none);
   }
 </style>

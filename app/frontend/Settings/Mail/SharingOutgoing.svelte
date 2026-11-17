@@ -318,6 +318,9 @@
   .subtitle {
     font-weight: normal;
   }
+  .existing-person {
+    align-items: center;
+  }
   .nothing {
     opacity: 50%;
   }

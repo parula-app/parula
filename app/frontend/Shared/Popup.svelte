@@ -8,19 +8,23 @@
     <slot />
   </vbox>
 {/if}
-<svelte:window on:click={onClickOutside} on:mousewheel={onClickOutside} />
+<AppWindowEvents on:click={onClickOutside} on:mousewheel={onClickOutside} />
 
 <script lang="ts">
+  import { AppWindow } from '../MainWindow/AppWindow';
+  import AppWindowEvents from '../MainWindow/AppWindowEvents.svelte';
   import { createPopperActions } from 'svelte-popperjs';
-  import type { Placement } from '@popperjs/core';
+  import type { Placement, VirtualElement } from '@popperjs/core';
   import { onDestroy } from 'svelte';
 
   /** in/out */
   export let popupOpen: boolean;
   /** Under/above which element the popup window should appear.
    * The popup will not cover this element, but be just above/below it.
+   * A `VirtualElement` is a place that is not an element in our document,
+   * e.g. a link inside a `<webview>`.
    * in */
-  export let popupAnchor: HTMLElement;
+  export let popupAnchor: HTMLElement | VirtualElement;
   /** Where the popup should appear in relation to the anchor.
    * above/below ("top"/"bottom") and left/right ("start"/"end")
    * in */
@@ -36,6 +40,8 @@
    * in */
   export let boundaryElSel: string;
   export let autoClose: boolean = true;
+
+  const appWindow = AppWindow.current();
 
   const [popupRef, popupContent, getInstance] = createPopperActions({
     placement: placement,
@@ -53,7 +59,7 @@
         name: 'preventOverflow',
         options: {
           padding: 8,
-          boundary: document.querySelector(boundaryElSel),
+          boundary: appWindow.window.document.querySelector(boundaryElSel),
         },
       },
       {

@@ -4,7 +4,7 @@
     <grid class="color-setting">
       <hbox class="label">{label}</hbox>
       <input type="color"
-        bind:value={colors[cssVar]}
+        bind:value={inputColors[cssVar]}
         on:change={() => onSet(cssVar)}
         />
       <Button
@@ -28,6 +28,20 @@
   let themeSetting = getLocalStorage("appearance.theme", "system");
   let colorsSetting = getLocalStorage("appearance.colors", {});
   $: colors = $colorsSetting.value as Record<string, string>;
+  let inputColors = {};
+  $: fetchCurrentColors(colors);
+  const darkMode = window.matchMedia("(prefers-color-scheme: dark)");
+  darkMode.addEventListener("change", () => fetchCurrentColors(colors));
+
+  /**
+   * Update the input elements to show the actual colours being used.
+   * Otherwise they would all just default to black.
+   */
+  function fetchCurrentColors(colors) {
+    for (let cssVar in cssVars) {
+      inputColors[cssVar] = colors[cssVar] ?? window.getComputedStyle(document.documentElement).getPropertyValue("--" + cssVar);
+    }
+  }
 
   /**
    * Defines which colors (css vars) the user can modify.
@@ -48,7 +62,7 @@
 
   function onSet(cssVar: string) {
     if (cssVar.endsWith("bg")) {
-      let color = colors[cssVar];
+      let color = colors[cssVar] = inputColors[cssVar];
 
       // Set text color as contrast color
       let fgVar = cssVar.substring(0, cssVar.length - 2) + "fg";

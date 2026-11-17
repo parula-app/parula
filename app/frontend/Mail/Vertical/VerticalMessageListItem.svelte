@@ -223,7 +223,7 @@
   .date {
     min-width: 8em;
     justify-content: end;
-    font-family: Helvetica, Arial, sans-serif;
+    font-family: Helvetica, Arial, Constr-Klingon, sans-serif;
     padding-top: 2px; /** HACK Fix vertical alignment */
   }
   .subject {

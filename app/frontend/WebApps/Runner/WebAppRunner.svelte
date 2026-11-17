@@ -1,4 +1,4 @@
-<WebView url={app.start} title={app.nameTranslated} {hidden} sessionID={app.webSessionID} />
+<WebView url={app.startWithLogin} title={app.nameTranslated} {hidden} sessionID={app.webSessionID} />
 
 <script lang="ts">
   import type { WebAppListed } from "../../../logic/WebApps/WebAppListed";

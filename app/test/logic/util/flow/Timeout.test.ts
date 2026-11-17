@@ -1,6 +1,8 @@
 import { Timeout } from '../../../../logic/util/flow/Timeout';
-import { sleep } from '../../../../logic/util/util';
+import { sleep, waitTime } from '../../../../logic/util/util';
 import { expect, test } from 'vitest';
+
+waitTime.factor = 1; // these tests check the real timing of `Timeout`
 
 test("Timeout runs, when it takes too long", async () => {
   let ran = false;

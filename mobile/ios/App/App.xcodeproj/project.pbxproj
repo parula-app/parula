@@ -19,6 +19,7 @@
 		DD0EE6342DD26625002B679D /* NodeMobile.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = DD0EE6322DD26625002B679D /* NodeMobile.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DD0EE6362DD26665002B679D /* NodeMobile.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD0EE6322DD26625002B679D /* NodeMobile.xcframework */; };
 		DD0EE6392DD28787002B679D /* NodeRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0EE6382DD28781002B679D /* NodeRunner.swift */; };
+		4C1A7A0E2EB4F11200A1B2C3 /* LinkTapPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C1A7A0D2EB4F11200A1B2C3 /* LinkTapPlugin.swift */; };
 		DD0EE6432DD29A3E002B679D /* nodejs-project in Resources */ = {isa = PBXBuildFile; fileRef = DD0EE6422DD29A3E002B679D /* nodejs-project */; };
 /* End PBXBuildFile section */
 
@@ -50,6 +51,7 @@
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
 		DD0EE6322DD26625002B679D /* NodeMobile.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = NodeMobile.xcframework; path = resources/NodeMobile.xcframework; sourceTree = "<group>"; };
 		DD0EE6382DD28781002B679D /* NodeRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeRunner.swift; sourceTree = "<group>"; };
+		4C1A7A0D2EB4F11200A1B2C3 /* LinkTapPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkTapPlugin.swift; sourceTree = "<group>"; };
 		DD0EE6422DD29A3E002B679D /* nodejs-project */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "nodejs-project"; path = "App/nodejs-project"; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -128,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				DD0EE6382DD28781002B679D /* NodeRunner.swift */,
+				4C1A7A0D2EB4F11200A1B2C3 /* LinkTapPlugin.swift */,
 				DD0EE6372DD26C52002B679D /* nodejs-project */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -292,6 +295,7 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				DD0EE6392DD28787002B679D /* NodeRunner.swift in Sources */,
+				4C1A7A0E2EB4F11200A1B2C3 /* LinkTapPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,6 +1,7 @@
 import './app.css';
 import { mount } from 'svelte';
 import MainWindow from './MainWindow/MainWindow.svelte';
+import { AppWindow } from './MainWindow/AppWindow';
 import { appName, appVersion, production } from '../logic/build';
 import { getLocalStorage } from './Util/LocalStorage';
 import { sanitize } from '../../lib/util/sanitizeDatatypes';
@@ -19,8 +20,11 @@ if (production) {
   });
 }
 
+AppWindow.init();
+
 const app = mount(MainWindow, {
   target: document.getElementById('app'),
+  context: new Map([["appWindow", AppWindow.main]]),
 });
 
 export default app;

@@ -1,5 +1,5 @@
 <Clickable onClick={onSelect}>
-  <vbox class="settings-category" class:selected>
+  <vbox class="settings-category" class:selected class:sub={!category.isMain}>
     <hbox class="label font-small" class:main={category.isMain}>
       {category.name}
     </hbox>
@@ -37,7 +37,14 @@
 <style>
   .settings-category {
     align-items: start;
-    padding: 0px 0px 2px 18px;
+    padding-block: 0px 2px;
+    padding-inline: 18px 0px;
+  }
+  .settings-category.sub {
+    padding-inline-start: 30px;
+  }
+  :global(.accounts) .settings-category.sub {
+    padding-inline-start: 42px;
   }
   .settings-category:hover {
     background-color: var(--hover-bg);

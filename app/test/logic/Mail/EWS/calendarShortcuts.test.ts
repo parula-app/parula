@@ -111,17 +111,17 @@ const kMailFavoriteLink: Link = { subject: "Inbox", type: 0, section: 1, entryID
 const kContactsLink: Link = { subject: "Bob's Contacts", type: 2, section: 4, addressBookEntryID: addressBookEntryID(kBobDN) };
 
 test("Owner of the shortcut, from the address book EntryID", () => {
-  expect(MAPIAddressBookEntryID.fromBase64(addressBookEntryID(kBobDN)).legacyDN).toBe(kBobDN);
-  expect(MAPIAddressBookEntryID.fromBase64(storeEntryID("EXCH01", kBobDN)).legacyDN).toBe(null);
-  expect(new MAPIAddressBookEntryID(new Uint8Array([0, 0, 0])).legacyDN).toBe(null);
-  expect(MAPIAddressBookEntryID.fromBase64(null)).toBe(null);
+  expect(new MAPIAddressBookEntryID(addressBookEntryID(kBobDN)).legacyDN).toBe(kBobDN);
+  expect(new MAPIAddressBookEntryID(storeEntryID("EXCH01", kBobDN)).legacyDN).toBe(null);
+  expect(new MAPIAddressBookEntryID(base64([0, 0, 0])).legacyDN).toBe(null);
+  expect(new MAPIAddressBookEntryID(null).legacyDN).toBe(null);
 });
 
 test("Owner of the shortcut, from the store EntryID", () => {
-  expect(MAPIStoreEntryID.fromBase64(storeEntryID("EXCH01", kCarolDN)).mailboxDN).toBe(kCarolDN);
-  expect(MAPIStoreEntryID.fromBase64(addressBookEntryID(kCarolDN)).mailboxDN).toBe(null);
-  expect(new MAPIStoreEntryID(new Uint8Array(70)).mailboxDN).toBe(null);
-  expect(MAPIStoreEntryID.fromBase64(undefined)).toBe(null);
+  expect(new MAPIStoreEntryID(storeEntryID("EXCH01", kCarolDN)).mailboxDN).toBe(kCarolDN);
+  expect(new MAPIStoreEntryID(addressBookEntryID(kCarolDN)).mailboxDN).toBe(null);
+  expect(new MAPIStoreEntryID(base64(new Array(70).fill(0))).mailboxDN).toBe(null);
+  expect(new MAPIStoreEntryID(undefined).mailboxDN).toBe(null);
 });
 
 test("Default calendar of another user", () => {
@@ -131,7 +131,7 @@ test("Default calendar of another user", () => {
   expect(shortcut.ownerLegacyDN).toBe(kBobDN);
   // Outlook saves only the owner, which means: the owner's default calendar
   expect(shortcut.hasFolder).toBe(false);
-  expect(shortcut.folderEntryID).toBe(null);
+  expect(shortcut.folderEntryID.bytes.length).toBe(0);
 });
 
 test("Other calendar of another user", () => {
