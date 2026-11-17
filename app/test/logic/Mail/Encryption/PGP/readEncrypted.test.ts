@@ -37,7 +37,8 @@ test("Opening an encrypted message for another key than ours shows the error ins
     email.mime = new TextEncoder().encode(kPGPEncrypted.replace(/\n/g, "\r\n"));
     await email.parseMIME();
   };
-  await expect(email.loadBody()).rejects.toThrow(/decrypt/i);
+  await email.loadBody();
+  expect(email.html).toMatch(/decrypt/i);
 });
 
 /** `gpg --encrypt`, to a key that is not ours */

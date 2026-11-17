@@ -17,6 +17,7 @@ import { FilterMoment } from "./FilterRules/FilterMoments";
 import type { EncryptionSystem } from "./Encryption/enums";
 import { fileExtensionForMIMEType, assert, AbstractFunction, getUserPreference, setUserPreference } from "../util/util";
 import { blobToDataURL } from "../util/blob";
+import { convertTextToHTML } from "../util/convertHTML";
 import { isMobile, webMail } from "../build";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { PromiseAllDone } from "../util/flow/PromiseAllDone";
@@ -359,21 +360,8 @@ export class EMail extends Message {
     });
   }
 
-  /** Like `parseMIMEOrThrow()`, but passes `CannotReadMail` to `errorCallback()`, so that the sync still saves the mail */
-  async parseMIME(): Promise<void> {
-    try {
-      await this.parseMIMEOrThrow();
-    } catch (ex) {
-      if (!(ex instanceof CannotReadMail)) {
-        throw ex;
-      }
-      this.folder.account.errorCallback(ex);
-    }
-  }
-
   protected processorLoop: LoopGuard | null = null;
-  /** @throws CannotReadMail if we can't read the mail or an inner layer of it, e.g. can't decrypt it */
-  async parseMIMEOrThrow(): Promise<MIME> {
+  async parseMIME(): Promise<MIME> {
     assert(this.mime?.length, "MIME source not yet downloaded");
     assert(this.mime instanceof Uint8Array, "MIME source should be a byte array");
     //console.log("MIME source", this.mime, new TextDecoder("utf-8").decode(this.mime));
@@ -462,8 +450,8 @@ export class EMail extends Message {
         try {
           await processor.process(this, mail);
         } catch (ex) {
-          if (ex instanceof CannotReadMail) {
-            throw ex;
+          if (ex instanceof CannotReadMail && !this.html) {
+            this._sanitizedHTML = convertTextToHTML(ex.message); // Shows why, but isn't saved as body, so that opening it later tries again
           }
           this.folder.account.errorCallback(ex);
         }
@@ -621,9 +609,6 @@ export class EMail extends Message {
         }
         if (!this._rawHTML && !this._text) {
           await this.download();
-        }
-        if (!this._rawHTML && !this._text && this.mime) {
-          await this.parseMIMEOrThrow(); // throws why it's empty, if we can't read it
         }
       }
 

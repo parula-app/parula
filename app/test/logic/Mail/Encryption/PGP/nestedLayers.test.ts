@@ -82,6 +82,7 @@ describe("Nested PGP layers", () => {
       email.mime = mime;
       await email.parseMIME();
     };
-    await expect(email.loadBody()).rejects.toThrow(/layers/);
+    await email.loadBody();
+    expect(email.html).toMatch(/layers/);
   });
 });

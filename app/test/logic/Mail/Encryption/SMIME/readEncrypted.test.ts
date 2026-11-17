@@ -3,6 +3,7 @@ import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
+import { SQLMailStorage } from "../../../../../logic/Mail/SQL/SQLMailStorage";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { describe, expect, test, vi } from "vitest";
 
@@ -71,8 +72,33 @@ describe("Opening the message", () => {
     expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/\bdes/i)]);
     expect(email.downloadComplete).toBe(true); // saved, so that the sync doesn't download it again
 
-    // `MessageBody` shows what `loadBody()` throws
-    await expect(email.loadBody()).rejects.toThrow(/\bdes/i);
+    await email.loadBody();
+    expect(email.html).toMatch(/\bdes/i);
+  });
+
+  test("A message that we couldn't decrypt is read when opened again after the user imported the key", async () => {
+    let { folder } = await setupTestFolder();
+    folder.account.storage = new SQLMailStorage();
+    let identity = new MailIdentity(folder.account);
+    identity.emailAddress = "bob@example.com";
+    identity.realname = "Bob";
+    folder.account.identities.add(identity);
+    appGlobal.emailAccounts.replaceAll([folder.account]);
+    let mime = new TextEncoder().encode(kEncryptedAsFile.replace(/\n/g, "\r\n"));
+    let email = folder.newEMail();
+    email.received = new Date(); // from the server's listing
+    serveFromServer(email, mime);
+    await email.download(); // the sync, before the key is there
+    expect(email.html).toContain("the key is not available");
+    expect(email.dbID).toBeTruthy(); // saved
+
+    identity.encryptionPrivateKeys.add(await SMIMEPrivateKey.importPrivateKey(kBobKey + "\n" + kBobCert));
+    let reopened = folder.newEMail(); // as after the app restart
+    reopened.dbID = email.dbID;
+    await reopened.storage.readMessage(reopened);
+    serveFromServer(reopened, mime);
+    await reopened.loadBody();
+    expect(reopened.text.trim()).toBe("Hello Bob");
   });
 
   test("A message whose signature we can't read still shows its body", async () => {
@@ -103,8 +129,7 @@ async function readAsBob(smimeType: string, cms: string): Promise<Error[]> {
 }
 
 /** Lets `download()` fetch the message again, parse and save it, as the protocols do */
-function serveFromServer(email: EMail) {
-  let mime = email.mime;
+function serveFromServer(email: EMail, mime = email.mime) {
   email.download = async () => {
     email.mime = mime;
     await email.parseMIME();

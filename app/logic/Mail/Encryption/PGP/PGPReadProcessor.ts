@@ -134,7 +134,7 @@ export class PGPReadProcessor extends EMailProcessor {
     email.downloadComplete = false;
     email.mime = content;
     email.resetProperties();
-    await email.parseMIMEOrThrow(); // throws, if we can't read the inner layer
+    await email.parseMIME();
     if (email.from.emailAddress.toLowerCase() != outerFrom.toLowerCase()) {
       // Treat as phishing
       console.warn("PGP signature ignored, because inner signed From: is", email.from.emailAddress, "but outer header From: is", outerFrom);
