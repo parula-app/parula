@@ -148,11 +148,12 @@
   .mac.os-rtl .app-logo {
     margin-inline-start: 0px;
   }
-  :global([dir="rtl"]) .mac:not(.os-rtl) .search-box,
-  .mac.os-rtl .search-box {
+  /* UI and macOS writing directions differ: The traffic lights are at the end, after the New window button */
+  :global([dir="rtl"]) .mac:not(.os-rtl) .new-window,
+  .mac.os-rtl .new-window {
     padding-inline-end: 80px;
   }
-  :global([dir="rtl"]) .mac .search-box {
+  :global([dir="rtl"]) .mac .new-window {
     padding-inline-end: 0px;
   }
 </style>

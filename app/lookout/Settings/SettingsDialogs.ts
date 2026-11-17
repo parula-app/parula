@@ -7,6 +7,7 @@ import { selectedIdentity } from "./TrustCenter/selected";
 import { SetupMustangApp } from "../../frontend/Setup/SetupMustangApp";
 import { openApp, selectedApp } from "../../frontend/AppsBar/selectedApp";
 import { mailMustangApp } from "../../frontend/Mail/MailMustangApp";
+import { AppWindow } from "../../frontend/MainWindow/AppWindow";
 import { get, writable } from "svelte/store";
 
 export type ImportExportAction = "import" | "import-vcard" | "import-ical" | "import-program" | "export";
@@ -17,7 +18,7 @@ export type SettingsDialog =
   { kind: "import-export", preselected?: Calendar | Addressbook, action?: ImportExportAction } |
   { kind: "new-folder-account", folderKind: FolderAccountKind, localOnly?: boolean };
 
-export const settingsDialog = writable<SettingsDialog | null>(null);
+export const settingsDialog = AppWindow.perWindow(() => writable<SettingsDialog | null>(null));
 
 export function openSettingsDialog(dialog: SettingsDialog) {
   settingsDialog.set(dialog);
@@ -37,6 +38,7 @@ export function openTrustCenter(identity: MailIdentity = null) {
 }
 
 export function openSetup(setupURL: string, returnTo: SettingsDialog | null = null) {
+  let appWindow = AppWindow.current();
   let previousApp = get(selectedApp) ?? mailMustangApp;
   closeSettingsDialog();
   let setupApp = new SetupMustangApp();
@@ -44,7 +46,8 @@ export function openSetup(setupURL: string, returnTo: SettingsDialog | null = nu
   if (returnTo) {
     setupApp.onBack = () => {
       openApp(previousApp, {});
-      openSettingsDialog(returnTo);
+      appWindow.uiState(settingsDialog).set(returnTo);
+      appWindow.focus();
     };
   }
   openApp(setupApp, {});

@@ -102,11 +102,7 @@
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { catchErrors } from "../../../frontend/Util/error";
   import { ApplyScope, viewSettingsOf, viewSettingsStore, changeViewSettings, resetViewSettings, ViewType } from "../ViewSettings/ViewSettings";
-  import { openViewSettings } from "../ViewSettings/ViewSettingsDialog.svelte";
-  import { openShowColumns } from "../ViewSettings/ShowColumnsDialog.svelte";
-  import { askedScope } from "../ViewSettings/ApplyScopeDialog.svelte";
-  import { openApplyView } from "../ViewSettings/ApplyViewDialog.svelte";
-  import { openReadingPaneOptions } from "../Message/ReadingPaneOptionsDialog.svelte";
+  import { openViewSettings, openShowColumns, askedScope, openApplyView, openReadingPaneOptions } from "../Selected";
   import ArrangeByMenuItems from "../ViewSettings/ArrangeByMenuItems.svelte";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";

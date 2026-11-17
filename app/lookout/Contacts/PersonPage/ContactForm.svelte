@@ -1,5 +1,5 @@
 <vbox flex class="contact-form-page" bind:this={pageEl}>
-  <Ribbon>
+  <Ribbon id="contacts">
     <RibbonTab label={$t`Contact *=> Ribbon tab with commands for this contact`}>
       <RibbonGroup label={$t`Actions`}>
         <RibbonButton label={$t`Save & Close`} icon={SaveCloseIcon}
@@ -151,7 +151,7 @@
     on:close={() => { isAddressOpen = false; }} />
 {/if}
 
-<svelte:window on:keydown={onKeyDown} />
+<AppWindowEvents on:keydown={onKeyDown} />
 
 <script lang="ts">
   import { ContactEntry, Person } from "../../../logic/Abstract/Person";
@@ -162,6 +162,8 @@
   import { catchErrors } from "../../../frontend/Util/error";
   import { getOSName } from "../../../frontend/Util/util";
   import { urlWithScheme } from "../../../logic/util/netUtil";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import Ribbon from "../../Shared/Ribbon/Ribbon.svelte";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
@@ -206,6 +208,7 @@
 
   export let person: Person;
 
+  const appWindow = AppWindow.current();
   let nameInput: HTMLInputElement;
   let page: "general" | "details" | "certificates" | "all-fields" = "general";
   let isFullNameOpen = false;
@@ -253,7 +256,7 @@
 
   async function save() {
     await person.save();
-    $newPerson = null;
+    appWindow.uiState(newPerson).set(null);
   }
 
   async function saveAndClose() {
@@ -302,7 +305,7 @@
   let pageEl: HTMLElement;
   function onKeyDown(event: KeyboardEvent) {
     let target = event.target as HTMLElement;
-    if (!pageEl?.contains(target) && target != document.body) {
+    if (!pageEl?.contains(target) && target != pageEl?.ownerDocument.body) {
       return;
     }
     if (event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() == "s") {

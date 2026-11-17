@@ -1,4 +1,5 @@
-import { writable } from "svelte/store";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+import { get, writable } from "svelte/store";
 import { gt } from "../../../l10n/l10n";
 
 export interface MessageBoxQuestion {
@@ -9,12 +10,11 @@ export interface MessageBoxQuestion {
   answer: (ok: boolean) => void;
 }
 
-export const messageBoxQuestion = writable<MessageBoxQuestion | null>(null);
-
-let pendingQuestion: MessageBoxQuestion | null = null;
+export const messageBoxQuestion = AppWindow.perWindow(() => writable<MessageBoxQuestion | null>(null));
 
 export function showMessageBox(title: string, message: string, okLabel = gt`OK`, cancelLabel = gt`Cancel`): Promise<boolean> {
-  pendingQuestion?.answer(false);
+  let windowQuestion = AppWindow.current().uiState(messageBoxQuestion);
+  get(windowQuestion)?.answer(false);
   return new Promise(resolve => {
     let question: MessageBoxQuestion = {
       title,
@@ -22,16 +22,14 @@ export function showMessageBox(title: string, message: string, okLabel = gt`OK`,
       okLabel,
       cancelLabel,
       answer: ok => {
-        if (pendingQuestion != question) {
+        if (get(windowQuestion) != question) {
           return;
         }
-        pendingQuestion = null;
-        messageBoxQuestion.set(null);
+        windowQuestion.set(null);
         resolve(ok);
       },
     };
-    pendingQuestion = question;
-    messageBoxQuestion.set(question);
+    windowQuestion.set(question);
   });
 }
 

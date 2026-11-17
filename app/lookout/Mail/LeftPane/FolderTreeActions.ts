@@ -3,6 +3,7 @@ import { AllFolders } from "../../../logic/Mail/Virtual/AllFolders";
 import { SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
 import { assert } from "../../../logic/util/util";
 import { selectedFolder } from "../../../frontend/Mail/Selected";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 import { askYesNo } from "../../Shared/Dialog/MessageBox";
 import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
 import { derived, get, readable, type Readable } from "svelte/store";
@@ -139,6 +140,7 @@ export class FolderTreeActions {
   }
 
   static async deleteFolder(folder: Folder): Promise<Folder | null> {
+    let selection = AppWindow.current().uiState(selectedFolder);
     if (!(folder instanceof SavedSearchFolder) &&
         !await askYesNo(gt`Delete Folder`, gt`Are you sure that you want to delete the folder ${folder.name} and all messages in it? This will also delete it on the server.`)) {
       return null;
@@ -147,9 +149,9 @@ export class FolderTreeActions {
     let next = folder.parent ?? folder.account.inbox;
     await folder.deleteIt();
     // </copied>
-    let selected = get(selectedFolder);
+    let selected = get(selection);
     if (selected && FolderTreeActions.isInside(selected, folder)) {
-      selectedFolder.set(next);
+      selection.set(next);
     }
     return next;
   }

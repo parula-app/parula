@@ -8,10 +8,11 @@
     {/each}
   </div>
 {/if}
-<svelte:window
-  on:keydown|capture={onKeyDown}
-  on:keyup|capture={onKeyUp}
-  on:mousedown|capture={exit}
+<AppWindowEvents capture
+  on:keydown={onKeyDown}
+  on:keyup={onKeyUp}
+  on:mousedown={exit} />
+<AppWindowEvents
   on:blur={exit}
   on:resize={exit} />
 
@@ -22,10 +23,14 @@
 <script lang="ts">
   import { assignKeyTips, quickAccessKeyTip } from "./KeyTips";
   import type { RibbonState } from "./RibbonGroup";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import { tick } from "svelte";
 
   export let ribbon: RibbonState;
   export let tabRowEl: HTMLElement;
+
+  const appWindow = AppWindow.current();
 
   interface Badge {
     tip: string;
@@ -87,7 +92,7 @@
   }
 
   function showTabTips() {
-    let quickAccess = Array.from(document.querySelectorAll<HTMLElement>("[data-keytip-qat]"))
+    let quickAccess = Array.from(appWindow.window.document.querySelectorAll<HTMLElement>("[data-keytip-qat]"))
       .filter(el => el.dataset.keytipQat != "customize" && isVisible(el));
     let fileTab = tabRowEl.querySelector<HTMLElement>(".file-tab");
     let tabs = Array.from(tabRowEl.querySelectorAll<HTMLElement>(".tabs [role=tab]")).filter(isVisible);
@@ -99,7 +104,7 @@
       activate: () => selectTab(tabEl),
     }));
     // In the tab row, or in the window title bar
-    let tellMe = Array.from(document.querySelectorAll<HTMLElement>(".tell-me-button")).find(isVisible);
+    let tellMe = Array.from(appWindow.window.document.querySelectorAll<HTMLElement>(".tell-me-button")).find(isVisible);
     let tellMeTargets: Target[] = tellMe ? [{
       el: tellMe, label: labelOf(tellMe), centered: true, disabled: false,
       activate: () => {
@@ -121,7 +126,7 @@
   async function selectTab(tabEl: HTMLElement) {
     tabEl.click();
     await tick();
-    await new Promise(resolve => requestAnimationFrame(resolve));
+    await new Promise(resolve => appWindow.window.requestAnimationFrame(resolve));
     showCommandTips();
   }
 
