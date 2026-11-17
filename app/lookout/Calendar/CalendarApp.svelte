@@ -104,22 +104,22 @@
 <script lang="ts">
   import type { Event } from "../../logic/Calendar/Event";
   import { InvitationResponse } from "../../logic/Calendar/Invitation/InvitationStatus";
-  import { CalendarRange } from "./CalendarRange";
+  import { CalendarRange, type CalendarViewType } from "../../frontend/Calendar/CalendarRange";
   import { CalendarActions } from "./CalendarActions";
   import { openEvent } from "../../frontend/Calendar/open";
   import { openComposer } from "../../frontend/Mail/open";
   import { IncomingInvitation } from "../../logic/Calendar/Invitation/IncomingInvitation";
-  import { eventPeek, inlineTitle, selectedSlots, updatingCount, CalendarCurrentView, CalendarFolderPane, calendarSearchOptions, listedEvents, allListedEvents, CalendarSearchScope, type CalendarViewType, type SlotSelection } from "./selected";
+  import { eventPeek, inlineTitle, selectedSlots, updatingCount, CalendarCurrentView, CalendarFolderPane, calendarSearchOptions, listedEvents, allListedEvents, CalendarSearchScope, type SlotSelection } from "./selected";
   import { selectedCalendar, selectedDate, selectedEvent, shownCalendars, shownCalendarEvents, startDate } from "../../frontend/Calendar/selected";
   import { appGlobal } from "../../logic/app";
   import { getToday } from "../../logic/util/date";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
-  import { getOSName } from "../../frontend/Util/util";
-  import { getKeyDigit, isTextField } from "../Util/util";
+  import { getOSName, isTextField } from "../../frontend/Util/util";
+  import { getKeyDigit } from "../Util/util";
   import { catchErrors } from "../../frontend/Util/error";
   import { statusBarContent, type StatusBarContent } from "../MainWindow/StatusBar.svelte";
   import CalendarRibbon from "./CalendarRibbon.svelte";
-  import DateNavigator from "./DateNavigator.svelte";
+  import DateNavigator from "../../frontend/Calendar/DateNavigator.svelte";
   import CalendarList from "./CalendarList.svelte";
   import FolderPaneMinimized from "../Shared/FolderPaneMinimized.svelte";
   import DateRange from "./DateRange.svelte";
@@ -200,6 +200,10 @@
   }
 
   $: visibleEvents = visible(shownCalendarEvents, showDeclined);
+  // The event of the popup was deleted, e.g. on another device
+  $: if ($eventPeek && !$visibleEvents.contains($eventPeek.event)) {
+    $eventPeek = null;
+  }
   $: isSplit = splitView && view != "schedule" && $shownCalendars.length > 1;
   $: scheduleRows = $shownCalendars.contents.map(calendar => ({ calendar, events: visible(calendar.eventsWithRecurrences, showDeclined) })) as CalendarColumnGroup[];
   let groups: CalendarColumnGroup[] = [];
@@ -335,7 +339,7 @@
 
   function step(direction: number) {
     $eventPeek = null;
-    setRangeDate(CalendarRange.step(view, rangeDate, dayCount, direction));
+    setRangeDate(range.step(rangeDate, direction));
   }
 
   function setRangeDate(date: Date) {
