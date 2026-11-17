@@ -38,18 +38,12 @@ export class ActiveSyncAutoResponder extends ExchangeAutoResponder {
     let internal = messages.find(message => "AppliesToInternal" in message);
     let known = messages.find(message => "AppliesToExternalKnown" in message);
     let unknown = messages.find(message => "AppliesToExternalUnknown" in message);
-    // The server omits the audiences that the admin does not allow
-    this.maxAudience =
-      unknown ? AutoResponderAudience.All :
-      known ? AutoResponderAudience.Contacts :
-      AutoResponderAudience.None;
-    // While OOF is off, Exchange reports all messages as disabled, so we can't
-    // tell the audience. Then use Exchange's default, as far as the admin allows.
+    // While OOF is off, Exchange reports all messages as disabled, so use Exchange's default
     this.externalAudience =
       unknown?.Enabled == "1" ? AutoResponderAudience.All :
       known?.Enabled == "1" ? AutoResponderAudience.Contacts :
       internal?.Enabled == "1" ? AutoResponderAudience.None :
-      this.maxAudience;
+      AutoResponderAudience.All;
     let external = [unknown, known].find(message => message?.Enabled == "1") ?? unknown ?? known;
     this.internalHTML = sanitizeHTML(internal?.ReplyMessage);
     this.externalHTML = sanitizeHTML(external?.ReplyMessage);
