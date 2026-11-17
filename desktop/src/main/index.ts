@@ -1,13 +1,24 @@
 import { setMainWindow, startupBackend, shutdownBackend, startupArgs, updateState, checkForUpdateAndNotify, installUpdate, createJPCSecret } from '../../backend/backend';
-import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents } from 'electron'
-import { ipcMain } from 'electron/main';
+import { SecondaryBrowserWindow } from '../../backend/SecondaryBrowserWindow';
+import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents, type Session, type BrowserWindowConstructorOptions, type HandlerDetails, type WindowOpenHandlerResponse } from 'electron'
 import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
 import { appName, dataAppName } from '../../../app/logic/build'
 
-function createWindow(): void {
+const windowFrame: BrowserWindowConstructorOptions = {
+  autoHideMenuBar: true,
+  titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
+  // macOS: Parula has the traffic lights on top of its app bar, which is 64px wide.
+  // macOS 15: 54px wide, so x 5 centers them. `hiddenInset` alone puts them at x 12, y 11.
+  trafficLightPosition: { x: 5, y: 11 },
+  titleBarOverlay: true,
+  frame: false,
+  ...(process.platform === 'linux' ? { icon } : {}),
+};
+
+async function createWindow(): Promise<void> {
   try {
     let jpcSecret = createJPCSecret();
     startupBackend(jpcSecret)
@@ -18,11 +29,7 @@ function createWindow(): void {
       width: 1700,
       height: 950,
       show: false,
-      autoHideMenuBar: true,
-      titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
-      titleBarOverlay: true,
-      frame: false,
-      ...(process.platform === 'linux' ? { icon } : {}),
+      ...windowFrame,
       webPreferences: {
         preload: join(import.meta.dirname, '../preload/index.mjs'),
         sandbox: false,
@@ -31,6 +38,7 @@ function createWindow(): void {
       }
     })
     setMainWindow(mainWindow);
+    mainWindowWebContents = mainWindow.webContents;
 
     if (process.platform == "linux" && app.commandLine.getSwitchValue("ozone-platform") == "wayland") {
       // The "ready-to-show" event doesn't always fire on Wayland.
@@ -53,42 +61,38 @@ function createWindow(): void {
      * Thus, sanitizeHTML() adds a `target="_blank"` to such links,
      * which is considered a new web window and forces them to end up here. */
     mainWindow.webContents.setWindowOpenHandler((details): any => {
-      // Chrome special-cases "about:blank". Make *sure* that we don't get this here.
-      if (!details.url?.startsWith("https://")) {
-        return { action: 'deny' };
-      }
-      // Allow windows opened by us for OAuth2
-      // Must match OAuth2Window.ts login()
-      if (details?.features?.includes("oauth2popup")) {
-        return {
-          action: 'allow',
-          overrideBrowserWindowOptions: "center,noopener,noreferrer,sandbox=true",
-        };
-      }
-      // Open the URL in the system web browser
-      shell.openExternal(details.url)
-        .catch(console.error); // must return the action synchronously
-      // ... and do not open a new Electron window
-      return { action: 'deny' }
+      // Secondary windows of our app, which only our frontend can open
+      return SecondaryBrowserWindow.allowWindowOpen(details, windowFrame, openInBrowser) ??
+        openInBrowser(details);
     })
 
-    mainWindow.webContents.on('did-create-window', (child, _details) => {
-      child.on('closed', () => {
-        mainWindow.webContents.send('oauth2-close');
-      });
-      child.webContents.on('did-navigate', (_event, url) => {
-        mainWindow.webContents.send('oauth2-navigate', url);
-      });
-      // Workaround for window.close() not closing in some cases
-      ipcMain.on('oauth2-close', () => {
-        child.close();
-      });
+    /** Keep the app in its window. A link without `target`, or a link or file that the user
+     * drops onto the window, would replace the app, and that page would get our preload. */
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+      /** Schemes that load a page into our window, instead of our app.
+       * Others, like `mailto:` and `tel:`, don't replace the app. Electron hands them to the OS,
+       * with the `openExternal` permission, which only our app gets, see `isPermissionAllowed()`.
+       * Not the same as `kAllowedURLSchemes` in `desktop/backend/backend.ts`: Those are what we
+       * let the OS open, for a link in a mail or web page. These are what our window may not load. */
+      const kPageURLSchemes = [
+        "https:",
+        "http:",
+        "file:",
+        "data:",
+        "blob:",
+      ];
+      let scheme = URL.parse(url)?.protocol; // null for a malformed URL, which we block, too
+      if ((!scheme || kPageURLSchemes.includes(scheme)) &&
+          url.split("#")[0] != mainWindow.webContents.getURL().split("#")[0]) { // not a reload
+        event.preventDefault();
+      }
     });
 
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
     // The `try` above cannot catch these, because they fail asynchronously
     if (is.dev && true) {
+      await mainWindow.webContents.session.clearCache(); // Vite pre-bundled dependencies
       mainWindow.loadURL('http://localhost:5454/#jpcSecret=' + jpcSecret)
         .catch(console.error);
     } else if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -101,6 +105,15 @@ function createWindow(): void {
   } catch (ex) {
     console.error(ex);
   }
+}
+
+/** Opens https URLs in the system web browser, and never a new Electron window */
+function openInBrowser(details: HandlerDetails): WindowOpenHandlerResponse {
+  if (details.url?.startsWith("https://")) {
+    shell.openExternal(details.url)
+      .catch(console.error); // must return the action synchronously
+  }
+  return { action: 'deny' };
 }
 
 function createMenu() {
@@ -157,12 +170,15 @@ async function whenReady() {
   installSignalServiceCATrust(); // renderer's HTTPS REST to *.signal.org (the wss socket runs in the backend with its own CA)
 
   createMenu();
-  createWindow();
+  await createWindow();
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+        .catch(console.error);
+    }
   })
 
   try {
@@ -187,6 +203,38 @@ async function whenReady() {
 app.on('web-contents-created', (event, webContents) => {
   setWindowOpenHandler(webContents);
   restrictWebViews(webContents);
+  restrictPermissions(webContents.session);
+});
+
+/** Electron forgets the session cookies, i.e. those without an expiry date, when the app quits.
+ * Logins are often such cookies: Microsoft's `ESTSAUTH`, unless the user chose "Stay signed in",
+ * and the key with which Microsoft's web apps, e.g. Word, encrypt their own login (`msal.cache.encryption`).
+ * So after a restart, a web app was logged out, while its mail account stayed logged in
+ * with its refresh token. We keep these cookies, like a browser that continues where it left off.
+ * Only in the cookie stores of the accounts and web apps (`<webview partition="persist:...">`),
+ * not in that of our app. */
+app.on('session-created', created => {
+  if (created.isPersistent() && created != session.defaultSession) {
+    created.cookies.on('changed', (_event, cookie, _cause, removed) => {
+      if (removed || !cookie.session || !cookie.domain) {
+        return;
+      }
+      let host = cookie.domain.startsWith(".") ? cookie.domain.substring(1) : cookie.domain;
+      // Setting the cookie again fires this event again, but then, it's no longer a session cookie
+      created.cookies.set({
+        url: "https://" + host + cookie.path,
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.hostOnly ? undefined : cookie.domain,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        sameSite: cookie.sameSite,
+        expirationDate: Date.now() / 1000 + 90 * 24 * 60 * 60, // 90 days, like "Stay signed in"
+      })
+        .catch(console.error);
+    });
+  }
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -214,7 +262,8 @@ app.on("open-url", (_event, url) => {
   startupArgs.notifyObservers();
 
   if (BrowserWindow.getAllWindows().length == 0 && app.isReady()) {
-    createWindow();
+    createWindow()
+      .catch(console.error);
   }
 });
 // macOS: Capture file open during launch
@@ -223,7 +272,8 @@ app.on("open-file", (_event, file) => {
   startupArgs.notifyObservers();
 
   if (BrowserWindow.getAllWindows().length == 0 && app.isReady()) {
-    createWindow();
+    createWindow()
+      .catch(console.error);
   }
 });
 
@@ -324,6 +374,31 @@ function restrictWebViews(webContents: WebContents) {
     delete params.disablewebsecurity;
     delete params.allowpopups;
   });
+}
+
+/** Electron grants every permission to every page, unless we decide.
+ * Pages other than our app, i.e. in a `<webview>` (a web app, a login page or a mail)
+ * and in the login window, get only what web apps need for calls and notifications.
+ * They must not e.g. start other apps with an `openExternal` URL, read the clipboard,
+ * or know where the user is. Our app keeps all permissions.
+ * Links that the user clicks in a `<webview>` don't need `openExternal`: `WebView.svelte` opens them
+ * with `openExternalURL()` in `desktop/backend/backend.ts`, which allows only some URL schemes. */
+function restrictPermissions(session: Session) {
+  session.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(isPermissionAllowed(webContents, permission));
+  });
+  session.setPermissionCheckHandler((webContents, permission) => isPermissionAllowed(webContents, permission));
+}
+
+/** Our app window. Only it gets all permissions. */
+let mainWindowWebContents: WebContents | null = null;
+
+function isPermissionAllowed(webContents: WebContents | null, permission: string): boolean {
+  if (webContents == mainWindowWebContents && webContents) {
+    return true; // our main window
+  }
+  const kWebPagePermissions = ["media", "display-capture", "notifications", "fullscreen", "pointerLock", "clipboard-sanitized-write", "speaker-selection", "storage-access", "top-level-storage-access", "mediaKeySystem"];
+  return kWebPagePermissions.includes(permission);
 }
 
 // In this file you can include the rest of your app"s specific main process

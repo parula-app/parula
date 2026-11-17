@@ -24,12 +24,12 @@
     <span class="results-title">{$t`Results *=> Search results`}</span>
   {:else}
     <hbox class="pivots" role="tablist">
-      <button class="pivot" role="tab" class:active={!isUnreadOnly} aria-selected={!isUnreadOnly}
-        on:click={() => setUnreadOnly(false)}>
+      <button class="pivot" role="tab" class:active={!hasFilter} aria-selected={!hasFilter}
+        on:click={() => clearFilter()}>
         {$t`All`}
       </button>
-      <button class="pivot" role="tab" class:active={isUnreadOnly} aria-selected={isUnreadOnly}
-        on:click={() => setUnreadOnly(true)}>
+      <button class="pivot" role="tab" class:active={$quickSearch.isRead === false} aria-selected={$quickSearch.isRead === false}
+        on:click={() => toggleQuickFilter(QuickFilter.Unread)}>
         {$t`Unread *=> State of the message that has not been read`}
       </button>
     </hbox>
@@ -91,9 +91,9 @@
 </Menu>
 <Menu bind:isMenuOpen={isFilterMenuOpen} anchor={filterEl} placement="bottom-end">
   <MenuItem label={$t`All`} icon={AllIcon} checkable checked={!hasFilter} onClick={clearFilter} />
-  <MenuItem label={$t`Unread *=> State of the message that has not been read`} icon={UnreadIcon} checkable checked={$quickSearch.isRead === false}
+  <MenuItem label={$t`Unread *=> Message has not been read`} icon={UnreadIcon} checkable checked={$quickSearch.isRead === false}
     onClick={() => toggleQuickFilter(QuickFilter.Unread)} />
-  <MenuItem label={$t`Flagged *=> State of the email that has been flagged for follow-up`} icon={FlagIcon} checkable checked={$quickSearch.isStarred}
+  <MenuItem label={$t`Flagged *=> Message has been flagged for follow-up`} icon={FlagIcon} checkable checked={$quickSearch.isStarred}
     onClick={() => toggleQuickFilter(QuickFilter.Flagged)} />
   <MenuItem label={$t`Has files`} icon={AttachmentIcon} checkable checked={$quickSearch.hasAttachment}
     onClick={() => toggleQuickFilter(QuickFilter.Attachments)} />
@@ -165,14 +165,11 @@
   }
 
   $: hasFilter = $quickSearch && quickSearch.hasSearch();
-  $: isUnreadOnly = $quickSearch.isRead === false;
-  function setUnreadOnly(unreadOnly: boolean) {
-    quickSearch.isRead = unreadOnly ? false : null;
-  }
 
   // <copied to="FilterMenuItems.svelte">
   function clearFilter() {
     quickSearch.reset();
+    isFolderSearchOpen = false;
     if (hasSearchCriteria()) {
       $globalSearchTerm = null;
       $searchOptions = { ...defaultSearchOptions(), scope: $searchOptions.scope };

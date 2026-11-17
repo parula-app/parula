@@ -8,6 +8,9 @@ import { AllFolders } from "../../../logic/Mail/Virtual/AllFolders";
 import { SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
 import { appGlobal } from "../../../logic/app";
 import { SizeRange, sizeRangeBytes } from "./SearchRanges";
+import AllAccountsIcon from "lucide-svelte/icons/mails";
+import AccountIcon from "lucide-svelte/icons/inbox";
+import FolderIcon from "lucide-svelte/icons/folder";
 import { gt } from "../../../l10n/l10n";
 
 export enum SearchScope {
@@ -99,6 +102,14 @@ export function scopeShortLabel(scope: SearchScope): string {
     case SearchScope.AllAccounts: return gt`All`;
     case SearchScope.CurrentAccount: return gt`Account`;
     case SearchScope.CurrentFolder: return gt`Folder`;
+  }
+}
+
+export function scopeIcon(scope: SearchScope) {
+  switch (scope) {
+    case SearchScope.AllAccounts: return AllAccountsIcon;
+    case SearchScope.CurrentAccount: return AccountIcon;
+    case SearchScope.CurrentFolder: return FolderIcon;
   }
 }
 

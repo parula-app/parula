@@ -87,6 +87,18 @@
       plain
       />
   </hbox>
+  {#if !$appGlobal.isMobile && appWindow.isMainWindow}
+    <hbox class="popout button">
+      <Button
+        icon={PopOutIcon}
+        iconSize="16px"
+        iconOnly
+        label={$t`Open in a separate window`}
+        onClick={onPopOut}
+        plain
+        />
+    </hbox>
+  {/if}
   <hbox class="menu button">
     <ButtonMenu bind:isMenuOpen>
       <MessageMenu {message} {printE} />
@@ -118,9 +130,14 @@
   import NotSpamIcon from "lucide-svelte/icons/shield-off";
   import WriteIcon from "lucide-svelte/icons/pencil";
   import FolderActionsIcon from "lucide-svelte/icons/folder-dot";
+  import PopOutIcon from "lucide-svelte/icons/square-arrow-out-up-right";
+  import MessageWindow from "./MessageWindow.svelte";
   import { ArrayColl } from "svelte-collections";
   import { t } from "../../../l10n/l10n";
   import { appGlobal } from "../../../logic/app";
+  import { AppWindow } from "../../MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let message: EMail;
 
@@ -132,6 +149,9 @@
   }
   async function toggleStar() {
     await message.markStarred(!message.isStarred);
+  }
+  async function onPopOut() {
+    await appWindow.open(MessageWindow, { message }, 1000);
   }
   function reply() {
     let reply = message.compose.replyToAuthor();
@@ -187,7 +207,7 @@
     margin-right: 32px;
   }
   @media (max-width: 600px)  {
-    .reply, .reply-all, .spam, .trash, .move, .menu {
+    .reply, .reply-all, .spam, .trash, .move, .popout, .menu {
       display: none;
     }
   }

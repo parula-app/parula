@@ -17,6 +17,7 @@ import MailRead from "./Mail/Read.svelte";
 import MailSend from "./Mail/Send.svelte";
 import MailTags from "./Mail/Tags.svelte";
 import MailRules from "./Mail/Rules.svelte";
+import MailAutoResponder from "./Mail/AutoResponder.svelte";
 import MailSharing from "./Mail/Sharing.svelte";
 import AccountGeneral from "./AccountGeneral.svelte";
 import AccountURLServer from "./AccountURLServer.svelte";
@@ -92,7 +93,8 @@ accountSettings.add(new AccSetting(MailAccount, "mail-server", gt`Server`, Accou
 accountSettings.add(new AccSetting(MailAccount, "mail-folders", gt`Folders`, AccountFolders));
 accountSettings.add(new AccSetting(MailAccount, "mail-identity", gt`Identity`, AccountIdentity));
 accountSettings.add(new AccSetting(MailAccount, "mail-rules", gt`Rules *=> Criteria after which emails should be sorted`, MailRules));
-accountSettings.add(new AccSetting(MailAccount, "mail-sharing", gt`Sharing *=> Accessing mail account of team mates`, MailSharing));
+accountSettings.add(new AccSetting(MailAccount, "mail-auto-responder", gt`Auto-Responder *=> Automatic replies to incoming mail, e.g. during vacation`, MailAutoResponder, false, (account: MailAccount) => account.autoResponder.supported));
+accountSettings.add(new AccSetting(MailAccount, "mail-sharing", gt`Sharing *=> Accessing mail account of team mates`, MailSharing, false, (account: MailAccount) => account.canShareWithPersons()));
 
 // #if [DEV]
 const chatSettings = new SettingsCategory("chat", gt`Chat`, null, true);

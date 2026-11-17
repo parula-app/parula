@@ -2,13 +2,15 @@ import type { File as FileEntry } from "../../logic/Files/File";
 import { filesMustangApp } from "./FilesMustangApp";
 import { selectedFile } from "./selected";
 import { goTo, openApp } from "../AppsBar/selectedApp";
+import { AppWindow } from "../MainWindow/AppWindow";
 import { openEMailMessage } from "../Mail/open";
 import { allAccountsAccount } from "../../logic/Mail/AccountsList/ShowAccounts";
 import { appGlobal } from "../../logic/app";
+import { toCRLFBytes } from "../../logic/Mail/Encryption/MIME";
 import { assert } from "../../logic/util/util";
 
 export function openFileFromOtherApp(file: FileEntry) {
-  selectedFile.set(file);
+  AppWindow.current().mainWindow.uiState(selectedFile).set(file);
   if (appGlobal.isMobile) {
     goTo("files/file", { file });
   } else {
@@ -42,7 +44,7 @@ async function openEMail(mime: Uint8Array) {
   let folder = allAccountsAccount.inbox; // copy to folder must be a different account
   assert(folder, "Need folder");
   let email = folder.newEMail();
-  email.mime = mime;
+  email.mime = toCRLFBytes(mime);
   await email.parseMIME();
   await openEMailMessage(email);
 }
