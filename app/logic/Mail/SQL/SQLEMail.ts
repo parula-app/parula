@@ -341,46 +341,18 @@ export class SQLEMail {
     }
   }
 
-  /** @param row, recipientRows, attachmentRows, tagRows from `readMultiple()`.
-   *   Without them, reads the email with `readMultiple()`. */
-  static async read(dbID: number, email: EMail, row?: any, recipientRows?: any[], attachmentRows?: any[], tagRows?: any[]): Promise<EMail> {
-    if (!row) {
-      email.dbID = dbID;
-      await this.readMultiple([email], ex => { throw ex; });
-      return email;
-    }
+  static async read(dbID: number, email: EMail): Promise<EMail> {
     email.dbID = sanitize.integer(dbID);
-    email.pID = typeof(row.pID) == "number"
-      ? sanitize.integer(row.pID, null)
-      : sanitize.string(row.pID, null);
-    email.id = sanitize.nonemptystring(row.messageID, "");
-    email.inReplyTo = sanitize.string(row.parentMsgID, null);
-    email.size = sanitize.integer(row.size, null);
-    email.received = sanitize.date(row.dateReceived * 1000, new Date());
-    email.sent = sanitize.date(row.dateSent * 1000, email.received);
-    email.outgoing = sanitize.boolean(row.outgoing, false);
-    email.subject = sanitize.string(row.subject, null);
-    if (row.plaintext != null || row.html != null) {
-      email.text = sanitize.string(row.plaintext, null);
-      let html = sanitize.string(row.html, null);
-      if (html) {
-        email.html = html;
-      }
-    }
-    await this.readWritableProps(email, row, tagRows);
-    await this.readRecipients(email, recipientRows);
-    await this.readAttachments(email, attachmentRows);
-    email.contact = email.outgoing ? email.to.first : email.from;
+    await this.readMultiple([email], ex => { throw ex; });
     return email;
   }
 
-  /** Like `read()`, but for many emails, with 4 queries for all of them, instead of 5 for each email.
+  /** Like `read()`, but for many emails, with one query per aspect for all of them.
    * @param emails must have a `dbID`
-   * @param errorCallback for an email that could not be read */
+   * @param errorCallback for an email that is not in the database */
   static async readMultiple(emails: EMail[], errorCallback: (ex: Error) => void): Promise<void> {
-    let db = await getDatabase();
-    let ofEMails = sql`IN (SELECT value FROM json_each(${JSON.stringify(emails.map(email => email.dbID))}))`;
-    let rows = await db.all(sql`
+    // <copied to="readAllMainProperties()" />
+    let rows = await (await getDatabase()).all(sql`
       SELECT
         id, pID, messageID, parentMsgID,
         size, dateSent, dateReceived,
@@ -389,38 +361,38 @@ export class SQLEMail {
         threadID, downloadComplete, json,
         isRead, isStarred, isReplied, isForwarded, isImportant, isDraft, isSpam
       FROM email
-      WHERE id $${ofEMails}
+      WHERE id $${inEMails(emails)}
       `) as any[];
-    let recipientRows = Map.groupBy(await db.all(sql`
-      SELECT
-        emailID, name, emailAddress, recipientType
-      FROM emailPersonRel
-        LEFT JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id)
-      WHERE emailID $${ofEMails}
-      `) as any[], row => row.emailID);
-    let attachmentRows = Map.groupBy(await db.all(sql`
-      SELECT
-        emailID, filename, filepathLocal, mimeType, size, contentID, disposition, related, json
-      FROM emailAttachment
-      WHERE emailID $${ofEMails}
-      `) as any[], row => row.emailID);
-    // <copied from="readTags()" />
-    let tagRows = Map.groupBy(await db.all(sql`
-      SELECT
-        emailID, tagName
-      FROM emailTag
-      WHERE emailID $${ofEMails}
-      `) as any[], row => row.emailID);
     let rowByID = new Map(rows.map(row => [row.id, row]));
     for (let email of emails) {
-      let id = email.dbID as number;
-      try {
-        let row = rowByID.get(id);
-        assert(row, `EMail DB ID ${id} not found`);
-        await this.read(id, email, row, recipientRows.get(id) ?? [], attachmentRows.get(id) ?? [], tagRows.get(id) ?? []);
-      } catch (ex) {
-        errorCallback(ex);
+      let row = rowByID.get(email.dbID);
+      if (!row) {
+        errorCallback(new Error(`EMail DB ID ${email.dbID} not found`));
+        continue;
       }
+      email.pID = typeof(row.pID) == "number"
+        ? sanitize.integer(row.pID, null)
+        : sanitize.string(row.pID, null);
+      email.id = sanitize.nonemptystring(row.messageID, "");
+      email.inReplyTo = sanitize.string(row.parentMsgID, null);
+      email.size = sanitize.integer(row.size, null);
+      email.received = sanitize.date(row.dateReceived * 1000, new Date());
+      email.sent = sanitize.date(row.dateSent * 1000, email.received);
+      email.outgoing = sanitize.boolean(row.outgoing, false);
+      email.subject = sanitize.string(row.subject, null);
+      if (row.plaintext != null || row.html != null) {
+        email.text = sanitize.string(row.plaintext, null);
+        let html = sanitize.string(row.html, null);
+        if (html) {
+          email.html = html;
+        }
+      }
+    }
+    await this.readWritableProps(emails, rows);
+    await this.readRecipients(emails);
+    await this.readAttachments(emails);
+    for (let email of emails) {
+      email.contact = email.outgoing ? email.to.first : email.from;
     }
   }
 
@@ -452,105 +424,129 @@ export class SQLEMail {
       sanitize.nonemptylabel(row.contactName, " "));
   }
 
-  static async readWritableProps(email: EMail, row?: any, tagRows?: any[]) {
-    if (!row) {
-      row = await (await getDatabase()).get(sql`
+  static async readWritableProps(emails: EMail[], rows?: any[]) {
+    if (!rows) {
+      rows = await (await getDatabase()).all(sql`
       SELECT
-        isRead, isStarred, isReplied, isForwarded, isImportant, isDraft, isSpam, threadID, downloadComplete, json
+        id, isRead, isStarred, isReplied, isForwarded, isImportant, isDraft, isSpam, threadID, downloadComplete, json
       FROM email
-      WHERE id = ${email.dbID}
-      `) as any;
+      WHERE id $${inEMails(emails)}
+      `) as any[];
     }
-    if (!row) {
-      return;
-    }
-    email.isRead = sanitize.boolean(row.isRead, false);
-    email.isStarred = sanitize.boolean(row.isStarred, false);
-    email.isReplied = sanitize.boolean(row.isReplied, false);
-    email.isForwarded = sanitize.boolean(row.isForwarded, false);
-    email.isImportant = sanitize.boolean(row.isImportant, false);
-    email.isDraft = sanitize.boolean(row.isDraft, false);
-    email.isSpam = sanitize.boolean(row.isSpam, false);
-    email.threadID = sanitize.string(row.threadID ?? row.parentMsgID, null);
-    email.downloadComplete = sanitize.boolean(row.downloadComplete, false);
-    let json = sanitize.json(row.json, {});
-    JSONEMail.readExtraData(email, json);
-    await this.readTags(email, tagRows);
-  }
-
-  protected static async readRecipients(email: EMail, recipientRows: any[]) {
-    email.to.clear();
-    email.cc.clear();
-    email.bcc.clear();
-    email.replyTo = null;
-    for (let row of recipientRows) {
+    let rowByID = new Map(rows.map(row => [row.id, row]));
+    for (let email of emails) {
+      let row = rowByID.get(email.dbID);
+      if (!row) {
+        continue;
+      }
       try {
-        let uid = findOrCreatePersonUID(
-          sanitize.emailAddress(row.emailAddress, null),
-          sanitize.nonemptylabel(row.name, null));
-        if (row.recipientType == 1) {
-          email.from = uid;
-          continue;
-        } else if (row.recipientType == 5) {
-          email.replyTo = uid;
-          continue;
-        }
-        if (row.recipientType == 2) {
-          email.to.add(uid);
-        } else if (row.recipientType == 3) {
-          email.cc.add(uid);
-        } else if (row.recipientType == 4) {
-          email.bcc.add(uid);
-        }
+        email.isRead = sanitize.boolean(row.isRead, false);
+        email.isStarred = sanitize.boolean(row.isStarred, false);
+        email.isReplied = sanitize.boolean(row.isReplied, false);
+        email.isForwarded = sanitize.boolean(row.isForwarded, false);
+        email.isImportant = sanitize.boolean(row.isImportant, false);
+        email.isDraft = sanitize.boolean(row.isDraft, false);
+        email.isSpam = sanitize.boolean(row.isSpam, false);
+        email.threadID = sanitize.string(row.threadID ?? row.parentMsgID, null);
+        email.downloadComplete = sanitize.boolean(row.downloadComplete, false);
+        let json = sanitize.json(row.json, {});
+        JSONEMail.readExtraData(email, json);
       } catch (ex) {
         email.folder.account.errorCallback(ex);
       }
     }
+    await this.readTags(emails);
   }
 
-  protected static async readAttachments(email: EMail, attachmentRows: any[]) {
-    let fallbackID = 0;
-    email.attachments.clear();
-    for (let row of attachmentRows) {
-      try {
-        let a = email.newAttachment();
-        a.mimeType = sanitize.nonemptystring(row.mimeType, "application/octet-stream");
-        a.contentID = sanitize.nonemptystring(row.contentID, "" + ++fallbackID);
-        a.filename = sanitize.nonemptystring(row.filename, "attachment-" + fallbackID + "." + fileExtensionForMIMEType(a.mimeType));
-        let filepath = sanitize.string(row.filepathLocal, null);
-        a.filepathLocal = filepath ? JSONEMail.filesDir + "/" + filepath : null;
-        a.size = sanitize.integer(row.size, -1);
-        a.disposition = sanitize.translate(row.disposition, {
-          attachment: ContentDisposition.attachment,
-          inline: ContentDisposition.inline,
-        }, ContentDisposition.unknown);
-        a.related = sanitize.boolean(row.related, false);
-        a.fromExtraJSON(sanitize.json(row.json, {}) as any);
-        email.attachments.add(a);
-      } catch (ex) {
-        email.folder.account.errorCallback(ex);
-      }
-    }
-  }
-
-  protected static async readTags(email: EMail, tagRows?: any[]) {
-    if (!tagRows) {
-      // <copied to="readMultiple()" />
-      tagRows = await (await getDatabase()).all(sql`
+  protected static async readRecipients(emails: EMail[]) {
+    let recipientRows = Map.groupBy(await (await getDatabase()).all(sql`
         SELECT
-          tagName
-        FROM emailTag
-        WHERE emailID = ${email.dbID}
-      `) as any;
+          emailID, name, emailAddress, recipientType
+        FROM emailPersonRel
+          LEFT JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id)
+        WHERE emailID $${inEMails(emails)}
+      `) as any[], row => row.emailID);
+    for (let email of emails) {
+      email.to.clear();
+      email.cc.clear();
+      email.bcc.clear();
+      email.replyTo = null;
+      for (let row of recipientRows.get(email.dbID) ?? []) {
+        try {
+          let uid = findOrCreatePersonUID(
+            sanitize.emailAddress(row.emailAddress, null),
+            sanitize.nonemptylabel(row.name, null));
+          if (row.recipientType == 1) {
+            email.from = uid;
+            continue;
+          } else if (row.recipientType == 5) {
+            email.replyTo = uid;
+            continue;
+          }
+          if (row.recipientType == 2) {
+            email.to.add(uid);
+          } else if (row.recipientType == 3) {
+            email.cc.add(uid);
+          } else if (row.recipientType == 4) {
+            email.bcc.add(uid);
+          }
+        } catch (ex) {
+          email.folder.account.errorCallback(ex);
+        }
+      }
     }
-    email.tags.clear();
-    for (let row of tagRows) {
-      try {
-        let name = sanitize.nonemptystring(row.tagName);
-        let tag = getTagByName(name);
-        email.tags.add(tag);
-      } catch (ex) {
-        email.folder.account.errorCallback(ex);
+  }
+
+  protected static async readAttachments(emails: EMail[]) {
+    let attachmentRows = Map.groupBy(await (await getDatabase()).all(sql`
+        SELECT
+          emailID, filename, filepathLocal, mimeType, size, contentID, disposition, related, json
+        FROM emailAttachment
+        WHERE emailID $${inEMails(emails)}
+      `) as any[], row => row.emailID);
+    for (let email of emails) {
+      let fallbackID = 0;
+      email.attachments.clear();
+      for (let row of attachmentRows.get(email.dbID) ?? []) {
+        try {
+          let a = email.newAttachment();
+          a.mimeType = sanitize.nonemptystring(row.mimeType, "application/octet-stream");
+          a.contentID = sanitize.nonemptystring(row.contentID, "" + ++fallbackID);
+          a.filename = sanitize.nonemptystring(row.filename, "attachment-" + fallbackID + "." + fileExtensionForMIMEType(a.mimeType));
+          let filepath = sanitize.string(row.filepathLocal, null);
+          a.filepathLocal = filepath ? JSONEMail.filesDir + "/" + filepath : null;
+          a.size = sanitize.integer(row.size, -1);
+          a.disposition = sanitize.translate(row.disposition, {
+            attachment: ContentDisposition.attachment,
+            inline: ContentDisposition.inline,
+          }, ContentDisposition.unknown);
+          a.related = sanitize.boolean(row.related, false);
+          a.fromExtraJSON(sanitize.json(row.json, {}) as any);
+          email.attachments.add(a);
+        } catch (ex) {
+          email.folder.account.errorCallback(ex);
+        }
+      }
+    }
+  }
+
+  protected static async readTags(emails: EMail[]) {
+    let tagRows = Map.groupBy(await (await getDatabase()).all(sql`
+        SELECT
+          emailID, tagName
+        FROM emailTag
+        WHERE emailID $${inEMails(emails)}
+      `) as any[], row => row.emailID);
+    for (let email of emails) {
+      email.tags.clear();
+      for (let row of tagRows.get(email.dbID) ?? []) {
+        try {
+          let name = sanitize.nonemptystring(row.tagName);
+          let tag = getTagByName(name);
+          email.tags.add(tag);
+        } catch (ex) {
+          email.folder.account.errorCallback(ex);
+        }
       }
     }
   }
@@ -585,25 +581,28 @@ export class SQLEMail {
       limit = -1;
     }
     await JSONEMail.init();
-    let rows = await (await getDatabase()).all(sql`
-      SELECT id
+    let emailRows = await (await getDatabase()).all(sql`
+      SELECT
+        id
       FROM email
       WHERE folderID = ${folder.dbID}
       ORDER BY dateSent DESC
       $${limit ? sql` LIMIT ${limit} ` : sql``}
       $${startWith ? sql` OFFSET ${startWith} ` : sql``}
     `) as any;
+    let existingEmails: EMail[] = [];
     let newEmails: EMail[] = [];
-    for (let row of rows) {
+    for (let row of emailRows) {
       let email = folder.messages.find(email => email.dbID == row.id);
       if (email) {
-        await SQLEMail.readWritableProps(email); // TODO needed?
+        existingEmails.push(email);
       } else {
         email = folder.newEMail();
         email.dbID = row.id;
         newEmails.push(email);
       }
     }
+    await SQLEMail.readWritableProps(existingEmails); // TODO needed?
     await SQLEMail.readMultiple(newEmails, folder.account.errorCallback);
     folder.messages.addAll(newEmails);
   }
@@ -651,4 +650,9 @@ export class SQLEMail {
     }
     folder.messages.addAll(newEmails);
   }
+}
+
+/** `IN` the DB IDs of the emails, as one JSON parameter, so that the query and its prepared statement are the same for any number of emails */
+function inEMails(emails: EMail[]): Query {
+  return sql`IN (SELECT value FROM json_each(${JSON.stringify(emails.map(email => email.dbID))}))`;
 }
