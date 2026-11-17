@@ -178,6 +178,15 @@ describe("A draft", () => {
   });
 });
 
+test("Encrypting to a recipient whose certificate we don't have says so", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  mail.to.add(findOrCreatePersonUID("no-certificate@example.com", "No Certificate"));
+  mail.shouldEncrypt = true;
+  await expect(SMIMESend.encryptAndSign(mail)).rejects.toThrow("recipients");
+});
+
 const kText = "Grüße aus Köln!\nEine sehr lange Zeile, eine sehr lange Zeile, eine sehr lange Zeile, eine sehr lange Zeile.";
 
 /** As nodemailer writes `kText`. The `Content-Transfer-Encoding` must stay
