@@ -113,12 +113,13 @@ Rules and Alerts and Create Rule. All Mustang rules are client rules that run wh
 
 ## Automatic Replies (Out of Office)
 
-Not built: Mustang has no automatic-reply logic for any protocol.
+File > Info > Automatic Replies, and the "Automatic replies are being sent for this account" bar with Turn off below the ribbon, for EWS, OWA, ActiveSync and Graph accounts.
 
 | Outlook feature | Where in Outlook | What the logic would need |
 |---|---|---|
-| Automatic replies on / off, messages for inside and outside the organization, time range, "My contacts only" | File > Info > Automatic Replies | Server auto-reply settings per protocol: EWS `GetUserOofSettings` / `SetUserOofSettings`, Graph `automaticRepliesSetting`, JMAP `VacationResponse`, ManageSieve `vacation` for IMAP |
-| "Automatic replies are being sent for this account" InfoBar with Turn Off | Below the ribbon | Reading the state above at start and periodically |
+| Automatic replies for IMAP and JMAP accounts | File > Info > Automatic Replies | JMAP `VacationResponse`, ManageSieve `vacation` for IMAP, as `AutoResponder` subclasses |
+| Font, size, color, lists and indent for the messages | Automatic Replies dialog | More buttons in Lookout's editor toolbar, which has bold, italic, underline and links |
+| Updating the bar while the app runs | Below the ribbon | A periodic `autoResponder.load()`. Lookout reads the state when you go to the account. |
 | Automatic Reply Rules | Automatic Replies > Rules | Exchange OOF rules |
 | Block my calendar, decline new invitations, cancel my meetings during the period | Automatic replies (new Outlook) | Calendar integration of the above |
 | Auto reply for IMAP and POP accounts without server support | Rules Wizard: "reply using a specific template" | A reply action in rules |
