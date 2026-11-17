@@ -62,6 +62,134 @@ T1ku
 
 `;
 
+/**
+ * ISO-8859-1 text with 8bit transfer encoding, so it must be read as Latin-1 bytes.
+ * `openssl smime -sign -md sha256`, self-signed certificate for heidi@example.com.
+ * Signed over CRLF, as mail is sent, and saved with LF, as some .eml files are.
+ */
+export const kClearSignedLatin1 = `From: Heidi <heidi@example.com>
+To: User <user@example.com>
+Subject: Signed, saved with LF
+Date: Fri, 06 Nov 2026 15:00:00 +0000
+Message-ID: <sig-lf-latin1@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"; boundary="----860953516137425432908741CDA3648F"
+
+This is an S/MIME signed message
+
+------860953516137425432908741CDA3648F
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+
+Grüße aus Köln
+
+------860953516137425432908741CDA3648F
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+MIIGAAYJKoZIhvcNAQcCoIIF8TCCBe0CAQExDzANBglghkgBZQMEAgEFADALBgkq
+hkiG9w0BBwGgggNoMIIDZDCCAkygAwIBAgIUPrgf5fQz+Xeqet3NmE4tmBOpA+8w
+DQYJKoZIhvcNAQELBQAwMjEOMAwGA1UEAwwFSGVpZGkxIDAeBgkqhkiG9w0BCQEW
+EWhlaWRpQGV4YW1wbGUuY29tMB4XDTI2MTEwNjE0MTgyOVoXDTQ4MTAwMTE0MTgy
+OVowMjEOMAwGA1UEAwwFSGVpZGkxIDAeBgkqhkiG9w0BCQEWEWhlaWRpQGV4YW1w
+bGUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvTq14U1blLBJ
+QtYqaZJ4bOysSQrIawYKPVIhPTcR/A5vvKnMvL6bhTzcOQHwo0rV2Jv+xFyQc3EJ
+7QrvovnFU5OHGuWKEQzMwEj7N+zap3lDmahlX622Oe4CJoJlez+sxP6G67tv4/nt
+JMeEzLzrWte3tmJGh0q7meeb+GrKNSBWOfYvvcs0CdoKUlediNh0bzepDWi2ZnQx
+hEHVtc4Byc20odZKeSHgvHKpPI97bXtHGvaHvXRzX+VkOtACvpTxlB6pwmu9HuR5
+Ooc9X5lQFn2CY/WpcfgOKp5THRAhn0PWjEKIptSP6Y9l+N8TIr9smf0dOIpiTRoc
+wnljs879BQIDAQABo3IwcDAdBgNVHQ4EFgQU+HJp42Xvjs3a+P7ba6FgewQV2j8w
+DAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCBeAwEwYDVR0lBAwwCgYIKwYBBQUH
+AwQwHAYDVR0RBBUwE4ERaGVpZGlAZXhhbXBsZS5jb20wDQYJKoZIhvcNAQELBQAD
+ggEBAGATS7e0I3wzBD1zXhy+S0UHJsK1cZhO/evtqx3Kv2WWYY4vGN3KgaGVmPzX
+es8swN7ReaEem4e1/sSqpQt47QbF8D3mLYOiFEH5LT3Rv8B2NqYSj8LnSGRM0aP9
+G4+kScF8qgJVCrhfMYpj98YAGchwaq7zO/O+yVBD/YFkxVXFkWvG8GT45fijuckR
+wlKWF/SobmZAwIrrF2VHPBcWFIM/v6vE2RRajlfEDfcC2DQLvFbKR5FC79k1MPPL
+xDthoSOh05HG+3x2vs1BhnTHldonwD+iV7e8hrpC6s2JZJtzm7MSf8/KRu5dUKaB
+q1WKJdHlxF8LUvdkJMLsvaZ3qaUxggJcMIICWAIBATBKMDIxDjAMBgNVBAMMBUhl
+aWRpMSAwHgYJKoZIhvcNAQkBFhFoZWlkaUBleGFtcGxlLmNvbQIUPrgf5fQz+Xeq
+et3NmE4tmBOpA+8wDQYJYIZIAWUDBAIBBQCggeQwGAYJKoZIhvcNAQkDMQsGCSqG
+SIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjYxMTA2MTQxODM4WjAvBgkqhkiG9w0B
+CQQxIgQgt3b3Ly7mogkmXOW95qkJiLVUnGwOVSLqDkCbGqWPk0oweQYJKoZIhvcN
+AQkPMWwwajALBglghkgBZQMEASowCwYJYIZIAWUDBAEWMAsGCWCGSAFlAwQBAjAK
+BggqhkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcNAwICAUAwBwYFKw4D
+AgcwDQYIKoZIhvcNAwICASgwDQYJKoZIhvcNAQEBBQAEggEAXOOo+FjpVUjSX4+r
+21u6fku8Fg/MdcUckUBUQiGgxjZkk0bmdJ8dnwmRgzeRUkkRyKPv256ybGa/c1X7
+GVz5H1RO7mJJhd9/Gw4JIeGd+j2YCAz1HL4hOfxjAkCfPgE794OzsGINUqDBctif
+wbzwjFRjF7/P3YX3VXdN6jvpSEyyLIxtDsSVXooy87tnqFTDZK54OUzjWmQHTRXC
+umJ+Z9dR8UUkWsz9H+IfUMEyms3kA433x8opID0tHXYBlsC8OYKrLA4kC6FGpsQD
+jTEe3LxlXebcdc27Oa+MDXgDLDSCbDcneoEwn1S/Om3DUZPo0PCSWe+dgQcWbOf2
+GN5lsQ==
+
+------860953516137425432908741CDA3648F--
+
+`;
+
+/**
+ * UTF-8 text with 8bit transfer encoding.
+ * `openssl smime -sign -md sha256 -binary`, self-signed certificate for joerg@example.com.
+ * Signed over CRLF, as mail is sent, and saved with LF, as some .eml files are.
+ */
+export const kClearSignedUTF8 = `From: Joerg <joerg@example.com>
+To: User <user@example.com>
+Subject: Signed, saved with LF
+Date: Thu, 12 Nov 2026 05:00:00 +0000
+Message-ID: <sig-lf-utf8@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"; boundary="----8C54D8E703AF2D7CE218F3CDC6C997B4"
+
+This is an S/MIME signed message
+
+------8C54D8E703AF2D7CE218F3CDC6C997B4
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Grüße aus Köln
+
+------8C54D8E703AF2D7CE218F3CDC6C997B4
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+MIIGAAYJKoZIhvcNAQcCoIIF8TCCBe0CAQExDzANBglghkgBZQMEAgEFADALBgkq
+hkiG9w0BBwGgggNoMIIDZDCCAkygAwIBAgIUNkxtavOAR32U492lVpd20Xi+NbMw
+DQYJKoZIhvcNAQELBQAwMjEOMAwGA1UEAwwFSsO2cmcxIDAeBgkqhkiG9w0BCQEW
+EWpvZXJnQGV4YW1wbGUuY29tMB4XDTI2MTExMjA0NDUzNFoXDTQ4MTAwNzA0NDUz
+NFowMjEOMAwGA1UEAwwFSsO2cmcxIDAeBgkqhkiG9w0BCQEWEWpvZXJnQGV4YW1w
+bGUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApc55jj0EtyBk
+DvaUvmmkSTtUx3TMnjnpH0smLbr/hRpGMiLctObkyIxh3zKjRL9ctAcfhPGtRdOb
+GP9FchIt2wDu7nlBE3kN1G99T7Tq85mDS9zwSQIzfs0FPca4xFuTK181u4kWQOCs
+K7+ipNaqWh7jh7AOThvrchwjOZlu6SDb2DOIdyXDasVZ9qKecQq/XnTtjsHWTfNx
+y/2zM4ay+YSQtoxXkaI6uIaZDxDz11oRlz/Ku+YgfeRUDeuugt0D07n9GS/A+8Rv
+TDOBRU7u3LeAG+mUJVd01oyz++l29MnqIIPaBtvocXJAt6fFBsofkLuGUgkgwm4c
+gPtADxGL/wIDAQABo3IwcDAMBgNVHRMBAf8EAjAAMA4GA1UdDwEB/wQEAwIFoDAT
+BgNVHSUEDDAKBggrBgEFBQcDBDAcBgNVHREEFTATgRFqb2VyZ0BleGFtcGxlLmNv
+bTAdBgNVHQ4EFgQUFt24pRC1SXrMqeiFfemjfZMJj6YwDQYJKoZIhvcNAQELBQAD
+ggEBAJGq/rx0ZFH5FUbdKptMxhHrQH+mFDrV+tCluKkoYz4AtGLjQY/97gv4Bdu7
+CbOs8ZLC9o+cvaW9YHauQJJMd30JSW0a2WL5W+FiIMcA436a3GxFkXoS9acE9/uO
+Qo3Ng34UzPtBNlMn+SINdO6rQssr6QPp36CNxHGZ85YW2J2eo4zO/1mv5Dlb6ZT+
+HsP2LMeIr0NY2th8nnmy7PnYs2g5uHpc+x77RnUBG5XZm1hs0pZ+BST1/YczZxtj
+VXziECr5uMyaTTEHd/jdGAMgKh8XTeGE+EKg4guT4Vbkpm29X7dnK5n66o4v/jF1
+Hz2ho2Fo4uDKkf2qOJ7M5VUBHNQxggJcMIICWAIBATBKMDIxDjAMBgNVBAMMBUrD
+tnJnMSAwHgYJKoZIhvcNAQkBFhFqb2VyZ0BleGFtcGxlLmNvbQIUNkxtavOAR32U
+492lVpd20Xi+NbMwDQYJYIZIAWUDBAIBBQCggeQwGAYJKoZIhvcNAQkDMQsGCSqG
+SIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjYxMTEyMDQ0NTM0WjAvBgkqhkiG9w0B
+CQQxIgQgc7RsbPHJnJkj+yWZmj5RP43oSyeyzxYjOkODPW+m7MEweQYJKoZIhvcN
+AQkPMWwwajALBglghkgBZQMEASowCwYJYIZIAWUDBAEWMAsGCWCGSAFlAwQBAjAK
+BggqhkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcNAwICAUAwBwYFKw4D
+AgcwDQYIKoZIhvcNAwICASgwDQYJKoZIhvcNAQEBBQAEggEAEG/sz/zgZp0ZRvUh
+5TeuM9tkl8o72OjC/mhwZ1IREorjRHVhJZVKiVzqyUlwzx/AHh1g1+hns+ZclGlH
+c2NKISvNNjGoXAPPiCGi7jtZk13+p4ism0rvT3W57weRVgspLZ1Q2ArNK1e8Psqf
+EnASO2FFeDRgab/lJd6ZxBxenTCx9FjzwW5Mvr+v2/y2p6FT/BOGxqI+lUMYgCjT
+rMuBwwA5Q8kuHfv9hWSh7DW4Hpu9av6WVofd8+sbIkEs/Wr/Ze0bl5JKyXIbdr95
+IcJH+i0W1gMS0qVU6q+oeoI6jRAsrxLeZeGAu0qUbVIWpssGL8UZxxNN1dxFZsNF
+mTsbZg==
+
+------8C54D8E703AF2D7CE218F3CDC6C997B4--
+
+`;
+
 /** `-nodetach`, i.e. the message is inside the CMS blob */
 export const kOpaqueSigned = `From: Alice <alice@example.com>
 To: User <user@example.com>
