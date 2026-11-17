@@ -177,9 +177,9 @@ test("With two Exchange accounts, only the directory of the domain of the recipi
 
 test("Recipient who already has an S/MIME certificate", async () => {
   let person = personInAddressbook("colleague@example.com");
-  let saved = new SMIMEPublicKey();
-  saved.id = "1111111111111111";
-  saved.obsolete = false;
+  let saved = await SMIMEPublicKey.importPublicKey(Certificate.encodePEM(
+    SignedData.decodeFromBase64(kSMIMECertificate, { berToDER: true }).content.certificates[0],
+    { label: "CERTIFICATE" }));
   person.addEncryptionPublicKey(saved);
   let recipient = new PersonUID("colleague@example.com", "Colleague");
   await recipient.fetchEncryptionKeys();

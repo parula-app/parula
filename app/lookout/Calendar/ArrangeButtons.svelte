@@ -14,7 +14,8 @@
   selected={!isTable && view == "dual"} onClick={() => arrange("dual")} />
 
 <script lang="ts">
-  import { CalendarCurrentView, eventPeek, type CalendarViewType } from "./selected";
+  import { CalendarCurrentView, eventPeek } from "./selected";
+  import type { CalendarViewType } from "../../frontend/Calendar/CalendarRange";
   import RibbonToggleButton from "../Shared/Ribbon/RibbonToggleButton.svelte";
   import DayIcon from "lucide-svelte/icons/calendar-1";
   import WorkWeekIcon from "lucide-svelte/icons/columns-4";

@@ -37,9 +37,7 @@
   <MoveMenuItems messages={messages.contents} />
 </SubMenu>
 <MenuDivider />
-<SubMenu label={$t`Junk *=> Menu to mark the selected emails as junk or not junk`} icon={JunkIcon}>
-  <JunkMenuItems messages={messages.contents} />
-</SubMenu>
+<JunkMenuItem messages={messages.contents} />
 <MenuItem label={$t`Delete`} icon={DeleteIcon} shortCutInfo={$t`Del *=> Delete key`}
   onClick={async () => { await Promise.all(messages.contents.map(message => message.deleteMessage())); }} />
 <MenuItem label={$t`Archive`} icon={ArchiveIcon} shortCutInfo={$t`Backspace *=> Backspace key`}
@@ -57,7 +55,7 @@
   import { MessageActions } from "../MessageActions";
   import SubMenu from "../../Shared/Menu/SubMenu.svelte";
   import FollowUpMenuItems from "./FollowUpMenuItems.svelte";
-  import JunkMenuItems from "./JunkMenuItems.svelte";
+  import JunkMenuItem from "./JunkMenuItem.svelte";
   import CategorizeMenuItems from "./CategorizeMenuItems.svelte";
   import MoveMenuItems from "./MoveMenuItems.svelte";
   import RulesMenuItems from "../Rules/RulesMenuItems.svelte";
@@ -76,7 +74,6 @@
   import MoveIcon from "lucide-svelte/icons/folder-input";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import ArchiveIcon from "lucide-svelte/icons/archive";
-  import JunkIcon from "lucide-svelte/icons/shield-x";
   import PrintIcon from "lucide-svelte/icons/printer";
   import { printMessage } from "./MessagePrint.svelte";
   import SaveIcon from "lucide-svelte/icons/save";
