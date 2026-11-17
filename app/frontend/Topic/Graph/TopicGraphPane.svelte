@@ -22,9 +22,11 @@
         />
     </IslandSwitcher>
   </hbox>
+  <GlobalSearchBar />
 </vbox>
 
 <script lang="ts">
+  import GlobalSearchBar from "../../MainWindow/GlobalSearchBar.svelte";
   import { rootTopic } from "../../../logic/Topic/TopicAccounts";
   import { getLocalStorage } from "../../Util/LocalStorage";
   import IslandSwitcher from "../../Shared/IslandSwitcher.svelte";

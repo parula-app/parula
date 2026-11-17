@@ -3,7 +3,7 @@ import { EMail } from "../../EMail";
 import { findAllIdentities } from "../../MailIdentity";
 import { EncryptionSystem } from "../enums";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
-import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, RC2CBCParameters, SignedData, type AlgorithmIdentifier } from "./SMIMEASN1";
+import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, RC2CBCParameters, SignedData, algorithmName, type AlgorithmIdentifier } from "./SMIMEASN1";
 import { decryptAuthEnveloped } from "./SMIMEDecrypt";
 import { rc2Decrypt, tripleDESDecrypt } from "./legacyCiphers";
 import { BlockType, unpadPKCS, decrypt } from "./SMIMERSAES";
@@ -24,7 +24,8 @@ export class SMIMEReadProcessor extends EMailProcessor {
     let contentTypeHeader = sanitize.string(postal.headers.find(header => header.key == "content-type")?.value, "");
     let contentType = parseHeaderParameters(contentTypeHeader).$main;
     if (contentType == "application/pkcs7-mime" ||
-        contentType == "application/x-pkcs7-mime") { // legacy type name, used by Outlook
+        contentType == "application/x-pkcs7-mime" || // legacy type name, used by Outlook
+        contentType == "application/octet-stream" && email.attachments.first?.filename.toLowerCase().endsWith(".p7m")) { // MS-OXOSMIME 2.1.3.2.1.1
       // The whole message is a CMS blob. It's the only body part, but fsr
       // this is an attachment.
       let cms = email.attachments.first?.content;
@@ -97,8 +98,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
 
   protected checkCipher(algorithm: string | number[], supported: string[]) {
     if (!sanitize.enum(algorithm, supported, null)) {
-      let name = typeof algorithm == "string" ? algorithm : algorithm.join(".");
-      throw new NotImplemented(gt`This message is encrypted with ${name}, which is not supported`);
+      throw new NotImplemented(gt`This message is encrypted with ${algorithmName(algorithm)}, which is not supported`);
     }
   }
 

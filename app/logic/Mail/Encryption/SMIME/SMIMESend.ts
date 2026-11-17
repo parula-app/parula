@@ -122,8 +122,9 @@ export class SMIMESend {
       // Only the body and the Content-* headers are encrypted, not the other headers.
       let { content, otherHeaders } = await SMIMESend.splitOffContent(mimeAsText);
       mime = new TextEncoder().encode(content);
-      let recipientKeys = recipients.contents.flatMap(puid =>
+      let recipientKeys = recipients.contents.map(puid =>
         getPublicKeyForPersonUID(puid, SMIMEPublicKey));
+      assert(recipientKeys.every(key => key), gt`Cannot encrypt to all recipients using S/MIME`);
       if (!(await Promise.all(recipientKeys.map(key => key.matches(rawKey)))).some(Boolean)) {
         recipientKeys.push(privateKey);
       }

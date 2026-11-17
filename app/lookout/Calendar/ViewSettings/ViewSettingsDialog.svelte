@@ -98,7 +98,7 @@
 <style>
   .rows {
     display: grid;
-    grid-template-columns: 168px minmax(0, 1fr);
+    grid-template-columns: minmax(168px, max-content) minmax(0, 1fr);
     align-items: center;
     gap: 8px 12px;
   }

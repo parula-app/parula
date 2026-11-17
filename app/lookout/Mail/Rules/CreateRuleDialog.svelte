@@ -101,12 +101,9 @@
     margin-bottom: 12px;
   }
   .fields {
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: minmax(0, max-content) 1fr; /* long labels, e.g. in French, wrap and leave room for the "Select Folder…" button */
     align-items: center;
     gap: 8px 12px;
-  }
-  .fields :global(.check) {
-    white-space: nowrap;
   }
   .fields :global(.check.from),
   .fields :global(.check.wide) {
@@ -121,6 +118,7 @@
   }
   .folder-row .value {
     flex: 1 1 0;
+    min-width: 80px;
   }
   .value.folder {
     background-color: var(--lo-pane-alt-bg);

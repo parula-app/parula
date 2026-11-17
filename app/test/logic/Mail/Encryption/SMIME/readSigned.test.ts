@@ -72,4 +72,41 @@ describe("Signature of a received message, without an own private key", () => {
     let key = await getPublicKeyByKeyID(email.signedByKeyID, email);
     expect(key.trustLevel).toBe(TrustLevel.Sender);
   });
+
+  test("opaque-signed message, sent as a file (application/octet-stream, smime.p7m)", async () => {
+    // Named only by the filename of the Content-Disposition
+    let email = await readMessage(kOpaqueSigned.replace(`application/x-pkcs7-mime; smime-type=signed-data; name="smime.p7m"`, "application/octet-stream"));
+    expect(email.text.trim()).toBe("Hello, this is signed.");
+    expect(await signedWithKeyName(email)).toBe(email.signedKey.name);
+  });
+
+  test("a mail with an attached signed file (.p7m) stays as it is", async () => {
+    // Like an Italian e-invoice, which is signed XML. Here, the CMS blob of `kOpaqueSigned`.
+    let signedFile = kOpaqueSigned.split("\n\n")[1];
+    let mime = `From: Alice <alice@example.com>
+To: User <user@example.com>
+Subject: Invoice
+Date: Tue, 14 Jul 2026 10:00:00 +0000
+Message-ID: <invoice@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="invoice"
+
+--invoice
+Content-Type: text/plain; charset=utf-8
+
+Please find the invoice attached.
+--invoice
+Content-Type: application/octet-stream; name="IT01234567890_FPA01.xml.p7m"
+Content-Disposition: attachment; filename="IT01234567890_FPA01.xml.p7m"
+Content-Transfer-Encoding: base64
+
+${signedFile}
+--invoice--
+`;
+    let email = await readMessage(mime);
+    expect(email.text.trim()).toBe("Please find the invoice attached.");
+    expect(email.attachments.contents.map(attachment => attachment.filename)).toEqual(["IT01234567890_FPA01.xml.p7m"]);
+    expect(email.signedByKeyID).toBeFalsy();
+    expect(new TextDecoder().decode(email.mime)).toBe(toCRLF(mime));
+  });
 });
