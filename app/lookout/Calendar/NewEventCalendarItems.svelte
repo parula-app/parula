@@ -6,7 +6,7 @@
 
 <script lang="ts">
   import type { Calendar } from "../../logic/Calendar/Calendar";
-  import { CalendarGroups } from "./CalendarGroups";
+  import { CalendarGroups } from "../../frontend/Calendar/CalendarGroups";
   import { shownCalendars } from "../../frontend/Calendar/selected";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
   import MenuItem from "../Shared/Menu/MenuItem.svelte";

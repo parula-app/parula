@@ -3,7 +3,7 @@ import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/
 import { SignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { verifySignedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEVerify";
 import { TrustLevel, trustOrder } from "../../../../../logic/Mail/Encryption/enums";
-import { kRootCA, kPathLen0CA, kAlice, kSubCA, kCarol, kNoCertSignCA, kBob, kMailCA, kTLSServer, kCEO, kOldCertificate, kDan, kGrace, kTLSCA, kHeidi, kTLSRootCA, kJudy, kExpiredRootCA, kIvan, kX509v1RootCA, kFrank, kSignedContent, kSignedByAlice, kSignedByErin } from "./certificateChains";
+import { kRootCA, kPathLen0CA, kAlice, kSubCA, kCarol, kNoCertSignCA, kBob, kMailCA, kTLSServer, kCEO, kOldCertificate, kDan, kGrace, kTLSCA, kHeidi, kTLSRootCA, kJudy, kExpiredRootCA, kIvan, kX509v1RootCA, kFrank, kSignedContent, kSignedByAlice, kSignedByErin, kCompanyRootCA, kSignedByWendy } from "./certificateChains";
 import { expect, test, describe } from "vitest";
 
 // The browser has this, but Node does not.
@@ -23,7 +23,7 @@ globalThis.indexedDB ??= {
 // so this has to be the same for all tests in this file.
 appGlobal.remoteApp = {
   async getCACertificates(type: string): Promise<string[]> {
-    return type == "system" ? [kRootCA, kTLSRootCA, kExpiredRootCA, kX509v1RootCA] : [];
+    return type == "system" ? [kRootCA, kTLSRootCA, kExpiredRootCA, kX509v1RootCA, kCompanyRootCA] : [];
   },
 };
 
@@ -97,5 +97,10 @@ describe("Signature", () => {
   test("by a certificate that is only for encryption is not trusted", async () => {
     let signer = await verifySignedData(SignedData.decodeFromBase64(kSignedByErin), new TextEncoder().encode(kSignedContent));
     expect(trustOrder(signer?.trustLevel ?? TrustLevel.Sender)).toBeLessThanOrEqual(trustOrder(TrustLevel.Sender));
+  });
+
+  test("by a certificate from a CA whose name has DC= parts, as Windows company CAs have, is trusted", async () => {
+    let signer = await verifySignedData(SignedData.decodeFromBase64(kSignedByWendy), new TextEncoder().encode(kSignedContent));
+    expect(signer?.trustLevel).toBe(TrustLevel.OS);
   });
 });
