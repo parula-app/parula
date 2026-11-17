@@ -25,6 +25,9 @@ export function owaFindMsgsInFolderRequest(folderID: string, maxFetchCount: numb
       }, {
         __type: "PropertyUri:#Exchange",
         FieldURI: "item:Importance",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "item:InstanceKey",
         /*}, {
           __type: "ExtendedPropertyUri:#Exchange",
           PropertyTag: IconIndexPidTag,
