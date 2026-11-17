@@ -1,16 +1,22 @@
-<grid class="title-bar" class:mac class:os-rtl={osRTL}>
-  <hbox class="identity">
-    <hbox class="app-logo">
-      <AppIcon icon={logo} size="18px" />
-    </hbox>
-    <hbox class="app-name">{appName}</hbox>
-    <QuickAccessToolbar placement="above" />
+<hbox class="title-bar" class:mac class:os-rtl={osRTL}>
+  <hbox class="app-logo">
+    <AppIcon icon={logo} size="18px" />
   </hbox>
-  <hbox class="search-box">
-    {#if isMail}
-      <MailSearchBox />
-    {:else}
-      <SearchField bind:searchTerm={$globalSearchTerm} placeholder={$t`Search`} bind:this={searchField} />
+  <hbox class="app-name">{appName}</hbox>
+  <QuickAccessToolbar placement="above" />
+  {#if $tabsInTitleBar.value && $currentRibbon}
+    <RibbonTabRow ribbon={$currentRibbon} />
+  {/if}
+  <hbox class="search-area" class:mail={isMail}>
+    <hbox class="search-box" class:has-search={!!$globalSearchTerm}>
+      {#if isMail}
+        <MailSearchBox />
+      {:else}
+        <SearchField bind:searchTerm={$globalSearchTerm} placeholder={$t`Search`} bind:this={searchField} />
+      {/if}
+    </hbox>
+    {#if $tabsInTitleBar.value && $currentRibbon}
+      <TellMe ribbon={$currentRibbon} />
     {/if}
   </hbox>
   <hbox class="window-buttons">
@@ -31,7 +37,7 @@
       </button>
     {/if}
   </hbox>
-</grid>
+</hbox>
 
 <script lang="ts">
   import { globalSearchTerm } from "../../frontend/AppsBar/selectedApp";
@@ -42,6 +48,9 @@
   import SearchField from "../../frontend/Shared/SearchField.svelte";
   import MailSearchBox, { mailSearchInput } from "../Mail/Search/MailSearchBox.svelte";
   import QuickAccessToolbar, { quickAccessCommands } from "./QuickAccessToolbar.svelte";
+  import { tabsInTitleBar, currentRibbon } from "../Shared/Ribbon/Ribbon.svelte";
+  import RibbonTabRow from "../Shared/Ribbon/RibbonTabRow.svelte";
+  import TellMe from "../Shared/Ribbon/TellMe.svelte";
   import type { QuickAccessCommand } from "../Shared/QuickAccess/QuickAccess";
   import type { EMail } from "../../logic/Mail/EMail";
   import { selectedMessages } from "../../frontend/Mail/Selected";
@@ -132,37 +141,83 @@
 
 <style>
   .title-bar {
-    grid-template-columns: minmax(min-content, 1fr) minmax(200px, 680px) minmax(min-content, 1fr);
+    flex: 0 0 auto;
     align-items: stretch;
     height: var(--lo-titlebar-height);
     background-color: var(--lo-titlebar-bg);
     color: var(--lo-fg);
     app-region: drag;
   }
-  .identity {
-    align-items: center;
-    gap: 8px;
-    padding-inline-start: 14px;
-    min-width: 0;
-  }
   .app-logo {
     align-items: center;
+    padding-inline: 14px 8px;
   }
   .app-logo :global(.horse),
   .app-logo :global(.circle-bars) {
     fill: var(--lo-accent);
     stroke: var(--lo-accent);
   }
+  /* Gets the free space before the search field, so it shrinks after the search field */
   .app-name {
+    display: block;
+    flex: 1000 1 0;
+    max-width: max-content;
+    min-width: 0;
+    align-self: center;
+    margin-inline-end: 16px;
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .search-area {
+    flex: 1 1 0;
+    min-width: calc(85px + 10ch);
+    align-items: center;
+    justify-content: center;
+    /* Leaves space to drag the window */
+    padding-inline: 64px 8px;
+    container: search-area / inline-size;
+  }
+  .search-area.mail {
+    min-width: calc(190px + 10ch);
   }
   .search-box {
-    align-items: center;
-    padding: 0 8px;
+    flex: 0 1 680px;
+    min-width: 0;
   }
-  .search-box :global(.search) {
+  /* Tell me replaces the search field while it's open, with the same width */
+  .search-area:has(:global(.tell-me.expanded)) .search-box {
+    display: none;
+  }
+  .search-area :global(.tell-me.expanded) {
+    flex: 0 1 680px;
+  }
+  /* If there is not enough space, the search field shrinks to about 25 characters.
+   * Then, the mail search scope shows only an icon.
+   * Then, the search field shrinks to 10 characters, and expands when it's used.
+   * The px values are roughly the icons and buttons around the text field, and the Tell me button. */
+  @container search-area (width < calc(280px + 25ch)) {
+    .mail :global(.scope-label) {
+      display: none;
+    }
+    .mail :global(.scope-icon) {
+      display: block;
+    }
+  }
+  @container search-area (width < calc(190px + 25ch)) {
+    .mail .search-box:not(:has(input:focus), .has-search) {
+      flex: 0 0 calc(155px + 10ch);
+    }
+  }
+  @container search-area (width < calc(85px + 25ch)) {
+    .search-area:not(.mail) .search-box:not(:has(input:focus), .has-search) {
+      flex: 0 0 calc(50px + 10ch);
+    }
+  }
+  /* The search field of the other apps. The mail search box has its own. */
+  .search-area:not(.mail) :global(.search) {
     flex: 1 1 0;
     height: 30px;
     box-sizing: border-box;
@@ -175,14 +230,14 @@
     color: var(--lo-fg-secondary);
     app-region: no-drag;
   }
-  .search-box :global(.search:hover) {
+  .search-area:not(.mail) :global(.search:hover) {
     border-color: var(--lo-border-strong);
   }
-  .search-box :global(.search:focus-within) {
+  .search-area:not(.mail) :global(.search:focus-within) {
     border-color: var(--lo-border-strong);
     border-bottom: 2px solid var(--lo-accent);
   }
-  .search-box :global(.search input) {
+  .search-area:not(.mail) :global(.search input) {
     flex: 1 1 0;
     min-width: 0;
     border: none;
@@ -191,10 +246,11 @@
     font-size: var(--lo-font-size);
     outline: none;
   }
-  .search-box :global(.search input:focus) {
+  .search-area:not(.mail) :global(.search input:focus) {
     border: none;
   }
   .window-buttons {
+    flex: 0 0 auto;
     justify-content: flex-end;
     align-items: stretch;
   }
@@ -220,11 +276,20 @@
   .mac .window-buttons {
     display: none;
   }
-  .mac .identity {
+  .mac .app-logo,
+  :global([dir="rtl"]) .mac.os-rtl .app-logo {
     padding-inline-start: 80px;
   }
-  :global([dir="rtl"]) .mac:not(.os-rtl) .identity,
-  .mac.os-rtl .identity {
+  :global([dir="rtl"]) .mac:not(.os-rtl) .app-logo,
+  .mac.os-rtl .app-logo {
     padding-inline-start: 14px;
+  }
+  /* UI and macOS writing directions differ: The traffic lights are at the end, after the search */
+  :global([dir="rtl"]) .mac:not(.os-rtl) .search-area,
+  .mac.os-rtl .search-area {
+    padding-inline-end: 80px;
+  }
+  :global([dir="rtl"]) .mac .search-area {
+    padding-inline-end: 8px;
   }
 </style>

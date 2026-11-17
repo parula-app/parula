@@ -3,31 +3,29 @@
   <vbox class="app-logo">
     <Icon data={logo} size="20px" />
   </vbox>
-  <hbox class="workspace">
-    <WorkspaceHeader {selectedApp} />
-  </hbox>
+  {#if appWindow.isMainWindow}
+    <hbox class="workspace">
+      <WorkspaceHeader {selectedApp} />
+    </hbox>
+  {/if}
   <hbox class="app-title value">
-    {$titleStore ?? selectedApp?.name ?? appName}
+    {title ?? $titleStore ?? selectedApp?.name ?? appName}
   </hbox>
   <vbox flex class="free" />
-  <hbox class="search-box">
-    <SearchField bind:searchTerm={$globalSearchTerm} />
-  </hbox>
+  {#if appWindow.isMainWindow}
+    <hbox class="search-box">
+      <SearchField bind:searchTerm={$globalSearchTerm} />
+    </hbox>
+    <hbox class="new-window">
+      <Button label={$t`Open a new window`}
+        icon={NewWindowIcon} iconSize="16px" plain iconOnly
+        onClick={onNewWindow}
+        />
+    </hbox>
+  {/if}
   {#if !webMail}
     <hbox class="right">
-      <Button label={$t`Minimize`}
-        icon={MinimizeIcon} iconSize="16px" plain iconOnly classes="minimize"
-        onClick={onMinimize}
-        />
-      <Button label={$t`Maximize`} tooltip={canMaximize ? $t`Maximize` : $t`Restore window`}
-        icon={canMaximize ? MaximizeIcon : UnmaximizeIcon}
-        iconSize="12px" plain iconOnly classes="restore-window"
-        onClick={onMaximizeOrRestore}
-        />
-      <Button label={$t`Close entire app`}
-        icon={XIcon} iconSize="16px" plain iconOnly classes="close"
-        onClick={onCloseApp}
-        />
+      <WindowButtons />
     </hbox>
   {/if}
 </hbox>
@@ -35,45 +33,34 @@
 <script lang="ts">
   import type { MustangApp } from "../AppsBar/MustangApp";
   import { globalSearchTerm } from "../AppsBar/selectedApp";
-  import { appGlobal } from "../../logic/app";
   import { appName, webMail } from "../../logic/build";
   import WorkspaceHeader from "./WorkspaceHeader.svelte";
+  import WindowButtons from "./WindowButtons.svelte";
   import SearchField from "../Shared/SearchField.svelte";
   import Button from "../Shared/Button.svelte";
   import Icon from 'svelte-icon/Icon.svelte';
   import logo from '../asset/icon/general/logo.svg?raw';
-  import MinimizeIcon from 'lucide-svelte/icons/minus';
-  import MaximizeIcon from 'lucide-svelte/icons/square';
-  import UnmaximizeIcon from 'lucide-svelte/icons/copy';
-  import XIcon from 'lucide-svelte/icons/x';
   import { getOSName } from "../Util/util";
   import { t } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
   import { selectedWorkspace } from "./Selected";
+  import { AppWindow } from "./AppWindow";
+  import MainWindow from "./MainWindow.svelte";
+  import NewWindowIcon from 'lucide-svelte/icons/app-window';
 
-  export let selectedApp: MustangApp;
+  export let selectedApp: MustangApp = null;
+  /** For windows that show only one thing, e.g. the composer */
+  export let title: string | null = null;
+
+  const appWindow = AppWindow.current();
 
   // Enable Mac Styles
   const mac = (!webMail && getOSName() == "macintosh") ? true : false;
   // Check mac system text direction
   const osRTL = (rtlLocales.includes(navigator.language) && mac) ? true : false;
 
-  function onMinimize() {
-    appGlobal.remoteApp.minimizeMainWindow();
-  }
-
-  let canMaximize = true;
-  function onMaximizeOrRestore() {
-    if (canMaximize) {
-      appGlobal.remoteApp.maximizeMainWindow();
-    } else {
-      appGlobal.remoteApp.unminimizeMainWindow();
-    }
-    canMaximize = !canMaximize;
-  }
-
-  function onCloseApp() {
-    window.close();
+  async function onNewWindow() {
+    await AppWindow.openMainWindow(MainWindow, {}, appWindow.window.outerWidth, appWindow.window.outerHeight);
   }
 
   $: titleStore = selectedApp?.title;
@@ -101,7 +88,12 @@
   .right {
     padding-inline-end: 8px;
   }
-  .right :global(button) {
+  .new-window {
+    background-color: var(--workspace-color);
+    padding-inline-start: 4px;
+  }
+  .right :global(button),
+  .new-window :global(button) {
     color: white;
     padding-inline-start: 8px;
     padding-inline-end: 8px;
@@ -109,9 +101,6 @@
   .right :global(.maximize) {
     padding-inline-start: 10px;
     padding-inline-end: 10px;
-  }
-  .right :global(.minimize svg) {
-    margin-block-start: 8px; /* Find better icon */
   }
   .free {
     app-region: drag;
@@ -159,11 +148,12 @@
   .mac.os-rtl .app-logo {
     margin-inline-start: 0px;
   }
-  :global([dir="rtl"]) .mac:not(.os-rtl) .search-box,
-  .mac.os-rtl .search-box {
+  /* UI and macOS writing directions differ: The traffic lights are at the end, after the New window button */
+  :global([dir="rtl"]) .mac:not(.os-rtl) .new-window,
+  .mac.os-rtl .new-window {
     padding-inline-end: 80px;
   }
-  :global([dir="rtl"]) .mac .search-box {
+  :global([dir="rtl"]) .mac .new-window {
     padding-inline-end: 0px;
   }
 </style>

@@ -577,11 +577,13 @@
     // </copied>
   }
 
-  /* <copied from="../Message/RecipientsList.svelte"> */
+  /** Unlike `RecipientsList.svelte`, shows the whole email address, if there's no name,
+   * so that the user sees where the email goes. */
   function displayName(recipient: PersonUID): string {
     return recipient.name || recipient.emailAddress;
   }
 
+  /* <copied from="../Message/RecipientsList.svelte"> */
   function clipboardText(recipient: PersonUID): string {
     return recipient.name && recipient.name != recipient.emailAddress
       ? `${recipient.name} <${recipient.emailAddress}>`

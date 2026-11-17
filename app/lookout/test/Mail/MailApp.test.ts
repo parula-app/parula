@@ -221,6 +221,39 @@ test("Mustang keys for junk and read: Ctrl+J junk, Ctrl+Alt reverses (like Outlo
   ]));
 });
 
+test("Single keys in the message list: j junk, Shift+J not junk, m toggles read (like Thunderbird)", async () => {
+  let list = document.querySelector<HTMLElement>(".message-list");
+  expect(list).toBeTruthy();
+  select(message(0), message(2));
+  expect(handled("j", {}, list)).toBe(true);
+  expect(handled("J", { shiftKey: true }, list)).toBe(true);
+  // All read
+  expect(handled("m", {}, list)).toBe(true);
+  await vi.waitFor(() => expect(done).toEqual([
+    "Message 0 junk true", "Message 2 junk true",
+    "Message 0 junk false", "Message 2 junk false",
+    "Message 0 read false", "Message 2 read false",
+  ]));
+  // Not most are read
+  done = [];
+  message(0).isRead = false;
+  expect(handled("m", {}, list)).toBe(true);
+  await vi.waitFor(() => expect(done).toEqual([
+    "Message 0 read true", "Message 2 read true",
+  ]));
+
+  // Only in the message list, so that typing elsewhere doesn't act on the messages
+  done = [];
+  expect(handled("j")).toBe(false);
+  expect(handled("m")).toBe(false);
+  // Nothing selected
+  select();
+  expect(handled("j", {}, list)).toBe(false);
+  expect(handled("m", {}, list)).toBe(false);
+  await sleep(0.01);
+  expect(done).toEqual([]);
+});
+
 test("Folders and dialogs", () => {
   select(message(1));
   expect(handled("V", { ctrlKey: true, shiftKey: true })).toBe(true);

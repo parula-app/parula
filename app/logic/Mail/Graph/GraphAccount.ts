@@ -3,6 +3,7 @@ import { AuthMethod } from "../../Abstract/Account";
 import { Provider } from "../../Auth/OAuth2URLs";
 import { GraphFolder } from "./GraphFolder";
 import { GraphSearchEMail } from "./GraphSearchEMail";
+import { GraphAutoResponder } from "./GraphAutoResponder";
 import type { TGraphFolder } from "./TGraphMail";
 import type { UUID } from "./TGraphGeneric";
 import type { EMail } from "../EMail";
@@ -443,6 +444,10 @@ export class GraphAccount extends ExchangeMailAccount {
 
   newSearch(): GraphSearchEMail {
     return new GraphSearchEMail();
+  }
+
+  newAutoResponder(): GraphAutoResponder {
+    return new GraphAutoResponder(this);
   }
 }
 
