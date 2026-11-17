@@ -331,8 +331,8 @@
     align-items: center;
     flex-shrink: 0;
     gap: 8px;
-    height: 30px;
-    padding: 0 8px;
+    min-height: 30px;
+    padding: 4px 8px;
     border: none;
     border-radius: var(--lo-radius-small);
     background: none;

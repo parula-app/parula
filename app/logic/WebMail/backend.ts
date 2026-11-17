@@ -24,7 +24,9 @@ export class WebMailBackend {
             // let json = await resultKy.json();
             return await kyFetch[resultType]();
           } catch (ex) {
-            throw new HTTPFetchError(ex);
+            let error = new HTTPFetchError(ex);
+            error.responseBody = await ex.response?.text().catch(() => undefined);
+            throw error;
           }
         } else {
           return kyFetch;
@@ -80,6 +82,8 @@ export class HTTPFetchError extends Error {
   hostname: string;
   /** `Retry-After`, in seconds, when the server rate-limited us */
   retryAfterSeconds: number;
+  /** The body of the server's error response, e.g. its error message as JSON */
+  responseBody: string;
 
   constructor(ex: Error) {
     super(ex?.message ?? ex + "");

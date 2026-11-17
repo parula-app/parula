@@ -1,4 +1,4 @@
-<hbox class="persons-toolbar">
+<hbox class="persons-toolbar window-drag">
   <AccountSelectorRound bind:selectedAccount {accounts} iconDefault={ChatIcon} />
   <hbox flex />
   <hbox class="buttons">

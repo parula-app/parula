@@ -104,6 +104,10 @@ export class PublicKey extends Observable {
     return !!address && this.userIDs.some(userID => userID.toLowerCase() == address);
   }
 
+  usableForEncryption(): boolean {
+    return true;
+  }
+
   get sortOrder(): number {
     return -(
       sanitize.translate(this.system, { [EncryptionSystem.PGP]: 2, [EncryptionSystem.SMIME]: 1 }, 0) +

@@ -6,6 +6,7 @@ import type { Contact } from "../Abstract/Contact";
 import type { PublicKey } from "../Mail/Encryption/PublicKey";
 import { SQLGroup } from "./SQL/SQLGroup";
 import { SQLPerson } from "./SQL/SQLPerson";
+import { CollectionIndex } from "../util/collections";
 import { appGlobal } from "../app";
 import { RunOnce } from "../util/flow/RunOnce";
 import { AbstractFunction, NotReached } from "../util/util";
@@ -22,6 +23,12 @@ export class Addressbook extends Account {
   syncState: string | null = null;
   readDBRunOnce = new RunOnce();
   readDBPersonsRunOnce = new RunOnce();
+  /** Lowercase email address -> `{ emailAddress, person }`. For `findPerson()`.
+   * When the user edits an email address, the `ContactEntry` stays the same object,
+   * but `emailAddressesLowercase` replaces its `{ emailAddress, person }` object with a new one,
+   * so the key of such an object never changes. */
+  readonly personsByEMailAddress = new CollectionIndex(this.persons,
+    person => person.emailAddressesLowercase, address => address.emailAddress);
 
   newPerson(): Person {
     return new Person(this);

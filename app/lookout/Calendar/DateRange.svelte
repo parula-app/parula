@@ -10,28 +10,40 @@
   <button class="arrow-button" title={nextLabel} aria-label={nextLabel} on:click={() => page(1)}>
     <NextIcon size="16" />
   </button>
-  <h1 class="title">{range.title(getDateTimeLocale())}</h1>
+  <h1 class="title">
+    <button class="title-button" title={$t`Choose month and year`} bind:this={titleButtonEl}
+      on:click|stopPropagation={() => isPickerOpen = !isPickerOpen}>
+      <span class="title-text">{range.title(getDateTimeLocale())}</span>
+      <ChevronIcon size="16" />
+    </button>
+  </h1>
   <hbox flex />
   <slot />
 </hbox>
+<MonthYearPicker bind:isOpen={isPickerOpen} anchor={titleButtonEl} placement="bottom-start" month={range.month}
+  on:change={event => goToMonth(event.detail)} />
 
 <script lang="ts">
-  import { CalendarRange } from "./CalendarRange";
+  import type { CalendarRange } from "../../frontend/Calendar/CalendarRange";
   import { eventPeek } from "./selected";
   import { selectedDate, startDate } from "../../frontend/Calendar/selected";
-  import { getToday } from "../../logic/util/date";
+  import { changeMonth, getToday } from "../../logic/util/date";
+  import MonthYearPicker from "../../frontend/Calendar/MonthYearPicker.svelte";
   import PreviousIcon from "lucide-svelte/icons/chevron-left";
   import NextIcon from "lucide-svelte/icons/chevron-right";
+  import ChevronIcon from "lucide-svelte/icons/chevron-down";
   import { getDateTimeLocale, t } from "../../l10n/l10n";
 
   export let date: Date;
   export let range: CalendarRange;
   export let showToday = true;
 
+  // <copied to="../../frontend/Calendar/DateRange.svelte">
   $: isMonth = range.view == "month";
   $: stepsByDay = (range.view == "day" || range.view == "schedule") && range.days.length == 1 || range.view == "dual";
   $: previousLabel = isMonth ? $t`Previous month` : stepsByDay ? $t`Previous day` : $t`Previous *=> Show the previous week or days in the calendar`;
-  $: nextLabel = isMonth ? $t`Next month` : stepsByDay ? $t`Next day` : $t`Next`;
+  $: nextLabel = isMonth ? $t`Next month` : stepsByDay ? $t`Next day` : $t`Next *=> Show the next week or days in the calendar`;
+  // </copied>
 
   function goToToday() {
     $eventPeek = null;
@@ -42,7 +54,16 @@
 
   function page(direction: number) {
     $eventPeek = null;
-    date = CalendarRange.step(range.view, date, range.days.length, direction);
+    date = range.step(date, direction);
+  }
+
+  let titleButtonEl: HTMLButtonElement;
+  let isPickerOpen = false;
+
+  /** Shows the same day in the chosen month */
+  function goToMonth(month: Date) {
+    $eventPeek = null;
+    date = changeMonth(date, month);
   }
 </script>
 
@@ -83,11 +104,38 @@
     background-color: var(--lo-pressed-bg);
   }
   .title {
-    margin: 0 0 0 12px;
+    margin: 0;
+    margin-inline-start: 6px;
     font-size: var(--lo-font-size-large);
     font-weight: 600;
+    overflow: hidden;
+  }
+  .title-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--lo-radius-small);
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .title-button:hover {
+    background-color: var(--lo-hover-bg);
+  }
+  .title-button:active {
+    background-color: var(--lo-pressed-bg);
+  }
+  .title-text {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .title-button :global(svg) {
+    flex-shrink: 0;
+    color: var(--lo-fg-secondary);
   }
 </style>
