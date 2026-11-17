@@ -117,3 +117,42 @@ test("Key without a certificate has no user ID, and still gets a proper file nam
   key.name = "A1B2";
   expect(key.keyFilename("SecretKey", "key")).toBe("SecretKey-A1B2.key");
 });
+
+describe("A private key file with an algorithm that we don't support names it", () => {
+  test("for the key", async () => {
+    await expect(SMIMEPrivateKey.importPrivateKey(kEd25519Key)).rejects.toThrow("1.3.101.112");
+  });
+
+  test("for the encryption of the key", async () => {
+    await expect(SMIMEPrivateKey.importPrivateKey(kKeyEncryptedWith3DES, "secret")).rejects.toThrow("pbeWithSHAAnd3KeyTripleDESCBC");
+  });
+
+  test("for the derivation of the key from the passphrase", async () => {
+    await expect(SMIMEPrivateKey.importPrivateKey(kKeyEncryptedWithScrypt, "secret")).rejects.toThrow("1.3.6.1.4.1.11591.4.11");
+  });
+});
+
+/** `openssl genpkey -algorithm ed25519` */
+const kEd25519Key = `
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIP6/tqerB7SMIHN7GVdbpt1Ct6Rzr6mjsbUR+xUMiNrz
+-----END PRIVATE KEY-----
+`;
+
+/** `openssl pkcs8 -topk8 -v1 PBE-SHA1-3DES -passout pass:secret` */
+const kKeyEncryptedWith3DES = `
+-----BEGIN ENCRYPTED PRIVATE KEY-----
+MFgwHAYKKoZIhvcNAQwBAzAOBAiQSwKeX31gvwICCAAEOH1JE8Znu412b5RXrwBN
+dN5TheRqvMwPBKXonkn+vsvM4VyH3IhcbUoqi0ff0dTozgmZdtE6Hrk/
+-----END ENCRYPTED PRIVATE KEY-----
+`;
+
+/** `openssl pkcs8 -topk8 -scrypt -passout pass:secret` */
+const kKeyEncryptedWithScrypt = `
+-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIGTME8GCSqGSIb3DQEFDTBCMCEGCSsGAQQB2kcECzAUBAgr2U09a5pdOgICQAAC
+AQgCAQEwHQYJYIZIAWUDBAEqBBAAcHlW7CRrNqWeArdA2eU7BECJnsPsSsjiWvn3
+t3ZLn8I8FYN0WzqP93rX9PlNKjy6iKAYTfB4yNmUzxbAcehrOYB6LKfZN0Rcp4T2
+ypk/EELY
+-----END ENCRYPTED PRIVATE KEY-----
+`;

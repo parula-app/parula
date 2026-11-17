@@ -10,7 +10,7 @@
 
 <script lang="ts">
   import { AccountSettingsCategory, type SettingsCategory } from "../../../frontend/Settings/SettingsCategory";
-  import { selectedCategory, selectedAccount } from "./selected";
+  import { selectedCategory, selectedAccount } from "../../../frontend/Settings/Window/selected";
   import SubCategoriesList from "./SubCategoriesList.svelte";
   import AccountsList from "./AccountsList.svelte";
 

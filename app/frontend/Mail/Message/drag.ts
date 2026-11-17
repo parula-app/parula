@@ -7,7 +7,7 @@ import { assert } from "../../../logic/util/util";
 import { gt } from "../../../l10n/l10n";
 
 /** The messages that the user drags right now. They may be dropped into another window. */
-let draggedMessages: EMail[] = [];
+export let draggedMessages: EMail[] = [];
 
 export function onDragStartMail(event: DragEvent, message: EMail) {
   selectedMessage.set(message);

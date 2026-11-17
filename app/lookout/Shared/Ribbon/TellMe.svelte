@@ -1,5 +1,5 @@
 <hbox class="tell-me" class:expanded={isExpanded} class:active={isActive} bind:this={fieldEl}>
-  <button class="tell-me-button"
+  <button class="tell-me-button" bind:this={buttonEl}
     title={$t`Tell me what you want to do`}
     aria-label={$t`Tell me what you want to do`}
     aria-expanded={isExpanded}
@@ -42,6 +42,7 @@
     <MenuItem label={$t`No matching commands`} disabled />
   {/each}
 </Menu>
+<svelte:window on:keydown={onKeyOnWindow} />
 
 <script lang="ts">
   import { searchRibbonCommands, type RibbonCommandEntry } from "./RibbonCommands";
@@ -50,6 +51,7 @@
   import MenuLabel from "../Menu/MenuLabel.svelte";
   import TellMeIcon from "lucide-svelte/icons/lightbulb";
   import type { RibbonState } from "./RibbonGroup";
+  import { getOSName } from "../../../frontend/Util/util";
   import { get } from "svelte/store";
   import { tick } from "svelte";
   import { t } from "../../../l10n/l10n";
@@ -57,6 +59,7 @@
   export let ribbon: RibbonState;
 
   let fieldEl: HTMLElement;
+  let buttonEl: HTMLButtonElement;
   let inputEl: HTMLInputElement;
   let menu: Menu;
   let searchTerm = "";
@@ -85,6 +88,23 @@
     isExpanded = true;
     await tick();
     inputEl?.focus();
+  }
+
+  function onKeyOnWindow(event: KeyboardEvent) {
+    // <copied from="../../MainWindow/MainWindow.svelte">
+    let target = event.target as HTMLElement;
+    if (event.defaultPrevented || event.cancelBubble || document.querySelector("dialog:modal") ||
+        target?.closest?.("[contenteditable]:not([contenteditable='false'])")) {
+      return;
+    }
+    // </copied>
+    // Option+Q types a character on macOS
+    if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.code == "KeyQ" &&
+        getOSName() != "macintosh" && buttonEl?.getClientRects().length) {
+      event.preventDefault();
+      event.stopPropagation();
+      buttonEl.click();
+    }
   }
 
   async function onFocus() {

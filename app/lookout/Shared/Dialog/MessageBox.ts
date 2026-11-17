@@ -1,4 +1,4 @@
-import { writable } from "svelte/store";
+import { get, writable } from "svelte/store";
 import { gt } from "../../../l10n/l10n";
 
 export interface MessageBoxQuestion {
@@ -11,10 +11,8 @@ export interface MessageBoxQuestion {
 
 export const messageBoxQuestion = writable<MessageBoxQuestion | null>(null);
 
-let pendingQuestion: MessageBoxQuestion | null = null;
-
 export function showMessageBox(title: string, message: string, okLabel = gt`OK`, cancelLabel = gt`Cancel`): Promise<boolean> {
-  pendingQuestion?.answer(false);
+  get(messageBoxQuestion)?.answer(false);
   return new Promise(resolve => {
     let question: MessageBoxQuestion = {
       title,
@@ -22,15 +20,13 @@ export function showMessageBox(title: string, message: string, okLabel = gt`OK`,
       okLabel,
       cancelLabel,
       answer: ok => {
-        if (pendingQuestion != question) {
+        if (get(messageBoxQuestion) != question) {
           return;
         }
-        pendingQuestion = null;
         messageBoxQuestion.set(null);
         resolve(ok);
       },
     };
-    pendingQuestion = question;
     messageBoxQuestion.set(question);
   });
 }
