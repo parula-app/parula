@@ -5,7 +5,7 @@ import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayFromHex } from
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
 import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
-import { assert } from "../../../util/util";
+import { assert, NotImplemented } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -13,7 +13,6 @@ import { gt } from "../../../../l10n/l10n";
 
 export class SMIMEPublicKey extends PublicKey {
   system = EncryptionSystem.SMIME;
-  cipher = "RSA";
   /**
    * Armored (base64-encoded) public S/MIME certificate
    */
@@ -54,15 +53,21 @@ export class SMIMEPublicKey extends PublicKey {
    */
   async setCertificate(cert: Certificate) {
     let publicKey = cert.tbsCertificate.publicKey;
-    if (!this.id && publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
-      this.cipher = "EC";
-      this.keyLengthInBits = this.curveBits(publicKey);
+    if (!this.id) {
+      let { algorithm } = publicKey.algorithmIdentifier;
+      switch (algorithm) {
+      case "ecPublicKey":
+        this.cipher = "EC";
+        this.keyLengthInBits = this.curveBits(publicKey);
+        break;
+      case "rsaEncryption":
+        this.cipher = "RSA";
+        this.keyLengthInBits = sanitize.bigint(RSAPublicKey.decode(publicKey.subjectPublicKey.data).n).toString(16).length * 4;
+        break;
+      default:
+        throw new NotImplemented(gt`Certificates with ${typeof algorithm == "string" ? algorithm : algorithm.join(".")} keys are not supported`);
+      }
       this.id = this.publicKeyID(publicKey);
-    } else if (!this.id) {
-      let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-      let id = sanitize.bigint(rsa.n).toString(16);
-      this.id = this.keyID(rsa);
-      this.keyLengthInBits = id.length * 4;
     }
     this.publicKeyArmored = Certificate.encodePEM(cert, { label: "CERTIFICATE" });
     this._decodedCertificate = cert;
@@ -78,16 +83,9 @@ export class SMIMEPublicKey extends PublicKey {
     this.obsolete = now < this.created.getTime();
   }
 
-  /** A hash, because anybody can make a key whose modulus ends in the same digits */
-  protected keyID(rsa: RSAPublicKey): string {
-    return uint8ArrayToHex(sha256(RSAPublicKey.encode(rsa)));
-  }
-
+  /** A hash of the key, because anybody can make a key whose modulus ends in the same digits */
   protected publicKeyID(publicKey: SubjectPublicKeyInfo): string {
-    if (publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
-      return uint8ArrayToHex(sha256(publicKey.subjectPublicKey.data));
-    }
-    return this.keyID(RSAPublicKey.decode(publicKey.subjectPublicKey.data));
+    return uint8ArrayToHex(sha256(publicKey.subjectPublicKey.data));
   }
 
   /** Sets this key's certificate if it has none yet or the certificate is for the same key, otherwise adds it to the chain */
