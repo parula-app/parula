@@ -13,10 +13,16 @@ let resizeCallbacks: (() => void)[] = [];
 
 beforeAll(() => {
   (globalThis as any).ResizeObserver = class {
+    callback: () => void;
     constructor(callback: () => void) {
+      this.callback = callback;
       resizeCallbacks.push(callback);
     }
-    observe() {}
+    observe() {
+      if (layout.list) { // A browser reports the size once when observing starts, if the element has a box
+        setTimeout(this.callback);
+      }
+    }
     unobserve() {}
     disconnect() {}
   };
@@ -105,6 +111,18 @@ async function resized() {
   await settle();
 }
 
+/** The list is hidden, e.g. `display: none`: nothing has a box */
+async function hide() {
+  layout = { list: 0, header: 0, row: 0 };
+  await resized();
+}
+
+/** The list is shown again with its normal size */
+async function show() {
+  layout = { list: 200, header: 22, row: 20 };
+  await resized();
+}
+
 function renderedItems(list: HTMLElement): string[] {
   return [...list.querySelectorAll(".row .cell")].map(cell => cell.textContent);
 }
@@ -112,6 +130,22 @@ function renderedItems(list: HTMLElement): string[] {
 /** How many rows fit into the list, when it's scrolled to the top */
 function visibleRowCount(withHeader: boolean): number {
   return Math.ceil((layout.list - (withHeader ? layout.header : 0)) / layout.row);
+}
+
+/** The scroll area: all rows, plus the header */
+function expectCanvasHeight(list: HTMLElement, items: ArrayColl<string>, withHeader: boolean) {
+  let canvas = list.querySelector(".canvas") as HTMLElement;
+  expect(canvas.style.height).toBe((items.length * layout.row + (withHeader ? layout.header : 0)) + "px");
+}
+
+/** The rows at the top, and the selected row after keys, are where the browser lays them out */
+async function expectListWorks(list: HTMLElement, items: ArrayColl<string>, withHeader: boolean) {
+  expect(renderedItems(list).slice(0, visibleRowCount(withHeader))).toEqual(items.contents.slice(0, visibleRowCount(withHeader)));
+  expectCanvasHeight(list, items, withHeader);
+  for (let key of ["End", ...Array(12).fill("ArrowUp"), "Home", "PageDown", "ArrowDown"]) {
+    await press(list, key);
+    expectSelectedRowFullyVisible(list, items, withHeader, key);
+  }
 }
 
 function expectSelectedRowFullyVisible(list: HTMLElement, items: ArrayColl<string>, withHeader: boolean, afterKey: string) {
@@ -217,4 +251,55 @@ for (let withHeader of [false, true]) {
       expectSelectedRowFullyVisible(list, items, withHeader, key);
     }
   });
+
+  test(`A list that is hidden (\`display: none\`) and shown again shows its rows, ${headerText}`, async () => {
+    let items = newItems(50);
+    let list = await mountList(items, withHeader);
+    await hide();
+    await show();
+    await expectListWorks(list, items, withHeader);
+  });
+
+  test(`A list that gets items while hidden shows them when shown, ${headerText}`, async () => {
+    let items = new ArrayColl<string>();
+    let list = await mountList(items, withHeader);
+    await hide();
+    items.addAll(newItems(50).contents);
+    await settle();
+    await show();
+    await expectListWorks(list, items, withHeader);
+  });
+
+  test(`A list that is hidden when it opens is measured when it's shown, ${headerText}`, async () => {
+    layout = { list: 0, header: 0, row: 0 };
+    let items = newItems(50);
+    let list = await mountList(items, withHeader);
+    await show();
+    await expectListWorks(list, items, withHeader);
+  });
+
+  test(`Rows that arrive one by one after the list opens are measured, ${headerText}`, async () => {
+    let items = new ArrayColl<string>();
+    let list = await mountList(items, withHeader);
+    for (let item of newItems(50).contents) {
+      items.add(item);
+      flushSync();
+    }
+    await settle();
+    await expectListWorks(list, items, withHeader);
+  });
 }
+
+test(`A header that appears after the list opens is counted from the next resize`, async () => {
+  let items = newItems(50);
+  let list = await mountList(items, false);
+  app.setHeader(true);
+  await resized();
+  await expectListWorks(list, items, true);
+});
+
+test(`An empty list with a header is as high as its header (the account list is as high as its list)`, async () => {
+  let items = new ArrayColl<string>();
+  let list = await mountList(items, true);
+  expectCanvasHeight(list, items, true);
+});

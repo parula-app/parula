@@ -15,4 +15,9 @@
 
   export let items: Collection<string>;
   export let withHeader = false;
+
+  /** The header appears or goes away while the list is shown */
+  export function setHeader(show: boolean) {
+    withHeader = show;
+  }
 </script>

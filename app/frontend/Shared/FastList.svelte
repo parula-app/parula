@@ -114,7 +114,8 @@
   /** The `items` that the `init` event was dispatched for */
   let initDoneForItems: Collection<T> = null;
 
-  $: headerHeight = (headerE?.firstElementChild as HTMLElement)?.offsetHeight ?? 0;
+  /** 0 without a header. Measured with the rows in `updateSize()`, so also when the list is shown or resized. {integer} in px */
+  let headerHeight = 0;
 
   /**
    * Height of the DOM elements for a single row.
@@ -161,10 +162,11 @@
    */
   async function updateSize() {
     try {
-      if (items.isEmpty) {
+      await tick();
+      if (!listE?.offsetHeight) { // Hidden, e.g. `display: none`: all measures 0. `resizeObserver` calls this again when it's shown.
         return;
       }
-      await tick();
+      headerHeight = (headerE.firstElementChild as HTMLElement)?.offsetHeight ?? 0;
       let contentRow = contentE?.firstElementChild?.firstElementChild as HTMLElement;
       if (!contentRow) {
         return;
