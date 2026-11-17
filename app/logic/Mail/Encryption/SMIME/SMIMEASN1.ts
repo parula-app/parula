@@ -170,6 +170,11 @@ export const Oid = define<string>("Oid", function() {
   this.objid(oids);
 });
 
+/** Our name for the algorithm, or its OID for those that we don't know */
+export function algorithmName(algorithm: string | number[]): string {
+  return typeof algorithm == "string" ? algorithm : algorithm.join(".");
+}
+
 export const GeneralTime = define<number>("GeneralTime", function() {
   this.gentime();
 });

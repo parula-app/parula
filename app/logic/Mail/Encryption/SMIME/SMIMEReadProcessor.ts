@@ -3,7 +3,7 @@ import { EMail } from "../../EMail";
 import { findAllIdentities } from "../../MailIdentity";
 import { EncryptionSystem } from "../enums";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
-import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, SignedData } from "./SMIMEASN1";
+import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, SignedData, algorithmName } from "./SMIMEASN1";
 import { decryptAuthEnveloped } from "./SMIMEDecrypt";
 import { BlockType, unpadPKCS, decrypt } from "./SMIMERSAES";
 import { verifySignedData } from "./SMIMEVerify";
@@ -83,8 +83,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
 
   protected checkCipher(algorithm: string | number[], supported: string[]) {
     if (!sanitize.enum(algorithm, supported, null)) {
-      let name = typeof algorithm == "string" ? algorithm : algorithm.join(".");
-      throw new NotImplemented(gt`This message is encrypted with ${name}, which is not supported`);
+      throw new NotImplemented(gt`This message is encrypted with ${algorithmName(algorithm)}, which is not supported`);
     }
   }
 
