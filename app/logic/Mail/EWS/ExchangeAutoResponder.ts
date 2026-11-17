@@ -46,10 +46,18 @@ export class ExchangeAutoResponder extends AutoResponder {
   ];
 }
 
-/** Exchange's `OofState`. EWS uses the names, OWA and ActiveSync the numbers. */
+/** Exchange's `OofState`. EWS uses the names, OWA and ActiveSync the numbers.
+ * `oofState` maps it to `isOn` and `scheduled`. */
 export enum OOFState {
+  /** No automatic replies. Not `isOn`. */
   Disabled = 0,
+  /** Replies to all incoming mail, from now on until the user turns it off.
+   * The start and end time don't matter.
+   * `isOn`, not `scheduled`. */
   Enabled = 1,
+  /** Replies only to mail that arrives between the start and end time.
+   * Before and after, Exchange doesn't reply, without the user having to turn it off.
+   * `isOn` and `scheduled`. */
   Scheduled = 2,
 }
 

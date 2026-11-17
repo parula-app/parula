@@ -12,12 +12,18 @@ import { gt } from "../../l10n/l10n";
 export class AutoResponder extends Observable {
   readonly account: MailAccount;
 
-  /** The user switched the automatic replies on.
-   * With `scheduled`, the server replies only between `startTime` and `endTime`.
+  /** The user switched the automatic replies on:
+   * - `isOn` and not `scheduled`: The server replies to all incoming mail,
+   *   from now on until the user switches it off. `startTime` and `endTime` don't matter.
+   * - `isOn` and `scheduled`: The server replies only to mail that arrives
+   *   between `startTime` and `endTime`. Before and after, it doesn't reply,
+   *   without the user having to switch it off.
+   * - Not `isOn`: The server doesn't reply. `scheduled` and the times don't matter.
+   *
    * Whether the account can have an auto-responder at all is `supported`. */
   @notifyChangedProperty
   isOn = false;
-  /** Reply only between `startTime` and `endTime` */
+  /** Reply only between `startTime` and `endTime`. Only if `isOn`. */
   @notifyChangedProperty
   scheduled = false;
   @notifyChangedProperty
