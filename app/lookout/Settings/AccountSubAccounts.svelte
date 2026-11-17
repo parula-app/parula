@@ -41,7 +41,7 @@
 <script lang="ts">
   import type { Account } from "../../logic/Abstract/Account";
   import { accountSettings } from "./SettingsCategories";
-  import { selectedCategory, selectedAccount } from "./Window/selected";
+  import { selectedCategory, selectedAccount } from "../../frontend/Settings/Window/selected";
   import { getAccountIcon, getAccountMainTypeLabel, getAppGlobalListForAccount } from "../../frontend/Settings/Shared/accountUIHelper";
   import OptionsSection from "./Shared/OptionsSection.svelte";
   import OptionsRow from "./Shared/OptionsRow.svelte";

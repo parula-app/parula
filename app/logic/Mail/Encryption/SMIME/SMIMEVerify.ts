@@ -1,5 +1,4 @@
-import { DigestAlgorithm, SignatureAlgorithm, Attributes, SubjectPublicKeyInfo, RSAPublicKey, DigestInfo, OctetString, Oid, Null, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
-import { BlockType, unpadPKCS, encrypt, padFF } from "./SMIMERSAES";
+import { DigestAlgorithm, Attributes, SubjectPublicKeyInfo, OctetString, Oid, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 
@@ -31,22 +30,20 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
       sameName(sid.issuer, cert.tbsCertificate.issuer)) ?? cert;
   }
   let publicKey = cert.tbsCertificate.publicKey;
-  if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
-    console.log("certificate does not contain an RSA public key");
+  // `verify()` refuses other keys, too, but `addCertificate()` below throws for them first,
+  // and the mail would show that error instead of being unsigned
+  if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption" && publicKey.algorithmIdentifier.algorithm != "ecPublicKey") {
+    console.log("certificate does not contain an RSA or EC public key");
     return null;
   }
-  let digestAlgorithm = sanitize.translate(signerInfo.digestAlgorithm.algorithm, DigestAlgorithm);
-  // RFC 5652 section 10.1.2: signers write rsaEncryption, but verifiers
-  // should also accept e.g. sha256WithRSAEncryption, which some clients
-  // write instead. Its hash must match the digest algorithm.
-  if (signerInfo.signatureAlgorithm.algorithm != "rsaEncryption" &&
-      sanitize.translate(signerInfo.signatureAlgorithm.algorithm, SignatureAlgorithm, null) != digestAlgorithm) {
-    console.log("signature was not signed with RSA");
+  let digestAlgorithm = sanitize.translate(signerInfo.digestAlgorithm.algorithm, DigestAlgorithm, null);
+  if (!digestAlgorithm) {
+    console.log("message was digested with an algorithm that we do not know");
     return null;
   }
   let messageDigest = new Uint8Array(await crypto.subtle.digest(digestAlgorithm, content as BufferSource));
   // Without signed attributes, the signature covers the content digest directly.
-  let signedDigest = messageDigest;
+  let signedContent = content;
   if (signerInfo.signedAttrs) {
     // RFC 8551 section 2.4.1: MIME content is id-data. The eContentType is not signed.
     let contentTypeAttribute = signerInfo.signedAttrs.find(attr => attr.attrType == "contentType");
@@ -62,8 +59,7 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
       console.log("signed digest did not match message");
       return null;
     }
-    let signedAttrs = Attributes.encode(signerInfo.signedAttrs);
-    signedDigest = new Uint8Array(await crypto.subtle.digest(digestAlgorithm, signedAttrs));
+    signedContent = Attributes.encode(signerInfo.signedAttrs);
   }
   /* `await crypto.subtle.verify()` returns `false` on
    * correctly signed messages...
@@ -73,27 +69,14 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     return rsa.n.toString(16);
   }
   */
-  let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-  let block = encrypt(signerInfo.signature, rsa);
-  let digestInfo = DigestInfo.decode(unpadPKCS(block, BlockType.Signed));
-  if (digestInfo.digestAlgorithm.algorithm != signerInfo.digestAlgorithm.algorithm) {
-    console.log("signature algorithm mismatch");
-    return null;
-  }
-  if (indexedDB.cmp(digestInfo.digest, signedDigest)) {
-    console.log("signature did not match the signed digest");
-    return null;
-  }
-  digestInfo.digestAlgorithm.parameters = Null.encode();
-  if (indexedDB.cmp(block, padFF(DigestInfo.encode(digestInfo), rsa))) {
-    console.log("non-canonical signature padding");
-    return null;
-  }
   let signer = new SMIMEPublicKey();
   while (cert && await signer.addCertificate(cert)) {
     cert = certificates.find(chain =>
       sameName(chain.tbsCertificate.subject, cert.tbsCertificate.issuer));
   };
+  if (!await signer.verify(signerInfo.signature, signedContent, signerInfo.signatureAlgorithm, signerInfo.digestAlgorithm)) {
+    return null;
+  }
   if (!signer.allowsAnyKeyUsage(KeyUsageBit.digitalSignature, KeyUsageBit.nonRepudiation)) {
     return null;
   }

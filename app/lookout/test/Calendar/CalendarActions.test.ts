@@ -10,10 +10,12 @@ import type { OWACalendar } from "../../../logic/Calendar/OWA/OWACalendar";
 import { newCalendarForProtocol } from "../../../logic/Calendar/AccountsList/Calendars";
 import { appGlobal } from "../../../logic/app";
 import { CalendarActions } from "../../Calendar/CalendarActions";
-import { selectedCalendar } from "../../../frontend/Calendar/selected";
+import { selectedCalendar, selectedEvent } from "../../../frontend/Calendar/selected";
 import { openEvent } from "../../../frontend/Calendar/open";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 import { mockMessageBox } from "../Shared/Dialog/mockMessageBox";
 import { beforeEach, expect, test, vi } from "vitest";
+import { get } from "svelte/store";
 
 vi.mock("../../../frontend/Calendar/open", async (importOriginal) => ({
   ...await importOriginal<typeof import("../../../frontend/Calendar/open")>(),
@@ -136,5 +138,49 @@ test("A new appointment while a read-only calendar is selected goes into our own
     expect(colleague.events.isEmpty).toBe(true);
   } finally {
     appGlobal.calendars.removeAll([colleague, own]);
+  }
+});
+
+// Stands in for a second main window. `acting` is what `AppWindow.current()` returns first.
+class SecondMainWindow extends AppWindow {
+  constructor() {
+    super(window, "second");
+  }
+}
+
+test("Deleting an event deselects it in every window that shows it, and keeps the selection of the others", async () => {
+  let deleted = await savedEvent();
+  let kept = await savedEvent("Lunch");
+  let secondWindow = new SecondMainWindow();
+  AppWindow.opened.add(secondWindow);
+  try {
+    secondWindow.uiState(selectedEvent).set(deleted);
+    AppWindow.main.uiState(selectedEvent).set(kept);
+    await CalendarActions.deleteOccurrence(deleted);
+    expect(get(secondWindow.uiState(selectedEvent))).toBeNull();
+    expect(get(AppWindow.main.uiState(selectedEvent))).toBe(kept);
+  } finally {
+    AppWindow.opened.remove(secondWindow);
+  }
+});
+
+test("An event typed into the grid is selected in that window, also when another window is used while it saves", async () => {
+  let secondWindow = new SecondMainWindow();
+  AppWindow.opened.add(secondWindow);
+  try {
+    let selection = { start: new Date(2026, 9, 15, 9, 0), end: new Date(2026, 9, 15, 9, 30), allDay: false, calendar: newCalendar() };
+    let saving: Promise<void>;
+    AppWindow["acting"] = secondWindow;
+    try {
+      saving = CalendarActions.newEventWithTitle(selection, "Review");
+    } finally {
+      AppWindow["acting"] = null;
+    }
+    await saving;
+    let created = get(secondWindow.uiState(selectedEvent));
+    expect(created?.title).toBe("Review");
+    expect(get(AppWindow.main.uiState(selectedEvent))).not.toBe(created);
+  } finally {
+    AppWindow.opened.remove(secondWindow);
   }
 });

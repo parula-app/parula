@@ -23,33 +23,8 @@
   {/if}
 </hbox>
 
-<script lang="ts" context="module">
-  import { writable } from "svelte/store";
-
-  export interface StatusBarItem {
-    label: string;
-    icon?: ConstructorOfATypedSvelteComponent;
-    tooltip?: string;
-    busy?: boolean;
-  }
-
-  export interface StatusBarView {
-    label: string;
-    icon: ConstructorOfATypedSvelteComponent;
-    isActive: boolean;
-    onClick: () => void;
-  }
-
-  export interface StatusBarContent {
-    left: StatusBarItem[];
-    right: StatusBarItem[];
-    views: StatusBarView[];
-  }
-
-  export const statusBarContent = writable<StatusBarContent | null>(null);
-</script>
-
 <script lang="ts">
+  import { statusBarContent } from "./Selected";
   import StatusBarEntry from "./StatusBarEntry.svelte";
 </script>
 

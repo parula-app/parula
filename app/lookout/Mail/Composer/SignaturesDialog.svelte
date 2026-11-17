@@ -66,14 +66,6 @@
   <LinkDialog {editor} on:close={() => showLinkDialog = false} />
 {/if}
 
-<script lang="ts" context="module">
-  import type { EMail } from "../../../logic/Mail/EMail";
-  import type { Event } from "../../../logic/Calendar/Event";
-  import { writable } from "svelte/store";
-
-  export const openSignatures = writable<EMail | Event | null>(null);
-</script>
-
 <script lang="ts">
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import type { MailIdentity } from "../../../logic/Mail/MailIdentity";
