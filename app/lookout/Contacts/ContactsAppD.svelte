@@ -59,7 +59,7 @@
   import { selectedAddressbook, selectedContact } from "./Person/Selected";
   import { ContactActions } from "./ContactActions";
   import { defaultContactSearchOptions, hasContactRefiners, findContacts, matchesContactRefiners } from "./ContactSearch";
-  import { contactSearchOptions, ContactSearchScope } from "./Person/Selected";
+  import { contactSearchOptions, contactSearchInput, ContactSearchScope } from "./Person/Selected";
   import { ContactColumn, contactComparator, ContactView, type ContactSort } from "./Person/ContactColumns";
   import { LetterIndex } from "./LetterIndex";
   import { appGlobal } from "../../logic/app";
@@ -67,11 +67,11 @@
   import { globalSearchTerm } from "../../frontend/AppsBar/selectedApp";
   import { catchErrors } from "../../frontend/Util/error";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
-  import { statusBarContent, type StatusBarContent } from "../MainWindow/StatusBar.svelte";
+  import { statusBarContent, type StatusBarContent } from "../MainWindow/Selected";
   import Splitter from "../../frontend/Shared/Splitter.svelte";
   import ContactsRibbon from "./ContactsRibbon.svelte";
   import ContactSearchTab from "./Search/ContactSearchTab.svelte";
-  import ContactSearchBox, { contactSearchInput } from "./Search/ContactSearchBox.svelte";
+  import ContactSearchBox from "./Search/ContactSearchBox.svelte";
   import AddressbookSelector from "./AddressbookSelector.svelte";
   import PersonsList from "./Person/PersonsList.svelte";
   import PersonsTable from "./Person/PersonsTable.svelte";

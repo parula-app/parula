@@ -1,4 +1,4 @@
-<Ribbon>
+<Ribbon id="calendar-event-show">
   <RibbonTab label={tabLabel}>
     {#if isIncoming}
       <RibbonGroup label={$t`Respond *=> Ribbon group with commands to answer the meeting invitation`}>
@@ -108,10 +108,10 @@
         {#if isMeeting}
           <RibbonButton label={$t`Address Book`} icon={AddressBookIcon}
             tooltip={$t`Select attendees from the address book`}
-            onClick={() => { $openSelectAttendees = event; }} />
+            onClick={onSelectAttendees} />
           <RibbonButton label={$t`Check Names`} icon={CheckNamesIcon}
             tooltip={$t`Check the names you typed against your address books`}
-            onClick={() => { $checkNamesOf = event; }} />
+            onClick={onCheckNames} />
         {:else}
           <RibbonButton label={$t`Invite Attendees`} icon={InviteIcon}
             tooltip={$t`Turn this appointment into a meeting`}
@@ -127,7 +127,7 @@
           {/each}
         </RibbonMenuButton>
         <RibbonButton label={$t`Recurrence *=> Repetition of the event`} icon={RecurrenceIcon} shortCutInfo={$t`Ctrl+G *=> Keyboard shortcut`}
-          onClick={() => { $openRecurrence = event; }} />
+          onClick={onEditRecurrence} />
       </RibbonGroup>
     {/if}
   </RibbonTab>
@@ -136,12 +136,12 @@
     <RibbonTab label={schedulingLabel} bind:isSelected={isSchedulingSelected}>
       <RibbonGroup label={$t`Scheduling *=> Ribbon group to find a time when all attendees are available`}>
         <RibbonButton label={$t`Refresh Availability`} icon={RefreshIcon}
-          onClick={() => { $refreshAvailabilityOf = event; }} />
+          onClick={onRefreshAvailability} />
       </RibbonGroup>
       <RibbonGroup label={$t`Attendees *=> Ribbon group with commands for the attendees of the meeting`}>
         <RibbonButton label={$t`Add Attendees`} icon={AddAttendeesIcon}
           tooltip={$t`Select attendees from the address book`}
-          onClick={() => { $openSelectAttendees = event; }} />
+          onClick={onSelectAttendees} />
       </RibbonGroup>
     </RibbonTab>
   {/if}
@@ -157,7 +157,7 @@
     <InsertTab {editor} bind:openedTool onAttachFile={onAddAttachment} bind:showEmojis>
       <svelte:fragment slot="include">
         <RibbonMenuButton label={$t`Signature`} icon={SignatureIcon}>
-          <SignatureMenuItems identity={null} {editor} on:editSignatures={() => { $openSignatures = event; }} />
+          <SignatureMenuItems identity={null} {editor} on:editSignatures={onEditSignatures} />
         </RibbonMenuButton>
       </svelte:fragment>
     </InsertTab>
@@ -184,12 +184,7 @@
   import type { EditorTool } from "../../Shared/Editor/EditorTool";
   import type { Editor } from "@tiptap/core";
   import SignatureMenuItems from "../../Mail/Composer/SignatureMenuItems.svelte";
-  import { openSignatures } from "../../Mail/Composer/SignaturesDialog.svelte";
   import FileSelector from "../../../frontend/Mail/Composer/Attachments/FileSelector.svelte";
-  import { openSelectAttendees } from "./EditEvent.svelte";
-  import { openRecurrence } from "./RecurrenceDialog.svelte";
-  import { checkNamesOf } from "./ParticipantsBox.svelte";
-  import { refreshAvailabilityOf } from "./AvailabilityGrid.svelte";
   import type { MeetAccount } from "../../../logic/Meet/MeetAccount";
   import type { EventEditFlow } from "./EventEditFlow";
   import type { InvitationResponseInMessage } from "../../../logic/Calendar/Invitation/InvitationStatus";
@@ -239,6 +234,11 @@
   export let isTrackingSelected = false;
   export let onSave: () => Promise<void>;
   export let onDelete: () => Promise<void>;
+  export let onEditRecurrence: () => void;
+  export let onSelectAttendees: () => void;
+  export let onCheckNames: () => Promise<void>;
+  export let onRefreshAvailability: () => void;
+  export let onEditSignatures: () => void;
 
   $: participants = event.participants;
   $: isMeeting = $participants.hasItems;

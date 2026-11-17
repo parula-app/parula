@@ -109,7 +109,7 @@ test("New items from any module", () => {
   expect(writeMail).toHaveBeenCalledTimes(1);
 });
 
-test("F3 and Ctrl+E go to the search box, Alt+Q to Tell me", () => {
+test("F3 and Ctrl+E go to the search box", () => {
   let searchInput = () => document.querySelector(".title-bar .search-box input");
   expect(searchInput()).toBeTruthy();
   expect(handled("F3", { code: "F3" })).toBe(true);
@@ -119,19 +119,25 @@ test("F3 and Ctrl+E go to the search box, Alt+Q to Tell me", () => {
   expect(document.activeElement).toBe(searchInput());
   (document.activeElement as HTMLElement).blur();
   expect(handled("F3", { code: "F3", shiftKey: true })).toBe(false);
+});
 
-  let tellMe = document.createElement("button");
-  tellMe.className = "tell-me-button";
-  Object.defineProperty(tellMe, "offsetParent", { get: () => document.body });
-  let clicked = vi.fn();
-  tellMe.addEventListener("click", clicked);
-  document.body.append(tellMe);
+test("Alt+Q goes to the search box when no Tell me took it", () => {
+  let searchInput = () => document.querySelector(".title-bar .search-box input");
   expect(handled("q", { code: "KeyQ", altKey: true })).toBe(true);
-  expect(clicked).toHaveBeenCalledTimes(1);
+  expect(document.activeElement).toBe(searchInput());
+  (document.activeElement as HTMLElement).blur();
+
+  // A ribbon's Tell me handles the key before
+  let tellMe = (event: KeyboardEvent) => event.preventDefault();
+  window.addEventListener("keydown", tellMe);
+  expect(handled("q", { code: "KeyQ", altKey: true })).toBe(true);
+  window.removeEventListener("keydown", tellMe);
+  expect(document.activeElement).not.toBe(searchInput());
+
   // Option+Q types "œ" on macOS
   onMac();
   expect(handled("œ", { code: "KeyQ", altKey: true })).toBe(false);
-  expect(clicked).toHaveBeenCalledTimes(1);
+  expect(document.activeElement).not.toBe(searchInput());
 });
 
 test("Ctrl+F1 collapses and expands the ribbon", () => {

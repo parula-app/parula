@@ -48,7 +48,7 @@
   import { calendarColors } from "./CalendarColors";
   import { MailAccount } from "../../logic/Mail/MailAccount";
   import { catchErrors } from "../../frontend/Util/error";
-  import { openCalendarProperties } from "./CalendarPropertiesDialog.svelte";
+  import { openCalendarProperties } from "./selected";
   import ContextMenu from "../Shared/Menu/ContextMenu.svelte";
   import MenuItem from "../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../Shared/Menu/MenuDivider.svelte";

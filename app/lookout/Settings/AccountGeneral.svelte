@@ -63,7 +63,7 @@
 <script lang="ts">
   import type { Account } from "../../logic/Abstract/Account";
   import { accountSettings, settingsCategories } from "./SettingsCategories";
-  import { selectedCategory, selectedAccount as selectedSettingsAccount } from "./Window/selected";
+  import { selectedCategory, selectedAccount as selectedSettingsAccount } from "../../frontend/Settings/Window/selected";
   import { selectedAccount, selectedFolder, selectedMessage, selectedMessages } from "../../frontend/Mail/Selected";
   import { getAccountIcon } from "../../frontend/Settings/Shared/accountUIHelper";
   import { getAccountTypeLabel } from "./Shared/AccountLabels";

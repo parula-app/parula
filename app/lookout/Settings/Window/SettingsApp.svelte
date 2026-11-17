@@ -12,7 +12,7 @@
 <script lang="ts">
   import type { Account } from "../../../logic/Abstract/Account";
   import { settingsCategories, accountSettings } from "../SettingsCategories";
-  import { selectedCategory, selectedAccount } from "./selected";
+  import { selectedCategory, selectedAccount } from "../../../frontend/Settings/Window/selected";
   import { mustangApps } from "../../../frontend/AppsBar/selectedApp";
   import CategoriesPane from "./CategoriesPane.svelte";
   import MainContent from "./MainContent.svelte";
