@@ -6,14 +6,14 @@ import { get } from "svelte/store";
 import { assert } from "../../../logic/util/util";
 import { gt } from "../../../l10n/l10n";
 
+/** The messages that the user drags right now. They may be dropped into another window. */
+let draggedMessages: EMail[] = [];
+
 export function onDragStartMail(event: DragEvent, message: EMail) {
   selectedMessage.set(message);
   let messages = get(selectedMessages);
-  if (messages.contains(message)) {
-    event.dataTransfer.setData("message/drag-ids", messages.contents.map(msg => msg.id).join(","));
-  } else {
-    event.dataTransfer.setData("message/drag-ids", message.id);
-  }
+  draggedMessages = messages.contains(message) ? messages.contents : [ message ];
+  event.dataTransfer.setData("message/drag-ids", draggedMessages.map(msg => msg.id).join(","));
   event.dataTransfer.effectAllowed = "copyMove";
   let icon = new Image();
   icon.src = "icon/mails.png"; // TODO Loads too late
@@ -22,21 +22,13 @@ export function onDragStartMail(event: DragEvent, message: EMail) {
 
 export async function onDropMail(event: DragEvent, folder: Folder) {
   event.preventDefault();
-  let message = get(selectedMessage);
+  let messages = draggedMessages;
   let msgIDsStr = event.dataTransfer.getData("message/drag-ids");
-  if (!message || !msgIDsStr) {
+  if (!messages.length || !msgIDsStr) {
     return;
   }
   let msgIDs = msgIDsStr.split(",");
-  let messages = get(selectedMessages).contents;
-  if (msgIDs.length == 0) {
-    return;
-  } else if (msgIDs.length == 1) {
-    assert(msgIDs[0] == message.id, gt`Drag&drop failed: Selected message ID doesn't match the drag data`);
-    messages = [ message ];
-  } else {
-    assert(messages.every(msg => msgIDs.includes(msg.id)), gt`Drag&drop failed: Selected message IDs don't match the drag data`);
-  }
+  assert(msgIDs.length == messages.length && messages.every(msg => msgIDs.includes(msg.id)), gt`Drag&drop failed: Selected message IDs don't match the drag data`);
   if (event.ctrlKey || event.metaKey) {
     await folder.copyMessagesHere(new ArrayColl(messages));
   } else {

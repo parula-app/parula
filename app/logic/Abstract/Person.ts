@@ -7,6 +7,7 @@ import { getPublicKeyForPerson } from '../Mail/Encryption/KeyUtils';
 import { SMIMEPublicKey } from '../Mail/Encryption/SMIME/SMIMEPublicKey';
 import { appGlobal } from '../app';
 import { notifyChangedObservable, notifyChangedProperty, Observable } from '../util/Observable';
+import { ObservableMapToCollection } from '../util/collections';
 import { ArrayColl } from 'svelte-collections';
 import { sanitize } from '../../../lib/util/sanitizeDatatypes';
 import { gt } from '../../l10n/l10n';
@@ -19,6 +20,10 @@ export class Person extends ContactBase {
   lastName: string | null;
   readonly groups = new ArrayColl<ContactEntry>();
   readonly emailAddresses = new ArrayColl<ContactEntry>();
+  /** Each email address in lowercase, with this person. Follows the changes.
+   * For `Addressbook.personsByEMailAddress` */
+  readonly emailAddressesLowercase = new ObservableMapToCollection(this.emailAddresses,
+    entry => ({ emailAddress: entry.value?.toLowerCase(), person: this as Person }));
   readonly chatAccounts = new ArrayColl<ContactEntry>();
   readonly phoneNumbers = new ArrayColl<ContactEntry>();
   /** `StreetAddress` */

@@ -33,6 +33,29 @@ export function getBaseDomainFromURL(url: string): string {
   return getBaseDomainFromHost(hostname);
 }
 
+/**
+ * Links in mails often go to a tracker, which records the click,
+ * and then forwards to the real page, which is in a URL parameter.
+ * E.g. for "https://click.tracker.com/c?id=5&u=https%3A%2F%2Fshop.com%2Fshoes"
+ * returns "https://shop.com/shoes", i.e. the first URL parameter that is an https: URL.
+ * @returns `url`, if there is no such URL parameter
+ */
+export function removeTrackingURL(url: string): string {
+  let parsed = URL.parse(url);
+  if (!parsed || !["https:", "http:"].includes(parsed.protocol)) {
+    return url; // e.g. `mailto:fred@foo.com?body=https://...`
+  }
+  for (let value of parsed.searchParams.values()) {
+    if (value.startsWith("https:")) {
+      let target = URL.parse(value);
+      if (target) {
+        return target.href;
+      }
+    }
+  }
+  return url;
+}
+
 /** Resolves once the network is online: at once if it already is, else when
  * the browser fires `online`, e.g. after the OS wakes from sleep. */
 export function waitUntilOnline(): Promise<void> {

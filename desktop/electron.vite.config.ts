@@ -37,6 +37,9 @@ export default defineConfig({
     /* The same HTML shell as the browser and mobile builds. `electron-vite` would
      * otherwise default to `src/renderer/index.html`, and that copy drifted. */
     root: resolve(import.meta.dirname, '../app'),
+    /* Not `app/node_modules/.vite` of the `app/` dev server: with different configs, the 2 servers would
+     * overwrite each other's pre-bundled dependencies there, and the dev window would load 2 copies of Svelte. */
+    cacheDir: resolve(import.meta.dirname, 'node_modules/.vite/renderer'),
     build: {
       sourcemap: production,
       rollupOptions: {

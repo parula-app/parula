@@ -1,4 +1,4 @@
-<WebView {html} {headHTML} allowServerCalls={allowExternalImages} title={$t`Text`} on:webview />
+<WebView {html} {headHTML} allowServerCalls={allowExternalImages} askBeforeOpeningLinks title={$t`Text`} on:webview />
 
 <script lang="ts">
   import cssContent from "./content.css?inline";

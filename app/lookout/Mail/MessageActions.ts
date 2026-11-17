@@ -133,6 +133,12 @@ export class MessageActions {
       message.isSpam || message.folder?.specialFolder == SpecialFolder.Spam);
   }
 
+  /** If all messages are junk, marks them as not junk. Otherwise, marks them as junk. */
+  static async toggleJunk(messages: EMail[]) {
+    let isJunk = !MessageActions.isJunk(messages);
+    await Promise.all(messages.map(message => message.treatSpam(isJunk)));
+  }
+
   static async toggleTag(messages: EMail[], tag: Tag) {
     let haveAll = messages.every(message => message.tags.contains(tag));
     await Promise.all(messages.map(message => haveAll

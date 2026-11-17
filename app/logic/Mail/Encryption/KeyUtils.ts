@@ -21,11 +21,20 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   if (!id) {
     return null;
   }
+  let signedKey = email?.signedKey?.id == id ? email.signedKey : null;
+  if (!signedKey && email?.signedKeyJSON) {
+    let key = publicKeyFromJSON(email.signedKeyJSON);
+    if (key.id == id) {
+      email.signedKey = key;
+      signedKey = key;
+    }
+  }
   if (email?.from) {
     let person = email.from.findPerson();
     if (person) {
       for (let key of person.encryptionPublicKeys.each) {
-        if (key.id == id) {
+        // The very certificate that signed, not another one for the same key pair
+        if (key.id == id && (!signedKey || key.fingerprint == signedKey.fingerprint)) {
           return key;
         }
       }
@@ -46,15 +55,8 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
       }
     }
   }
-  if (email?.signedKey?.id == id) {
-    return email.signedKey;
-  }
-  if (email?.signedKeyJSON) {
-    let key = publicKeyFromJSON(email.signedKeyJSON);
-    if (key.id == id) {
-      email.signedKey = key;
-      return key;
-    }
+  if (signedKey) {
+    return signedKey;
   }
   if (email && email.system != EncryptionSystem.SMIME) {
     let key = await readAutoCryptKeys(email);
@@ -94,8 +96,8 @@ export function getPublicKeyForPersonUID<T extends PublicKey>(uid: PersonUID, ke
   return isUsableKey(known, keyType) ? known : null;
 }
 
-function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {
-  return !!key && !key.obsolete && (!keyType || key instanceof keyType);
+export function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {
+  return !!key && !key.obsolete && key.usableForEncryption() && (!keyType || key instanceof keyType);
 }
 
 /** For composer, which own key to use for signing the outgoing email */
