@@ -139,27 +139,26 @@ test("An event gets shorter to make room for the event boxes after it", () => {
   expect(rowsOf(layout, "Night")).toEqual([92, 96]);
 });
 
-test("A timed event over midnight is shown on each day at its time", () => {
-  let event = newEvent("Night", at(0, 22), at(1, 2));
-  let layout = new WeekRowLayout([event], weekDays(), kRows);
+test("A timed event over midnight is one bar over its days, 1 line high at its start time", () => {
+  let night = newEvent("Night", at(0, 22), at(1, 2));
+  let conference = newEvent("Conference", at(2, 9), at(4, 17));
+  let layout = new WeekRowLayout([night, conference], weekDays(), kRows);
   expect(layout.events).toEqual([
-    { event, startDay: 0, endDay: 1, startRow: 92, endRow: 96, lane: 0, lanes: 1, continuesBefore: false, continuesAfter: true },
-    { event, startDay: 1, endDay: 2, startRow: 0, endRow: 4, lane: 0, lanes: 1, continuesBefore: true, continuesAfter: false },
+    { event: night, startDay: 0, endDay: 2, startRow: 92, endRow: 96, lane: 0, lanes: 1, continuesBefore: false, continuesAfter: false },
+    { event: conference, startDay: 2, endDay: 5, startRow: 8, endRow: 12, lane: 0, lanes: 1, continuesBefore: false, continuesAfter: false },
   ]);
 });
 
-test("A timed event over several days fills the days in between", () => {
+test("On a day where the other events move an event over midnight to another place, it's a separate bar", () => {
   let conference = newEvent("Conference", at(0, 9), at(2, 17));
-  let dinner = newEvent("Dinner", at(1, 19), at(1, 21));
-  let layout = new WeekRowLayout([conference, dinner], weekDays(), kRows);
-  expect(rowsOf(layout, "Conference", 0)).toEqual([8, 96]);
-  expect(rowsOf(layout, "Conference", 1)).toEqual([0, 96]);
-  expect(rowsOf(layout, "Dinner", 1)).toEqual([88, 96]);
-  expect(layout.events.filter(item => item.startDay == 1).map(item => [item.event.title, item.lane, item.lanes])).toEqual([
-    ["Conference", 0, 2],
-    ["Dinner", 1, 2],
+  let breakfast = newEvent("Breakfast", at(1, 8), at(1, 9, 30));
+  let layout = new WeekRowLayout([conference, breakfast], weekDays(), kRows);
+  expect(layout.events.map(item => [item.event.title, item.startDay, item.endDay, item.startRow, item.endRow])).toEqual([
+    ["Conference", 0, 1, 8, 12],
+    ["Breakfast", 1, 2, 0, 12],
+    ["Conference", 1, 2, 12, 16],
+    ["Conference", 2, 3, 8, 12],
   ]);
-  expect(rowsOf(layout, "Conference", 2)).toEqual([0, 72]);
 });
 
 test("All-day events are bars at the top, and the timed events come after them", () => {
@@ -216,6 +215,16 @@ test("A multi-day event in the last line is hidden on all its days, if one of it
   expect(layout.hiddenEvents[1].map(event => event.title)).toEqual(["Late"]);
   expect(layout.hiddenEvents[2].map(event => event.title)).toEqual(["Late", "Wed 11"]);
   expect(layout.events.map(item => item.event.title)).toEqual(["A", "B", "Wed 9", "Wed 10"]);
+});
+
+test("An event over midnight that doesn't fit on one day is still shown on its other days", () => {
+  let monday = [9, 10, 11].map(hour => newEvent(`Mon ${hour}`, at(0, hour), at(0, hour, 30)));
+  let night = newEvent("Night", at(0, 22), at(1, 2));
+  // 3 lines
+  let layout = new WeekRowLayout([...monday, night], weekDays(), 12);
+  expect(layout.hiddenEvents[0].map(event => event.title)).toEqual(["Mon 11", "Night"]);
+  expect(layout.hiddenEvents[1]).toEqual([]);
+  expect(layout.events.find(item => item.event == night)).toMatchObject({ startDay: 1, endDay: 2, continuesBefore: true });
 });
 
 test("With room for only 1 line, all events of an overflowing day are hidden", () => {

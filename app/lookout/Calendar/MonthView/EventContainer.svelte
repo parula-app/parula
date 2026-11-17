@@ -171,6 +171,11 @@
     line-height: 18px;
     cursor: default;
   }
+  /* As high as the event's time in the day cell */
+  .event-bar.month {
+    flex: 1 1 0;
+    height: auto;
+  }
   .event-bar.continues-before > :global(.event) {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
@@ -190,6 +195,9 @@
     flex: 1 1 0;
     min-width: 0;
     padding: 0 4px 0 5px;
+  }
+  .month .content {
+    align-self: start;
   }
   .all-day:not(.timed) .content {
     justify-content: center;

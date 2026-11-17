@@ -212,6 +212,11 @@ export class ComposeActions {
     return clone;
   }
 
+  async editDraft(): Promise<void> {
+    await this.email.loadMIME();
+    this.email.mustEncrypt = this.email.wasEncrypted;
+  }
+
   async convertInlineAttachmentsURLs() {
     let changed = false;
     let html = new DOMParser().parseFromString(this.email.rawHTMLDangerous ?? "", "text/html");
@@ -337,6 +342,7 @@ export class ComposeActions {
       this.email.html += `<footer class="signature">${sig}</footer>`;
     }
     this.email.regenerateTextFromHTML();
+    this.email.mime = undefined; // else the protocol uploads the MIME of the last draft save, or of the draft that we opened
     this.email.headers.set("User-Agent", (appName == "Mustang" ? "" : `Mustang/${appVersion} `) + `${appName}/${appVersion}`);
 
     if (fromIdentity.isCatchAll) {
@@ -395,10 +401,11 @@ export class ComposeActions {
     let previousDrafts = this.getDrafts();
 
     this.email.isDraft = true;
-    // TODO encrypt
-    assert(!this.email.shouldEncrypt, "TODO encrypt drafts");
+    this.email.regenerateTextFromHTML();
+    this.email.mime = undefined; // else the protocol uploads the MIME of the last save, or of the draft that we opened
+    let draft = this.email.shouldEncrypt ? await SendEncrypted.encryptDraft(this.email) : this.email;
 
-    await draftFolder.addMessage(this.email);
+    await draftFolder.addMessage(draft);
 
     await this.deleteDrafts(previousDrafts);
   }

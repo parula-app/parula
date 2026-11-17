@@ -12,11 +12,12 @@
     "addons:generate": "npx tsx logic/Addons/API/generate.ts",
     "l10n:placeholder": "npx mustang-autotranslate --input l10n/locales --service dry-run --delete-unused-strings --type key-based --exclude **/*.template.json",
     "l10n:auto-translate": "npx mustang-autotranslate --input l10n/locales --service deepl-free --config $DEEPL_API_KEY,default,1000 --delete-unused-strings --type key-based --template messages.template.json --decode-escapes=dynamic",
+    "l10n:pIqaD": "npx tsx l10n/transliteratePIqaD.ts",
+    "smime:update-roots": "npx tsx build/update-smime-roots.ts",
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
     "@capacitor/app": "^7.0.2",
-    "@capacitor/browser": "^7.0.2",
     "@capacitor/core": "^7.0.0",
     "@capacitor/file-viewer": "^2.0.0",
     "@capacitor/filesystem": "^7.1.4",
@@ -104,7 +105,8 @@
     "webdav-server": "^2.6.2"
   },
   "resolutions": {
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "compute-scroll-into-view": "~3.1.1"
   },
   "repository": {
     "type": "git",

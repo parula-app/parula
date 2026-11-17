@@ -2,7 +2,7 @@ import { Group } from "./Group";
 import type { Addressbook } from "../Contacts/Addressbook";
 import { ContactEntry, Person } from "./Person";
 import type { PublicKey } from "../Mail/Encryption/PublicKey";
-import { getPublicKeyForPersonUID } from "../Mail/Encryption/KeyUtils";
+import { getPublicKeyForPersonUID, isUsableKey } from "../Mail/Encryption/KeyUtils";
 import { SMIMEPublicKey } from "../Mail/Encryption/SMIME/SMIMEPublicKey";
 import { appGlobal } from "../app";
 import { Observable, notifyChangedProperty } from "../util/Observable";
@@ -81,7 +81,7 @@ export class PersonUID extends Observable {
     }
     let found = await Promise.all(appGlobal.searchOnlyAddressbooks.contents.map(ab =>
       ab.fetchEncryptionKeys(new ArrayColl([this.emailAddress]))));
-    let key = found.flatMap(keys => keys.contents).find(key => !key.obsolete);
+    let key = found.flatMap(keys => keys.contents).find(key => isUsableKey(key));
     if (key) {
       this.encryptionPublicKey = key;
     }
@@ -135,7 +135,8 @@ export function findOrCreatePersonUID(emailAddress: string, realname: string): P
     add the `Person` to the cached `PersonUID` entry.
     We currently search all address books on every call to `personUID.findPerson()` */
   let existing = findPerson(emailAddress);
-  let uid = new PersonUID(emailAddress, realname ?? existing?.name ?? emailAddress);
+  // Avoid names by sender with an @ that can deceive to be an email address
+  let uid = new PersonUID(emailAddress, realname?.split("@")[0].trim() || existing?.name || emailAddress);
   if (existing) {
     uid.person = existing;
   }
@@ -150,7 +151,7 @@ export function findPerson(emailAddress: string): Person | undefined {
   }
   emailAddress = emailAddress.toLowerCase();
   for (let ab of appGlobal.addressbooks) {
-    let existing = ab.persons.find(p => p.emailAddresses.some(e => e.value?.toLowerCase() == emailAddress));
+    let existing = ab.personsByEMailAddress.get(emailAddress)?.person;
     if (existing) {
       return existing;
     }

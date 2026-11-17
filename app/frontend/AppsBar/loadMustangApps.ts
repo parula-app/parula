@@ -26,16 +26,16 @@ export function loadMustangApps() {
 
   if (allMustangApps.isEmpty) {
     allMustangApps.addAll([
-      contactsMustangApp,
       mailMustangApp,
       chatMustangApp,
       // #if [PROPRIETARY]
       meetMustangApp,
       // #endif
       calendarMustangApp,
+      contactsMustangApp,
+      topicMustangApp,
       filesMustangApp,
       webAppsMustangApp,
-      topicMustangApp,
       settingsMustangApp,
     ]);
   }
@@ -48,13 +48,13 @@ export function loadMustangApps() {
   // Once finished, add apps here, and remove loadDemoMustangApps() */
 
   mustangApps.replaceAll([
-    contactsMustangApp,
     mailMustangApp,
     calendarMustangApp,
+    contactsMustangApp,
     // #if [!WEBMAIL]
-    filesMustangApp,
-    webAppsMustangApp,
     topicMustangApp,
+    filesMustangApp,
+    webAppsMustangApp, // last, because the list of web apps follows
     // #endif
     ...addonMustangApps.contents,
     settingsMustangApp,

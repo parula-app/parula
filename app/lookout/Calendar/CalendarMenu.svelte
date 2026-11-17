@@ -43,7 +43,7 @@
 <script lang="ts">
   import type { Calendar } from "../../logic/Calendar/Calendar";
   import { CalendarActions } from "./CalendarActions";
-  import { CalendarGroups } from "./CalendarGroups";
+  import { CalendarGroups } from "../../frontend/Calendar/CalendarGroups";
   import { selectedCalendar, shownCalendars } from "../../frontend/Calendar/selected";
   import { calendarColors } from "./CalendarColors";
   import { MailAccount } from "../../logic/Mail/MailAccount";

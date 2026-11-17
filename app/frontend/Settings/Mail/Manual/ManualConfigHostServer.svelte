@@ -118,7 +118,9 @@
   import { UserError } from "../../../../logic/util/util";
   import { catchErrors } from "../../../Util/error";
   import { createEventDispatcher, tick } from 'svelte';
+  import { AppWindow } from "../../../MainWindow/AppWindow";
   const dispatchEvent = createEventDispatcher<{ continue: void }>();
+  const appWindow = AppWindow.current();
 
   /** in/out */
   export let config: MailAccount;
@@ -183,7 +185,7 @@
     let selector = stepFull
       ? ".incoming.port input"
       : ".outgoing.hostname input";
-    let inputE = document.querySelector(selector) as HTMLInputElement;
+    let inputE = appWindow.window.document.querySelector(selector) as HTMLInputElement;
     console.log("next field", selector, inputE);
     if (!inputE) {
       return;

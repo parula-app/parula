@@ -5,7 +5,7 @@
  *
  * An addon frame is a sub frame with an opaque origin whose URL is `addon-sandbox.html` next to the app,
  * and every frame inside it. An addon controls neither its origin nor its URL path. */
-import type { CallbackResponse, Session, WebContents, WebFrameMain } from "electron";
+import type { CallbackResponse, PermissionCheckHandlerHandlerDetails, PermissionRequest, Session, WebContents, WebFrameMain } from "electron";
 import { BlockList, isIP } from "node:net";
 
 export class AddonFrameGuard {
@@ -33,11 +33,16 @@ export class AddonFrameGuard {
       }
       this.checkRequest(session, details.url, callback);
     });
-    session.setPermissionRequestHandler((webContents, _permission, callback, details) => {
-      callback(details.isMainFrame || !this.isAddonFrameURL(details.requestingUrl, webContents));
-    });
-    session.setPermissionCheckHandler((webContents, _permission, requestingOrigin, details) =>
-      details.isMainFrame || !(requestingOrigin == "null" || this.isAddonFrameURL(details.requestingUrl, webContents)));
+  }
+
+  /** For the session's only permission request handler. Addon frames get no permissions. */
+  mayRequestPermission(webContents: WebContents | null, details: PermissionRequest): boolean {
+    return details.isMainFrame || !this.isAddonFrameURL(details.requestingUrl, webContents);
+  }
+
+  /** For the session's only permission check handler */
+  mayHavePermission(webContents: WebContents | null, requestingOrigin: string, details: PermissionCheckHandlerHandlerDetails): boolean {
+    return details.isMainFrame || !(requestingOrigin == "null" || this.isAddonFrameURL(details.requestingUrl, webContents));
   }
 
   /** For every new `WebContents` */

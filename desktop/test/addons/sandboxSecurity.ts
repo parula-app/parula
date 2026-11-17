@@ -115,6 +115,12 @@ app.whenReady().then(async () => {
     guard.removeResponseCookies(details.frame, responseHeaders);
     callback({ responseHeaders });
   });
+  // Like restrictPermissions() in src/main/index.ts, where our app gets all permissions
+  defaultSession.setPermissionRequestHandler((webContents, _permission, callback, details) => {
+    callback(guard.mayRequestPermission(webContents, details));
+  });
+  defaultSession.setPermissionCheckHandler((webContents, _permission, requestingOrigin, details) =>
+    guard.mayHavePermission(webContents, requestingOrigin, details));
   app.on("web-contents-created", (_event, webContents) => {
     webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     guard.protect(webContents);
