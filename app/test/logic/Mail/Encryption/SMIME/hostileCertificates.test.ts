@@ -232,6 +232,12 @@ describe("Certificate", () => {
     expect(stored.id).toBe(key.id);
   });
 
+  test("A certificate with another type of key is refused, and the error names the type", async () => {
+    let cert = craftCertificate("Alice", "Alice", fakePublicKey());
+    cert.tbsCertificate.publicKey.algorithmIdentifier.algorithm = "rsaESOAEP";
+    await expect(SMIMEPublicKey.importPublicKey(Certificate.encodePEM(cert, { label: "CERTIFICATE" }))).rejects.toThrow("rsaESOAEP");
+  });
+
   test("The name shows no control or direction characters, and is not endless", async () => {
     let commonName = "Alice‮moc.live@\u0000​" + "x".repeat(1000);
     let key = await SMIMEPublicKey.importPublicKey(Certificate.encodePEM(craftCertificate(commonName, "Alice", fakePublicKey()), { label: "CERTIFICATE" }));
