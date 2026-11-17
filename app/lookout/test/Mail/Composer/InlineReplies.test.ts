@@ -67,7 +67,7 @@ test("Removing a reply hides its Message tab", async () => {
   let second = mail();
   await startInlineReply(mail(), first);
   await startInlineReply(mail(), second);
-  inlineRibbon.set({ draft: second, editor: null });
+  inlineRibbon.set({ draft: second, editor: null, onSelectNames() {}, async onCheckNames() {}, onOpenTool() {}, onEditSignatures() {} });
   removeInlineReply(first);
   expect(get(inlineRibbon).draft).toBe(second);
   inlineReplies.add(new InlineReply(mail(), first));

@@ -24,6 +24,7 @@ import { openPersonFromOtherApp } from "../../frontend/Contacts/open";
 import { goTo, openApp, selectedApp } from "../../frontend/AppsBar/selectedApp";
 import { getLocalStorage } from "../../frontend/Util/LocalStorage";
 import { saveBlobAsFile } from "../../frontend/Util/util";
+import { draggedMessages } from "../../frontend/Mail/Message/drag";
 import { URLPart } from "../../logic/util/blob";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../logic/util/util";
@@ -184,24 +185,16 @@ export class MessageActions {
     return [...byFolder.values()];
   }
 
-  // <copied from="../../frontend/Mail/Message/drag.ts">
+  // <copied from="../../frontend/Mail/Message/drag.ts" onDropMail()>
   static async dropMessages(event: DragEvent, folder: Folder) {
     event.preventDefault();
-    let message = get(selectedMessage);
+    let messages = draggedMessages;
     let msgIDsStr = event.dataTransfer.getData("message/drag-ids");
-    if (!message || !msgIDsStr) {
+    if (!messages.length || !msgIDsStr) {
       return;
     }
     let msgIDs = msgIDsStr.split(",");
-    let messages = get(selectedMessages).contents;
-    if (msgIDs.length == 0) {
-      return;
-    } else if (msgIDs.length == 1) {
-      assert(msgIDs[0] == message.id, gt`Drag&drop failed: Selected message ID doesn't match the drag data`);
-      messages = [ message ];
-    } else {
-      assert(messages.every(msg => msgIDs.includes(msg.id)), gt`Drag&drop failed: Selected message IDs don't match the drag data`);
-    }
+    assert(msgIDs.length == messages.length && messages.every(msg => msgIDs.includes(msg.id)), gt`Drag&drop failed: Selected message IDs don't match the drag data`);
     if (event.ctrlKey || event.metaKey) {
       await MessageActions.copyTo(messages, folder);
     } else {

@@ -1,5 +1,5 @@
 <vbox flex class="contact-form-page" bind:this={pageEl}>
-  <Ribbon>
+  <Ribbon id="contacts">
     <RibbonTab label={$t`Contact *=> Ribbon tab with commands for this contact`}>
       <RibbonGroup label={$t`Actions`}>
         <RibbonButton label={$t`Save & Close`} icon={SaveCloseIcon}

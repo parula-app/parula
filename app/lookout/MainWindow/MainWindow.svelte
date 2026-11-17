@@ -110,11 +110,13 @@
   }
 
   function onKeyOnWindow(event: KeyboardEvent) {
+    // <copied to="../Shared/Ribbon/TellMe.svelte">
     let target = event.target as HTMLElement;
     if (event.defaultPrevented || event.cancelBubble || document.querySelector("dialog:modal") ||
         target?.closest?.("[contenteditable]:not([contenteditable='false'])")) {
       return;
     }
+    // </copied>
     let isCtrl = event.ctrlKey || event.metaKey;
     let key = event.key.length == 1 ? event.key.toLowerCase() : event.key;
     // Ctrl+ (or Cmd+)
@@ -183,10 +185,10 @@
     }
     // Alt+ (Option+Q types a character on macOS)
     if (event.altKey && !isCtrl && !event.shiftKey && getOSName() != "macintosh") {
-      if (event.code == "KeyQ") {
+      if (event.code == "KeyQ") { // Only when no ribbon's Tell Me took it
         event.preventDefault();
         event.stopPropagation();
-        openTellMe();
+        windowHeader?.focusSearch();
         return;
       }
     }
@@ -203,15 +205,6 @@
 
   const ribbonCollapsed = getLocalStorage<boolean>("lookout.ribbon.collapsed", false);
   let windowHeader: WindowHeader;
-
-  function openTellMe() {
-    let tellMe = Array.from(document.querySelectorAll<HTMLButtonElement>(".tell-me-button")).find(button => button.offsetParent);
-    if (tellMe) {
-      tellMe.click();
-    } else {
-      windowHeader?.focusSearch();
-    }
-  }
 </script>
 
 <style>

@@ -1,6 +1,6 @@
 <vbox flex class="composer-page" class:inline={isInline} on:keydown|capture={event => catchErrors(() => onKey(event))}>
   {#if !isInline}
-    <ComposerRibbon {mail} {editor} bind:showEmojis bind:openedTool />
+    <ComposerRibbon {mail} {editor} bind:showEmojis bind:openedTool {onSelectNames} {onCheckNames} {onEditSignatures} />
   {/if}
   <vbox flex class="composer" class:lo-card={!isInline} on:keydown={onEscape}>
     <FileDropTarget
@@ -47,7 +47,7 @@
               bind:fromAddress={mail.from.emailAddress}
               bind:fromName={mail.from.name} />
           {/if}
-          <button class="field-button" on:click={() => $openSelectNames = { mail, field: RecipientField.To }} tabindex={-1}
+          <button class="field-button" on:click={() => selectNamesField = RecipientField.To} tabindex={-1}
             title={$t`Select recipients from the address book`}>
             {$t`To`}
           </button>
@@ -55,7 +55,7 @@
             <MailAutocomplete addresses={mail.to} label={$t`To`} chips={isChips} tabindex={1} askForName
               autofocus={autofocus && mail.to.isEmpty} on:add={event => onRecipientAdded(event.detail)} bind:this={toField} />
           </hbox>
-          <button class="field-button" on:click={() => $openSelectNames = { mail, field: RecipientField.Cc }} tabindex={-1}
+          <button class="field-button" on:click={() => selectNamesField = RecipientField.Cc} tabindex={-1}
             title={$t`Select recipients from the address book`}>
             {$t`Cc`}
           </button>
@@ -64,7 +64,7 @@
               on:add={event => onRecipientAdded(event.detail)} bind:this={ccField} />
           </hbox>
           {#if showBCC}
-            <button class="field-button" on:click={() => $openSelectNames = { mail, field: RecipientField.Bcc }} tabindex={-1}
+            <button class="field-button" on:click={() => selectNamesField = RecipientField.Bcc} tabindex={-1}
               title={$t`Select recipients from the address book`}>
               {$t`Bcc`}
             </button>
@@ -117,8 +117,8 @@
 </vbox>
 
 {#if isSelectNamesOpen}
-  <SelectNamesDialog {mail} defaultField={$openSelectNames.field}
-    on:close={() => $openSelectNames = null} />
+  <SelectNamesDialog {mail} defaultField={selectNamesField}
+    on:close={() => selectNamesField = null} />
 {/if}
 {#if showSaveChanges}
   <SaveChangesDialog
@@ -127,20 +127,12 @@
     on:close={() => showSaveChanges = false} />
 {/if}
 {#if showSignatures}
-  <SignaturesDialog identity={fromIdentity} on:close={() => $openSignatures = null} />
+  <SignaturesDialog identity={fromIdentity} on:close={() => showSignatures = false} />
 {/if}
 <EditorToolDialogs {editor} bind:openedTool />
 
-<script lang="ts" context="module">
-  import type { EMail } from "../../../logic/Mail/EMail";
-  import { EditorTool } from "../../Shared/Editor/EditorTool";
-  import { writable } from "svelte/store";
-
-  export const checkNamesOf = writable<EMail | null>(null);
-  export const openEditorTool = writable<{ mail: EMail, tool: EditorTool } | null>(null);
-</script>
-
 <script lang="ts">
+  import type { EMail } from "../../../logic/Mail/EMail";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
   import { findAllIdentities, type MailIdentity } from "../../../logic/Mail/MailIdentity";
@@ -151,6 +143,7 @@
   import { WriteMailMustangApp, mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import type { RibbonLayout } from "../../Shared/Ribbon/RibbonGroup";
+  import { EditorTool } from "../../Shared/Editor/EditorTool";
   import { removeInlineReply } from "./InlineReplies";
   import { inlineRibbon } from "../Selected";
   import { get } from "svelte/store";
@@ -159,11 +152,11 @@
   import { minorError, catchErrors, showError, showUserError } from "../../../frontend/Util/error";
   import { getOSName, isTextField } from "../../../frontend/Util/util";
   import { getMyPrivateKey } from "../../../logic/Mail/Encryption/KeyUtils";
-  import { hasUserText } from "./DraftContent";
+  import { hasOwnText } from "../../../frontend/Mail/Composer/CloseButton.svelte";
   import ComposerRibbon from "./ComposerRibbon.svelte";
-  import SelectNamesDialog, { RecipientField, openSelectNames } from "./SelectNamesDialog.svelte";
+  import SelectNamesDialog, { RecipientField } from "./SelectNamesDialog.svelte";
   import SaveChangesDialog from "./SaveChangesDialog.svelte";
-  import SignaturesDialog, { openSignatures } from "./SignaturesDialog.svelte";
+  import SignaturesDialog from "./SignaturesDialog.svelte";
   import EditorToolDialogs from "../../Shared/Editor/EditorToolDialogs.svelte";
   import EmojiPane from "../../Shared/Editor/EmojiPane.svelte";
   import UndoRedoButtons from "../../Shared/Editor/UndoRedoButtons.svelte";
@@ -204,9 +197,10 @@
   const showBccSetting = getLocalStorage<boolean>("lookout.mail.compose.showBcc", false);
   let encryptionError: string | null = null;
   let showEmojis = false;
-  $: isSelectNamesOpen = $openSelectNames?.mail == mail;
+  let selectNamesField: RecipientField | null = null;
+  $: isSelectNamesOpen = !!selectNamesField;
   let showSaveChanges = false;
-  $: showSignatures = $openSignatures == mail;
+  let showSignatures = false;
   let openedTool: EditorTool | null = null;
   let ribbonLayout = getLocalStorage<RibbonLayout>("lookout.ribbon.layout", "classic");
   $: isChips = $ribbonLayout.value == "simplified";
@@ -381,7 +375,7 @@
   // </copied>
 
   $: if (isInline && !closing) {
-    $inlineRibbon = { draft: mail, editor };
+    $inlineRibbon = { draft: mail, editor, onSelectNames, onCheckNames, onOpenTool, onEditSignatures };
   }
   onDestroy(() => {
     if (get(inlineRibbon)?.draft == mail) {
@@ -419,22 +413,25 @@
   }
 
   function onCloseRequest() {
-    if (hasUserText(mail.html)) {
+    if (hasOwnText(mail)) {
       showSaveChanges = true;
     } else {
       onClose();
     }
   }
 
-  $: if ($openEditorTool?.mail == mail) {
-    openedTool = $openEditorTool.tool;
-    $openEditorTool = null;
+  function onSelectNames(field: RecipientField) {
+    selectNamesField = field;
   }
 
-  $: if ($checkNamesOf == mail) {
-    $checkNamesOf = null;
-    catchErrors(onCheckNames);
+  function onOpenTool(tool: EditorTool) {
+    openedTool = tool;
   }
+
+  function onEditSignatures() {
+    showSignatures = true;
+  }
+
   async function onCheckNames() {
     let fields = [toField, ccField, bccField].filter(field => !!field);
     let errors: Error[] = [];
