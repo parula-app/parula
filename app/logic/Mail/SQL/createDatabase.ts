@@ -92,7 +92,6 @@ export const mailDatabaseSchema = sql`
     "isImportant" BOOLEAN default false,
     "isDraft" BOOLEAN default false,
     "isSpam" BOOLEAN default false,
-    "isNotSpam" BOOLEAN default false,
     -- We have the full MIME source and saved it locally on disk, and parsed it into the DB.
     "downloadComplete" BOOLEAN default false,
     -- Additional data

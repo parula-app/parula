@@ -49,7 +49,6 @@ export class JSONEMail {
     json.isForwarded = email.isForwarded;
     json.isImportant = email.isImportant;
     json.isSpam = email.isSpam;
-    json.isNotSpam = email.isNotSpam;
     json.isDraft = email.isDraft;
     json.threadID = email.threadID;
     json.downloadComplete = email.downloadComplete;
@@ -197,7 +196,6 @@ export class JSONEMail {
     email.isForwarded = sanitize.boolean(json.isForwarded, false);
     email.isImportant = sanitize.boolean(json.isImportant, false);
     email.isSpam = sanitize.boolean(json.isSpam, false);
-    email.isNotSpam = sanitize.boolean(json.isNotSpam, false);
     email.threadID = sanitize.string(json.threadID ?? json.inReplyTo, null);
     email.downloadComplete = sanitize.boolean(json.downloadComplete);
 
@@ -212,7 +210,6 @@ export class JSONEMail {
     email.isImportant = sanitize.boolean(json.isImportant, false);
     email.isDraft = sanitize.boolean(json.isDraft, false);
     email.isSpam = sanitize.boolean(json.isSpam, false);
-    email.isNotSpam = sanitize.boolean(json.isNotSpam, false);
     email.threadID = sanitize.string(json.threadID ?? json.inReplyTo, null);
     email.downloadComplete = sanitize.boolean(json.downloadComplete, false);
     this.readTags(email, json);
