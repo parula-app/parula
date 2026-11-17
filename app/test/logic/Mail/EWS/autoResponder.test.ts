@@ -80,7 +80,7 @@ test("Reads the settings from the server", async () => {
   expect(Object.keys(account.request)).toEqual(["m$GetUserOofSettingsRequest"]);
   expect(account.request.m$GetUserOofSettingsRequest.t$Mailbox.t$Address).toBe("user1@example.com");
 
-  expect(autoResponder.enabled).toBe(true);
+  expect(autoResponder.isOn).toBe(true);
   expect(autoResponder.scheduled).toBe(true);
   expect(autoResponder.startTime.toISOString()).toBe("2026-10-05T07:00:00.000Z");
   expect(autoResponder.endTime.toISOString()).toBe("2026-10-19T16:00:00.000Z");
@@ -98,7 +98,7 @@ test("Old dates of a disabled responder are not kept", async () => {
   let autoResponder = account.autoResponder;
   await autoResponder.load();
 
-  expect(autoResponder.enabled).toBe(false);
+  expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
   expect(autoResponder.startTime.getTime()).toBeGreaterThan(Date.now());
   expect(autoResponder.endTime.getTime()).toBeGreaterThan(autoResponder.startTime.getTime());
@@ -113,7 +113,7 @@ test("Unknown values are read as off, without admin limit", async () => {
   let autoResponder = account.autoResponder;
   await autoResponder.load();
 
-  expect(autoResponder.enabled).toBe(false);
+  expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
   expect(autoResponder.maxAudience).toBe(AutoResponderAudience.All);
@@ -123,7 +123,7 @@ test("Writes the settings to the server, in schema order", async () => {
   let account = newAccount();
   account.response = kSetResponse;
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = true;
   autoResponder.startTime = new Date("2026-10-05T07:00:00Z");
   autoResponder.endTime = new Date("2026-10-19T16:00:00Z");
@@ -148,7 +148,7 @@ test("Without time range, there is no duration", async () => {
   let account = newAccount();
   account.response = kSetResponse;
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = false;
   autoResponder.externalAudience = AutoResponderAudience.Contacts;
   await autoResponder.save();
@@ -158,7 +158,7 @@ test("Without time range, there is no duration", async () => {
   expect(settings.t$ExternalAudience).toBe("Known");
   expect(settings.t$Duration).toBe(null); // JSON2XML skips it
 
-  autoResponder.enabled = false;
+  autoResponder.isOn = false;
   await autoResponder.save();
   expect(account.request.m$SetUserOofSettingsRequest.t$UserOofSettings.t$OofState).toBe("Disabled");
 });
@@ -167,7 +167,7 @@ test("An end before the start is refused", async () => {
   let account = newAccount();
   account.response = kSetResponse;
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = true;
   autoResponder.endTime = new Date(autoResponder.startTime.getTime() - 1000);
 

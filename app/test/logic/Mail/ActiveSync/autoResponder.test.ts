@@ -78,7 +78,7 @@ test("Reads the settings from the server", async () => {
   await autoResponder.load();
 
   expect(account.request).toEqual({ Oof: { Get: { BodyType: "HTML" } } });
-  expect(autoResponder.enabled).toBe(true);
+  expect(autoResponder.isOn).toBe(true);
   expect(autoResponder.scheduled).toBe(true);
   expect(autoResponder.startTime.toISOString()).toBe("2026-10-05T07:00:00.000Z");
   expect(autoResponder.endTime.toISOString()).toBe("2026-10-19T16:00:00.000Z");
@@ -98,7 +98,7 @@ test("Audiences that the admin disallowed are missing", async () => {
   let autoResponder = account.autoResponder;
   await autoResponder.load();
 
-  expect(autoResponder.enabled).toBe(false);
+  expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
   expect(autoResponder.maxAudience).toBe(AutoResponderAudience.None);
 });
@@ -107,7 +107,7 @@ test("Writes the settings to the server", async () => {
   let account = newAccount();
   account.response = kSetResponse;
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = true;
   autoResponder.startTime = new Date("2026-10-05T07:00:00Z");
   autoResponder.endTime = new Date("2026-10-19T16:00:00Z");
@@ -132,7 +132,7 @@ test("Only to contacts, without time range", async () => {
   let account = newAccount();
   account.response = kSetResponse;
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = false;
   autoResponder.externalAudience = AutoResponderAudience.Contacts;
   await autoResponder.save();
@@ -142,7 +142,7 @@ test("Only to contacts, without time range", async () => {
   expect(set.StartTime).toBeUndefined();
   expect(set.OofMessage.map(message => message.Enabled)).toEqual(["1", "1", "0"]);
 
-  autoResponder.enabled = false;
+  autoResponder.isOn = false;
   await autoResponder.save();
   expect(account.request.Oof.Set.OofState).toBe("0");
 });
@@ -165,7 +165,7 @@ test("An unknown state is read as off", async () => {
   let autoResponder = account.autoResponder;
   await autoResponder.load();
 
-  expect(autoResponder.enabled).toBe(false);
+  expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
 });
 

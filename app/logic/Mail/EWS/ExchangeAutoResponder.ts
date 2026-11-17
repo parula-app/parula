@@ -23,11 +23,11 @@ export class ExchangeAutoResponder extends AutoResponder {
   }
 
   protected get oofState(): OOFState {
-    return !this.enabled ? OOFState.Disabled : this.scheduled ? OOFState.Scheduled : OOFState.Enabled;
+    return !this.isOn ? OOFState.Disabled : this.scheduled ? OOFState.Scheduled : OOFState.Enabled;
   }
 
   protected set oofState(state: OOFState) {
-    this.enabled = state == OOFState.Enabled || state == OOFState.Scheduled;
+    this.isOn = state == OOFState.Enabled || state == OOFState.Scheduled;
     this.scheduled = state == OOFState.Scheduled;
   }
 

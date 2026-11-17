@@ -23,10 +23,10 @@
       <hbox slot="header">{$t`Automatic replies`}</hbox>
       <vbox class="options">
         <Checkbox toggle
-          bind:checked={autoResponder.enabled}
+          bind:checked={autoResponder.isOn}
           label={$t`Send automatic replies`} />
 
-        {#if $autoResponder.enabled}
+        {#if $autoResponder.isOn}
           <vbox class="details">
             <Checkbox
               bind:checked={autoResponder.scheduled}
@@ -50,7 +50,7 @@
       </vbox>
     </HeaderGroupBox>
 
-    {#if $autoResponder.enabled}
+    {#if $autoResponder.isOn}
       <HeaderGroupBox>
         <hbox slot="header">
           {autoResponder.supportsExternal ? $t`Inside my organization` : $t`Automatic reply`}

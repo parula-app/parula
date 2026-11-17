@@ -53,7 +53,7 @@ export class GraphAutoResponder extends AutoResponder {
   fromGraph(json: TGraphAutoReplies) {
     // The server is not consistent in the casing
     let status = sanitize.string(json.status, "").toLowerCase();
-    this.enabled = status == "alwaysenabled" || status == "scheduled";
+    this.isOn = status == "alwaysenabled" || status == "scheduled";
     this.scheduled = status == "scheduled";
     this.setTimes(this.parseTime(json.scheduledStartDateTime), this.parseTime(json.scheduledEndDateTime));
     let audience = sanitize.string(json.externalAudience, "").toLowerCase();
@@ -65,7 +65,7 @@ export class GraphAutoResponder extends AutoResponder {
 
   toGraph(): TGraphAutoReplies {
     return {
-      status: !this.enabled ? "disabled" : this.scheduled ? "scheduled" : "alwaysEnabled",
+      status: !this.isOn ? "disabled" : this.scheduled ? "scheduled" : "alwaysEnabled",
       externalAudience: this.externalAudience,
       internalReplyMessage: this.stripEmptyParagraph(this.internalHTML),
       externalReplyMessage: this.stripEmptyParagraph(this.externalHTML),

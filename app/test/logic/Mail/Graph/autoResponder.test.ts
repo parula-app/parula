@@ -75,7 +75,7 @@ test("Reads the settings from the server", async () => {
   expect(calls[0].method).toBe("get");
   expect(calls[0].url).toBe("https://graph.microsoft.com/v1.0/me/mailboxSettings/automaticRepliesSetting");
   expect(autoResponder.supported).toBe(true);
-  expect(autoResponder.enabled).toBe(true);
+  expect(autoResponder.isOn).toBe(true);
   expect(autoResponder.scheduled).toBe(true);
   expect(autoResponder.startTime.toISOString()).toBe("2026-10-05T07:00:00.000Z");
   expect(autoResponder.endTime.toISOString()).toBe("2026-10-19T16:00:00.000Z");
@@ -102,7 +102,7 @@ test("The audience in any casing", async () => {
 test("Writes the settings to the server", async () => {
   let account = setupAccount();
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = true;
   autoResponder.startTime = new Date("2026-10-05T07:00:00Z");
   autoResponder.endTime = new Date("2026-10-19T16:00:00Z");
@@ -129,7 +129,7 @@ test("Writes the settings to the server", async () => {
 test("Without time range, there are no times", async () => {
   let account = setupAccount();
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = false;
   autoResponder.externalAudience = AutoResponderAudience.Contacts;
   await autoResponder.save();
@@ -139,7 +139,7 @@ test("Without time range, there are no times", async () => {
   expect(settings.externalAudience).toBe("contactsOnly");
   expect(settings.scheduledStartDateTime).toBeUndefined();
 
-  autoResponder.enabled = false;
+  autoResponder.isOn = false;
   await autoResponder.save();
   expect(calls[1].options.json.automaticRepliesSetting.status).toBe("disabled");
 });

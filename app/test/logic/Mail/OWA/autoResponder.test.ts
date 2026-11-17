@@ -96,7 +96,7 @@ test("Reads the settings from the server", async () => {
   expect(calls[0].action).toBe("GetMailboxAutoReplyConfiguration");
   expect(calls[0].body).toEqual({});
 
-  expect(autoResponder.enabled).toBe(true);
+  expect(autoResponder.isOn).toBe(true);
   expect(autoResponder.scheduled).toBe(true);
   expect(autoResponder.startTime.toISOString()).toBe("2026-10-05T07:00:00.000Z");
   expect(autoResponder.endTime.toISOString()).toBe("2026-10-19T16:00:00.000Z");
@@ -119,7 +119,7 @@ test("Exchange 2013", async () => {
 
   expect(calls.length).toBe(1);
   expect(calls[0].action).toBe("GetMailboxAutoReplyConfiguration");
-  expect(autoResponder.enabled).toBe(false);
+  expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.All);
   expect(autoResponder.internalHTML.trim()).toBe("");
@@ -149,7 +149,7 @@ test("Old dates of a disabled responder are not kept", async () => {
   let autoResponder = account.autoResponder;
   await autoResponder.load();
 
-  expect(autoResponder.enabled).toBe(false);
+  expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
   expect(autoResponder.startTime.getTime()).toBeGreaterThan(Date.now());
 });
@@ -162,7 +162,7 @@ test("Always on, for everybody", async () => {
   let autoResponder = account.autoResponder;
   await autoResponder.load();
 
-  expect(autoResponder.enabled).toBe(true);
+  expect(autoResponder.isOn).toBe(true);
   expect(autoResponder.scheduled).toBe(false);
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.All);
 });
@@ -175,7 +175,7 @@ test("Unknown values are read as off", async () => {
   let autoResponder = account.autoResponder;
   await autoResponder.load();
 
-  expect(autoResponder.enabled).toBe(false);
+  expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
 });
@@ -184,7 +184,7 @@ test("Writes the settings to the server", async () => {
   let account = newAccount();
   response = kSetResponse;
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = true;
   autoResponder.startTime = new Date("2026-10-05T07:00:00Z");
   autoResponder.endTime = new Date("2026-10-19T16:00:00Z");
@@ -217,7 +217,7 @@ test("Without time range, there are no times", async () => {
   let account = newAccount();
   response = kSetResponse;
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = false;
   autoResponder.externalAudience = AutoResponderAudience.Contacts;
   await autoResponder.save();
@@ -228,7 +228,7 @@ test("Without time range, there are no times", async () => {
   expect("StartTime" in options).toBe(false);
   expect("EndTime" in options).toBe(false);
 
-  autoResponder.enabled = false;
+  autoResponder.isOn = false;
   autoResponder.externalAudience = AutoResponderAudience.None;
   await autoResponder.save();
   expect(calls[1].body.Options.AutoReplyState).toBe(0);
@@ -239,7 +239,7 @@ test("An end before the start is refused", async () => {
   let account = newAccount();
   response = kSetResponse;
   let autoResponder = account.autoResponder;
-  autoResponder.enabled = true;
+  autoResponder.isOn = true;
   autoResponder.scheduled = true;
   autoResponder.endTime = new Date(autoResponder.startTime.getTime() - 1000);
 
@@ -273,9 +273,9 @@ test("OWA sends the numbers of the names that EWS sends", () => {
   let owa = newAccount().autoResponder as any;
   let ews = new EWSAccount().autoResponder as any;
   let states = [
-    { enabled: false, scheduled: false, ews: "Disabled", owa: 0 },
-    { enabled: true, scheduled: false, ews: "Enabled", owa: 1 },
-    { enabled: true, scheduled: true, ews: "Scheduled", owa: 2 },
+    { isOn: false, scheduled: false, ews: "Disabled", owa: 0 },
+    { isOn: true, scheduled: false, ews: "Enabled", owa: 1 },
+    { isOn: true, scheduled: true, ews: "Scheduled", owa: 2 },
   ];
   let audiences = [
     { audience: AutoResponderAudience.None, ews: "None", owa: 0 },
@@ -285,7 +285,7 @@ test("OWA sends the numbers of the names that EWS sends", () => {
   for (let state of states) {
     for (let audience of audiences) {
       for (let autoResponder of [owa, ews]) {
-        autoResponder.enabled = state.enabled;
+        autoResponder.isOn = state.isOn;
         autoResponder.scheduled = state.scheduled;
         autoResponder.externalAudience = audience.audience;
       }

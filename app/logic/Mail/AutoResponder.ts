@@ -12,8 +12,11 @@ import { gt } from "../../l10n/l10n";
 export class AutoResponder extends Observable {
   readonly account: MailAccount;
 
+  /** The user switched the automatic replies on.
+   * With `scheduled`, the server replies only between `startTime` and `endTime`.
+   * Whether the account can have an auto-responder at all is `supported`. */
   @notifyChangedProperty
-  enabled = false;
+  isOn = false;
   /** Reply only between `startTime` and `endTime` */
   @notifyChangedProperty
   scheduled = false;
@@ -75,7 +78,7 @@ export class AutoResponder extends Observable {
   }
 
   protected validate() {
-    if (this.enabled && this.scheduled) {
+    if (this.isOn && this.scheduled) {
       assert(this.endTime > this.startTime, gt`The end time must be after the start time`);
     }
   }

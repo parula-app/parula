@@ -28,7 +28,7 @@ class TestAutoResponder extends AutoResponder {
   }
 
   async load() {
-    this.enabled = true;
+    this.isOn = true;
     this.scheduled = true;
     this.internalHTML = "<p>Back on Monday</p>";
     this.externalAudience = AutoResponderAudience.None;
@@ -120,7 +120,7 @@ test("Turning it off hides the messages, and saves", async () => {
   let autoResponder = await showPage();
 
   click(toggle("Send automatic replies"));
-  expect(autoResponder.enabled).toBe(false);
+  expect(autoResponder.isOn).toBe(false);
   expect(toggle("Send automatic replies").classList.contains("off")).toBe(true);
   expect(target.textContent).not.toContain("Back on Monday");
   expect(target.textContent).not.toContain("Outside my organization");
