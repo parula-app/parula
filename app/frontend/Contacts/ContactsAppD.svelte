@@ -3,6 +3,7 @@
     <PersonsToolbar {persons} bind:selectedAddressbook />
     <PersonsActionToolbar bind:selectedAddressbook {selectedPersons} />
     <PersonsList {persons} bind:selected={$selectedPerson} searchTerm={$globalSearchTerm} bind:selectedPersons />
+    <GlobalSearchBar />
   </vbox>
   <vbox flex class="right-pane" slot="right">
     {#if $selectedPerson && $selectedPerson instanceof Person}
@@ -14,6 +15,7 @@
 </Splitter>
 
 <script lang="ts">
+  import GlobalSearchBar from "../MainWindow/GlobalSearchBar.svelte";
   import { Person } from "../../logic/Abstract/Person";
   import type { PersonOrGroup } from "./Person/PersonOrGroup";
   import type { Addressbook } from "../../logic/Contacts/Addressbook";

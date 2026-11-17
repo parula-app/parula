@@ -66,7 +66,8 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    width: 104px;
+    width: min-content; /* wider for a long word, e.g. in German */
+    min-width: 104px;
     height: 96px;
     padding: 8px 4px;
     border: 1px solid var(--lo-border);

@@ -177,8 +177,8 @@
     flex-direction: row;
     align-items: center;
     gap: 12px;
-    height: 40px;
-    padding: 0 20px;
+    min-height: 40px;
+    padding: 4px 20px;
     border: none;
     background-color: transparent;
     color: inherit;
@@ -189,6 +189,7 @@
   .nav-item.back {
     width: 34px;
     height: 34px;
+    min-height: 0;
     margin: 4px 0 16px 16px;
     padding: 0;
     justify-content: center;
@@ -198,8 +199,8 @@
   .nav-item:disabled {
     opacity: 0.5;
   }
-  .nav-item .label {
-    white-space: nowrap;
+  .nav-item :global(svg) {
+    flex-shrink: 0;
   }
   .separator {
     margin: 8px 20px;

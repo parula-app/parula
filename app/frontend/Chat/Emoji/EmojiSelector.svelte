@@ -48,8 +48,10 @@
   import emojisJSON from "./emojis.json";
   import RoundButton from "../../Shared/RoundButton.svelte";
   import Scroll from "../../Shared/Scroll.svelte";
+  import { AppWindow } from "../../MainWindow/AppWindow";
   import { createEventDispatcher } from 'svelte';
   const dispatchEvent = createEventDispatcher<{ select: { emoji: string | null, } }>();
+  const appWindow = AppWindow.current();
 
   export let searchTerm: string | null;
 
@@ -78,7 +80,7 @@
   }
 
   function onScrollTo(group: any) {
-    let groupE = document.querySelector(`vbox[scroll=${group.id}]`);
+    let groupE = appWindow.window.document.querySelector(`vbox[scroll=${group.id}]`);
     groupE?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start'});
   }
 </script>

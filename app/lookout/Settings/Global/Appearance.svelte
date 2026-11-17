@@ -10,6 +10,12 @@
         {/if}
       </hbox>
     </OptionsRow>
+      <vbox class="titlebar">
+        <Checkbox label={$t`Show the title bar`} checked={!$tabsInTitleBar.value}
+          on:change={event => { $tabsInTitleBar.value = !event.detail; }} />
+      </vbox>
+    <OptionsRow>
+    </OptionsRow>
     <OptionsRow icon={ThemeIcon}>
       <hbox class="field-row">
         <label for="options-theme" class="field-label">{$t`Theme *=> Color scheme of the app`}</label>
@@ -43,10 +49,12 @@
   import { appName, defaultFrontend } from "../../../logic/build";
   import { catchErrors } from "../../../frontend/Util/error";
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
+  import Checkbox from "../../Shared/Form/Checkbox.svelte";
   import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
   import OptionsPage from "../Shared/OptionsPage.svelte";
   import OptionsSection from "../Shared/OptionsSection.svelte";
   import OptionsRow from "../Shared/OptionsRow.svelte";
+  import { tabsInTitleBar } from "../../Shared/Ribbon/Ribbon.svelte";
   import GeneralIcon from "lucide-svelte/icons/settings";
   import ThemeIcon from "lucide-svelte/icons/sun-moon";
   import UserInterfaceIcon from "lucide-svelte/icons/panels-top-left";
@@ -92,5 +100,10 @@
   }
   .default-app :global(svg) {
     color: var(--lo-success);
+  }
+  .titlebar {
+    margin-inline-start: 20px;
+    margin-block-start: 0px;
+    margin-block-end: -12px;
   }
 </style>

@@ -1,3 +1,5 @@
+import type { Readable, Writable } from "svelte/store";
+
 export type RibbonLayout = "classic" | "simplified";
 export type RibbonItemSize = "large" | "small";
 export type RibbonItemLook = "large" | "small" | "small-icon" | "simplified" | "simplified-icon" | "list";
@@ -33,6 +35,20 @@ export interface RibbonTabInfo {
   label: string;
   isContextual: boolean;
   groups: RibbonGroupInfo[];
+}
+
+/** What the tab row and Tell me need of their ribbon, also in the window title bar */
+export interface RibbonState {
+  readonly ribbonEl: HTMLElement;
+  shownTabs: Readable<RibbonTabInfo[]>;
+  selectedTab: Writable<RibbonTabInfo>;
+  /** The collapsed ribbon shows the selected tab until the next click */
+  isTempOpen: Writable<boolean>;
+  isTellMeSurveying: Writable<boolean>;
+  onFile(): void;
+  onSelectTab(tab: RibbonTabInfo): void;
+  onToggleCollapsed(): void;
+  onContextMenu(event: MouseEvent): void;
 }
 
 export interface RibbonGroupLook {
