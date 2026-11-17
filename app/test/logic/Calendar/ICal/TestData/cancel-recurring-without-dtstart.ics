@@ -1,0 +1,15 @@
+BEGIN:VCALENDAR
+METHOD:CANCEL
+PRODID:-//Example//Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+UID:cancel-recurring-without-dtstart@example.com
+DTSTAMP:20261020T090000Z
+SEQUENCE:1
+STATUS:CANCELLED
+SUMMARY:Weekly meeting
+RRULE:FREQ=WEEKLY;COUNT=5
+ORGANIZER;CN=Organizer:mailto:organizer@example.com
+ATTENDEE;CN=Attendee;PARTSTAT=NEEDS-ACTION:mailto:attendee@example.com
+END:VEVENT
+END:VCALENDAR

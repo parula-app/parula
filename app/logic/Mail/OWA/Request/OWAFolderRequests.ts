@@ -25,6 +25,9 @@ export function owaFindMsgsInFolderRequest(folderID: string, maxFetchCount: numb
       }, {
         __type: "PropertyUri:#Exchange",
         FieldURI: "item:Importance",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "item:InstanceKey",
         /*}, {
           __type: "ExtendedPropertyUri:#Exchange",
           PropertyTag: IconIndexPidTag,
@@ -400,6 +403,27 @@ export function owaSharedFolderRequest(distinguishedIDs: string[], emailAddress:
         EmailAddress: emailAddress,
       },
     })),
+  });
+}
+
+export function owaGetFolderRequest(folderID: string): OWARequest {
+  return new OWARequest("GetFolder", {
+    __type: "GetFolderRequest:#Exchange",
+    FolderShape: {
+      __type: "FolderResponseShape:#Exchange",
+      BaseShape: "Default",
+      AdditionalProperties: [{
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "folder:FolderClass",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "folder:DistinguishedFolderId",
+      }],
+    },
+    FolderIds: [{
+      __type: "FolderId:#Exchange",
+      Id: folderID,
+    }],
   });
 }
 

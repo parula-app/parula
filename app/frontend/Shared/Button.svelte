@@ -115,8 +115,9 @@
     background-color: var(--button-bg);
     color: var(--button-fg);
     border: 1px solid var(--button-border);
-    border-radius: 1000px;
-    padding: 6px 8px;
+    border-radius: var(--button-radius);
+    padding: var(--button-padding);
+    min-height: var(--button-min-height);
   }
   .plain {
     background-color: transparent;
@@ -130,6 +131,10 @@
   button:hover:not(.disabled) {
     background-color: var(--hover-bg);
     color: var(--hover-fg);
+  }
+  button.filled:hover:not(.disabled) {
+    background-color: var(--button-filled-hover-bg);
+    color: var(--button-filled-hover-fg);
   }
   button.button.selected:not(.disabled) {
     background-color: var(--selected-bg);
@@ -150,6 +155,7 @@
   button.filled {
     background-color: var(--inverted-bg);
     color: var(--inverted-fg);
+    border-color: var(--button-filled-border);
   }
   button {
     font-size: 14px;
@@ -161,6 +167,9 @@
   }
   :global(.mobile) button {
     font-size: 16px;
+  }
+  button:not(.plain) > .label {
+    padding-inline: var(--button-label-padding);
   }
   .gap {
     width: 8px;

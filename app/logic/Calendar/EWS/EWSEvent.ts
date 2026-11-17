@@ -516,7 +516,7 @@ export class EWSEvent extends ExchangeEvent {
     await super.makeExclusions(exclusions);
   }
 
-  async respondToInvitation(response: InvitationResponseInMessage): Promise<void> {
+  async respondToInvitation(response: InvitationResponseInMessage, sendReply = true): Promise<void> {
     assert(this.isIncomingMeeting, "Only invitations can be responded to");
     let itemID = this.itemID;
     // Unfortunately this API won't take an OccurrenceItemId directly.
@@ -539,7 +539,7 @@ export class EWSEvent extends ExchangeEvent {
       let response = await this.calendar.account.callEWS(request);
       itemID = sanitize.nonemptystring(response.Items.CalendarItem.ItemId.Id);
     }
-    let request = new EWSCreateItemRequest({MessageDisposition: "SendAndSaveCopy"});
+    let request = new EWSCreateItemRequest({MessageDisposition: sendReply ? "SendAndSaveCopy" : "SaveOnly"});
     request.addField(ResponseTypes[response], "ReferenceItemId", { Id: itemID });
     await this.calendar.account.callEWS(request);
     await this.calendar.listEvents(); // Sync whatever Exchange decides to do

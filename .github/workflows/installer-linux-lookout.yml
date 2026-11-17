@@ -1,0 +1,60 @@
+name: Lookout Installers for Linux
+
+on:
+  workflow_dispatch: # manually triggered
+    inputs:
+      release_type:
+        type: choice
+        options:
+          - prerelease
+          - test
+        default: 'test'
+  push:
+    tags: 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v6
+    - name: Build installers for Linux
+      uses: actions/setup-node@v6
+      with:
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+        node-version: 24.x
+    - run: |
+        sudo apt-get update
+        sudo apt-get -y install libarchive-tools
+
+    - run: cd app/build; bash lookout-brand.sh
+    - run: cd app; yarn install
+    - run: cd lib; yarn install
+    - run: cd desktop; yarn install
+    - run: cd desktop/backend; yarn install
+    - run: cd desktop; yarn run build:release:linux
+      if: github.event_name == 'push' || inputs.release_type == 'release'
+      env: &build_env
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        # For Sentry source maps. Otherwise, vite build is out of memory
+        NODE_OPTIONS: '--max-old-space-size=32768'
+    - run: cd desktop; yarn run build:prerelease:linux
+      if: inputs.release_type == 'prerelease'
+      env: *build_env
+    - run: cd desktop; yarn run build:linux
+      if: inputs.release_type == 'test'
+      env: *build_env
+    - name: Upload
+      uses: actions/upload-artifact@v7
+      with:
+        name: Lookout Installers Linux
+        path: |
+          desktop/dist/*.deb
+          desktop/dist/*.rpm
+          desktop/dist/*.AppImage
+          desktop/dist/*.flatpak
+          desktop/dist/*.snap
+          desktop/dist/*.pacman

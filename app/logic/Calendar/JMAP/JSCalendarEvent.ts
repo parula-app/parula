@@ -5,7 +5,7 @@ import { InvitationResponse } from "../Invitation/InvitationStatus";
 import { Participant } from "../Participant";
 import { k1DayS, k1HourS, k1MinuteS } from "../../util/date";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { NotImplemented, assert } from "../../util/util";
+import { NotImplemented, assert, getOwnProperty, setOwnProperty } from "../../util/util";
 import { ArrayColl } from "svelte-collections";
 
 export class JSCalendarEvent {
@@ -15,6 +15,7 @@ export class JSCalendarEvent {
       event.calUID = sanitize.nonemptystring(jmap.uid, null);
     }
     event.lastUpdateTime = sanitize.date(jmap.updated, null);
+    event.sequence = sanitize.integer(jmap.sequence, 0);
     event.original = jmap;
 
     // Text
@@ -39,29 +40,7 @@ export class JSCalendarEvent {
     // Recurrence
     if (jmap.recurrenceRule) {
       event.recurrenceCase = RecurrenceCase.Master;
-      let r = jmap.recurrenceRule;
-      let rrinit: RecurrenceInit = {
-        masterDuration: event.duration,
-        timezone: event.timezone,
-        seriesStartTime: event.startTime,
-        seriesEndTime: this.toDate(r.until, jmap, null),
-        count: sanitize.integer(r.count, Infinity),
-      // iCal and we don't support hourly, minutely or secondly. Esp. the latter is pretty silly
-        frequency: sanitize.translate(r.frequency, {
-          yearly: Frequency.Yearly,
-          monthly: Frequency.Monthly,
-          weekly: Frequency.Weekly,
-          daily: Frequency.Daily,
-        }, Frequency.Yearly),
-        interval: sanitize.integerRange(r.interval, 1, Infinity, 1),
-        first: sanitize.integer(jsCalWeekday[r.firstDayOfWeek as keyof typeof jsCalWeekday], jsCalWeekday.mo),
-      };
-      if (r.byDay) {
-        rrinit.weekdays = r.byDay.map(day => sanitize.integer(jsCalWeekday[day.day as keyof typeof jsCalWeekday]));
-        // jsCalendar uses -1..4 but we use 0..5
-        rrinit.week = (sanitize.integer(r.byDay[0].nthOfPeriod, 0) + 6) % 6;
-      }
-      event.recurrenceRule = new RecurrenceRule(rrinit);
+      event.recurrenceRule = this.getRecurrenceRule(jmap, event.duration);
       // Exceptions and exclusions have to be handled by the caller,
       // once the event has been saved locally.
     }
@@ -117,8 +96,15 @@ export class JSCalendarEvent {
       jmap.uid = event.calUID;
     }
     jmap.updated = (event.lastUpdateTime ?? new Date()).toISOString();
-    jmap.sequence ??= -1;
-    jmap.sequence++;
+    // An invitation must keep the organizer's sequence, or the server ignores the organizer's next update
+    if (event.isIncomingMeeting) {
+      if (!event.parentEvent && event.sequence > (jmap.sequence ?? 0)) { // The organizer's change came by email
+        jmap.sequence = event.sequence;
+      }
+    } else {
+      jmap.sequence ??= -1;
+      jmap.sequence++;
+    }
 
     // Text
     jmap.title = event.title;
@@ -152,19 +138,32 @@ export class JSCalendarEvent {
 
     // Recurrence
     if (event.recurrenceCase == RecurrenceCase.Master) {
-      let jr = jmap.recurrenceRule ??= {} as TJSCalendarRecurrenceRule;
-      delete jr.byMonthDay;
-      delete jr.byMonth;
-      delete jr.byYearDay;
-      delete jr.byWeekNo;
-      delete jr.byHour;
-      delete jr.byMinute;
-      delete jr.bySecond;
-      delete jr.bySetPosition;
       let er = event.recurrenceRule;
-      jr.frequency = er.frequency.toLowerCase() as TJSCalendarRecurrenceFrequency,
-      jr.interval = er.interval;
-      jr.firstDayOfWeek = jsCalWeekday[er.first];
+      let jr = jmap.recurrenceRule;
+      // Keep the parts of the rule that we don't support, unless the user changed the repetition
+      if (!jr || !this.isSameRepetition(this.getRecurrenceRule(jmap, event.duration), er)) {
+        jr = jmap.recurrenceRule ??= {} as TJSCalendarRecurrenceRule;
+        delete jr.byMonthDay;
+        delete jr.byMonth;
+        delete jr.byYearDay;
+        delete jr.byWeekNo;
+        delete jr.byHour;
+        delete jr.byMinute;
+        delete jr.bySecond;
+        delete jr.bySetPosition;
+        jr.frequency = er.frequency.toLowerCase() as TJSCalendarRecurrenceFrequency;
+        jr.interval = er.interval;
+        jr.firstDayOfWeek = jsCalWeekday[er.first];
+        if (er.weekdays) {
+          if (er.week) {
+            jr.byDay = er.weekdays.map(day => ({ day: jsCalWeekday[day], nthOfPeriod: er.week == 5 ? -1 : er.week }));
+          } else {
+            jr.byDay = er.weekdays.map(day => ({ day: jsCalWeekday[day] }));
+          }
+        } else {
+          delete jr.byDay;
+        }
+      }
       if (er.seriesEndTime) {
         delete jr.count;
         jr.until = this.fromDate(er.seriesEndTime, event);
@@ -174,13 +173,6 @@ export class JSCalendarEvent {
       } else {
         delete jr.count;
         delete jr.until;
-      }
-      if (er.weekdays) {
-        if (er.week) {
-          jr.byDay = er.weekdays.map(day => ({ day: jsCalWeekday[day], nthOfPeriod: er.week == 5 ? -1 : er.week }));
-        } else {
-          jr.byDay = er.weekdays.map(day => ({ day: jsCalWeekday[day] }));
-        }
       }
       for (let exclusion of event.exclusions) {
         let ro = jmap.recurrenceOverrides ??= {};
@@ -257,6 +249,8 @@ export class JSCalendarEvent {
           participant.participationStatus = "declined";
         } else if (p.response == InvitationResponse.Tentative) {
           participant.participationStatus = "tentative";
+        } else if (p.response == InvitationResponse.NoResponseReceived) {
+          participant.participationStatus = "needs-action";
         } else if (p.response == InvitationResponse.Unknown) {
           // JMAP status that we don't support. Keep it as-is.
         } // else `InvitationResponse` not yet listed here -> keep as-is
@@ -272,13 +266,14 @@ export class JSCalendarEvent {
         if (existing) {
           continue;
         }
+        let isOrganizer = p.response == InvitationResponse.Organizer;
         jmap.participants[crypto.randomUUID()] = {
           "@type": "Participant",
           name: p.name,
           calendarAddress: p.emailAddress ? "mailto:" + p.emailAddress : undefined,
-          roles: p.response == InvitationResponse.Organizer ? { owner: true } : { attendee: true },
+          ...isOrganizer ? { roles: { owner: true } } : { expectReply: true },
           participationStatus:
-            p.response == InvitationResponse.Accept ? "accepted" :
+            p.response == InvitationResponse.Accept || isOrganizer ? "accepted" :
             p.response == InvitationResponse.Decline ? "declined" :
             p.response == InvitationResponse.Tentative ? "tentative" :
             "needs-action",
@@ -293,16 +288,66 @@ export class JSCalendarEvent {
     }
 
     jmap.color = event.color;
+
+    if (event.parentEvent) {
+      // `jmap` is the override of this occurrence, a PatchObject. It started as the server's override in `event.original`.
+      // The organizer is that of the series, and must not be patched.
+      delete jmap.organizerCalendarAddress;
+      // The whole properties that we wrote replace the server's patches inside them, e.g. `participants/<id>/participationStatus`
+      for (let path in jmap) {
+        if (path.includes("/") && path.split("/")[0] in jmap) {
+          delete jmap[path];
+        }
+      }
+    }
+  }
+
+  /** @param masterDuration in seconds */
+  static getRecurrenceRule(jmap: TJMAPCalendarEvent, masterDuration: number): RecurrenceRule {
+    let r = jmap.recurrenceRule;
+    let rrinit: RecurrenceInit = {
+      masterDuration,
+      timezone: jmap.timeZone ?? null,
+      seriesStartTime: this.toDate(jmap.start, jmap),
+      seriesEndTime: this.toDate(r.until, jmap, null),
+      count: sanitize.integer(r.count, Infinity),
+    // iCal and we don't support hourly, minutely or secondly. Esp. the latter is pretty silly
+      frequency: sanitize.translate(r.frequency, {
+        yearly: Frequency.Yearly,
+        monthly: Frequency.Monthly,
+        weekly: Frequency.Weekly,
+        daily: Frequency.Daily,
+      }, Frequency.Yearly),
+      interval: sanitize.integerRange(r.interval, 1, Infinity, 1),
+      first: sanitize.integer(jsCalWeekday[r.firstDayOfWeek as keyof typeof jsCalWeekday], jsCalWeekday.mo),
+    };
+    if (r.byDay) {
+      rrinit.weekdays = r.byDay.map(day => sanitize.integer(jsCalWeekday[day.day as keyof typeof jsCalWeekday]));
+      // jsCalendar uses -1..4 but we use 0..5
+      rrinit.week = (sanitize.integer(r.byDay[0].nthOfPeriod, 0) + 6) % 6;
+    }
+    return new RecurrenceRule(rrinit);
+  }
+
+  /** Whether `rule` repeats like `serverRule`, apart from the start and the end of the series */
+  protected static isSameRepetition(serverRule: RecurrenceRule, rule: RecurrenceRule): boolean {
+    return serverRule.frequency == rule.frequency &&
+      serverRule.interval == rule.interval &&
+      serverRule.week == rule.week &&
+      serverRule.first == rule.first &&
+      [...serverRule.weekdays ?? []].sort().join() == [...rule.weekdays ?? []].sort().join();
   }
 
   /** When the alert fires. null, if there is none, or we don't know the trigger. */
   static toAlarm(alert: TJSCalendarAlert | undefined, event: Event): Date | null {
-    if (alert?.trigger?.["@type"] == "AbsoluteTrigger") {
-      return sanitize.date(alert.trigger.when, null);
+    let trigger = alert?.trigger;
+    if (trigger?.["@type"] == "AbsoluteTrigger") {
+      return sanitize.date(trigger.when, null);
     }
-    if (alert?.trigger?.["@type"] == "OffsetTrigger") {
-      let relativeTo = alert.trigger.relativeTo == "end" ? event.endTime : event.startTime;
-      return new Date(relativeTo.getTime() + toSeconds(alert.trigger.offset) * 1000);
+    // OffsetTrigger is the default type of a trigger
+    if (trigger && (trigger["@type"] ?? "OffsetTrigger") == "OffsetTrigger" && "offset" in trigger) {
+      let relativeTo = trigger.relativeTo == "end" ? event.endTime : event.startTime;
+      return new Date(relativeTo.getTime() + toSeconds(trigger.offset) * 1000);
     }
     return null;
   }
@@ -350,6 +395,40 @@ export class JSCalendarEvent {
     }
     let options = event.timezone ? { timeZone: event.timezone } : undefined;
     return date.toLocaleString("lt", options).replace(" ", "T");
+  }
+
+  /** The occurrence of a series, from the series and the override of this occurrence.
+   * The override is a PatchObject: its keys are JSON pointers, e.g. `participants/<id>/participationStatus`.
+   * <https://www.ietf.org/archive/id/draft-ietf-calext-jscalendarbis-22.html#name-patchobject> */
+  static applyOverride(series: TJMAPCalendarEvent, recurrenceID: string, override: TJMAPCalendarEvent): TJMAPCalendarEvent {
+    let occurrence = structuredClone(series);
+    delete occurrence.recurrenceRule;
+    delete occurrence.recurrenceOverrides;
+    occurrence.start = recurrenceID;
+    for (let [path, value] of Object.entries(override)) {
+      let keys = this.pointerKeys(path);
+      let last = keys.pop();
+      let parent = occurrence as Record<string, any>;
+      for (let key of keys) {
+        parent = getOwnProperty(parent, key);
+      }
+      if (!parent || typeof (parent) != "object") {
+        continue; // invalid patch
+      }
+      if (value === null) {
+        delete parent[last];
+      } else {
+        setOwnProperty(parent, last, value);
+      }
+    }
+    return occurrence;
+  }
+
+  /** The keys of a JSON Pointer, e.g. `participants/<id>/participationStatus` (RFC 6901).
+   * A key escapes "/" as "~1" and "~" as "~0", the only two characters that a pointer reserves.
+   * "~1" first, so that "~01" becomes "~1", not "/". */
+  protected static pointerKeys(pointer: string): string[] {
+    return pointer.split("/").map(key => key.replaceAll("~1", "/").replaceAll("~0", "~"));
   }
 }
 

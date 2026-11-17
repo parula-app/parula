@@ -2,13 +2,14 @@ import type { File as FileEntry } from "../../logic/Files/File";
 import { filesMustangApp } from "./FilesMustangApp";
 import { selectedFile } from "./selected";
 import { goTo, openApp } from "../AppsBar/selectedApp";
+import { AppWindow } from "../MainWindow/AppWindow";
 import { openEMailMessage } from "../Mail/open";
 import { allAccountsAccount } from "../../logic/Mail/AccountsList/ShowAccounts";
 import { appGlobal } from "../../logic/app";
 import { assert } from "../../logic/util/util";
 
 export function openFileFromOtherApp(file: FileEntry) {
-  selectedFile.set(file);
+  AppWindow.current().mainWindow.uiState(selectedFile).set(file);
   if (appGlobal.isMobile) {
     goTo("files/file", { file });
   } else {

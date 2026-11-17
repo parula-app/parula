@@ -1,11 +1,3 @@
-# Crunch Jul 14
-* EWS: undefined.callEWS() #1341
-* JMAP timeout
-* JPC timeout
-* Test
-  * IMAP logout
-  * Lid close -> check mail
-
 # Bugs
 * Mail: Move multiple mails (desktop) - UI and backend buggy
 * Composer: Bulleted lists - Paragraphs vs. lines
@@ -41,9 +33,6 @@
     * Calendar: Recurrence
   * Graph Calendar and Contacts
   * PGP
-    * PGP: Read signature properly
-    * Send and read: Protected headers in encrypted emails
-       <https://www.ietf.org/archive/id/draft-autocrypt-lamps-protected-headers-02.html>
     * Data: Move to ContactEntry
     * Data: Move EMail properties into class
     * Composer
@@ -73,8 +62,6 @@
     * Mail Chat view: Open thread
   * Tags: Table view: Make it part of subject column
   * Tags: Shrink tag list when not enough space
-  * Setup mail
-    * Scroll inside dialog, not whole window
 
 # Feedback
 ## Zucca

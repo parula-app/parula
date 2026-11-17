@@ -1,5 +1,5 @@
 <vbox flex class="left-pane">
-  <hbox class="top">
+  <hbox class="top window-drag">
     <vbox class="island">
       <PaneViewSwitcher bind:active={activeTab} />
     </vbox>
@@ -17,9 +17,11 @@
   {:else if activeTab == FilesView.CloudStorage || activeTab == FilesView.Harddrive}
     <FolderPane bind:listFiles bind:listDirs {activeTab} bind:selectedFolder={$selectedFolder} />
   {/if}
+  <GlobalSearchBar />
 </vbox>
 
 <script lang="ts">
+  import GlobalSearchBar from "../../MainWindow/GlobalSearchBar.svelte";
   import { File } from "../../../logic/Files/File";
   import { Directory } from "../../../logic/Files/Directory";
   import { selectedFolder } from "../selected";
@@ -48,14 +50,18 @@
 
 <style>
   .left-pane {
-    box-shadow: 2px 0px 6px 0px rgba(0, 0, 0, 10%);
+    box-shadow: var(--left-pane-shadow, 2px 0px 6px 0px rgba(0, 0, 0, 10%));
     background-color: var(--leftbar-bg);
     color: var(--leftbar-fg);
     padding-block-end: 16px;
+    margin: var(--pane-margin);
   }
 
   .left-pane :global(.persons) {
     margin-block-start: 8px;
+  }
+  :global(.lookout-window) .left-pane :global(.persons) {
+    margin-block-start: 0;
   }
   .left-pane :global(.account-list) {
     margin-block-start: -4px;
