@@ -10,14 +10,8 @@
   </vbox>
 </Dialog>
 
-<script lang="ts" context="module">
-  import type { Folder } from "../../../logic/Mail/Folder";
-  import { writable } from "svelte/store";
-
-  export const openMoveFolder = writable<Folder | null>(null);
-</script>
-
 <script lang="ts">
+  import type { Folder } from "../../../logic/Mail/Folder";
   import { FolderTreeActions } from "./FolderTreeActions";
   import Dialog from "../../Shared/Dialog/Dialog.svelte";
   import FolderPicker from "./FolderPicker.svelte";

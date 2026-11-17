@@ -1,5 +1,6 @@
 import type { Event } from "../../logic/Calendar/Event";
 import type { Calendar } from "../../logic/Calendar/Calendar";
+import type { CalendarPropertiesTab } from "./CalendarPropertiesDialog.svelte";
 import { shownCalendars } from "../../frontend/Calendar/selected";
 import { k1MinuteMS } from "../../logic/util/date";
 import { EventTable } from "./ListView/EventTable";
@@ -62,6 +63,9 @@ export const selectedSlots = writable<SlotSelection | null>(null);
 export const updatingCount = writable(0);
 export const eventPeek = writable<EventPeek | null>(null);
 export const inlineTitle = writable<string | null>(null);
+export const isGoToDateOpen = writable(false);
+export const openCalendarProperties = writable<{ calendar: Calendar, tab: CalendarPropertiesTab } | null>(null);
+export const openSharedCalendar = writable<{ fromAddressBook: boolean } | null>(null);
 // <copied from="../../frontend/Calendar/CurrentTimeMarker.svelte">
 export const now = readable(new Date(), set => {
   let timeout: ReturnType<typeof setTimeout>;

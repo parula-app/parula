@@ -3,6 +3,7 @@ import { MustangApp } from "../AppsBar/MustangApp";
 import { openApp } from "../AppsBar/selectedApp";
 import { AppWindow } from "../MainWindow/AppWindow";
 import ComposerWindow from "./Composer/ComposerWindow.svelte";
+import { hasOwnText } from "./Composer/CloseButton.svelte";
 import { showError } from "../Util/error";
 import { OAuth2Tab, oAuth2TabsOpen } from "../../logic/Auth/UI/OAuth2Tab";
 import { appGlobal } from "../../logic/app";
@@ -48,12 +49,12 @@ export class MailMustangApp extends MustangApp {
   draftsWithText(): ArrayColl<EMail> {
     let drafts = new ArrayColl<EMail>();
     for (let app of this.subApps) {
-      if (app instanceof WriteMailMustangApp && app.windowParams.mail.compose.hasOwnText()) {
+      if (app instanceof WriteMailMustangApp && hasOwnText(app.windowParams.mail)) {
         drafts.add(app.windowParams.mail);
       }
     }
     for (let mail of this.inlineDrafts) {
-      if (mail.compose.hasOwnText()) {
+      if (hasOwnText(mail)) {
         drafts.add(mail);
       }
     }

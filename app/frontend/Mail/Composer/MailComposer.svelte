@@ -203,7 +203,7 @@
   import { appGlobal } from "../../../logic/app";
   import { UserError, assert } from "../../../logic/util/util";
   import { minorError, catchErrors, showError, showUserError } from "../../Util/error";
-  import CloseButton from "./CloseButton.svelte";
+  import CloseButton, { hasOwnText } from "./CloseButton.svelte";
   import MailAutocomplete from "./MailAutocomplete.svelte";
   import AttachmentsPane from "./Attachments/AttachmentsPane.svelte";
   import FileSelector from "./Attachments/FileSelector.svelte";
@@ -408,7 +408,7 @@
   }
 
   onDestroy(() => {
-    if (closing || appWindow.isMainWindow || !mail.compose.hasOwnText()) {
+    if (closing || appWindow.isMainWindow || !hasOwnText(mail)) {
       return;
     }
     // The user closed the separate window of the composer

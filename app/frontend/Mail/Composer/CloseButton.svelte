@@ -26,8 +26,21 @@
     />
 {/if}
 
-<script lang="ts">
+<script context="module" lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
+
+  /** Whether the user wrote some text, apart from the quote */
+  export function hasOwnText(mail: EMail): boolean {
+    let doc = new DOMParser().parseFromString(mail.html, "text/html");
+    for (let blockquote of doc.body.querySelectorAll("blockquote")) {
+      blockquote.remove();
+    }
+    let text = doc.body.textContent.replace(/\s+/g, "");
+    return text.length >= 100; // Ignore attribution line before quote. TODO Match more precisely
+  }
+</script>
+
+<script lang="ts">
   import RoundButton from "../../Shared/RoundButton.svelte";
   import Button from "../../Shared/Button.svelte";
   import CloseIcon from "lucide-svelte/icons/x";
@@ -59,7 +72,7 @@
 
   function checkDirty() {
     // If there's no text at all, simply close the window without offering to save
-    if (!mail.compose.hasOwnText()) {
+    if (!hasOwnText(mail)) {
       isMenuOpen = false;
       dispatchEvent("close");
     }

@@ -1,11 +1,11 @@
 import { PublicKey } from "../PublicKey";
 import { EncryptionSystem, TrustLevel, trustOrder } from "../enums";
-import { DigestAlgorithm, SignatureAlgorithm, Certificate, RSAPublicKey, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage } from "./SMIMEASN1";
-import { BlockType, unpadPKCS, decrypt, encrypt, padFF } from "./SMIMERSAES";
+import { DigestAlgorithm, SignatureAlgorithm, ECDSASignatureAlgorithm, NamedCurve, ECDSASigValue, Oid, Certificate, RSAPublicKey, SubjectPublicKeyInfo, SubjectAlternativeName, RDNSequence, TBSCertificate, DigestInfo, SignedData, Any, Null, BasicConstraints, KeyUsage, KeyUsageBit, ExtKeyUsage, NameConstraints, algorithmName, type AlgorithmIdentifier, type WebCryptoAlgorithm } from "./SMIMEASN1";
+import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayFromHex } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
 import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
-import { assert } from "../../../util/util";
+import { assert, NotImplemented } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -13,7 +13,6 @@ import { gt } from "../../../../l10n/l10n";
 
 export class SMIMEPublicKey extends PublicKey {
   system = EncryptionSystem.SMIME;
-  cipher = "RSA";
   /**
    * Armored (base64-encoded) public S/MIME certificate
    */
@@ -41,24 +40,34 @@ export class SMIMEPublicKey extends PublicKey {
     return certificateCommonName(cert) ?? "";
   }
 
-  async matches(key: RSAPublicKey): Promise<boolean> {
+  async matches(publicKey: SubjectPublicKeyInfo): Promise<boolean> {
     if (!this.publicKeyArmored) {
       return false;
     }
     let cert = Certificate.decodePEM(this.publicKeyArmored, { label: "Certificate" });
-    let rawKey = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
-    return key.n == rawKey.n && key.e == rawKey.e;
+    return !indexedDB.cmp(SubjectPublicKeyInfo.encode(publicKey), SubjectPublicKeyInfo.encode(cert.tbsCertificate.publicKey));
   }
 
   /**
    * Parses the given certificate and sets it as the public key.
    */
   async setCertificate(cert: Certificate) {
-    let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
+    let publicKey = cert.tbsCertificate.publicKey;
     if (!this.id) {
-      let id = sanitize.bigint(rsa.n).toString(16);
-      this.id = this.keyID(rsa);
-      this.keyLengthInBits = id.length * 4;
+      let algorithm = publicKey.algorithmIdentifier.algorithm;
+      switch (algorithm) {
+      case "ecPublicKey":
+        this.cipher = "EC";
+        this.keyLengthInBits = this.curveBits(publicKey);
+        break;
+      case "rsaEncryption":
+        this.cipher = "RSA";
+        this.keyLengthInBits = sanitize.bigint(RSAPublicKey.decode(publicKey.subjectPublicKey.data).n).toString(16).length * 4;
+        break;
+      default:
+        throw new NotImplemented(gt`Certificates with ${algorithmName(algorithm)} keys are not supported`);
+      }
+      this.id = this.publicKeyID(publicKey);
     }
     this.publicKeyArmored = Certificate.encodePEM(cert, { label: "CERTIFICATE" });
     this._decodedCertificate = cert;
@@ -74,24 +83,24 @@ export class SMIMEPublicKey extends PublicKey {
     this.obsolete = now < this.created.getTime();
   }
 
-  /** A hash, because anybody can make a key whose modulus ends in the same digits */
-  protected keyID(rsa: RSAPublicKey): string {
-    return uint8ArrayToHex(sha256(RSAPublicKey.encode(rsa)));
+  /** A hash of the key, because anybody can make a key whose modulus ends in the same digits */
+  protected publicKeyID(publicKey: SubjectPublicKeyInfo): string {
+    return uint8ArrayToHex(sha256(publicKey.subjectPublicKey.data));
   }
 
   /** Sets this key's certificate if it has none yet or the certificate is for the same key, otherwise adds it to the chain */
   async addCertificate(cert: Certificate): Promise<boolean> {
-    let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
+    let publicKey = cert.tbsCertificate.publicKey;
     if (!this.publicKeyArmored) {
       await this.setCertificate(cert);
       return true;
     }
-    if (await this.matches(rsa)) {
+    if (await this.matches(publicKey)) {
       await this.setCertificate(cert);
       return false;
     }
     for (let key of this.chain) {
-      if (await key.matches(rsa)) {
+      if (await key.matches(publicKey)) {
         await key.setCertificate(cert);
         return false;
       }
@@ -154,6 +163,52 @@ export class SMIMEPublicKey extends PublicKey {
     }
   }
 
+  /** @returns e.g. 256 for P-256, or null for a curve that we do not support */
+  protected curveBits(publicKey: SubjectPublicKeyInfo): number | null {
+    try {
+      return sanitize.translate(Oid.decode(publicKey.algorithmIdentifier.parameters), NamedCurve, null);
+    } catch (ex) {
+      return null; // Explicit or missing curve parameters, which RFC 5480 forbids
+    }
+  }
+
+  /**
+   * @param digestAlgorithm Only for mail, where the signature algorithm may also name only the key, RFC 5652 section 10.1.2
+   * @param hashes The signature algorithms for this type of key, with their hash
+   * @returns null, if not supported, or if the two algorithms disagree
+   */
+  protected signatureHash(signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm: AlgorithmIdentifier | undefined, hashes: Record<string, WebCryptoAlgorithm>): WebCryptoAlgorithm | null {
+    let hash = sanitize.translate(signatureAlgorithm.algorithm, hashes, null);
+    if (!digestAlgorithm) {
+      return hash;
+    }
+    let digestHash = sanitize.translate(digestAlgorithm.algorithm, DigestAlgorithm, null);
+    if (signatureAlgorithm.algorithm == this.decodedCertificate.tbsCertificate.publicKey.algorithmIdentifier.algorithm) {
+      return digestHash;
+    }
+    return hash == digestHash ? hash : null;
+  }
+
+  /** @param signature as X.509 and CMS have it, an `ECDSASigValue` */
+  async verifyECDSA(signature: Uint8Array, content: Uint8Array, signatureAlgorithm: AlgorithmIdentifier, digestAlgorithm?: AlgorithmIdentifier): Promise<boolean> {
+    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
+    let curve = this.curveBits(publicKey);
+    let hash = this.signatureHash(signatureAlgorithm, digestAlgorithm, ECDSASignatureAlgorithm);
+    if (!curve || !hash) {
+      return false;
+    }
+    let key = await crypto.subtle.importKey("spki", SubjectPublicKeyInfo.encode(publicKey) as BufferSource, { name: "ECDSA", namedCurve: "P-" + curve }, false, ["verify"]);
+    // WebCrypto wants r and s one after the other, each in the size of the curve
+    let size = curve + 7 >> 3;
+    let max = 1n << BigInt(size * 8);
+    let { r, s } = ECDSASigValue.decode(signature);
+    if (r <= 0n || s <= 0n || r >= max || s >= max) {
+      return false;
+    }
+    let rs = Uint8ArrayFromHex(r.toString(16).padStart(size * 2, "0") + s.toString(16).padStart(size * 2, "0"));
+    return await crypto.subtle.verify({ name: "ECDSA", hash }, key, rs as BufferSource, content as BufferSource);
+  }
+
   isValidAt(date: Date): boolean {
     return date.getTime() >= this.created.getTime() && date.getTime() <= this.expires.getTime();
   }
@@ -171,6 +226,9 @@ export class SMIMEPublicKey extends PublicKey {
     if (!this.allowsEMailProtection()) {
       return KeyStatus.ChainInvalid;
     }
+    // `userIDs` has the emailAddress of the subject only when the subjectAltName has none
+    let emailAddresses = new ArrayColl(this.userIDs);
+    emailAddresses.addAll(cert.tbsCertificate.subject.filter(attr => attr.type == "E").map(attr => attr.value.value.toLowerCase()));
     for (let key of this.chain) {
       // Not `obsolete`: it also means "expired now", which would reject older mail
       if (key._obsolete || !key.isValidAt(date)) {
@@ -181,7 +239,7 @@ export class SMIMEPublicKey extends PublicKey {
       if (!await verifySignature(cert, signer)) {
         return KeyStatus.ChainInvalid;
       }
-      if (!key.mayIssueCertificates(this.chain.contents.indexOf(key)) || !key.allowsEMailProtection()) {
+      if (!key.mayIssueCertificates(this.chain.contents.indexOf(key)) || !key.allowsEMailProtection() || !key.mayIssueForEMailAddresses(emailAddresses)) {
         return KeyStatus.ChainInvalid;
       }
       cert = signer;
@@ -192,7 +250,7 @@ export class SMIMEPublicKey extends PublicKey {
         if (await verifySignature(cert, ca)) {
           let root = new SMIMEPublicKey();
           await root.setCertificate(ca);
-          if (root._obsolete || !root.isValidAt(date) || !root.allowsEMailProtection() || (!kAcceptX509v1Roots && !ca.tbsCertificate.version)) {
+          if (root._obsolete || !root.isValidAt(date) || !root.allowsEMailProtection() || !root.mayIssueForEMailAddresses(emailAddresses) || (!kAcceptX509v1Roots && !ca.tbsCertificate.version)) {
             continue;
           }
           let caTrust = type == "bundled" ? TrustLevel.ThirdParty : type == "system" ? TrustLevel.OS : TrustLevel.Personal;
@@ -218,6 +276,44 @@ export class SMIMEPublicKey extends PublicKey {
     }
     let { cA, pathLenConstraint } = BasicConstraints.decode(basicConstraints);
     return cA && (pathLenConstraint == null || subCAs <= pathLenConstraint) && this.allowsAnyKeyUsage(KeyUsageBit.keyCertSign);
+  }
+
+  /** The rfc822Name name constraints of a CA (RFC 5280 section 4.2.1.10).
+   * Other name forms don't limit email addresses. */
+  protected mayIssueForEMailAddresses(emailAddresses: ArrayColl<string>): boolean {
+    let nameConstraints = this.extension("nameConstraints");
+    if (!nameConstraints) {
+      return true;
+    }
+    function rfc822Names(subtrees: any[] | undefined): string[] {
+      return (subtrees ?? []).filter(subtree => subtree.base.type == "rfc822Name").map(subtree => subtree.base.value);
+    }
+    function isWithin(emailAddress: string, subtree: string): boolean {
+      if (!subtree) {
+        return true;
+      }
+      let domain = emailAddress.slice(emailAddress.lastIndexOf("@") + 1);
+      if (subtree.startsWith(".")) {
+        return domain.endsWith(sanitize.hostname(subtree));
+      }
+      if (subtree.startsWith("@")) { // Windows Server documents "@example.com" for "example.com"
+        return domain == sanitize.hostname(subtree.slice(1));
+      }
+      if (subtree.includes("@")) {
+        return emailAddress == sanitize.emailAddress(subtree);
+      }
+      return domain == sanitize.hostname(subtree);
+    }
+    try {
+      let { permittedSubtrees, excludedSubtrees } = NameConstraints.decode(nameConstraints);
+      let permitted = rfc822Names(permittedSubtrees);
+      let excluded = rfc822Names(excludedSubtrees);
+      return emailAddresses.every(emailAddress =>
+        (!permitted.length || permitted.some(subtree => isWithin(emailAddress, subtree))) &&
+        !excluded.some(subtree => isWithin(emailAddress, subtree)));
+    } catch (ex) {
+      return false; // A name form that we can't decode, e.g. x400Address, or an invalid constraint
+    }
   }
 
   /** True if the certificate allows at least one of these, e.g. signing needs digitalSignature or nonRepudiation (RFC 8550 section 4.4.2) */
@@ -276,7 +372,7 @@ export class SMIMEPublicKey extends PublicKey {
     super.fromJSON(json);
     if (this.publicKeyArmored) {
       let cert = Certificate.decodePEM(this.publicKeyArmored, { label: "CERTIFICATE" });
-      this.id = this.keyID(RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data));
+      this.id = this.publicKeyID(cert.tbsCertificate.publicKey);
     }
     for (let certificate of sanitize.array(json.chain, [])) {
       let key = new SMIMEPublicKey();
@@ -301,7 +397,7 @@ function certificateEMailAddresses(cert: Certificate): string[] {
         return emailAddresses;
       }
     } catch (ex) {
-      // Entry types that we do not implement, e.g. directoryName, fail to decode
+      // Entry types that we do not implement, e.g. x400Address, fail to decode
       console.error(ex);
     }
   }
@@ -325,6 +421,11 @@ export async function verifySignature(cert: Certificate, signer: Certificate): P
     if (indexedDB.cmp(RDNSequence.encode(cert.tbsCertificate.issuer), RDNSequence.encode(signer.tbsCertificate.subject))) {
       console.log("subject did not match issuer");
       return false;
+    }
+    if (signer.tbsCertificate.publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+      let signerKey = new SMIMEPublicKey();
+      await signerKey.setCertificate(signer);
+      return await signerKey.verifyECDSA(cert.signatureValue.data, TBSCertificate.encode(cert.tbsCertificate), cert.signatureAlgorithm);
     }
     let algorithm = sanitize.translate(cert.signatureAlgorithm.algorithm, SignatureAlgorithm);
     let signedCert = TBSCertificate.encode(cert.tbsCertificate);

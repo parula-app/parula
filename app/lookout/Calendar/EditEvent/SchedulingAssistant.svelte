@@ -4,7 +4,7 @@
       <SendButton label={sendLabel} disabled={sendDisabled} onClick={onSend} />
     {/if}
     <grid class="fields">
-      <TimeBox {event} editor={timeEditor} {flow} showSummary={false} />
+      <TimeBox {event} editor={timeEditor} {flow} showSummary={false} {onEditRecurrence} />
     </grid>
   </hbox>
   <hbox class="view-tabs">
@@ -19,7 +19,7 @@
       <FreeSlots {event} showHours={10} />
     </vbox>
   {:else if view == "participants"}
-    <AvailabilityGrid {event} {timeEditor} />
+    <AvailabilityGrid {event} {timeEditor} bind:this={availabilityGrid} />
   {:else}
     <vbox flex class="view">
       <AvailabilityPoll {event} bind:sml={poll}>
@@ -63,6 +63,7 @@
   export let sendLabel: string;
   export let sendDisabled: string | false = false;
   export let onSend: () => Promise<void>;
+  export let onEditRecurrence: () => void;
 
   $: viewTabs = [
     { id: "free", label: $t`Free slots`, disabled: noAvailabilityReason },
@@ -73,6 +74,11 @@
   let poll: SMLData | null = null;
   let useCalendar = true;
   $: participants = event.participants;
+
+  let availabilityGrid: AvailabilityGrid;
+  export function refreshAvailability() {
+    availabilityGrid?.load();
+  }
 
   // <copied from="../../../frontend/Calendar/EditEvent/Availability/Availability.svelte">
   let noAvailabilityReason: string | false = false;

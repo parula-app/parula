@@ -4,6 +4,7 @@ import { writable } from "svelte/store";
 
 export const selectedAddressbook = writable<Addressbook | null>(null);
 export const selectedContact = writable<Contact | null>(null);
+export const contactSearchInput = writable<HTMLInputElement | null>(null);
 
 export enum ContactSearchScope {
   CurrentFolder = "current",

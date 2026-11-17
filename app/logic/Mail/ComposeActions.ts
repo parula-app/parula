@@ -409,19 +409,6 @@ export class ComposeActions {
     await this.deleteDrafts(previousDrafts);
   }
 
-  /** Whether the user wrote some text, apart from the quote */
-  hasOwnText(): boolean {
-    // <copied to="../../lookout/Mail/Composer/DraftContent.ts">
-    let doc = new DOMParser().parseFromString(this.email.html, "text/html");
-    for (let blockquote of doc.body.querySelectorAll("blockquote")) {
-      blockquote.remove();
-    }
-    let text = doc.body.textContent ?? "";
-    text = text.replace(/\s+/g, "").trim();
-    return text.length >= 100; // Ignore attribution line before quote. TODO Match more precisely
-    // </copied>
-  }
-
   /** When the app quits: Saves the draft on the server.
    * If that fails or takes more than 1 second, keeps it on disk,
    * and `MailAccount.uploadLocalDrafts()` uploads it on the next start.
