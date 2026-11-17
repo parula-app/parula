@@ -36,7 +36,11 @@ export async function verifySignedData(signedData: any, content: Uint8Array, dat
     console.log("certificate does not contain an RSA public key");
     return null;
   }
-  let digestAlgorithm = sanitize.translate(signerInfo.digestAlgorithm.algorithm, DigestAlgorithm);
+  let digestAlgorithm = sanitize.translate(signerInfo.digestAlgorithm.algorithm, DigestAlgorithm, null);
+  if (!digestAlgorithm) {
+    console.log("message was digested with an algorithm that we do not know");
+    return null;
+  }
   // RFC 5652 section 10.1.2: signers write rsaEncryption, but verifiers
   // should also accept e.g. sha256WithRSAEncryption, which some clients
   // write instead. Its hash must match the digest algorithm.
