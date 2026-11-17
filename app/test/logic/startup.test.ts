@@ -5,7 +5,8 @@ import { ChatAccount } from "../../logic/Chat/ChatAccount";
 import { ComputerOn } from "../../logic/util/backend-wrapper";
 import { loginOnStartup } from "../../logic/startup";
 import { sleep } from "../../logic/util/util";
-import { beforeAll, expect, test } from "vitest";
+import { k1MinuteMS } from "../../logic/util/date";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 
 let remote: TestAccount;
 let dependent: TestAccount;
@@ -14,6 +15,7 @@ let errors: Error[] = [];
 
 // One `loginOnStartup()` for the whole file: it subscribes to the wake-up, too
 beforeAll(async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] }); // only the 5 minutes retry interval
   // There is no backend process here, so `checkWakeUp()` cannot get the real one
   appGlobal.remoteApp = { computerOn: new ComputerOn() } as any;
   remote = new TestAccount();
@@ -25,6 +27,10 @@ beforeAll(async () => {
   loginOnStartup(ex => errors.push(ex));
   await sleep(0.1);
   remote.errorCallback = dependent.errorCallback = local.errorCallback = ex => errors.push(ex);
+});
+
+afterAll(() => {
+  vi.useRealTimers();
 });
 
 test("The app start logs in, then starts up, once", async () => {
@@ -55,10 +61,48 @@ test("The Login button of a shared mailbox logs in the main account, which start
   expect(dependent.calls).toEqual(["startup", "startup", "startup"]);
 });
 
+test("While the server can't be reached, e.g. the VPN isn't up yet, we try again every 5 minutes", async () => {
+  let unreachable = Object.assign(new Error("getaddrinfo ENOTFOUND imap.example.com"), { code: "ENOTFOUND" });
+  remote.loggedIn = false;
+  remote.loginErrors = [unreachable, unreachable, unreachable];
+  remote.errorCallback = ex => remote.errors.add(ex); // like the app
+  remote.calls = [];
+
+  window.dispatchEvent(new Event("online"));
+  await sleep(0.5); // 2 quick tries, 4 s * `waitTime.factor` apart
+  expect(remote.calls).toEqual(["login", "login"]);
+  await vi.advanceTimersByTimeAsync(5 * k1MinuteMS);
+  await sleep(0.1);
+  expect(remote.calls).toEqual(["login", "login", "login"]);
+  await vi.advanceTimersByTimeAsync(5 * k1MinuteMS);
+  await sleep(0.1);
+  expect(remote.calls).toEqual(["login", "login", "login", "login", "startup"]);
+
+  await vi.advanceTimersByTimeAsync(5 * k1MinuteMS); // logged in: no more tries
+  await sleep(0.1);
+  expect(remote.calls).toEqual(["login", "login", "login", "login", "startup"]);
+});
+
+test("After a wrong password, we don't try again", async () => {
+  remote.loggedIn = false;
+  remote.loginErrors = [new Error("Check your login, username, and password.")];
+  remote.calls = [];
+
+  window.dispatchEvent(new Event("online"));
+  await sleep(0.1);
+  await vi.advanceTimersByTimeAsync(10 * k1MinuteMS);
+  await sleep(0.1);
+
+  expect(remote.calls).toEqual(["login"]);
+  expect(remote.loggedIn).toBe(false);
+});
+
 /** `login()` only logs in. The caller runs `syncOnStartup()`. */
 class TestAccount extends ChatAccount {
   calls: string[] = [];
   loggedIn = false;
+  /** `login()` throws these first */
+  loginErrors: Error[] = [];
 
   get isLoggedIn(): boolean {
     return this.loggedIn;
@@ -66,6 +110,11 @@ class TestAccount extends ChatAccount {
 
   async login(interactive: boolean) {
     this.calls.push("login");
+    await super.login(interactive); // clears the errors
+    let ex = this.loginErrors.shift();
+    if (ex) {
+      throw ex;
+    }
     this.loggedIn = true;
   }
 

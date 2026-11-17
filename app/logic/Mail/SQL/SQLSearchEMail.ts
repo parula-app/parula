@@ -30,12 +30,14 @@ export class SQLSearchEMail extends SearchEMail {
         : null;
 
     // Search matching emails directly in the SQL database
+    // The person with `JOIN`, not `LEFT JOIN`, so that SQLite can start with the person,
+    // using `index_emailPerson_emailAddress_lower`, instead of going through all emails
     let query = sql`
       SELECT
         email.id as id, folderID
       FROM email
       $${accountIDs ? sql` LEFT JOIN folder ON (email.folderID = folder.id) ` : sql``}
-      $${this.includesPerson ? sql` LEFT JOIN emailPersonRel ON (email.id = emailPersonRel.emailID) LEFT JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id) ` : sql``}
+      $${this.includesPerson ? sql` JOIN emailPersonRel ON (email.id = emailPersonRel.emailID) JOIN emailPerson ON (emailPersonRel.emailPersonID = emailPerson.id) ` : sql``}
       $${this.hasAttachment === true || this.hasAttachment === false ? sql` LEFT JOIN emailAttachment ON (email.id = emailAttachment.emailID) ` : sql``}
       $${this.tags?.hasItems ? sql` LEFT JOIN emailTag ON (email.id = emailTag.emailID) ` : sql``}
       WHERE 1=1
@@ -94,6 +96,7 @@ export class SQLSearchEMail extends SearchEMail {
       this.account?.inbox ??
       appGlobal.emailAccounts.first?.inbox;
     assert(randomFolder, gt`Please set up a mail account first`);
+    let newEmails: EMail[] = [];
     for (let row of rows) {
       let folder = findFolder(row.folderID);
       let existing = folder?.messages.find(msg => msg.dbID == row.id);
@@ -102,14 +105,12 @@ export class SQLSearchEMail extends SearchEMail {
         continue;
       }
       let email = (folder ?? randomFolder).newEMail();
-      try {
-        await SQLEMail.read(row.id, email); // TODO: Get metadata with query above first, then the email contents?
-        // Do *not* add this temp `email` object to `folder.messages`
-      } catch (ex) {
-        parseError(ex);
-      }
+      email.dbID = row.id;
+      newEmails.push(email);
+      // Do *not* add this temp `email` object to `folder.messages`
       emails.add(email);
     }
+    await SQLEMail.readMultiple(newEmails, parseError);
     return emails;
   }
 }

@@ -1,6 +1,8 @@
 import { setupTestFolder, newTestEMail } from "./setup";
 import type { Folder } from "../../../../logic/Mail/Folder";
 import { SQLEMail } from "../../../../logic/Mail/SQL/SQLEMail";
+import { SQLSearchEMail } from "../../../../logic/Mail/SQL/SQLSearchEMail";
+import { ContactEntry, Person } from "../../../../logic/Abstract/Person";
 import { getDatabase } from "../../../../logic/Mail/SQL/SQLDatabase";
 import { findOrCreatePersonUID } from "../../../../logic/Abstract/PersonUID";
 import { beforeAll, expect, test } from "vitest";
@@ -49,4 +51,23 @@ test("Saving one email makes a few calls to the backend, not one per recipient",
   await SQLEMail.save(email);
 
   expect(calls).toBeLessThan(5);
+});
+
+test("Searching emails makes a few calls to the backend, not some per email found", async () => {
+  let emails = newEMails("search", 50);
+  for (let email of emails) {
+    email.from = findOrCreatePersonUID("fred@example.com", "Fred");
+  }
+  await SQLEMail.saveMultiple(emails);
+  let fred = new Person();
+  fred.emailAddresses.add(new ContactEntry("fred@example.com", "work"));
+  let search = new SQLSearchEMail(); // as the contact history does
+  search.folder = folder;
+  search.includesPerson = fred;
+  calls = 0;
+
+  let found = await search.startSearch();
+
+  expect(found.length).toBe(emails.length);
+  expect(calls).toBeLessThan(10);
 });
