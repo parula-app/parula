@@ -46,7 +46,7 @@
   import { changedWorkspace, selectedWorkspace } from "../../../frontend/MainWindow/Selected";
   import { getAccountIcon } from "../../../frontend/Settings/Shared/accountUIHelper";
   import { accountSettings } from "../SettingsCategories";
-  import { selectedCategory, selectedAccount } from "../Window/selected";
+  import { selectedCategory, selectedAccount } from "../../../frontend/Settings/Window/selected";
   import { assert } from "../../../logic/util/util";
   import OptionsSection from "../Shared/OptionsSection.svelte";
   import OptionsRow from "../Shared/OptionsRow.svelte";

@@ -1,4 +1,4 @@
-<Ribbon>
+<Ribbon id="files">
   <RibbonTab label={$t`Home *=> Ribbon tab with the most-used commands`}>
     {#if isFolderView}
       <RibbonGroup label={$t`New`}>

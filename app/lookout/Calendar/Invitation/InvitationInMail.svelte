@@ -86,6 +86,7 @@
   import { appGlobal } from "../../../logic/app";
   import { CalendarActions } from "../CalendarActions";
   import { calendarMustangApp } from "../../../frontend/Calendar/CalendarMustangApp";
+  import { openEvent } from "../../../frontend/Calendar/open";
   import { selectedDate, selectedEvent, startDate } from "../../../frontend/Calendar/selected";
   import { openApp } from "../../../frontend/AppsBar/selectedApp";
   import { eventWhenText, eventConflict, myResponseText } from "../EditEvent/EventFormInfo";
@@ -212,9 +213,13 @@
   }
 
   function showInCalendar() {
-    let eventInCalendar = incoming?.calEvent() ?? null;
-    let day = new Date((eventInCalendar ?? event).startTime);
-    $selectedEvent = eventInCalendar;
+    let eventInCalendar = incoming?.calEvent();
+    if (eventInCalendar) {
+      openEvent(eventInCalendar, false);
+      return;
+    }
+    let day = new Date(event.startTime);
+    $selectedEvent = null;
     $selectedDate = day;
     $startDate = day;
     openApp(calendarMustangApp, {});

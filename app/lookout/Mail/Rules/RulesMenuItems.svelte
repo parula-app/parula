@@ -13,7 +13,7 @@
 <script lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
-  import { openAlwaysMove } from "./AlwaysMoveDialog.svelte";
+  import { openAlwaysMove } from "../Selected";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import AlwaysMoveIcon from "lucide-svelte/icons/folder-input";
   import CreateRuleIcon from "lucide-svelte/icons/list-plus";
