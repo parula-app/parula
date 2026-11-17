@@ -12,12 +12,12 @@ export class ActiveSyncAutoResponder extends ExchangeAutoResponder {
 
   async load(): Promise<void> {
     let response = await this.callOOF({ Get: { BodyType: "HTML" } });
-    this.fromEAS(response.Get ?? {});
+    this.fromWBXML(response.Get ?? {});
   }
 
   async save(): Promise<void> {
     this.validate();
-    await this.callOOF({ Set: this.toEAS() });
+    await this.callOOF({ Set: this.toWBXML() });
   }
 
   /** @param request `Get` or `Set`
@@ -30,11 +30,11 @@ export class ActiveSyncAutoResponder extends ExchangeAutoResponder {
     return response.Oof;
   }
 
-  /** @param get `Get` of the `Oof` response */
-  fromEAS(get: Record<string, any>) {
-    this.oofState = sanitize.integerRange(get.OofState, 0, 2, OOFState.Disabled);
-    this.setTimes(sanitize.date(get.StartTime, null), sanitize.date(get.EndTime, null));
-    let messages = ensureArray(get.OofMessage).filter(message => message && typeof (message) == "object");
+  /** @param wbxmljs `Get` of the `Oof` response */
+  fromWBXML(wbxmljs: Record<string, any>) {
+    this.oofState = sanitize.integerRange(wbxmljs.OofState, 0, 2, OOFState.Disabled);
+    this.setTimes(sanitize.date(wbxmljs.StartTime, null), sanitize.date(wbxmljs.EndTime, null));
+    let messages = ensureArray(wbxmljs.OofMessage).filter(message => message && typeof (message) == "object");
     let internal = messages.find(message => "AppliesToInternal" in message);
     let known = messages.find(message => "AppliesToExternalKnown" in message);
     let unknown = messages.find(message => "AppliesToExternalUnknown" in message);
@@ -52,22 +52,20 @@ export class ActiveSyncAutoResponder extends ExchangeAutoResponder {
     this.externalHTML = sanitizeHTML(external?.ReplyMessage);
   }
 
-  /** Elements must be in schema order, apart from within `OofMessage` */
-  toEAS() {
-    let set: any = {
-      OofState: String(this.oofState),
-    };
-    if (this.scheduled) {
-      set.StartTime = this.startTime.toISOString();
-      set.EndTime = this.endTime.toISOString();
-    }
+  /** Elements must be in schema order */
+  toWBXML() {
     let external = this.stripEmptyParagraph(this.externalHTML);
-    set.OofMessage = [
-      this.oofMessage("AppliesToInternal", true, this.stripEmptyParagraph(this.internalHTML)),
-      this.oofMessage("AppliesToExternalKnown", this.externalAudience != AutoResponderAudience.None, external),
-      this.oofMessage("AppliesToExternalUnknown", this.externalAudience == AutoResponderAudience.All, external),
-    ];
-    return set;
+    return {
+      OofState: String(this.oofState),
+      // `[]` omits the element
+      StartTime: this.scheduled ? this.startTime.toISOString() : [],
+      EndTime: this.scheduled ? this.endTime.toISOString() : [],
+      OofMessage: [
+        this.oofMessage("AppliesToInternal", true, this.stripEmptyParagraph(this.internalHTML)),
+        this.oofMessage("AppliesToExternalKnown", this.externalAudience != AutoResponderAudience.None, external),
+        this.oofMessage("AppliesToExternalUnknown", this.externalAudience == AutoResponderAudience.All, external),
+      ],
+    };
   }
 
   protected oofMessage(appliesTo: string, enabled: boolean, message: string) {
