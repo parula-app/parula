@@ -276,11 +276,20 @@
   .mac .window-buttons {
     display: none;
   }
-  .mac .app-logo {
+  .mac .app-logo,
+  :global([dir="rtl"]) .mac.os-rtl .app-logo {
     padding-inline-start: 80px;
   }
   :global([dir="rtl"]) .mac:not(.os-rtl) .app-logo,
   .mac.os-rtl .app-logo {
     padding-inline-start: 14px;
+  }
+  /* UI and macOS writing directions differ: The traffic lights are at the end, after the search */
+  :global([dir="rtl"]) .mac:not(.os-rtl) .search-area,
+  .mac.os-rtl .search-area {
+    padding-inline-end: 80px;
+  }
+  :global([dir="rtl"]) .mac .search-area {
+    padding-inline-end: 8px;
   }
 </style>
