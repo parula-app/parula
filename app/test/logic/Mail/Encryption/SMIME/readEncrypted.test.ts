@@ -52,6 +52,7 @@ describe("Opening the message", () => {
     serveFromServer(email);
     await email.download(); // the sync, in the background
     expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/\bdes/i)]);
+    expect(email.downloadComplete).toBe(true); // saved, so that the sync doesn't download it again
 
     // `MessageBody` shows what `loadBody()` throws
     await expect(email.loadBody()).rejects.toThrow(/\bdes/i);

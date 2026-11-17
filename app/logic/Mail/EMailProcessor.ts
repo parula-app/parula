@@ -29,8 +29,8 @@ export class EMailProcessor {
 
 /** A processor can't get the content of the mail, e.g. can't decrypt it */
 export class CannotReadMail extends SpecificError {
-  /** A problem of the mail, not a bug */
-  isUserError = true;
+  /** A problem of the mail data, not a bug */
+  doNotLog = true;
 }
 
 /** For now, only Parse is supported */

@@ -167,7 +167,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
     mime.set(headerBytes);
     mime.set(content, headerBytes.length);
     email.mime = mime;
-    let parsed = await email.parseMIME(); // checks signature recursively
+    let parsed = await email.parseMIMEOrThrow(); // checks signature recursively. Throws, if we can't read the inner layer
     await email.saveCompleteMessage();
     return parsed;
   }

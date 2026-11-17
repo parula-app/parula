@@ -359,9 +359,21 @@ export class EMail extends Message {
     });
   }
 
+  /** Like `parseMIMEOrThrow()`, but passes `CannotReadMail` to `errorCallback()`, so that the sync still saves the mail */
+  async parseMIME(): Promise<void> {
+    try {
+      await this.parseMIMEOrThrow();
+    } catch (ex) {
+      if (!(ex instanceof CannotReadMail)) {
+        throw ex;
+      }
+      this.folder.account.errorCallback(ex);
+    }
+  }
+
   protected processorLoop: LoopGuard | null = null;
-  /** @param throwCannotRead Throws `CannotReadMail`, instead of passing it to `errorCallback()` */
-  async parseMIME(throwCannotRead = false): Promise<MIME> {
+  /** @throws CannotReadMail if we can't read the mail or an inner layer of it, e.g. can't decrypt it */
+  async parseMIMEOrThrow(): Promise<MIME> {
     assert(this.mime?.length, "MIME source not yet downloaded");
     assert(this.mime instanceof Uint8Array, "MIME source should be a byte array");
     //console.log("MIME source", this.mime, new TextDecoder("utf-8").decode(this.mime));
@@ -450,8 +462,7 @@ export class EMail extends Message {
         try {
           await processor.process(this, mail);
         } catch (ex) {
-          // An inner layer that we can't read makes the whole mail unreadable
-          if (ex instanceof CannotReadMail && (throwCannotRead || !isOutermost)) {
+          if (ex instanceof CannotReadMail) {
             throw ex;
           }
           this.folder.account.errorCallback(ex);
@@ -612,7 +623,7 @@ export class EMail extends Message {
           await this.download();
         }
         if (!this._rawHTML && !this._text && this.mime) {
-          await this.parseMIME(true); // throws why it's empty, if we can't read it
+          await this.parseMIMEOrThrow(); // throws why it's empty, if we can't read it
         }
       }
 
