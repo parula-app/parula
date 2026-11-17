@@ -67,9 +67,9 @@ test("Settings show the default and the extra signatures", async () => {
   expect(editorTexts()).toEqual(["Fred", "Fred, CTO", "Fred, Treasurer"]);
 });
 
-test("Add signature adds an empty one, and the trash button deletes the right one", async () => {
+test("Add alternative signature adds an empty one, and the trash button deletes the right one", async () => {
   await mountBlock();
-  button("Add signature").click();
+  button("Add alternative signature").click();
   await sleep(0);
   flushSync();
   expect(identity.altSignatures.contents).toEqual(["<p>Fred, CTO</p>", "<p>Fred, Treasurer</p>", ""]);

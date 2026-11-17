@@ -74,7 +74,7 @@
         {/if}
 
         {#if $altSignatures.hasItems}
-          <hbox class="alt-signatures-header">{$t`More signatures, to pick in the mail composer`}</hbox>
+          <hbox class="alt-signatures-header">{$t`Alternative signatures, to pick in the mail composer`}</hbox>
         {/if}
         {#each $altSignatures.each as signatureHTML, i}
           <vbox class="signature-editor-box alt-signature">
@@ -93,7 +93,7 @@
         {/each}
         <hbox class="add-signature">
           <Button
-            label={$t`Add signature`}
+            label={$t`Add alternative signature`}
             icon={AddIcon}
             onClick={() => identity.altSignatures.add("")}
             />
