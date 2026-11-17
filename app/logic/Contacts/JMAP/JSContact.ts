@@ -3,7 +3,7 @@ import type { TEmailAddress, TJSContact, TLink, TNameComponent, TOnlineService, 
 import type { JMAPPerson } from './JMAPPerson';
 import type { TID } from '../../Mail/JMAP/TJMAPGeneric';
 import { sanitize } from '../../../../lib/util/sanitizeDatatypes';
-import { assert, ensureArray, randomID } from '../../util/util';
+import { assert, ensureArray, getOwnProperty, randomID, setOwnProperty } from '../../util/util';
 import type { ArrayColl } from 'svelte-collections';
 
 export class JSContact {
@@ -231,7 +231,7 @@ export class JSContact {
     // Delete old entries
     for (let p of personEntries.contents) { // copy: remove alters personEntries
       let jmapID = getJMAPID(p);
-      if (!jmapID || !jscontactEntries[jmapID]) {
+      if (!jmapID || !getOwnProperty(jscontactEntries, jmapID)) {
         personEntries.remove(p);
       }
     }
@@ -250,7 +250,7 @@ export class JSContact {
         jmapID = crypto.randomUUID();
         setJMAPID(personEntry, jmapID);
       }
-      let jscontactEntry = jscontactEntries[jmapID] ??= {} as T;
+      let jscontactEntry = getOwnProperty(jscontactEntries, jmapID) ?? setOwnProperty(jscontactEntries, jmapID, {} as T);
       if (valueProp) {
         jscontactEntry[valueProp] = personEntry.value;
       }
@@ -313,8 +313,7 @@ function setOneValue<TValueObject>(personGeneric: Person, jscontact: JSContact, 
   let person = personGeneric as JMAPPerson;
   person.propertyFieldIDs ??= {};
   let id = person.propertyFieldIDs[propName] ??= firstPropertyName(jscontactEntries) ?? randomID();
-  jscontactEntries[id] ??= {} as TValueObject;
-  setter(jscontactEntries[id]);
+  setter(getOwnProperty(jscontactEntries, id) ?? setOwnProperty(jscontactEntries, id, {} as TValueObject));
 }
 
 function getOneValue<TValueObject, TValue>(personGeneric: Person, jscontact: JSContact, jscontactEntries: Record<string, TValueObject>, propName: string, getter: (obj: TValueObject) => TValue | null): TValue | null {
@@ -329,8 +328,8 @@ function getOneValue<TValueObject, TValue>(personGeneric: Person, jscontact: JSC
     return null;
   }
   let id = person.propertyFieldIDs[propName] ??= firstID;
-  if (!jscontactEntries[id]) { // our entry was deleted on the server
+  if (!getOwnProperty(jscontactEntries, id)) { // our entry was deleted on the server
     id = person.propertyFieldIDs[propName] = firstID;
   }
-  return getter(jscontactEntries[id]);
+  return getter(getOwnProperty(jscontactEntries, id));
 }

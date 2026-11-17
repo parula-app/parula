@@ -4,6 +4,7 @@ import { generateMessageID } from "./generateMessageID";
 import { sanitize } from '../../lib/util/sanitizeDatatypes';
 
 import { languageMessages, sourceLocale, localeMapping } from './list';
+import { addDateNames } from './dateNames';
 
 /** @lang Either 2-letter ISO lang code, or 5-letter ISO locale code
  * Must match list.ts */
@@ -100,7 +101,8 @@ let cachedDateTimeLocale: string;
 
 export function getDateTimeLocale(): string {
   cachedDateTimeLocale ??=
-    sanitize.nonemptystring(localStorage.getItem("ui.dateTime"), getUILocale());
+    // Node has no `localStorage`
+    sanitize.nonemptystring(global.localStorage?.getItem("ui.dateTime"), getUILocale());
   return cachedDateTimeLocale;
 }
 
@@ -111,11 +113,13 @@ export function getDateTimeLocalePref(): string {
 export function saveDateTimeLocale(language: string) {
   cachedDateTimeLocale = null;
   localStorage.setItem("ui.dateTime", language);
+  addDateNames(getDateTimeLocale());
 }
 
 let loadedLocale = false;
 function initLocale() {
   setUILocale(getUILocale());
+  addDateNames(getDateTimeLocale());
 }
 
 /** In strings, this is the separator between the actual string and the comment for translators or machine translation.

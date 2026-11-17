@@ -52,6 +52,9 @@ async function addVEvent(lines: (string | string[])[], event: Event, method?: iC
   lines.push(["BEGIN", "VEVENT"]);
   lines.push(["DTSTAMP", utc2ical(new Date())]);
   lines.push(["UID", event.calUID]);
+  if (event.sequence) {
+    lines.push(["SEQUENCE", String(event.sequence)]);
+  }
   if (event.title) {
     lines.push(["SUMMARY", event.title]);
   }

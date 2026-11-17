@@ -33,7 +33,7 @@
   <vbox class="splitter" />
 {/if}
 
-<svelte:window
+<AppWindowEvents
   on:pointermove={onMouseMove}
   on:pointerup={onMouseUp}
   />
@@ -42,6 +42,7 @@
 	import { appGlobal } from "../../logic/app";
   import { sanitize } from "../../../lib/util/sanitizeDatatypes";
   import ErrorBoundary from "./ErrorBoundary.svelte";
+  import AppWindowEvents from "../MainWindow/AppWindowEvents.svelte";
 
   /** Left pane cannot be made smaller than this
    * in px */

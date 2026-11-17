@@ -31,6 +31,8 @@ if (jpcSecretFromURL) {
   } catch (ex) {
     console.error(ex);
   }
+  // The dev server reloads the page, e.g. after it bundled new dependencies
+  import.meta.hot?.on("vite:beforeFullReload", () => history.replaceState(null, "", "#jpcSecret=" + jpcSecretFromURL));
 }
 
 /**
