@@ -234,10 +234,10 @@ export class SMIMEPublicKey extends PublicKey {
       return (subtrees ?? []).filter(subtree => subtree.base.type == "rfc822Name").map(subtree => subtree.base.value);
     }
     function isWithin(emailAddress: string, subtree: string): boolean {
-      let domain = emailAddress.slice(emailAddress.lastIndexOf("@") + 1);
       if (!subtree) {
         return true;
       }
+      let domain = emailAddress.slice(emailAddress.lastIndexOf("@") + 1);
       if (subtree.startsWith(".")) {
         return domain.endsWith(sanitize.hostname(subtree));
       }
