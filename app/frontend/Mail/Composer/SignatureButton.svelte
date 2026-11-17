@@ -10,7 +10,7 @@
       />
     {#each signatures.each as signatureHTML}
       <MenuItem
-        label={new MailBody(signatureHTML).textLine}
+        label={new MailBody(signatureHTML).textAsOneLine}
         selected={current.isOwnSignature(signatureHTML)}
         onClick={() => editor.commands.editSignature(body => body.setOwnSignature(signatureHTML))}
         />

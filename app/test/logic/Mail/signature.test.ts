@@ -483,10 +483,10 @@ test("The picked signature is recognized, even when the editor changed its HTML"
 });
 
 test("A signature in one line, e.g. for a menu", () => {
-  expect(new MailBody(kFred).textLine).toBe("Fred Miller · Example Inc.");
-  expect(new MailBody("Fred<br>Miller<br>\n<br>  CTO").textLine).toBe("Fred · Miller · CTO");
-  expect(new MailBody("<p>Fred\n  Miller</p><div><p>CTO</p></div>").textLine).toBe("Fred Miller · CTO");
-  let long = new MailBody(`<p>${"Fred Miller ".repeat(10)}</p>`).textLine;
+  expect(new MailBody(kFred).textAsOneLine).toBe("Fred Miller · Example Inc.");
+  expect(new MailBody("Fred<br>Miller<br>\n<br>  CTO").textAsOneLine).toBe("Fred · Miller · CTO");
+  expect(new MailBody("<p>Fred\n  Miller</p><div><p>CTO</p></div>").textAsOneLine).toBe("Fred Miller · CTO");
+  let long = new MailBody(`<p>${"Fred Miller ".repeat(10)}</p>`).textAsOneLine;
   expect(long.length).toBeLessThanOrEqual(60);
   expect(long.endsWith("…")).toBe(true);
 });

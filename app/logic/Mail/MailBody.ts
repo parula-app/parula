@@ -151,7 +151,7 @@ export class MailBody {
 
   /** The start of the text in one line, with " · " between the lines,
    * e.g. to show a signature in a menu */
-  get textLine(): string {
+  get textAsOneLine(): string {
     const kMaxLength = 60;
     let bodyE = this.doc.body.cloneNode(true) as Element;
     for (let lineE of bodyE.querySelectorAll("p, div, li, br, h1, h2, h3, h4, h5, h6, tr")) {

@@ -1,5 +1,5 @@
 {#each signatures as signatureHTML}
-  <MenuItem label={new MailBody(signatureHTML).textLine}
+  <MenuItem label={new MailBody(signatureHTML).textAsOneLine}
     selected={!!current?.isOwnSignature(signatureHTML)}
     tooltip={mail ? $t`Use this signature in this message` : null}
     disabled={!editor}
