@@ -8,6 +8,10 @@
   <OAuth2Manual {config} />
 {/if}
 
+{#if isSetup && $config.protocol == "pop3"}
+  <POP3Warning />
+{/if}
+
 {#if !isSetup}
   <hbox flex />
   <hbox class="buttons">
@@ -27,6 +31,7 @@
   import ManualConfigURL from "./ManualConfigURL.svelte";
   import ManualConfigHost from "./ManualConfigHost.svelte";
   import OAuth2Manual from "./OAuth2Manual.svelte";
+  import POP3Warning from "../../../Setup/Mail/POP3Warning.svelte";
   import Button from "../../../Shared/Button.svelte";
   import SaveIcon from "lucide-svelte/icons/save";
   import { t } from "../../../../l10n/l10n";

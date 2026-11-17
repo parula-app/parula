@@ -3,6 +3,7 @@
   <iframe
     src={dataURL}
     title={$file.name}
+    sandbox=""
     class:preview
     scrolling={preview ? "no" : null}
     />

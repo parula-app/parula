@@ -1,7 +1,7 @@
 import type { MailAccount } from "../../MailAccount";
 import { AuthMethod } from "../../../Abstract/Account";
 import { TLSSocketType } from "../../../Abstract/TCPAccount";
-import { MailIdentity } from "../../MailIdentity";
+import type { MailIdentity } from "../../MailIdentity";
 import type { SMTPAccount } from "../../SMTP/SMTPAccount";
 import { IMAPAccount } from "../../IMAP/IMAPAccount";
 import { POP3Account } from "../../POP3/POP3Account";
@@ -150,7 +150,7 @@ export class ThunderbirdProfile {
 
   readMailIdentity(identityID: string, account: MailAccount): MailIdentity | null {
     try {
-      let identity = new MailIdentity(account);
+      let identity = account.newIdentity();
       identity.id = "tb-" + identityID;
       let prefBranch = `mail.identity.${identityID}`;
       assert(this.prefs[`${prefBranch}.valid`] !== false, "Identity marked as invalid");

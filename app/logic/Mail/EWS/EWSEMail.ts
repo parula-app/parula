@@ -1,4 +1,4 @@
-import { ExchangeEMail } from "./ExchangeEMail";
+import { ExchangeEMail, EMailFlag, EMailFlagPidTag, EMailFlagTimePidTag, IconIndex, IconIndexPidTag } from "./ExchangeEMail";
 import { type EWSFolder, getEWSItem } from "./EWSFolder";
 import { SpecialFolder } from "../Folder";
 import { DeleteStrategy } from "../MailAccount";
@@ -10,7 +10,8 @@ import { EWSUpdateItemRequest } from "./Request/EWSUpdateItemRequest";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
 import { InvitationMessage } from "../../Calendar/Invitation/InvitationStatus";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { base64ToArrayBuffer, assert, ensureArray } from "../../util/util";
+import { assert, ensureArray } from "../../util/util";
+import { base64ToUint8Array } from "../../util/blob";
 import type { ArrayColl } from "svelte-collections";
 
 const ExchangeScheduling: Record<string, number> = {
@@ -49,7 +50,7 @@ export class EWSEMail extends ExchangeEMail {
       };
       let result = await this.folder.account.callEWS(request);
       let mimeBase64 = sanitize.nonemptystring(getEWSItem(result.Items).MimeContent.Value);
-      this.mime = new Uint8Array(await base64ToArrayBuffer(mimeBase64, "message/rfc822"));
+      this.mime = base64ToUint8Array(mimeBase64);
       await this.parseMIME();
       await this.saveCompleteMessage();
     });
@@ -59,6 +60,7 @@ export class EWSEMail extends ExchangeEMail {
     this.itemID = sanitize.nonemptystring(xmljs.ItemId.Id);
     this.id = sanitize.nonemptystring(xmljs.InternetMessageId, "");
     this.subject = sanitize.nonemptystring(xmljs.Subject, "");
+    this.size = sanitize.integer(xmljs.Size, null);
     this.sent = sanitize.date(xmljs.DateTimeSent, new Date());
     this.received = sanitize.date(xmljs.DateTimeReceived, new Date());
     this.setFlags(xmljs);
@@ -119,8 +121,11 @@ export class EWSEMail extends ExchangeEMail {
 
   setFlags(xmljs: Record<string, any>) {
     this.isRead = sanitize.boolean(xmljs.IsRead);
-    this.isNewArrived = xmljs.ExtendedProperty?.Value == 0xFFFFFFFF; // -1?
-    this.isReplied = xmljs.ExtendedProperty?.Value == 0x105;
+    // this.isNewArrived = xmljs.ExtendedProperty?.Value == -1; // We requested signed Integer, but @see EWSFolder
+    this.isReplied = xmljs.ExtendedProperty?.Value == IconIndex.Replied;
+    this.isForwarded = xmljs.ExtendedProperty?.Value == IconIndex.Forwarded;
+    // Not `=`: The sender's `Importance:` header is not in the sync response
+    this.isImportant ||= xmljs.Importance == "High";
     this.isStarred = xmljs.Flag?.FlagStatus == "Flagged";
     // can't work out how to find junk status
     this.isDraft = sanitize.boolean(xmljs.IsDraft, false);
@@ -134,7 +139,15 @@ export class EWSEMail extends ExchangeEMail {
       SuppressReadReceipts: true,
     });
     request.addField("Message", "IsRead", read, "message:IsRead");
-    await this.folder.account.callEWS(request);
+    try {
+      await this.folder.account.callEWS(request);
+    } catch (ex) {
+      if (ex.type == "ErrorItemNotFound") { // it is gone on the server
+        await this.deleteMessageLocally();
+        return;
+      }
+      throw ex;
+    }
     await super.markRead(read);
   }
 
@@ -155,6 +168,11 @@ export class EWSEMail extends ExchangeEMail {
   }
 
   async markSpam(spam = true) {
+    if (!spam && this.folder.specialFolder != SpecialFolder.Spam) {
+      // For Office365, "is Junk" == "is in Junk folder", so it attempts to move
+      await super.markSpam(spam);
+      return;
+    }
     let request = {
       m$MarkAsJunk: {
         IsJunk: spam,
@@ -168,6 +186,29 @@ export class EWSEMail extends ExchangeEMail {
     };
     await this.folder.account.callEWS(request);
     await super.markSpam(spam);
+  }
+
+  async markImportant(isImportant = true) {
+    let request = new EWSUpdateItemRequest(this.itemID, {
+      MessageDisposition: "SaveOnly",
+      SendMeetingInvitationsOrCancellations: "SendToNone",
+      SuppressReadReceipts: true,
+    });
+    request.addField("Message", "Importance", isImportant ? "High" : "Normal", "item:Importance");
+    await this.folder.account.callEWS(request);
+    await super.markImportant(isImportant);
+  }
+
+  protected async setFlagOnServer(verb: EMailFlag, icon: IconIndex) {
+    let request = new EWSUpdateItemRequest(this.itemID, {
+      MessageDisposition: "SaveOnly",
+      SendMeetingInvitationsOrCancellations: "SendToNone",
+      SuppressReadReceipts: true,
+    });
+    request.addExtendedField("Message", EMailFlagPidTag, "Integer", verb);
+    request.addExtendedField("Message", EMailFlagTimePidTag, "SystemTime", new Date().toISOString());
+    request.addExtendedField("Message", IconIndexPidTag, "Integer", icon);
+    await this.folder.account.callEWS(request);
   }
 
   async markDraft(isDraft = true) {
@@ -189,6 +230,9 @@ export class EWSEMail extends ExchangeEMail {
       let request = new EWSDeleteItemRequest(this.itemID, {
         DeleteType: hardDelete ? "HardDelete" : "MoveToDeletedItems",
         SuppressReadReceipts: true,
+        // Otherwise server refuses to delete calendar and tasks, and they can be any mail
+        SendMeetingCancellations: "SendToNone",
+        AffectedTaskOccurrences: "AllOccurrences",
       });
       await this.folder.account.callEWS(request);
     } finally {

@@ -33,11 +33,13 @@
       <hbox class="label">{$t`Import from`}</hbox>
       <hbox class="buttons">
         <hbox bind:this={appsButton}>
+          <!--
           <Button
             label={$t`App`}
             icon={AppIcon}
             onClick={onImportFromApps}
             />
+          -->
         </hbox>
         <Button
           label={$t`File`}
@@ -85,7 +87,7 @@
   import { SMIMEPrivateKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
   import { TrustLevel } from "../../../../logic/Mail/Encryption/enums";
   import { MailIdentity } from "../../../../logic/Mail/MailIdentity";
-  import { importPrivateKey } from "../../../../logic/Mail/Encryption/KeyUtils";
+  import { importPrivateKey, readPrivateKeyFile } from "../../../../logic/Mail/Encryption/KeyUtils";
   import FileSelector from "../../../Mail/Composer/Attachments/FileSelector.svelte";
   import Menu from "../../../Shared/Menu/Menu.svelte";
   import MenuItem from "../../../Shared/Menu/MenuItem.svelte";
@@ -104,20 +106,20 @@
   export let showObsolete: boolean;
 
   let showPassword = false;
-  let passphrase: string;
+  let passphrase = "";
   async function onFilePassword() {
     await onImportFile(passphrase);
     showPassword = false;
   }
 
   let fileSelector: FileSelector;
-  const acceptFileTypes = [ "application/pgp-secret-keys", ".asc", "application/pkcs8", "application/x-pem-file", ".key", "text/plain" ];
+  const acceptFileTypes = [ "application/pgp-secret-keys", ".asc", "application/pkcs8", "application/x-pem-file", ".key", "application/x-pkcs12", ".p12", ".pfx", "text/plain" ];
   async function onImportFile(passphrase: string) {
     let file = await fileSelector.selectFile();
     if (!file) {
       return;
     }
-    let fileContent = await file.text();
+    let fileContent = await readPrivateKeyFile(file, passphrase);
     let key = await importPrivateKey(fileContent, passphrase);
     let existing = identity.encryptionPrivateKeys.find(existing => existing.id == key.id);
     if (!existing) {

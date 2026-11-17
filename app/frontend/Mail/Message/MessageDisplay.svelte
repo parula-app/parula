@@ -1,21 +1,24 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<vbox flex class="message-display"
-  on:keydown={event => catchErrors(() => onKeyOnList(event))}
-  tabindex={0}
-  >
-  <MessageHeader bind:message />
-  <MessageAttachments attachments={message.attachments} />
-  <SMLDisplayKinds {message} sml={message.sml} />
-  <vbox class="body" flex>
-    <Paper>
-      <MessageBody {message} />
-    </Paper>
+<hbox flex class="message-with-thread" class:mobile={$appGlobal.isMobile}>
+  <!--<ThreadPane {message} horizontal={$appGlobal.isMobile} />-->
+  <vbox flex class="message-display"
+    on:keydown={event => catchErrors(() => onKeyOnList(event))}
+    tabindex={0}
+    >
+    <MessageHeader bind:message />
+    <MessageAttachments attachments={message.attachments} />
+    <SMLDisplayKinds {message} sml={message.sml} />
+    <vbox class="body" flex>
+      <Paper>
+        <MessageBody {message} />
+      </Paper>
+    </vbox>
+    {#if $appGlobal.isMobile}
+      <MessageDisplayBarM bind:message />
+    {/if}
   </vbox>
-  {#if $appGlobal.isMobile}
-    <MessageDisplayBarM bind:message />
-  {/if}
-</vbox>
+</hbox>
 
 <script lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
@@ -27,15 +30,24 @@
   import SMLDisplayKinds from "../SML/SMLDisplayKinds.svelte";
   import MessageDisplayBarM from "./MessageDisplayBarM.svelte";
   import Paper from "../../Shared/Paper.svelte";
+  import ThreadPane from "../Thread/ThreadPane.svelte";
   import { catchErrors } from "../../Util/error";
 
   export let message: EMail;
 </script>
 
 <style>
+  .message-with-thread {
+    background-color: var(--leftbar-bg);
+  }
+  /* On mobile, the thread bar lies across the top of the message */
+  .message-with-thread.mobile {
+    flex-direction: column;
+  }
   .message-display {
     background-color: var(--leftbar-bg);
     color: var(--leftbar-fg);
+    min-width: 0;
   }
   .body {
     margin-inline-start: 8px;

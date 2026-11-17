@@ -12,7 +12,7 @@ import { assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl, Collection } from "svelte-collections";
 import { Buffer } from "buffer";
-import type { ImapFlow, MailboxLockObject } from "../../../../desktop/backend/node_modules/imapflow";
+import type { ImapFlow, MailboxLockObject, SearchObject, StatusObject } from "../../../../desktop/backend/node_modules/imapflow";
 
 export class IMAPFolder extends Folder {
   declare account: IMAPAccount;
@@ -85,13 +85,7 @@ export class IMAPFolder extends Folder {
       return await imapFunc(conn);
     } catch (ex) {
       this.account.log(this, null, "error", ex);
-      if (ex.responseText) {
-        throw new IMAPCommandError(ex, ex.responseText
-          .replace("Error in IMAP command", "IMAP")
-          .replace(/ \([\d\. +]* secs\)\./, ""));
-      } else {
-        throw ex;
-      }
+      throw IMAPCommandError.fromServerResponse(ex);
     } finally {
       lock?.release();
       lockMailbox?.release();
@@ -117,7 +111,10 @@ export class IMAPFolder extends Folder {
   async listMessages(): Promise<Collection<IMAPEMail>>  {
     await this.readFolder();
     if (this.countTotal === 0) {
-      return new ArrayColl<IMAPEMail>();
+      await this.fetchCounts();
+      if (this.countTotal === 0) {
+        return new ArrayColl<IMAPEMail>();
+      }
     }
     let lock = await this.listMessagesLock.lock();
     try {
@@ -138,11 +135,27 @@ export class IMAPFolder extends Folder {
     }
   }
 
+  /** Our counts may be from the folder listing at startup */
+  protected async fetchCounts() {
+    let conn = await this.account.connection();
+    let lock = await this.account.connectionLock.get(conn).lock();
+    let status: StatusObject;
+    try {
+      this.account.log(this, conn, "status");
+      status = await conn.status(this.path, { messages: true, unseen: true });
+    } finally {
+      lock.release();
+    }
+    this.countTotal = sanitize.integer(status?.messages, this.countTotal);
+    this.countUnread = sanitize.integer(status?.unseen, this.countUnread);
+  }
+
   /** Lists all messages in this folder that have not been fetched yet.
    * But doesn't download their contents. @see downloadMessages() */
   protected async listAllUnknownMessages(): Promise<ArrayColl<IMAPEMail>> {
     // TODO save range of lowest and highest UID of emails that we have fetched and saved,
     // to not re-fetch the whole list over and over again.
+    let isNewMail = this.messages.hasItems;
     let allUIDs = await this.fetchUIDList({ all: true });
 
     // Delete messages that are no longer on the server @see checkDeletedMessages()
@@ -158,17 +171,20 @@ export class IMAPFolder extends Folder {
     let newMsgs = new ArrayColl<IMAPEMail>();
     //console.log("Folder", this.account.name, this.name, "has", allUIDs.length, "msgs,", localUIDs.length, "local msgs,", newUIDs.length, "new");
     const kBatchSize = 200;
+    let saving = Promise.resolve();
     while (newUIDs.hasItems) {
-      //let startTime = Date.now();
       let fetchUIDs = newUIDs.splice(0, kBatchSize); // Gets the first n, and removes them from the list
       let { newMessages } = await this.fetchMessageList({ uid: fetchUIDs.join(",") }, {});
+      await saving; // Save the last page and fetch this one at the same time
+      for (let msg of newMessages) {
+        msg.isNewArrived ||= isNewMail; // \Recent deprecated by IMAP4rev2
+      }
       newMsgs.addAll(newMessages);
       this.messages.addAll(newMessages);
-      //let fetchTime = Date.now() - startTime;
-      await this.saveNewMsgs(newMessages);
-      //let saveTime = Date.now() - startTime - fetchTime;
-      //console.log("  Fetched", fetchUIDs.length, ", remaining", newUIDs.length, "- Time: Fetch:", fetchTime / kBatchSize, "ms/msg, save time", saveTime / kBatchSize, "ms/msg");
+      saving = this.saveNewMsgs(newMessages)
+        .catch(this.account.errorCallback);
     }
+    await saving;
 
     await this.storage.saveFolderProperties(this);
     return newMsgs;
@@ -197,6 +213,9 @@ export class IMAPFolder extends Folder {
       uid: true,
       changedSince: this.lastModSeq, // Works only with CONDSTORE capa
     });
+    for (let msg of newMessages) {
+      msg.isNewArrived = true;
+    }
     this.messages.addAll(newMessages);
     await this.storage.saveFolderProperties(this);
     await this.saveNewMsgs(newMessages);
@@ -211,10 +230,17 @@ export class IMAPFolder extends Folder {
     let lock = await this.listMessagesLock.lock();
     try {
       if (this.countTotal === 0) {
-        return new ArrayColl();
+        await this.fetchCounts();
+        if (this.countTotal === 0) {
+          return new ArrayColl();
+        }
       }
+      let isNewMail = this.messages.hasItems;
       let fromUID = this.getHighestUID() ?? 1;
       let { newMessages } = await this.fetchMessageList({ uid: fromUID + ":*" }, {});
+      for (let msg of newMessages) {
+        msg.isNewArrived ||= isNewMail;
+      }
       this.messages.addAll(newMessages);
       await this.saveNewMsgs(newMessages);
       await this.storage.saveFolderProperties(this);
@@ -224,7 +250,31 @@ export class IMAPFolder extends Folder {
     }
   }
 
-  protected async fetchMessageList(range: any, options: any): Promise<{ newMessages: ArrayColl<IMAPEMail>, updatedMessages: ArrayColl<IMAPEMail> }> {
+  /** Searches the messages of this folder on the server.
+   * The results are *not* added to `this.messages`: they are only the matches,
+   * not the entire folder contents.
+   * @param query IMAP `SEARCH` keys, @see `IMAPSearchEMail`
+   * @returns the matching emails, newest first */
+  async searchMessages(query: SearchObject, limit?: number): Promise<ArrayColl<IMAPEMail>> {
+    let uids = (await this.fetchUIDList(query)).sortBy(uid => -uid).contents;
+    if (limit) {
+      uids = uids.slice(0, limit);
+    }
+    let results = new ArrayColl<IMAPEMail>();
+    const kBatchSize = 200; // A `FETCH` of all UIDs at once would exceed the line length
+    for (let i = 0; i < uids.length; i += kBatchSize) {
+      let { newMessages, updatedMessages } = await this.fetchMessageList(
+        { uid: uids.slice(i, i + kBatchSize).join(",") }, {}, false);
+      results.addAll(updatedMessages);
+      results.addAll(newMessages);
+    }
+    return results;
+  }
+
+  /** @param updateSyncState Only if `range` covers the entire folder.
+   *   The highest modseq of a few messages says nothing about the other messages,
+   *   so taking it as folder sync state would skip their changes. */
+  protected async fetchMessageList(range: any, options: any, updateSyncState = true): Promise<{ newMessages: ArrayColl<IMAPEMail>, updatedMessages: ArrayColl<IMAPEMail> }> {
     let newMessages = new ArrayColl<IMAPEMail>();
     let updatedMessages = new ArrayColl<IMAPEMail>();
     await this.runCommand(async (conn) => {
@@ -254,7 +304,9 @@ export class IMAPFolder extends Folder {
         }
         modseq = msgInfo.modseq
       }
-      await this.updateModSeq(modseq);
+      if (updateSyncState) {
+        await this.updateModSeq(modseq);
+      }
     }, ConnectionPurpose.Fetch);
     return { newMessages, updatedMessages };
   }
@@ -310,6 +362,11 @@ export class IMAPFolder extends Folder {
 
   /** Lists new messages, and downloads them */
   async getNewMessages(): Promise<Collection<IMAPEMail>> {
+    await this.readFolder();
+    if (this.messages.isEmpty) {
+      // We have no UID to start from, so we would fetch `1:*`, i.e. everything
+      return await this.getRecentMessages() as Collection<IMAPEMail>;
+    }
     let newMsgs = await this.listNewMessages();
     await this.downloadMessages(newMsgs);
     await this.checkDeletedMessages(this.getRecentMsg()?.uid);
@@ -320,7 +377,7 @@ export class IMAPFolder extends Folder {
   async getAllMessages(): Promise<ArrayColl<IMAPEMail>> {
     await this.checkDeletedMessages(1);
     let newMsgs = await this.listAllMessages();
-    await this.downloadMessages(newMsgs);
+    await this.downloadSmallMessagesFirst(newMsgs);
     return newMsgs;
   }
 
@@ -353,17 +410,19 @@ export class IMAPFolder extends Folder {
         }, { uid: true });
         for await (let msgInfo of msgInfos) {
           try {
-            if (!msgInfo.envelope || this.deletions.has(msgInfo.uid)) {
+            if (!msgInfo.envelope || !msgInfo.source?.length || this.deletions.has(msgInfo.uid)) {
               continue;
             }
             let msg = this.getEMailByUID(msgInfo.uid);
             if (msg?.downloadComplete) {
               continue;
             } else if (msg) {
-              msg.fromFlow(msgInfo);
               await this.updateModSeq(msgInfo.modseq);
-              await msg.parseMIME();
-              await msg.saveCompleteMessage();
+              await msg.downloadRunOnce.runOnce(async () => {
+                msg.fromFlow(msgInfo);
+                await msg.parseMIME();
+                await msg.saveCompleteMessage();
+              });
               downloadedMsgs.add(msg);
             }
           } catch (ex) {
@@ -553,10 +612,13 @@ export class IMAPFolder extends Folder {
   protected async moveOrCopyMessagesOnServer(action: "move" | "copy", messages: Collection<IMAPEMail>) {
     let actionVerb = sanitize.translate(action, { move: "Move", copy: "Copy" });
     let sourceFolder = messages.first.folder;
-    let ids = messages.contents.map(msg => msg.uid).join(",");
+    const kBatchSize = 200; // All UIDs in one command would exceed the line length
     await sourceFolder.runCommand(async conn => {
-      this.account.log(this, conn, action, "message from", sourceFolder.id, ids);
-      await conn["message" + actionVerb](ids, this.path, { uid: true });
+      for (let i = 0; i < messages.length; i += kBatchSize) {
+        let ids = messages.getIndexRange(i, kBatchSize).map(msg => msg.uid).join(",");
+        this.account.log(this, conn, action, "message from", sourceFolder.id, ids);
+        await conn["message" + actionVerb](ids, this.path, { uid: true });
+      }
     });
   }
 

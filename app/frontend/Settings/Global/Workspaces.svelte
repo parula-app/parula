@@ -1,5 +1,5 @@
 <vbox flex class="page">
-  <PageHeader title={$t`Workspaces`} subtitle={$t`Your work-life balance: Mute some accounts at times to focus or relax. You can choose the workspace in the window header.`}>
+  <PageHeader title={$t`Workspaces`} subtitle={$t`Your work-life balance: Mute some accounts at times to focus or relax. You can choose the workspace using the circle button in the main window.`}>
     <RoundButton
       label={$t`Add`}
       onClick={onAdd}
@@ -49,7 +49,7 @@
   import AddIcon from "lucide-svelte/icons/plus";
   import SaveIcon from "lucide-svelte/icons/save";
   import { catchErrors } from "../../Util/error";
-  import { assert } from "../../../logic/util/util";
+  import { UserError, assert } from "../../../logic/util/util";
   import debounce from "lodash/debounce";
   import { t } from "../../../l10n/l10n";
 
@@ -70,7 +70,9 @@
   async function onSave() {
     assert(workspaces.hasItems, $t`Need at least 1 workspace`);
     for (let workspace of workspaces) {
-      assert(workspace.name, $t`Please enter a workspace name`);
+      if (!workspace.name) {
+        throw new UserError($t`Please enter a workspace name`);
+      }
     }
     await saveWorkspaces();
   }

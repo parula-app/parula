@@ -56,7 +56,7 @@
   $: accounts = showAccounts.filterObservable(acc => acc.workspace == $selectedWorkspace || !$selectedWorkspace); // ?? acc == allAccountsAccount
   $: folders = $selectedAccount?.rootFolders ?? new ArrayColl<Folder>();
   $: location = useLocation();
-  $: params = getParams($location.state);
+  $: params = getParams($location?.state);
   $: params, setFolder()
   // Set only when params.foo changes, not when $selectedFoo changes
   let lastAccount = null;
@@ -83,8 +83,7 @@
       if ($selectedMessage?.folder != folder) {
         $selectedMessage = null;
       }
-      let newMessages = await folder.listMessages();
-      await folder.downloadMessages(newMessages);
+      await folder.getRecentMessages();
     } catch (ex) {
       if (ex.authFail) {
         // await folder.account.login(true);

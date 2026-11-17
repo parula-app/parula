@@ -43,7 +43,7 @@
   import AppMenuButton from "../AppsBar/AppMenuM/AppMenuButton.svelte";
   import PersonsIcon from "lucide-svelte/icons/users";
   import PersonIcon from "lucide-svelte/icons/user";
-  import { URLPart } from "../Util/util";
+  import { URLPart } from "../../logic/util/blob";
   import { t } from "../../l10n/l10n";
 
   export let person: Person;

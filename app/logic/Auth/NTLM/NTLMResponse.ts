@@ -1,6 +1,11 @@
+import type { ConnectionPurpose } from "../../Mail/EWS/ConnectionPurpose";
+
 export interface NTLMRequestOptions {
   headers?: Record<string, string>;
   onChunk?: (chunk: string) => Promise<void>;
+  purpose?: ConnectionPurpose;
+  /** Give up if server does not answer. Default in backend: 30s */
+  timeoutSec?: number;
 }
 
 /** A `fetch()` `Response`, plus the TCP connection that it came in on */

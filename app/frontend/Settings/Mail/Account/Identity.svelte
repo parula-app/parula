@@ -10,7 +10,7 @@
 
   {#each $identities.each as identity}
     <IdentityBlock {identity}
-      canRemove={$identities.length > 1}
+      canRemove={$identities.length > 1 && identity.canDelete}
       on:delete={event => catchErrors(() => onDelete(event.detail))}
       />
   {/each}
@@ -31,7 +31,6 @@
 
 <script lang="ts">
   import type { MailAccount } from "../../../../logic/Mail/MailAccount";
-  import { MailIdentity } from "../../../../logic/Mail/MailIdentity";
   import IdentityBlock from "./IdentityBlock.svelte";
   import PageHeader from "../../Shared/PageHeader.svelte";
   import RoundButton from "../../../Shared/RoundButton.svelte";
@@ -48,14 +47,14 @@
   $: identities = (account as MailAccount).identities;
 
   function onAdd() {
-    let id = new MailIdentity(account);
+    let id = account.newIdentity();
     id.realname = account.realname;
     identities.add(id);
   }
   async function onDelete(identity) {
     assert(identities.length > 1, $t`Cannot remove the last identity`);
     identities.remove(identity);
-    await account.save();
+    await identity.deleteIt();
   }
   async function onSave() {
     assert(identities.hasItems, $t`Need at least 1 identity`);
@@ -64,6 +63,9 @@
     }
     account.emailAddress = identities.first.emailAddress;
     account.realname = identities.first.realname;
+    for (let identity of identities) {
+      await identity.saveToServer();
+    }
     await account.save();
   }
 </script>

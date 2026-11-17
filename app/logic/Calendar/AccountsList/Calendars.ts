@@ -13,6 +13,7 @@ import { SQLCalendarStorage } from '../SQL/SQLCalendarStorage';
 // #else
 import { DummyCalendarStorage } from '../SQL/DummyCalendarStorage';
 // #endif
+import { appGlobal } from '../../app';
 import { NotReached } from '../../util/util';
 import type { Collection } from 'svelte-collections';
 import { gt } from '../../../l10n/l10n';
@@ -70,6 +71,8 @@ export async function createPersonalCalendar(): Promise<Calendar> {
   console.log("Creating default calendars");
   let personal = newCalendarForProtocol("calendar-local");
   personal.name = gt`Personal calendar`;
+  // Same color for local calendar and local address book
+  personal.color = appGlobal.addressbooks.find(ab => ab.protocol == "addressbook-local")?.color ?? personal.color;
   await personal.save();
   return personal;
 }

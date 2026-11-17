@@ -133,7 +133,7 @@
   import MultipleDaysIcon from "lucide-svelte/icons/calendar-plus";
   import XIcon from "lucide-svelte/icons/x";
   // import TimezonePicker from "timezone-picker-svelte";
-  import { myTimezone, isSameTimezone } from "../../Util/date";
+  import { myTimezone, isSameTimezone } from "../../../logic/util/date";
   import { getDateTimeLocale, t } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -191,11 +191,13 @@
     event.notifyObservers();
   }
 
+  // <copied to="Availability/FreeSlots.svelte, Availability/ParticipantsDayView.svelte, ../../../lookout/Calendar/EditEvent/EventTimeEditor.ts">
   function onStartTimeChanged(newTime: Date) {
     let duration = event.duration;
     event.startTime = newTime;
     event.duration = duration;
   }
+  // </copied>
 
   function checkEndTime() {
     if (event.endTime.getTime() <= event.startTime.getTime()) {

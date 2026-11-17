@@ -2,6 +2,7 @@
 import "../../../../logic/app";
 import { RemoteSocketTransport } from "../../../../logic/Chat/WhatsApp/WhatsAppConnection";
 import net from "node:net";
+import { waitFor } from "../../util/waitFor";
 import { expect, test } from "vitest";
 
 /** RemoteSocketTransport adapts a backend `net.Socket` (a JPC proxy in
@@ -16,16 +17,6 @@ function listen(handler: (socket: net.Socket) => void): Promise<net.Server> {
 
 function portOf(server: net.Server): number {
   return (server.address() as net.AddressInfo).port;
-}
-
-async function waitFor(condition: () => boolean, timeoutMs = 1000): Promise<void> {
-  let start = Date.now();
-  while (!condition()) {
-    if (Date.now() - start > timeoutMs) {
-      throw new Error("Timed out waiting for condition");
-    }
-    await new Promise(resolve => setTimeout(resolve, 5));
-  }
 }
 
 test("connects, sends bytes, receives bytes, and reports a server close", async () => {

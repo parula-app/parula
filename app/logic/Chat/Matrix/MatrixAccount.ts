@@ -27,7 +27,9 @@ export class MatrixAccount extends ChatAccount {
   deviceID: string;
   globalUserID: string;
 
-  async loginOnly(interactive: boolean) {
+  /** Login to this account on the server. Opens network connection.
+   * You must call this after creating the object and having set its properties. */
+  async login(interactive: boolean) {
     await super.login(interactive);
     let accessToken: string;
     if (this.mainAccount?.oAuth2) {
@@ -72,14 +74,12 @@ export class MatrixAccount extends ChatAccount {
       },
     });
     await this.client.initRustCrypto({ cryptoDatabasePrefix: this.id });
-  }
-  /** Login to this account on the server. Opens network connection.
-   * You must call this after creating the object and having set its properties.
-   * This will populate `persons` and `chats`. */
-  async login(interactive: boolean) {
-    await this.loginOnly(interactive);
     //let crypto = this.client.getCrypto();
     //await crypto.requestOwnUserVerification();
+  }
+
+  /** Starts the sync with the server, which populates `persons` and `chats`. */
+  async syncOnStartup(): Promise<void> {
     // "detached": local echoes live in a separate pending list. Required for sending
     // events that relate to another (e.g. an `m.replace` edit): the SDK resolves the
     // target via `room.getPendingEvents()`, which throws under the legacy default
@@ -90,7 +90,7 @@ export class MatrixAccount extends ChatAccount {
     this.listRooms()
       .catch(this.errorCallback);
     this.listenToRoomMessages();
-  };
+  }
 
   /** Call this only once after setup
    * TODO need to implement `getSecretStorageKey()` first */
@@ -115,8 +115,11 @@ export class MatrixAccount extends ChatAccount {
     //await crypto.requestOwnUserVerification();
   };
 
+  /** TODO `listRooms()` would create a second room object for each room read here. */
+  async readFromDB(): Promise<void> {
+  }
+
   async listRooms(): Promise<void> {
-    // await super.listRooms(); TODO merge fresh list from server with old
     if (!this.dbID) {
       await this.save(); // needed to save rooms
     }

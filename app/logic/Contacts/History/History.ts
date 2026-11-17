@@ -8,7 +8,7 @@ import { File } from "../../Files/File";
 import { newSearchEMail } from "../../Mail/Store/setStorage";
 import { newSearchChat } from "../../Chat/AccountsList/ChatAccounts";
 import { ArrayColl, Collection, mergeColls } from "svelte-collections";
-import { showError } from "../../../frontend/Util/error";
+import { showError } from "../../util/error";
 import { appGlobal } from "../../app";
 
 export type LogEntry = Message | File | Event | VideoConfMeeting; // & { time: Date }

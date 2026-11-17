@@ -76,6 +76,7 @@
   "notes": "Some notes\nCustom: Some custom field",
   "company": "Mustang",
   "position": "CEO",
+  "encryptionPublicKeys": [],
   "department": "Technical Dept.",
   "custom": []
 }

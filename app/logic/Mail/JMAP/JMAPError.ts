@@ -2,7 +2,18 @@ import type { TJMAPChangeResponse, TJMAPSetError } from './TJMAPGeneric';
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { SpecificError } from "../../util/util";
 
+/** <https://www.rfc-editor.org/rfc/rfc8620#section-3.6.2> */
 export class JMAPCommandError extends SpecificError {
+  code: string;
+  constructor(method: string, jmapError: { type: string, description?: string }) {
+    let type = sanitize.alphanumdash(jmapError?.type, "serverFail");
+    let msg = `JMAP ${method} failed: ${type}`;
+    if (jmapError?.description) {
+      msg = sanitize.nonemptylabel(jmapError.description, "") + " - " + msg;
+    }
+    super(null, msg);
+    this.code = type;
+  }
 }
 
 export class JMAPChangeError extends Error {

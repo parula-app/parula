@@ -39,5 +39,6 @@
   "company": "Mustang",
   "department": "",
   "position": "CEO",
+  "encryptionPublicKeys": [],
   "custom": []
 }

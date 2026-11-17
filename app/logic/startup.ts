@@ -1,4 +1,5 @@
 import { appGlobal } from './app';
+import { Person } from './Abstract/Person';
 import { readMailAccounts } from './Mail/AccountsList/MailAccounts';
 import { readChatAccounts } from './Chat/AccountsList/ChatAccounts';
 import { readAddressbooks } from './Contacts/AccountsList/Addressbooks';
@@ -13,12 +14,26 @@ import { type Account, getAllAccounts, setMainAccounts } from './Abstract/Accoun
 import { getComputerOn } from './util/backend-wrapper';
 import JPCWebSocket from '../../lib/jpc-ws';
 import { production, webMail } from './build';
-import { catchErrors, logError, showError } from '../frontend/Util/error';
+import { retryOnTransientError } from './util/netUtil';
+import { catchErrors, logErrorToServer, showError } from './util/error';
 import { assert, sleep } from './util/util';
+
+// Set before anything reads it. Not in `app.ts` to break import cycle.
+appGlobal.me = new Person();
 
 /** Read JPC secret from frontent URL hash `jpcSecret=password`.
  * Before svelte-navigator `<Router>` mounts and rewrites `location.hash` */
 let jpcSecretFromURL = new URLSearchParams(location.hash.slice(1)).get("jpcSecret");
+// Remove it, so that iframes and error log reports cannot read it
+if (jpcSecretFromURL) {
+  try {
+    history.replaceState(null, "", location.pathname + location.search);
+  } catch (ex) {
+    console.error(ex);
+  }
+  // The dev server reloads the page, e.g. after it bundled new dependencies
+  import.meta.hot?.on("vite:beforeFullReload", () => history.replaceState(null, "", "#jpcSecret=" + jpcSecretFromURL));
+}
 
 /**
  * Desktop: frontend URL hash `jpcSecret=password`
@@ -58,6 +73,7 @@ export async function getStartObjects(): Promise<void> {
   console.log("Connected to backend");
   appGlobal.remoteApp = await jpc.getRemoteStartObject();
   await loadWorkspaces();
+  await loadTagsList(); // before the accounts: their filter rules reference the tags
   appGlobal.emailAccounts.addAll(await readMailAccounts());
   appGlobal.chatAccounts.addAll(await readChatAccounts());
   appGlobal.meetAccounts.addAll(await readMeetAccounts());
@@ -71,7 +87,6 @@ export async function getStartObjects(): Promise<void> {
   appGlobal.personalAddressbook = appGlobal.addressbooks.first;
   appGlobal.collectedAddressbook = appGlobal.addressbooks.get(1);
   readSavedSearches();
-  await loadTagsList();
 }
 
 /**
@@ -89,8 +104,7 @@ export function loginOnStartup(startupErrorCallback: (ex: Error) => void): void 
     (async () => {
       await account.readFromDB();
       if (account.loginOnStartup && !account.isDependentAccount) {
-        await account.login(false);
-        await account.startup();
+        await account.loginAndStartup(false);
       }
     })().catch(errorWithAccountName(account, startupErrorCallback));
   }
@@ -118,13 +132,12 @@ export function checkWakeUp(): void {
 function checkAccounts(): void {
   for (let account of getAllAccounts()) {
     if (!account.isLoggedIn && account.loginOnStartup && !account.isDependentAccount) {
-      (async () => {
-        await account.login(false);
-        await account.startup();
-      })().catch(account.errorCallback);
+      // VPN tunnel needs several seconds after the computer network woke up
+      retryOnTransientError(() => account.loginAndStartup(false), 2, 4)
+        .catch(account.errorCallback);
     }
   }
-  // Accounts that stayed logged in didn't run startup() above,
+  // Accounts that stayed logged in didn't run sync() above,
   // but new mail may have arrived while we were sleeping
   for (let account of appGlobal.emailAccounts) {
     if (account.isLoggedIn) {
@@ -137,17 +150,23 @@ function checkAccounts(): void {
 function errorWithAccountName(account: Account, errorCallback: (ex: Error) => void) {
   return (ex: Error) => {
     account.errors.add(ex);
-    if (ex?.message) {
-      ex.message = `${account.name}: ${ex.message}`;
-    }
+    addAccountName(ex, account);
     errorCallback(ex);
   };
 }
 
 function backgroundErrorInAccount(ex: Error, account: Account) {
   account.errors.add(ex);
-  if (ex?.message) {
-    ex.message = `${account.name}: ${ex.message}`;
+  addAccountName(ex, account);
+  logErrorToServer(ex);
+}
+
+/** The account name is shown to the user, but must not end up in `ex.message`:
+ * We send the message to the error log server, where the account name would
+ * deanonymize the user and prevent grouping of identical errors.
+ * `errorMessage()` adds it back for the console and UI. */
+function addAccountName(ex: Error, account: Account) {
+  if (ex) {
+    (ex as any).accountName = account.name;
   }
-  logError(ex);
 }

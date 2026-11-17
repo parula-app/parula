@@ -60,6 +60,7 @@
   export let startWith: OAuth2UIMethod | null = OAuth2UIMethod.Embed;
   export let onContinue = () => undefined;
   export let onError = (ex: Error) => undefined;
+  export let onCancel = () => undefined;
 
   let oAuth2Running: OAuth2UIMethod | null = null;
   let embed: OAuth2Embed;
@@ -141,6 +142,7 @@
 
   function showError(ex: Error) {
     if (ex instanceof UserCancelled) {
+      onCancel();
       return;
     }
     onError(ex);

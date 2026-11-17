@@ -44,5 +44,6 @@
   "company": "Viagenie",
   "department": "",
   "position": "",
+  "encryptionPublicKeys": [],
   "custom": []
 }

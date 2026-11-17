@@ -1,5 +1,5 @@
 import { kMailAccounts } from './logins';
-import { connectToBackend, stopBackend } from '../util/backend.test';
+import { connectToBackend, stopBackend } from '../util/backend';
 import { setupTestMailAccount } from './setup';
 import { assert } from '../../../logic/util/util';
 import { afterAll, beforeAll, test } from 'vitest';

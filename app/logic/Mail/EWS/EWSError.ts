@@ -59,8 +59,10 @@ export class EWSError extends Error {
         // The response wasn't XML, so we can't extract an error message.
         responseText = aResponse.responseText;
       }
+    } else {
+      responseText = aResponse.responseText;
     }
-    super(message);
+    super(message || responseText?.slice(0, 500) || type); // the server may answer with a whole HTML page
     this.request = aRequest;
     this.status = aResponse.status;
     this.statusText = aResponse.statusText;

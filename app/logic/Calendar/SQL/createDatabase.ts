@@ -26,6 +26,12 @@ export const eventAttachmentSchema = sql`
   );
 `;
 
+/** Separate from the schema below, so that the migration for
+ * pre-existing databases can create the same index. */
+export const eventPIDIndex = sql`
+  CREATE UNIQUE INDEX index_event_pID ON event (calendarID, pID);
+`;
+
 export const calendarDatabaseSchema = sql`
   CREATE TABLE "calendar" (
     "id" INTEGER PRIMARY KEY,
@@ -130,6 +136,9 @@ export const calendarDatabaseSchema = sql`
       REFERENCES event (id)
       ON DELETE CASCADE
   );
+  --- The server gives each event exactly one ID, so an event that we already have
+  --- must be updated, not added again. NULL for events that are only local.
+  $${eventPIDIndex}
 
   --- Used to keep track of deleted occurrences
   CREATE TABLE "eventExclusion" (

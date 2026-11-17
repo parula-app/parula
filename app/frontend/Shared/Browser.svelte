@@ -32,12 +32,15 @@
   import Loader from './Loader.svelte';
   import CloseIcon from "lucide-svelte/icons/x";
   import { getBaseDomainFromHost } from '../../logic/util/netUtil';
+  import { logErrorToServer } from '../Util/error';
   import type { URLString } from '../../logic/util/util';
   import { t } from '../../l10n/l10n';
   const dispatch = createEventDispatcher();
 
   /**
    * Displays untrusted HTML in a sandboxed iframe which does not allow any JavaScript.
+   * Desktop: Which permissions the page gets, e.g. for the camera or the location,
+   * decides `restrictPermissions()` in `desktop/src/main/index.ts`.
    */
 
   /** The start webpage to show. */
@@ -74,7 +77,8 @@
     webviewE.addEventListener("did-stop-loading", () => {
       isLoading = false;
       if (autofill) {
-        webviewE.executeJavaScript(autofill);
+        webviewE.executeJavaScript(autofill)
+          .catch(logErrorToServer); // Some login pages refuse our script. TODO log getDomain()?
       }
     });
   }

@@ -1,12 +1,15 @@
 import { File as FileEntry } from "../Files/File";
+import { checkExecutableFile, executableMessage, ExecutableKind } from "../Files/FileType/ExecutableFile";
 import { EMail } from "../Mail/EMail";
 import { appGlobal } from "../app";
 import { Observable, notifyChangedProperty } from "../util/Observable";
-import { saveBlobAsFile } from "../../frontend/Util/util";
 import { openOSAppForFile } from "../util/os-integration";
-import { NotImplemented, type URLString } from "../util/util";
-import type { ArrayColl, Collection } from "svelte-collections";
 import { RunOnce } from "../util/flow/RunOnce";
+import { sanitize } from "../../../lib/util/sanitizeDatatypes";
+import { UserError, type URLString, fileExtensionForMIMEType, assert } from "../util/util";
+import { blobToBase64 } from "../util/blob";
+import { gt } from "../../l10n/l10n";
+import type { ArrayColl, Collection } from "svelte-collections";
 
 export class Attachment extends Observable {
   /** filename with extension, as given by the sender of the email */
@@ -35,6 +38,11 @@ export class Attachment extends Observable {
   /** File contents. Not populated, if we have the attachment saved on disk */
   @notifyChangedProperty
   content: File;
+  /** Would opening this file run untrusted code?
+   * Checked once, when we get the contents, and saved in the DB.
+   * null = none. undefined = not checked. */
+  @notifyChangedProperty
+  executable: ExecutableKind | null | undefined;
   /** Override the default hidden state.
    * Currently not saved to DB. */
   @notifyChangedProperty
@@ -97,6 +105,7 @@ export class Attachment extends Observable {
     file.size = this.size;
     file.mimetype = this.mimeType;
     file.contents = this.content;
+    file.executable = this.executable;
     file.id = this.contentID;
     return file;
   }
@@ -112,18 +121,49 @@ export class Attachment extends Observable {
     await this.message.loadAttachments?.();
   }
 
+  async getContent(): Promise<File> {
+    await this.load();
+    return this.content;
+  }
+
+  async readLocalFile() {
+    assert(this.filepathLocal, "Need local file first");
+    let array = await appGlobal.remoteApp.readFile(this.filepathLocal);
+    this.content = new File([array], this.filename, { type: this.mimeType });
+  }
+
+  /** The file contents, base64-encoded, to send it to the server */
+  async contentAsBase64(): Promise<string> {
+    try {
+      return await blobToBase64(this.content);
+    } catch (ex) {
+      throw new UserError(gt`Could not read the attachment ${this.filename}. The file may have been moved, deleted or changed on disk.`);
+    }
+  }
+
   /** Open the native desktop app with this file */
   async openOSApp() {
+    if (this.executable === undefined) { // e.g. saved before we had this check
+      await this.read(); // we need the contents, to check them
+      await this.checkExecutable();
+    }
+    if (this.executable) {
+      throw new UserError(executableMessage(this.executable));
+    }
     await openOSAppForFile(this.filepathLocal);
+  }
+  /** Determines whether this file is code.
+   * Call this whenever we got the contents */
+  async checkExecutable(): Promise<void> {
+    if (!this.content && this.filepathLocal) {
+      await this.readLocalFile();
+    }
+    this.executable = await checkExecutableFile(this.filename, this.mimeType, this.filepathLocal, this.content);
   }
   /** Open the native file manager with the folder
    * where this file is, and select this file. */
   async openOSFolder() {
     await appGlobal.remoteApp.showFileInFolder(this.filepathLocal);
-  }
-  async saveFile() {
-    await this.load();
-    await saveBlobAsFile(this.content);
   }
   async deleteFile() {
     await this.storageRunOnce.runOnce(async () => {
@@ -149,6 +189,47 @@ export class Attachment extends Observable {
         await storage.saveAttachment(this);
       }
     });
+  }
+
+  toJSON(): any {
+    let json = this.toExtraJSON();
+    json.filename = this.filename;
+    json.mimeType = this.mimeType;
+    json.size = this.size;
+    json.contentID = this.contentID;
+    json.disposition = this.disposition;
+    json.related = this.related;
+    return json;
+  }
+
+  fromJSON(json: any, fallbackID: number, filesDir: string) {
+    this.mimeType = sanitize.nonemptystring(json.mimeType, "application/octet-stream");
+    this.contentID = sanitize.nonemptystring(json.contentID, "" + fallbackID);
+    this.filename = sanitize.nonemptystring(json.filename, "attachment-" + fallbackID + "." + fileExtensionForMIMEType(this.mimeType));
+    let filepathLocal = sanitize.string(json.filepathLocal, null)
+    if (filepathLocal && filesDir) {
+      this.filepathLocal = filesDir + "/" + filepathLocal;
+    }
+    this.size = sanitize.integer(json.size, -1);
+    this.disposition = sanitize.translate(json.disposition, {
+      attachment: ContentDisposition.attachment,
+      inline: ContentDisposition.inline,
+    }, ContentDisposition.unknown);
+    this.related = sanitize.boolean(json.related, false);
+    this.fromExtraJSON(json);
+  }
+
+  /** The `json` column of the DB row, for properties that not every protocol
+   * has, and that therefore have no column of their own */
+  toExtraJSON(): any {
+    let json: any = {};
+    json.executable = this.executable;
+    return json;
+  }
+  fromExtraJSON(json: any) {
+    this.executable = json?.executable === undefined
+      ? undefined
+      : sanitize.enum(json.executable, Object.values(ExecutableKind), null);
   }
 
   /** Should not show to end user. This is true for auto-processing attachments
@@ -189,6 +270,8 @@ export class AttachmentFile extends FileEntry {
       if (attachment.content && !attachment.filepathLocal) {
         await attachment.save(); // write to disk, so `openOSApp()` has a file path
       }
+      await attachment.checkExecutable();
+      this.executable = attachment.executable;
       this.contents = attachment.content;
       this.filepathLocal = attachment.filepathLocal;
     });

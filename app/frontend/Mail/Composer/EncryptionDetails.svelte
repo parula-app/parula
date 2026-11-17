@@ -4,12 +4,14 @@
       <div class="explanation">{$t`To encrypt this message, add certificates for the following recipients`}</div>
       <hbox flex />
       <hbox class="buttons">
-        <Button
-          label={$t`Query key servers`}
-          icon={QueryServerIcon}
-          onClick={onQueryKeyServer}
-          classes="key-server"
-          />
+        {#if hasKeyServers}
+          <Button
+            label={$t`Query key servers`}
+            icon={QueryServerIcon}
+            onClick={onQueryKeyServer}
+            classes="key-server"
+            />
+        {/if}
         <Button
           label={$t`Import…`}
           icon={ImportIcon}
@@ -61,7 +63,8 @@
   import type { EMail } from "../../../logic/Mail/EMail";
   import { MailIdentity } from "../../../logic/Mail/MailIdentity";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
-  import { getPublicKeyForPerson } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { EncryptionSystem } from "../../../logic/Mail/Encryption/enums";
+  import { getEncryptionSystem, getPublicKeyForPersonUID } from "../../../logic/Mail/Encryption/KeyUtils";
   import { queryPGPKeyServersForUID } from "../../../logic/Mail/Encryption/PGP/KeyServer";
   import { appGlobal } from "../../../logic/app";
   import EncryptionImport from "../../Contacts/PersonPage/EncryptionImport.svelte";
@@ -90,9 +93,14 @@
   $: cc = mail.cc;
   $: bcc = mail.bcc;
   $: allRecipients = $to.concat($cc).concat($bcc);
+  $: recipientKeys = $allRecipients.flatMap(recipient => recipient.findPerson()?.encryptionPublicKeys);
   // TODO Observe `encryptionPublicKeys`
-  $: recipientsWithoutKeys = $allRecipients.filterObservable(p => !getPublicKeyForPerson(p.findPerson()));
-  $: $recipientsWithoutKeys.hasItems && catchErrors(autoQueryKeyServer);
+  let recipientsWithoutKeys: Collection<PersonUID>;
+  $: $recipientKeys, recipientsWithoutKeys = $allRecipients.filterObservable(p => !getPublicKeyForPersonUID(p));
+  /** The key servers have PGP keys, but no S/MIME certificates */
+  let hasKeyServers = false;
+  $: identity, hasKeyServers = getEncryptionSystem(mail) == EncryptionSystem.PGP;
+  $: $recipientsWithoutKeys.hasItems && catchErrors(autoFetchMissingKeys);
   $: encryptionError = $mail.shouldEncrypt && $recipientsWithoutKeys.hasItems ?
     gt`Some recipients are missing certificates for encryption.\nEither add certificates for them, remove them, or disable encryption.` : null;
 
@@ -100,7 +108,20 @@
     await queryKeyServerFor(recipientsWithoutKeys);
   }
 
+  async function autoFetchMissingKeys() {
+    await Promise.all([autoFetchAddressbookKeys(), autoQueryKeyServer()]);
+  }
+
+  /** The address book search leaves the keys out, to stay fast */
+  async function autoFetchAddressbookKeys() {
+    await Promise.all(recipientsWithoutKeys.contents.map(recipient =>
+      recipient.fetchEncryptionKeys()));
+  }
+
   async function autoQueryKeyServer() {
+    if (!hasKeyServers) {
+      return;
+    }
     let notYetQueried = recipientsWithoutKeys.filterOnce(r => !(r as any)._queriedKeyserver);
     await queryKeyServerFor(notYetQueried);
   }
@@ -112,7 +133,6 @@
     recipients.forEach(recipient => (recipient as any)._queriedKeyserver = true);
     await Promise.all(recipients.contents.map(recipient =>
       queryPGPKeyServersForUID(recipient)));
-    allRecipients = allRecipients; // because we don't observe `encryptionPublicKeys`
   }
 
   function onRemoveAll() {

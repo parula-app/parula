@@ -1,8 +1,10 @@
 import type { Event } from "../Event";
 import { InvitationResponse, ParticipationStatus, type iCalMethod } from "../Invitation/InvitationStatus";
+import { VTimezone } from "./VTimezone";
+import { myTimezone } from "../../util/date";
 import { appName } from "../../build";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { assert, blobToBase64 } from "../../util/util";
+import { assert } from "../../util/util";
 import type { Collection } from "svelte-collections";
 
 export async function getICal(event: Event, method?: iCalMethod): Promise<string | null> {
@@ -16,18 +18,43 @@ export async function getICal(event: Event, method?: iCalMethod): Promise<string
   }
   lines.push(["VERSION", "2.0"]);
   lines.push(["PRODID", `-//Beonex//${appName}//EN`]);
-  await addVEvent(lines, event);
+  addVTimezones(lines, event);
+  await addVEvent(lines, event, method);
   for (let exception of event.exceptions) {
-    await addVEvent(lines, exception);
+    await addVEvent(lines, exception, method);
   }
   lines.push(["END", "VCALENDAR"]);
   return lines.map(line2ical).join("");
 }
 
-async function addVEvent(lines: (string | string[])[], event: Event): Promise<void> {
+/**
+ * Spells out the daylight saving time rules of every timezone that the event
+ * uses. Outlook and Exchange do not understand the `TZID` names and would
+ * otherwise show the event at the wrong time, RFC 5545 3.6.5.
+ */
+function addVTimezones(lines: (string | string[])[], event: Event): void {
+  let timezones = new Set([event, ...event.exceptions]
+    .filter(occurrence => !occurrence.allDay)
+    .map(timezoneOf)
+    .filter(timezone => timezone != "UTC")); // written as UTC times, without `TZID`
+  for (let timezone of timezones) {
+    lines.push(...new VTimezone(timezone, event.startTime).toICalLines());
+  }
+}
+
+/** The timezone in which the times of the event are meant */
+function timezoneOf(event: Event): string {
+  return event.timezone || myTimezone();
+}
+
+/** @param method (Optional) The invitation action, only if this iCal is sent as an invitation email */
+async function addVEvent(lines: (string | string[])[], event: Event, method?: iCalMethod): Promise<void> {
   lines.push(["BEGIN", "VEVENT"]);
   lines.push(["DTSTAMP", utc2ical(new Date())]);
   lines.push(["UID", event.calUID]);
+  if (event.sequence) {
+    lines.push(["SEQUENCE", String(event.sequence)]);
+  }
   if (event.title) {
     lines.push(["SUMMARY", event.title]);
   }
@@ -64,7 +91,7 @@ async function addVEvent(lines: (string | string[])[], event: Event): Promise<vo
       lines.push(["RECURRENCE-ID", "VALUE", "DATE", date2ical(event.recurrenceStartTime)]);
     }
   } else {
-    let timezone = event.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let timezone = timezoneOf(event);
     if (timezone == "UTC") {
       lines.push(["DTSTART", "VALUE", "DATE-TIME", utc2ical(event.startTime)]);
       lines.push(["DTEND", "VALUE", "DATE-TIME", utc2ical(event.endTime)]);
@@ -88,7 +115,7 @@ async function addVEvent(lines: (string | string[])[], event: Event): Promise<vo
   }
   if (event.recurrenceRule) {
     lines.push(event.recurrenceRule.getCalString(event.allDay) + "\r\n");
-    let timezone = event.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let timezone = timezoneOf(event);
     for (let exclusion of event.exclusions) {
       if (event.allDay) {
         lines.push(["EXDATE", "VALUE", "DATE", date2ical(exclusion)]);
@@ -114,7 +141,9 @@ async function addVEvent(lines: (string | string[])[], event: Event): Promise<vo
       break;
     }
   }
-  await addAttachments(lines, event);
+  if (!method) {
+    await addAttachments(lines, event);
+  } // else: Invitations send the files as email attachments @see OutgoingInvitation.addAttachments()
   lines.push(["END", "VEVENT"]);
 }
 
@@ -131,7 +160,7 @@ async function addAttachments(lines: (string | string[])[], event: Event): Promi
     }
     lines.push(["ATTACH", "VALUE", "BINARY", "ENCODING", "BASE64",
       "FMTTYPE", attachment.mimeType, "FILENAME", attachment.filename, "X-FILENAME", attachment.filename,
-      await blobToBase64(attachment.content)]);
+      await attachment.contentAsBase64()]);
   }
 }
 

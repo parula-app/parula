@@ -5,6 +5,7 @@ import type { EMail } from "../EMail";
 import type { Folder } from "../Folder";
 import { kMaxCount, ActiveSyncFolder, FolderType } from "./ActiveSyncFolder";
 import { ActiveSyncError } from "./ActiveSyncError";
+import { ActiveSyncAutoResponder } from "./ActiveSyncAutoResponder";
 import { CreateMIME } from "../SMTP/CreateMIME";
 import { newAddressbookForProtocol } from "../../Contacts/AccountsList/Addressbooks";
 import { ActiveSyncGAL } from "../../Contacts/ActiveSync/ActiveSyncGAL";
@@ -19,6 +20,7 @@ import { appGlobal } from "../../app";
 import { Throttle } from "../../util/flow/Throttle";
 import { Semaphore } from "../../util/flow/Semaphore";
 import { RunOnce } from "../../util/flow/RunOnce";
+import { isTransientError } from "../../util/netUtil";
 import { ensureArray, assert, NotSupported } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
@@ -46,6 +48,17 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
 
   newFolder(): ActiveSyncFolder {
     return new ActiveSyncFolder(this);
+  }
+
+  /** ActiveSync `Search` identifies each hit only with a `LongId` that is valid
+   * for that one result set, never with the `ServerId` that we store. So we could
+   * not tell which of the emails that we already have it found, and list them twice. */
+  newSearch(): null {
+    return null;
+  }
+
+  newAutoResponder(): ActiveSyncAutoResponder {
+    return new ActiveSyncAutoResponder(this);
   }
 
   /**
@@ -78,6 +91,9 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
         await this.oAuth2.login(interactive);
       }
       this.protocolVersion = this.getStorageItem("protocolVersion");
+      if (!this.protocolVersion) {
+        await this.checkProtocolVersion();
+      }
       if (this.protocolVersion == "14.0") {
         let request = {
           DeviceInformation: {
@@ -91,19 +107,18 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
           throw new ActiveSyncError("Settings", response.DeviceInformation.Status, this);
         }
       }
-
-      await this.startup();
     });
   }
 
-  async startup() {
+  async syncOnStartup() {
     await this.startupRunOnce.runOnce(async () => {
       try {
-        await super.startup();
+        await super.syncOnStartup();
 
         // `listFolders()` will subscribe to new user-added addressbooks and calendars
 
-        if (!this.isDependentAccount) {
+        if (!this.isDependentAccount &&
+            !appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new ActiveSyncGAL(this));
         }
 
@@ -124,12 +139,6 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
     let galAB = appGlobal.searchOnlyAddressbooks.find(ab => ab.mainAccount == this);
     if (galAB) {
       appGlobal.searchOnlyAddressbooks.remove(galAB);
-    }
-  }
-
-  notifyObserversOfSubaccounts() {
-    for (let account of this.dependentAccounts()) {
-      account.notifyObservers();
     }
   }
 
@@ -160,10 +169,17 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
     return clientID;
   }
 
-  /**
-   * Performs an OPTIONS request to check the server's ActiveSync version.
-   */
+  /** For setup only. Test that the login works, and get the protocol version. */
   async verifyLogin(): Promise<void> {
+    await this.checkProtocolVersion();
+  }
+
+  /**
+   * Asks the server, with an OPTIONS request, which ActiveSync versions it
+   * speaks, and uses the newest one that we both support. Every request states
+   * the version, so we need it before any other call, i.e. during the login.
+   */
+  async checkProtocolVersion(): Promise<void> {
     let options: any = {
       headers: {
         "Cookie-Bypass": `DefaultAnchorMailbox=${encodeURI(this.emailAddress)}`, // required for Hotmail
@@ -180,7 +196,9 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
     }
     let response = await fetch(this.url, options);
     if (response.ok) {
-      let versions = (response.headers.get("MS-ASProtocolVersions") || "").split(",");
+      let supported = response.headers.get("MS-ASProtocolVersions");
+      assert(supported, gt`The server did not answer with the ActiveSync versions that it supports. Please check the server URL.`);
+      let versions = supported.split(",");
       if (versions.includes("16.1")) {
         this.protocolVersion = "16.1";
         this.setStorageItem("protocolVersion", this.protocolVersion);
@@ -194,12 +212,12 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
         this.setStorageItem("protocolVersion", this.protocolVersion);
         return;
       }
-      throw new Error(`ActiveSync version(s) ${response.headers.get("MS-ASProtocolVersions")} not supported`);
+      throw new Error(`ActiveSync version(s) ${supported} not supported`);
     }
     if (response.status == 401) {
       const repeat = async () => {
         this.retries++;
-        await this.verifyLogin(); // repeat the call
+        await this.checkProtocolVersion(); // repeat the call
         this.retries = 0;
       }
       if (this.retries) {
@@ -561,6 +579,7 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
     try {
       this.listening = true;
       let lastAttempt = 0;
+      let reconnectThrottle = new Throttle(1, 10);
       while (this.pingsMRU.hasItems) {
         try {
           lastAttempt = Date.now();
@@ -600,12 +619,13 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
             throw new ActiveSyncError("Ping", response.Status, this);
           }
         } catch (ex) {
-          if (Date.now() - lastAttempt < 10 * 1000) {
+          if (Date.now() - lastAttempt < 10 * 1000 && !isTransientError(ex)) {
             // Failed right away: give up, to avoid hammering the server
             throw ex;
           }
           // The connection was up for a while, e.g. a network interruption
-          // after a long poll: retry
+          // after a long poll, or the network isn't back yet, e.g. a late VPN: retry
+          await reconnectThrottle.throttle();
         }
       }
     } catch (ex) {
@@ -613,11 +633,6 @@ export class ActiveSyncAccount extends ExchangeMailAccount {
     } finally {
       this.listening = false;
     }
-  }
-
-  isOffice365(): boolean {
-    let hostname = new URL(this.url).hostname;
-    return hostname == "outlook.office365.com";
   }
 
   async createToplevelFolder(name: string): Promise<ActiveSyncFolder> {

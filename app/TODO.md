@@ -1,11 +1,3 @@
-# Crunch Jul 14
-* EWS: undefined.callEWS() #1341
-* JMAP timeout
-* JPC timeout
-* Test
-  * IMAP logout
-  * Lid close -> check mail
-
 # Bugs
 * Mail: Move multiple mails (desktop) - UI and backend buggy
 * Composer: Bulleted lists - Paragraphs vs. lines
@@ -41,9 +33,6 @@
     * Calendar: Recurrence
   * Graph Calendar and Contacts
   * PGP
-    * PGP: Read signature properly
-    * Send and read: Protected headers in encrypted emails
-       <https://www.ietf.org/archive/id/draft-autocrypt-lamps-protected-headers-02.html>
     * Data: Move to ContactEntry
     * Data: Move EMail properties into class
     * Composer
@@ -55,8 +44,6 @@
     * Poll
   * Actions (Filters)
     * Run on fetch, not full download
-    * Save/load folder and tag
-    * Move on server fails, works locally
   * Calendar
     * Free/Busy
     * Tasks
@@ -75,14 +62,11 @@
     * Mail Chat view: Open thread
   * Tags: Table view: Make it part of subject column
   * Tags: Shrink tag list when not enough space
-  * Setup mail
-    * Scroll inside dialog, not whole window
 
 # Feedback
 ## Zucca
 * TB import: Duplicated own Identity
 * Attachments list: Fetch with email headers (not only during full download)
-* Mail: Search on server
 ## Elena
 * Clear profile
 * Debug dump of settings
@@ -266,8 +250,6 @@
 ## POP3
 
 ## Missing features
-* Filters / Actions
-  * Fix apply filter
 * Spam filter
 * Archive
 * Undo
@@ -278,9 +260,6 @@
 * Save/Load mail as .eml file
 * OS send file as email (dangerous) #315
 * Format/flowed
-* Encryption
-  * PGP
-  * S/MIME
 
 ### Editor
 * blockquote cite vs. third party
@@ -297,10 +276,6 @@
     -> Use the search criteria as filter criteria
     -> Let user specify filter actions
 * Filter actions
-  * Move into folder
-  * Delete
-  * Mark as spam
-  * Add tag
   * Redirect
 * Run filters using Sieve or locally
 

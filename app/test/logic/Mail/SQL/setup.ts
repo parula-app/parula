@@ -5,6 +5,7 @@ import { Folder } from "../../../../logic/Mail/Folder";
 import type { EMail } from "../../../../logic/Mail/EMail";
 import { getDatabase } from "../../../../logic/Mail/SQL/SQLDatabase";
 import { DummyMailStorage } from "../../../../logic/Mail/Store/DummyMailStorage";
+import { encryptionProcessorsHookup } from "../../../../logic/Mail/Encryption/Processors";
 import { findOrCreatePersonUID } from "../../../../logic/Abstract/PersonUID";
 import { InProcessSQLiteDatabase } from "../../util/inProcessSQLite";
 import { mkdtempSync } from "node:fs";
@@ -21,6 +22,8 @@ export async function setupTestFolder(extraRemoteApp: any = {}): Promise<{ folde
       new InProcessSQLiteDatabase(path.join(tempDir, filename)),
     ...extraRemoteApp,
   };
+
+  encryptionProcessorsHookup(); // as the app does on startup
 
   let account = new MailAccount();
   account.name = "Test";

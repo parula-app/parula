@@ -3,7 +3,7 @@ import { WebAppListed } from "./WebAppListed";
 import appStore from "./webAppStore.json";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { MapColl, ArrayColl } from 'svelte-collections';
-import { showError } from "../../frontend/Util/error";
+import { showError } from "../util/error";
 import { filterUnique } from "../util/collections";
 
 export class WebApps {

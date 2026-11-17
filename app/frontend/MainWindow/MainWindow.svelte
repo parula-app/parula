@@ -1,54 +1,59 @@
-<svelte:head>
-  <title>{ appName }</title>
-</svelte:head>
 <svelte:window
   bind:outerWidth={windowWidth}
   on:resize={saveWindowSettingsDebounced}
   on:blur={() => catchErrors(saveWindowSettings)}
   on:visibilitychange={() => catchErrors(saveWindowSettings)}
-  on:beforeunload={() => catchErrors(saveWindowSettings)}
-  on:click|capture={(event) => catchErrors(() => onClickTopLevel(event))} />
+  on:beforeunload={() => catchErrors(saveWindowSettings)} />
 
-<vbox flex class="main-window"
-  dir={rtl}
-  class:mobile={$appGlobal.isMobile}
-  class:desktop={!$appGlobal.isMobile}>
-  {#if !appGlobal.isMobile}
-    <WindowHeader selectedApp={$selectedApp} />
-  {/if}
-  <hbox flex>
-    {#if !appGlobal.isMobile}
-      <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} />
+{#if frontend == "lookout"}
+  {#await lookoutWindow then lookout}
+    <svelte:component this={lookout.default} />
+  {/await}
+{:else}
+  <vbox flex class="main-window"
+    dir={rtl ? "rtl" : null}
+    class:mobile={$appGlobal.isMobile}
+    class:desktop={!$appGlobal.isMobile}
+    class:no-title-bar={$noTitleBar}>
+    {#if !appGlobal.isMobile && !$noTitleBar}
+      <WindowHeader selectedApp={$selectedApp} />
     {/if}
-    <vbox flex>
-      <NotificationBar notifications={$notifications} />
-      {#if appGlobal.isMobile}
-        <Router primary={false} {history}>
-          <SplitterHorizontal name="sidebar" initialBottomRatio={0.7} hasTop={!!sidebar}>
-            <vbox flex class="sidebar" slot="top">
-              <svelte:component this={sidebar} />
-            </vbox>
-            <AppContentRoutes slot="bottom" />
-          </SplitterHorizontal>
-          <NavigationM />
-        </Router>
-      {:else if $selectedApp}
-        <Router primary={false} {history}>
-          <Splitter name="sidebar" initialRightRatio={0.25} hasRight={!!sidebar}>
-            <AppContentRoutes slot="left"/>
-            <vbox flex class="sidebar" slot="right">
-              <svelte:component this={sidebar} />
-            </vbox>
-          </Splitter>
-        </Router>
+    <hbox flex>
+      {#if !appGlobal.isMobile}
+        <AppBar bind:selectedApp={$selectedApp} showApps={mustangApps} noTitleBar={$noTitleBar} />
       {/if}
-    </vbox>
-  </hbox>
-</vbox>
-<MeetBackground />
-<MailInBackground />
-<CalendarInBackground />
-<WebAppsInBackground />
+      <vbox flex>
+        <NotificationBar notifications={$notifications} />
+        {#if appGlobal.isMobile}
+          <Router primary={false} {history}>
+            <SplitterHorizontal name="sidebar" initialBottomRatio={0.7} hasTop={!!sidebar}>
+              <vbox flex class="sidebar" slot="top">
+                <svelte:component this={sidebar} />
+              </vbox>
+              <AppContentRoutes slot="bottom" />
+            </SplitterHorizontal>
+            <NavigationM />
+          </Router>
+        {:else if $selectedApp}
+          <Router primary={false} {history}>
+            <Splitter name="sidebar" initialRightRatio={0.25} hasRight={!!sidebar}>
+              <AppContentRoutes slot="left"/>
+              <vbox flex class="sidebar" slot="right">
+                <svelte:component this={sidebar} />
+              </vbox>
+            </Splitter>
+          </Router>
+        {/if}
+      </vbox>
+    </hbox>
+  </vbox>
+  <WebAppsInBackground noTitleBar={$noTitleBar} />
+{/if}
+{#if isFirstWindow}
+  <MeetBackground />
+  <MailInBackground />
+  <CalendarInBackground />
+{/if}
 
 <script lang="ts">
   import { selectedApp, sidebarApp, mustangApps, goTo, openApp, history } from "../AppsBar/selectedApp";
@@ -61,8 +66,9 @@
   // @ts-ignore ts2300
   import { getStartObjects, loginOnStartup } from "../../logic/WebMail/startup";
   // #endif
-  import { notifications } from "./Notification";
+  import { notifications } from "../../logic/util/Notification";
   import { selectedAccount } from "../Mail/Selected";
+  import { noTitleBar } from "./Selected";
   import { getLocalStorage } from "../Util/LocalStorage";
   import { loadMustangApps, disableAppsBasedOnFeaturesXML } from "../AppsBar/loadMustangApps";
   import { mailMustangApp } from "../Mail/MailMustangApp";
@@ -80,11 +86,13 @@
   import CalendarInBackground from "../Calendar/CalendarInBackground.svelte";
   import MeetBackground from "../Meet/MeetBackground.svelte";
   import WebAppsInBackground from "../WebApps/Runner/WebAppsInBackground.svelte";
+  import { AppWindow } from "./AppWindow";
   import { catchErrors } from "../Util/error";
+  import { getOSName } from "../Util/util";
   import { assert } from "../../logic/util/util";
   import { getUILocale, t } from "../../l10n/l10n";
   import { rtlLocales } from "../../l10n/list";
-  import { appName } from "../../logic/build";
+  import { appName, defaultFrontend, webMail } from "../../logic/build";
   import { onMount } from "svelte";
   import debounce from "lodash/debounce";
   import { Router } from "svelte-navigator";
@@ -92,15 +100,39 @@
   import { SplashScreen } from '@capacitor/splash-screen';
   // #endif
 
+  const frontendSetting = getLocalStorage("appearance.frontend", defaultFrontend);
+  $: frontend = $frontendSetting.value;
+  // For Vite, the import must be in `<script>` to pre-bundle, otherwise "504 Outdated Optimize Dep"
+  $: lookoutWindow = frontend == "lookout" ? import("../../lookout/MainWindow/MainWindow.svelte") : null;
+
+  const appWindow = AppWindow.current();
+  const isFirstWindow = appWindow == AppWindow.main;
+  appWindow.title = appName;
+
   // $: sidebarApp = $mustangApps.filter(app => app.showSidebar).first; // TODO watch `app` property changes
   $: $sidebarApp = $meetMustangApp.showSidebar ? meetMustangApp : null;
   $: sidebar = $sidebarApp?.sidebar;
-  $: rtl = rtlLocales.includes(getUILocale()) ? 'rtl' : null;
+  // <copied to="SecondaryWindow.svelte">
+  $: rtl = rtlLocales.includes(getUILocale());
+  // </copied>
+  /** User preference. Default: No title bar on the web, and on macOS,
+   * where the traffic lights fit on top of the app bar. */
+  const titleBarSetting = getLocalStorage("appearance.titleBar", !webMail && getOSName() != "macintosh");
+  /** macOS: If the UI language and macOS have different writing directions,
+   * then the traffic lights are on the other side, above the app content,
+   * so we need the title bar. */
+  $: $noTitleBar = !$titleBarSetting.value &&
+    (webMail || getOSName() != "macintosh" || rtl == rtlLocales.includes(navigator.language));
   categoriesLoaded; /* make sure to import the file, so that that categories load */
 
   onMount(() => catchErrors(onLoad));
 
   async function onLoad() {
+    if (!isFirstWindow) {
+      openApp(mailMustangApp, {});
+      $selectedAccount = appGlobal.emailAccounts.first;
+      return;
+    }
     loadMustangApps();
     openApp(mailMustangApp, {});
     // #if [MOBILE]
@@ -143,17 +175,22 @@
     assert(["system", "light", "dark"].includes(theme), $t`Bad theme name ` + theme);
     appGlobal.remoteApp.setTheme(theme);
   }
+  // <copied to="SecondaryWindow.svelte">
   let colorsSetting = getLocalStorage("appearance.colors", {});
-  $: applyColors($colorsSetting.value);
+  $: applyColors($colorsSetting.value, appWindow.window.document);
+  // </copied>
 
   let windowWidth: number;
   $: windowWidth, setSmall()
   function setSmall() {
+    if (!isFirstWindow) {
+      return;
+    }
     appGlobal.isSmall = windowWidth < 600;
   }
 
   function saveWindowSettings() {
-    if (appGlobal.isMobile || document.hidden) {
+    if (appGlobal.isMobile || document.hidden || !isFirstWindow) {
       return;
     }
     let windowSizeSetting = getLocalStorage("window.size", []);
@@ -163,35 +200,6 @@
   }
   const saveWindowSettingsDebounced = debounce(() => catchErrors(saveWindowSettings), 1000);
 
-  async function onClickTopLevel(event: MouseEvent) {
-    let targetE = event.target as HTMLElement;
-    let linkE = targetE.closest && targetE.closest("a[href]");
-    let url = linkE?.getAttribute("href");
-    if (!url) {
-      return;
-    }
-    // _blank should open in external browser
-    if (linkE.getAttribute("target") == "_blank") {
-      // Let default handler open in external browser
-      return;
-      /* // ... unless it's a link in an email that we can handle internally
-      if (linkE.getAttribute("source") == "convert-html" &&
-          appGlobal.meetAccounts.some(acc => acc.isMeetingURL(new URL(url)))) {
-        // open internally, continue below
-      } else {
-        // Let default handler open in external browser
-        return;
-      }*/
-    }
-    // open internally
-    let urlObj = new URL(url); // throws, if invalid
-    let protocol = urlObj.protocol.replace(":", "");
-    let urlEvent = new Event("url-" + protocol); // e.g. "url-mailto"
-    (urlEvent as any).url = url;
-    targetE.dispatchEvent(urlEvent);
-    event.stopPropagation();
-    event.preventDefault();
-  }
 </script>
 
 <style>

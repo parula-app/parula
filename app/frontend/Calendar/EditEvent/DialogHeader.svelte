@@ -215,10 +215,7 @@
   function onCancel() {
     event.cancelEditing();
     event.parentEvent?.cancelEditing(); // master, when recurrence was changed
-    if (event.isNew && $selectedEvent == event) {
-      $selectedEvent = null;
-    }
-    onClose();
+    onClose(true);
   }
 
   async function onSave() {
@@ -282,8 +279,7 @@
       event.parentEvent?.cancelEditing();
       await event.deleteIt();
     }
-    $selectedEvent = null;
-    onClose();
+    onClose(true);
   }
 
   async function onDeleteAll() {
@@ -292,16 +288,14 @@
     }
     let master = event.parentEvent;
     await master.deleteIt();
-    $selectedEvent = null;
-    onClose();
+    onClose(true);
   }
 
   async function onDeleteRemainder() {
     event.cancelEditing();
     event.parentEvent.cancelEditing();
     await event.truncateRecurrence();
-    $selectedEvent = null;
-    onClose();
+    onClose(true);
   }
 
   function onChangeCalendar(aCalendar: Account) {
@@ -315,18 +309,23 @@
   }
 
   function onShrink() {
-    onClose();
+    // Only moves the dialog into the sidebar, where the user keeps editing
+    calendarMustangApp.closeEvent(event);
+    goBack();
   }
 
-  function onClose() {
+  /** @param deselect The user is done with the event, so drop it from the sidebar as
+   * well. Not for `onSave()`, which leaves it there as display-only. */
+  function onClose(deselect = false) {
     event.finishEditing();
-    let me = calendarMustangApp.subApps.find(app => app instanceof CalendarEventMustangApp && app.windowParams.event == event);
-    calendarMustangApp.subApps.remove(me);
+    calendarMustangApp.closeEvent(event);
+    if (deselect || !isFullWindow) {
+      // Make sidebar disappear, see CalendarApp.svelte.
+      // Clears our `event` prop, so this must come after the last use of it. #1365
+      $selectedEvent = null;
+    }
     if (isFullWindow) {
       goBack();
-    } else {
-      // Make sidebar disappear, see CalendarApp.svelte
-      $selectedEvent = null;
     }
   }
   // </copied>

@@ -4,10 +4,11 @@ import { RecurrenceRule } from "../RecurrenceRule";
 import { ParticipationStatus, InvitationResponse } from "../Invitation/InvitationStatus";
 import { ContentDisposition } from "../../Abstract/Attachment";
 import { ICalContainer, ICalParser } from "./ICalParser";
+import { ICalTimezone } from "./ICalTimezone";
 import { WindowsToIANATimezone } from "./WindowsTimezone";
-import { base64ToUint8Array, fileExtensionForMIMEType } from "../../util/util";
+import { fileExtensionForMIMEType } from "../../util/util";
+import { base64ToUint8Array, stringFromDataURL } from "../../util/blob";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { stringFromDataURL } from "../../../frontend/Util/util";
 import { gt } from "../../../l10n/l10n";
 import type { ArrayColl } from "svelte-collections";
 
@@ -18,7 +19,7 @@ import type { ArrayColl } from "svelte-collections";
  */
 export function convertICalToEvent(ics: string, event: Event): boolean {
   let parsed = new ICalParser(ics);
-  let vevents = parsed.containers.vevent;
+  let vevents = parsed.containers.vcalendar?.[0].containers.vevent;
   if (!vevents?.length) {
     return false;
   }
@@ -37,11 +38,11 @@ export function convertICalToEvent(ics: string, event: Event): boolean {
  */
 export function convertICalToEvents(iCalFile: string, newEvent: () => Event, errorCallback: (ex: Error) => void): Event[] {
   let events = [];
-  let parsed = new ICalParser(iCalFile);
-  if (!parsed.containers.vevent) {
+  let vevents = new ICalParser(iCalFile).containers.vcalendar?.flatMap(vcalendar => vcalendar.containers.vevent ?? []) ?? [];
+  if (!vevents.length) {
     throw new Error(gt`No iCal found`);
   }
-  for (let iCal of parsed.containers.vevent) {
+  for (let iCal of vevents) {
     try {
       let event = newEvent();
       convertICalContainerToEvent(iCal, event);
@@ -93,29 +94,33 @@ export function convertICalContainerToEvent(vevent: ICalContainer, event: Event)
     }
   }
   if (vevent.entries.dtstart) {
-    [event.startTime, event.timezone] = parseDate(vevent.entries.dtstart[0]);
+    [event.startTime, event.timezone] = parseDate(vevent.entries.dtstart[0], vevent);
   }
   if (vevent.entries.dtend) {
-    [event.endTime] = parseDate(vevent.entries.dtend[0]);
+    [event.endTime] = parseDate(vevent.entries.dtend[0], vevent);
   }
   if (vevent.entries.recurrenceid) {
-    [event.recurrenceStartTime] = parseDate(vevent.entries.recurrenceid[0]);
+    [event.recurrenceStartTime] = parseDate(vevent.entries.recurrenceid[0], vevent);
   }
   if (vevent.entries.dtstamp) {
-    [event.lastUpdateTime] = parseDate(vevent.entries.dtstamp[0]);
+    [event.lastUpdateTime] = parseDate(vevent.entries.dtstamp[0], vevent);
   }
+  event.sequence = sanitize.integer(vevent.entries.sequence?.[0].value, 0);
   if (vevent.entries.dtstart?.[0].properties.value?.toLowerCase() == "date") {
     event.allDay = true;
   }
-  if (vevent.entries.rrule) {
+  if (vevent.entries.rrule && event.startTime) {
     event.recurrenceRule = RecurrenceRule.fromCalString(event.duration, event.timezone, event.startTime, vevent.entries.rrule[0].line);
   } else {
     event.recurrenceRule = null;
   }
   if (vevent.entries.conference) {
     // <https://www.rfc-editor.org/rfc/rfc7986#section-5.11>
+    // There can be several, e.g. a `tel:` dial-in next to the video link
     event.isOnline = true;
-    event.onlineMeetingURL = vevent.entries.conference[0].value;
+    event.onlineMeetingURL = vevent.entries.conference
+      .map(entry => sanitize.url(entry.value, null))
+      .find(url => !!url) ?? null;
   }
   if (vevent.entries.location) {
     // Some clients send the online meeting URL in `LOCATION` (see `CONFERENCE` above)
@@ -126,15 +131,21 @@ export function convertICalContainerToEvent(vevent: ICalContainer, event: Event)
   }
   event.participants.clear(); // in case we're updating an existing event
   let organizer: Participant | undefined;
-  if (vevent.entries.organizer) {
-    let value = vevent.entries.organizer[0].value.replace(/^MAILTO:/i, "");
-    organizer = new Participant(sanitize.emailAddress(value), sanitize.label(vevent.entries.organizer[0].properties.cn, null), InvitationResponse.Organizer);
-    event.participants.add(organizer);
+  let organizerEntry = vevent.entries.organizer?.[0];
+  if (organizerEntry) {
+    let emailAddress = sanitize.emailAddress(emailAddressFromCalAddress(organizerEntry.value), null);
+    if (emailAddress) {
+      organizer = new Participant(emailAddress, sanitize.label(organizerEntry.properties.cn, null), InvitationResponse.Organizer);
+      event.participants.add(organizer);
+    }
   }
   if (vevent.entries.attendee) {
     for (let { value, properties: { role, partstat, cn } } of vevent.entries.attendee) {
-      value = value.replace(/^MAILTO:/i, "");
-      let participant = new Participant(sanitize.emailAddress(value), sanitize.label(cn, null), sanitize.integer(ParticipationStatus[partstat?.toUpperCase() as keyof typeof ParticipationStatus] || InvitationResponse.Unknown));
+      let emailAddress = sanitize.emailAddress(emailAddressFromCalAddress(value), null);
+      if (!emailAddress) {
+        continue; // we cannot address this participant, e.g. free text instead of an address
+      }
+      let participant = new Participant(emailAddress, sanitize.label(cn, null), sanitize.integer(ParticipationStatus[partstat?.toUpperCase() as keyof typeof ParticipationStatus] || InvitationResponse.Unknown));
       if (participant.emailAddress == organizer?.emailAddress || /^CHAIR$/i.test(role)) {
         participant.response = InvitationResponse.Organizer;
         // Remove the organizer as it has less detail than an attendee
@@ -147,6 +158,14 @@ export function convertICalContainerToEvent(vevent: ICalContainer, event: Event)
     }
   }
   readAttachments(vevent, event);
+}
+
+/** ORGANIZER and ATTENDEE are a CAL-ADDRESS, RFC 5545 3.3.3, i.e. a `mailto:` URI.
+ * // <compat for="Doctolib" reason="Writes `MAILTO:<foo@example.com>`, with the angle
+ * brackets of an RFC 5322 mail header inside the URI, where RFC 6068 allows only the
+ * bare address and RFC 3986 does not allow the brackets at all"> */
+function emailAddressFromCalAddress(calAddress: string): string {
+  return calAddress.replace(/^MAILTO:/i, "").replace(/^<(.*)>$/, "$1");
 }
 
 /** Inline attachments, RFC 5545 3.8.1.1.
@@ -172,7 +191,11 @@ function readAttachments(vevent: ICalContainer, event: Event): void {
 
 const icalDateRegex = /^(\d{4})(\d\d)(\d\dT\d\d)(\d\d)(\d\dZ?)$/;
 
-export function parseDate(icalDate: { value: string, properties: { tzid?: string } }): [Date | null, string | null] {
+/**
+ * @param container The iCal component that contains the date, e.g. the `VEVENT`.
+ *   The `VTIMEZONE`s next to it define the `TZID`s that are not IANA timezone names.
+ */
+export function parseDate(icalDate: { value: string, properties: { tzid?: string } }, container?: ICalContainer): [Date | null, string | null] {
   let value = icalDate.value;
   let tzid = icalDate.properties.tzid || null;
   if (value.length == 8) {
@@ -210,6 +233,16 @@ export function parseDate(icalDate: { value: string, properties: { tzid?: string
     }
     return [local, tzid];
   } catch (ex) {
-    return [null, null];
+    return [vtimezoneToUTC(container, tzid, utc), null];
   }
+}
+
+/**
+ * For a `TZID` that is not an IANA timezone name, which the `VTIMEZONE`
+ * next to `container` defines, RFC 5545 3.2.19
+ * @param local The local time in the UTC fields
+ */
+function vtimezoneToUTC(container: ICalContainer | undefined, tzid: string, local: Date): Date | null {
+  let vtimezone = container?.parent.containers.vtimezone?.find(vtimezone => vtimezone.entries.tzid?.[0].value == tzid);
+  return vtimezone ? new ICalTimezone(vtimezone).toUTC(local) : null;
 }

@@ -4,8 +4,8 @@ import { newFileSharingAccountForProtocol } from "../AccountsList/FileSharingAcc
 import { getDatabase } from "./SQLDatabase";
 import { SQLDirectory } from "./SQLDirectory";
 import { SQLFileStorage } from "./SQLFileStorage";
-import { backgroundError } from "../../../frontend/Util/error";
-import { assert } from "../../util/util";
+import { internalError } from "../../util/error";
+import { assert, exMessage } from "../../util/util";
 import { ArrayColl } from "svelte-collections";
 import sql from "../../../../lib/rs-sqlite";
 
@@ -74,7 +74,7 @@ export class SQLFileSharingAccount {
         await SQLDirectory.readAllHierarchy(acc);
         accounts.add(acc);
       } catch (ex) {
-        backgroundError(ex as Error);
+        internalError(exMessage(ex, `Failed to load ${row.protocol} account (ID ${row.idStr}): ${ex.message}`));
       }
     }
     return accounts;

@@ -1,6 +1,6 @@
 <button on:click on:dblclick on:click={myOnClick} bind:this={buttonEl}
   title={tooltipCalc} class="button {classes}" class:plain
-  disabled={!!disabled} class:disabled class:selected
+  disabled={isDisabled} class:disabled={isDisabled} class:selected
   {tabindex}
   >
   <hbox class="icon">
@@ -80,14 +80,15 @@
         : null;
 
   let loading = false;
+  let running = false;
+  $: isDisabled = !!disabled || running;
   async function myOnClick(event: Event) {
     if (!(onClick && typeof(onClick) == "function")) {
       return;
     }
     event.stopPropagation();
     event.preventDefault();
-    let previousDisabled = disabled;
-    disabled = true;
+    running = true;
     let loadTimeout = setTimeout(() => {
       loading = true;
     }, loadDelayMS);
@@ -98,9 +99,7 @@
     } finally {
       clearTimeout(loadTimeout);
       loading = false;
-    }
-    if (disabled === true) {
-      disabled = previousDisabled;
+      running = false;
     }
   }
 </script>
@@ -116,8 +115,9 @@
     background-color: var(--button-bg);
     color: var(--button-fg);
     border: 1px solid var(--button-border);
-    border-radius: 1000px;
-    padding: 6px 8px;
+    border-radius: var(--button-radius);
+    padding: var(--button-padding);
+    min-height: var(--button-min-height);
   }
   .plain {
     background-color: transparent;
@@ -131,6 +131,10 @@
   button:hover:not(.disabled) {
     background-color: var(--hover-bg);
     color: var(--hover-fg);
+  }
+  button.filled:hover:not(.disabled) {
+    background-color: var(--button-filled-hover-bg);
+    color: var(--button-filled-hover-fg);
   }
   button.button.selected:not(.disabled) {
     background-color: var(--selected-bg);
@@ -146,11 +150,12 @@
     color: var(--selected-hover-fg);
   }
   button.secondary {
-    border-color: var(--button-secondard-line);
+    border-color: var(--button-secondary-line);
   }
   button.filled {
     background-color: var(--inverted-bg);
     color: var(--inverted-fg);
+    border-color: var(--button-filled-border);
   }
   button {
     font-size: 14px;
@@ -162,6 +167,9 @@
   }
   :global(.mobile) button {
     font-size: 16px;
+  }
+  button:not(.plain) > .label {
+    padding-inline: var(--button-label-padding);
   }
   .gap {
     width: 8px;

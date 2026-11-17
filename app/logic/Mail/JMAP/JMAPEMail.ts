@@ -3,17 +3,19 @@ import type { JMAPFolder } from "./JMAPFolder";
 import type { JMAPAccount } from "./JMAPAccount";
 import { SpecialFolder } from "../Folder";
 import { DeleteStrategy } from "../MailAccount";
-import { getTagByName, type Tag } from "../../Abstract/Tag";
+import { availableTags, getTagByName, type Tag } from "../../Abstract/Tag";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
 import type { TJMAPEmailAddress, TJMAPEmailBodyPart, TJMAPEMailHeaders, TJMAPPerson } from "./TJMAPMail";
 import type { TJMAPGetResponse } from "./TJMAPGeneric";
-import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
+import { retryOnTransientError } from "../../util/netUtil";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { assert, NotReached } from "../../util/util";
+import { assert, NotReached, getUserPreference } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import type { ArrayColl, Collection } from "svelte-collections";
 
 export class JMAPEMail extends EMail {
+  /** What `fromJMAP()` and the folder sync use. The defaults of `Email/get` include the body structure. */
+  static readonly listProperties = ["id", "blobId", "threadId", "mailboxIds", "keywords", "size", "receivedAt", "sentAt", "messageId", "inReplyTo", "subject", "from", "to", "cc", "bcc"];
   declare folder: JMAPFolder;
   mimeBlobId: string | null = null; // TODO Save in DB
   protected flagsChanging = false;
@@ -59,21 +61,32 @@ export class JMAPEMail extends EMail {
       return;
     }
     // <https://www.rfc-editor.org/rfc/rfc8621.html#section-4.1.1>
-    // isNewArrived not supported
     this.isRead = sanitize.boolean(flags["$seen"], true);
     this.isStarred = sanitize.boolean(flags["$flagged"], false);
     this.isReplied = sanitize.boolean(flags["$answered"], false);
+    this.isForwarded = sanitize.boolean(flags["$forwarded"], false);
+    // Not `=`: The sender's `Importance:` header is not on the server
+    this.isImportant ||= sanitize.boolean(flags["$important"], false); // RFC 8457
     this.isDraft = sanitize.boolean(flags["$draft"], false);
     this.isSpam = sanitize.boolean(flags["$junk"], false);
+    // `isNewArrived` @see JMAPFolder.fetchChangedMessagesForAllFolders()
 
+    let tags: Tag[] = [];
     for (let customTag in flags) {
       if (!customTag ||
           customTag.startsWith("$") ||
           ["nonjunk", "junk"].includes(customTag.toLowerCase())) {
         continue;
       }
-      this.tags.add(getTagByName(sanitize.string(customTag)));
+      tags.push(JMAPEMail.tagForKeyword(sanitize.string(customTag)));
     }
+    this.tags.replaceAll(tags);
+  }
+
+  /** Servers return keywords in lowercase (RFC 8621 section 4.1.1), but our tag may be "Work" */
+  protected static tagForKeyword(keyword: string): Tag {
+    return availableTags.find(tag => tag.name.toLowerCase() == keyword.toLowerCase()) ??
+      getTagByName(keyword);
   }
 
   static getJMAPFlags(email: EMail): Record<string, boolean> {
@@ -81,6 +94,8 @@ export class JMAPEMail extends EMail {
     flags["$seen"] = email.isRead ? true : undefined;
     flags["$flagged"] = email.isStarred ? true : undefined;
     flags["$answered"] = email.isReplied ? true : undefined;
+    flags["$forwarded"] = email.isForwarded ? true : undefined;
+    flags["$important"] = email.isImportant ? true : undefined;
     flags["$draft"] = email.isDraft ? true : undefined;
     flags["$junk"] = email.isSpam ? true : undefined;
     for (let tag of email.tags) {
@@ -113,7 +128,7 @@ export class JMAPEMail extends EMail {
 
   static async getJMAPEmailObject(email: EMail, account: JMAPAccount): Promise<any> {
     assert(email.folder.id, "need folder");
-    let doHTML = getLocalStorage("mail.send.format", "html").value == "html";
+    let doHTML = getUserPreference("mail.send.format", "html") == "html";
     let e = {
       subject: email.subject,
       messageId: [email.messageID],
@@ -168,13 +183,13 @@ export class JMAPEMail extends EMail {
         .replace("{blobId}", this.mimeBlobId)
         .replace("{name}", "email")
         .replace("{type}", "message/rfc822");
-      let response = await account.httpGet(url, {
+      let response = await retryOnTransientError(() => account.httpGet(url, {
         headers: {
           "Accept": "message/rfc822",
           "Content-Type": undefined, // override
         },
         result: "blob",
-      });
+      }));
       this.mime = new Uint8Array(await response.arrayBuffer());
       await this.parseMIME();
       await this.saveCompleteMessage();
@@ -194,11 +209,22 @@ export class JMAPEMail extends EMail {
   async markSpam(spam = true) {
     await super.markSpam(spam);
     await this.setFlagServer("$junk", spam);
+    await this.setFlagServer("$notjunk", !spam);
   }
 
   async markReplied() {
     await super.markReplied();
     await this.setFlagServer("$answered", true);
+  }
+
+  async markForwarded() {
+    await super.markForwarded();
+    await this.setFlagServer("$forwarded", true);
+  }
+
+  async markImportant(isImportant = true) {
+    await super.markImportant(isImportant);
+    await this.setFlagServer("$important", isImportant); // RFC 8457
   }
 
   async markDraft(isDraft = true) {

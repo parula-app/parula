@@ -201,7 +201,7 @@ class Sanitize {
       if (!ex.message?.includes("Invalid regular expression")) {
         throw ex;
       }
-      filename = filename.replace(this.regexpHostname_ASCII, "").trim();
+      filename = filename.replace(this.regexpFilename_ASCII, "").trim();
     }
     if (!filename) {
       return haveError("Filename cannot have only punctuation and control characters", unchecked, fallback);

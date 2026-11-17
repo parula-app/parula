@@ -108,7 +108,7 @@ test.skipIf(!Database)("Group chat: join, members, history, send, live, restart"
   // Session 1: Bookmark found, room joined
   let account1 = newAccount();
   appGlobal.chatAccounts.add(account1);
-  await account1.login(true);
+  await account1.loginAndStartup(true);
   let room1 = account1.getExistingChat(kRoom) as XMPPGroupChat;
   expect(room1 instanceof XMPPGroupChat).toBe(true);
   expect(room1.contact instanceof Group).toBe(true);
@@ -162,7 +162,7 @@ test.skipIf(!Database)("Group chat: join, members, history, send, live, restart"
   await account1.logout();
   expect(await countMessages()).toBe(5);
   expect(await countGroups()).toBe(0); // the room's Group is not in the contacts DB
-  expect(await countPersons()).toBe(1); // only alice, from the roster - no room members
+  expect(await countPersons()).toBe(0); // neither room members nor roster contacts
 
   // Session 2: Restart, like getStartObjects(): fresh objects,
   // address book without contacts loaded yet
@@ -183,7 +183,7 @@ test.skipIf(!Database)("Group chat: join, members, history, send, live, restart"
   account2.dbID = account1.dbID;
   appGlobal.chatAccounts.add(account2);
   server.queries.length = 0;
-  await account2.login(false);
+  await account2.loginAndStartup(false);
 
   // The room was loaded from our DB as a group chat, and re-joined
   let room2 = account2.getExistingChat(kRoom) as XMPPGroupChat;
@@ -206,7 +206,7 @@ test.skipIf(!Database)("Group chat: join, members, history, send, live, restart"
   expect(room2.messages.length).toBe(5);
   expect(server.queries.filter(q => q.withJID == kRoom && !q.after).length).toBe(0); // no full re-fetch
   expect(await countMessages()).toBe(5); // no duplicates
-  expect(await countPersons()).toBe(1); // still no room members in the contacts
+  expect(await countPersons()).toBe(0); // still no room members in the contacts
   expect(await countGroups()).toBe(0); // still no group in the contacts
   let fromAnon = room2.messages.find(msg => msg.id == "msg-g2") as ChatMessage;
   expect(fromAnon.from?.name).toBe("anon");

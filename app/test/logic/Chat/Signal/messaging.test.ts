@@ -177,7 +177,7 @@ test("a reaction routes to the right message", async () => {
   expect(target).toBeTruthy();
 
   // Bob reacts to Alice's message; Alice should see the reaction on her sent message.
-  await target.sendReaction("👍");
+  await target.setMyReaction("👍");
 
   let aliceMsg = aliceRoom.messages.contents.find(
     (x): x is SignalChatMessage => x instanceof SignalChatMessage && x.text == "react to me")!;

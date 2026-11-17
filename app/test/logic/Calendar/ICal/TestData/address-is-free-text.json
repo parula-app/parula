@@ -1,0 +1,17 @@
+[
+  4,
+  {
+    "title": "Reunion",
+    "startTime": "2026-09-07T16:00:00.000Z",
+    "endTime": "2026-09-07T16:30:00.000Z",
+    "allDay": false,
+    "calUID": "example-8739701987387999",
+    "participants": [
+      {
+        "emailAddress": "invitee@example.com",
+        "name": "invitee@example.com",
+        "response": 0
+      }
+    ]
+  }
+]

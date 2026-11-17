@@ -7,21 +7,20 @@ import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assertHTTPResponseOK } from "../../util/netUtil";
 import { ensureArray, type URLString } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
-import type { DAVObject } from "tsdav";
 import type { ArrayColl } from "svelte-collections";
+import type { DAVObject } from "tsdav";
 
 export class CalDAVEvent extends Event {
   declare calendar: CalDAVCalendar;
   declare parentEvent: CalDAVEvent;
   declare readonly exceptions: ArrayColl<CalDAVEvent>;
-  /** URL of this specific Event on the server. null, if not yet saved on server. */
-  url: URLString | null = null;
   originalICal: string;
 
-  get itemID(): string | null {
+  /** URL of this event on the server, which is its ID there. null until saved. */
+  get url(): URLString | null {
     return this.pID;
   }
-  set itemID(val: string | null) {
+  set url(val: URLString | null) {
     this.pID = val;
   }
   get etag(): string | null {
@@ -51,14 +50,14 @@ export class CalDAVEvent extends Event {
       return;
     }
     let parsed = new ICalParser(this.originalICal);
-    let vevents = ensureArray(parsed.containers.vevent);
+    let vevents = ensureArray(parsed.containers.vcalendar?.[0].containers.vevent);
     for (let vevent of vevents) {
       let recurrenceID = vevent.entries.recurrenceid?.[0];
       if (!recurrenceID) {
         continue; // the master itself
       }
       try {
-        let [recurrenceStartTime] = parseDate(recurrenceID);
+        let [recurrenceStartTime] = parseDate(recurrenceID, vevent);
         if (!recurrenceStartTime) {
           continue;
         }
@@ -75,7 +74,7 @@ export class CalDAVEvent extends Event {
     let master = vevents.find(v => !v.entries.recurrenceid);
     for (let entry of ensureArray(master?.entries.exdate)) {
       for (let value of entry.value.split(",")) { // one EXDATE line can hold multiple dates
-        let [exclusionTime] = parseDate({ value, properties: entry.properties });
+        let [exclusionTime] = parseDate({ value, properties: entry.properties }, master);
         if (exclusionTime) {
           this.makeExclusionLocally(exclusionTime);
         }
@@ -111,7 +110,7 @@ export class CalDAVEvent extends Event {
       await assertHTTPResponseOK(response, gt`Saving the event failed`);
     } else {
       console.log("creating", this, "with ICS", iCal);
-      let filename = this.calUID + ".ics";
+      let filename = sanitize.filename(this.calUID) + ".ics";
       let response = await this.calendar.client.createCalendarObject({
         calendar: this.calendar.davCalendar,
         iCalString: iCal,
@@ -120,6 +119,7 @@ export class CalDAVEvent extends Event {
       await assertHTTPResponseOK(response, gt`Saving the event failed`);
       this.url = new URL(filename, this.calendar.calendarURL).href;
       this.originalICal = iCal;
+      await this.saveLocally(); // Save server IDs, otherwise we get dups
     }
     await this.sendInvitationsDirectly();
   }
@@ -129,12 +129,10 @@ export class CalDAVEvent extends Event {
 
   fromExtraJSON(json: any) {
     super.fromExtraJSON(json);
-    this.url = sanitize.url(json.url, null);
     this.originalICal = sanitize.string(json.original, null);
   }
   toExtraJSON(): any {
     let json = super.toExtraJSON();
-    json.url = this.url;
     json.original = this.originalICal;
     return json;
   }

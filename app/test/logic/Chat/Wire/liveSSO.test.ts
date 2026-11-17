@@ -19,13 +19,16 @@
  * Skipped when either is missing.
  */
 // app first, to resolve the import cycle around Abstract/Account.ts
-import "../../../../logic/app";
+import { appGlobal } from "../../../../logic/app";
+import { Person } from "../../../../logic/Abstract/Person";
 import { SSOBrowserFake, WireTestBackend, installRealNetwork, isBackendReachable, isIdPReachable, kBackendURL, type TestUser } from "./liveBackend";
 import { MemoryChatStorage } from "./memoryChatStorage";
 import { WireAccount } from "../../../../logic/Chat/Wire/WireAccount";
 import { LoginError } from "../../../../logic/Abstract/Account";
 import { UserError } from "../../../../logic/util/util";
 import { afterAll, beforeAll, expect, test } from "vitest";
+
+appGlobal.me = new Person(); // as `startup.ts` does
 
 const kHaveBackend = await isBackendReachable() && await isIdPReachable();
 const kRun = kHaveBackend ? test : test.skip;

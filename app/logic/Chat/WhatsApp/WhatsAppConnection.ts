@@ -278,11 +278,12 @@ const kWhatsAppServerPort = 443;
 
 /** Opens the raw socket to the WhatsApp server. The desktop backend exposes only
  * a bare `net.Socket` (`newTCPSocket()`); all the adapting to our transport
- * interface happens here, on the renderer side, over JPC. */
-async function createWhatsAppTransport(host = kWhatsAppServerHost, port = kWhatsAppServerPort): Promise<WhatsAppTransport> {
+ * interface happens here, on the renderer side, over JPC.
+ * The endpoint is fixed: nothing the server sends can choose where we connect. */
+async function createWhatsAppTransport(): Promise<WhatsAppTransport> {
   assert(isWhatsAppLiveAvailable(), "WhatsApp live connection is not available in this build");
   let socket = await appGlobal.remoteApp.newTCPSocket();
-  return new RemoteSocketTransport(socket, host, port);
+  return new RemoteSocketTransport(socket, kWhatsAppServerHost, kWhatsAppServerPort);
 }
 
 /** Whether the live server connection can run: it needs the desktop backend's

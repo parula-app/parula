@@ -39,9 +39,6 @@
   .spinner {
     margin: 4px;
   }
-  .spinner :global(.loader::after) {
-    margin: 8px;
-  }
   .message {
     overflow-wrap: anywhere;
   }
@@ -60,6 +57,7 @@
     background-color: #F8FFD2;
     color: #DD0000;
     border: 1px solid #FFC83A;
+    max-width: 40em;
   }
   .error .box :global(.button) {
     color: #AA0000;

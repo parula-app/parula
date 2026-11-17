@@ -1,10 +1,12 @@
 import type { EMail } from "../EMail";
 import { FilterMoment } from "./FilterMoments";
 import { SearchEMail } from "../Store/SearchEMail";
-import type { MailAccount } from "../MailAccount";
+import { DeleteStrategy, type MailAccount } from "../MailAccount";
 import type { Folder } from "../Folder";
 import { getTagByName, type Tag } from "../../Abstract/Tag";
 import { notifyChangedProperty, Observable } from "../../util/Observable";
+import { assert, booleanHasValue } from "../../util/util";
+import { gt } from "../../../l10n/l10n";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { SetColl } from "svelte-collections";
 
@@ -91,17 +93,21 @@ export class FilterRuleAction extends Observable {
         return;
       }
     }
-    if (booleanHasValue(this.deleteTrash) || booleanHasValue(this.deleteImmediately)) {
-      await email.deleteMessage();
+    if (this.deleteImmediately) {
+      await email.deleteMessage(DeleteStrategy.DeleteImmediately);
+      return;
+    }
+    if (this.deleteTrash) {
+      await email.deleteMessage(DeleteStrategy.MoveToTrash);
       return;
     }
     if (this.toFolderID) {
+      assert(this.toFolder, gt`The target folder of filter rule ${this.name} does not exist anymore`);
       if (this.copy) {
         await this.toFolder.copyMessageHere(email);
       } else {
         await this.toFolder.moveMessageHere(email);
       }
-      return;
     }
   }
 
@@ -138,17 +144,13 @@ export class FilterRuleAction extends Observable {
       copy: this.copy,
       // toFolderAccountID: this.toFolder?.account?.id,
       toFolder: this.toFolderID,
-      tags: this.addTags.contents.map(tag => tag.name),
+      addTags: this.addTags.contents.map(tag => tag.name),
     };
   }
 
   clone(): FilterRuleAction {
-    let clone = new (this as any).constructor();
+    let clone = new (this as any).constructor(this.account);
     clone.fromJSON(this.toJSON());
     return clone;
   }
-}
-
-function booleanHasValue(value: boolean | null | undefined): boolean {
-  return value === true || value === false;
 }

@@ -8,9 +8,10 @@ import * as fs from "node:fs/promises";
 const replacement = `BEGIN:VCARD
 VERSION:4.0
 PRODID:-//Beonex//appName//EN
+UID:1c2e3f4a-5b6c-7d8e-9f01-234567890abc
 FN:Joe Bloggs
-PHOTO;VALUE=uri:data:image/gif;base64\\,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAAB
- AAEAAAICTAEAOw==
+PHOTO;VALUE=uri:data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABA
+ AEAAAICTAEAOw==
 N:Bloggs;Joe;;;
 EMAIL;TYPE=WORK,PREF;PREF=1:joe@example.org
 EMAIL;TYPE=WORK:bloggs@example.org
@@ -54,6 +55,9 @@ test.each(testFiles)("Parse %s", async name => {
 
   // Check that the serialisation contains the new data
   for (let line of replacement.match(/^\w.+/gm)) {
+    if (line.startsWith("UID:")) {
+      continue; // The contact keeps the UID that it has on the server, checked below
+    }
     expect(serialised).toContain(line);
   }
 

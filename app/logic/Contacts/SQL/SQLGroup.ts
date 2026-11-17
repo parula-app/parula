@@ -4,7 +4,7 @@ import type { Addressbook } from "../Addressbook";
 import { SQLPerson } from "./SQLPerson";
 import { getDatabase } from "./SQLDatabase";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { backgroundError } from "../../../frontend/Util/error";
+import { dataError } from "../../util/error";
 import { assert } from "../../util/util";
 import { ArrayColl } from "svelte-collections";
 import sql from "../../../../lib/rs-sqlite";
@@ -120,22 +120,19 @@ export class SQLGroup extends Group {
     for (let row of rows) {
       try {
         let personID = sanitize.integer(row.personID);
-        let person = group.addressbook?.persons.find(p => p.dbID == personID);
+        let person = findPersonByDBID(personID, group.addressbook);
         if (!person) {
-          for (let ab of appGlobal.addressbooks) {
-            person = ab.persons.find(p => p.dbID == personID);
-            if (person) {
-              break;
-            }
-          }
+          // Members can be in other addressbooks, which may not be read yet
+          await Promise.all(appGlobal.addressbooks.contents.map(ab => ab.readPersonsFromDB()));
+          person = findPersonByDBID(personID, group.addressbook);
         }
         if (!person) {
-          person = group.addressbook?.newPerson() ?? new Person();
+          person = new Person(); // `SQLPerson.read()` sets the addressbook of the person
           await SQLPerson.read(personID, person);
         }
         group.participants.add(person);
       } catch (ex) {
-        backgroundError(ex);
+        dataError(ex);
       }
     }
   }
@@ -148,7 +145,7 @@ export class SQLGroup extends Group {
     assert(addressbook.dbID, "Need addressbook ID to read groups and persons from SQL database");
 
     // First read persons, so that we have the Person objects available as group members
-    await SQLPerson.readAll(addressbook);
+    await addressbook.readPersonsFromDB();
 
     let rows = await (await getDatabase()).all(sql`
       SELECT
@@ -167,4 +164,19 @@ export class SQLGroup extends Group {
     }
     addressbook.groups.addAll(newGroups);
   }
+}
+
+/** @param ownAddressbook Searched first. It might not be in `appGlobal.addressbooks` (yet). */
+function findPersonByDBID(dbID: number, ownAddressbook: Addressbook | null): Person | undefined {
+  let person = ownAddressbook?.persons.find(person => person.dbID == dbID);
+  if (person) {
+    return person;
+  }
+  for (let addressbook of appGlobal.addressbooks) {
+    person = addressbook.persons.find(person => person.dbID == dbID);
+    if (person) {
+      return person;
+    }
+  }
+  return undefined;
 }

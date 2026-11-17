@@ -1,6 +1,6 @@
 import { OAuth2UI } from "./OAuth2UI";
 import { appGlobal } from "../../app";
-import { k1MinuteMS } from "../../../frontend/Util/date";
+import { k1MinuteMS } from "../../util/date";
 import { UserCancelled, UserError, assert, type URLString } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
@@ -28,7 +28,7 @@ export class OAuth2Localhost extends OAuth2UI {
     let url = await this.oAuth2.getAuthURL(doneURL);
     // console.log("OAuth2: Localhost: Load URL", url, "and done URL", doneURL);
     await this.loginURLCallback(url);
-    return new Promise((resolve, reject) => {
+    let redirectedURL = await new Promise<URLString>((resolve, reject) => {
       // Close after 15 mins no result
       const minutes = 15;
       let killTimeout = setTimeout(() => {
@@ -41,17 +41,17 @@ export class OAuth2Localhost extends OAuth2UI {
         reject(new UserCancelled(gt`Login aborted by user`));
       }
       server.get("/login-success", (urlPath: URLString) => {
-        try {
-          // console.log("OAuth2: Login finished", url);
-          clearTimeout(killTimeout);
-          server.close();
-          let url = "http://dummy" + urlPath;
-          resolve(this.oAuth2.getAuthCodeFromDoneURL(url));
-        } catch (ex) {
-          reject(ex);
-        }
+        // console.log("OAuth2: Login finished", url);
+        clearTimeout(killTimeout);
+        server.close();
+        // Same origin as `doneURL`, so that `isAuthDoneURL()` can match it
+        resolve(`http://localhost:${port}${urlPath}`);
       });
     });
+    // Without this, anybody who reaches the port can hand us his own `code`
+    assert(await this.oAuth2.isAuthDoneURL(redirectedURL),
+      gt`The login response does not belong to this login attempt`);
+    return this.oAuth2.getAuthCodeFromDoneURL(redirectedURL);
   }
 
   abort() {

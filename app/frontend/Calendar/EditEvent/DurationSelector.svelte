@@ -42,7 +42,7 @@
 </script>
 
 <script lang="ts" context="module">
-  import { k1DayS, k1HourS, k1MinuteS } from "../../Util/date";
+  import { k1DayS, k1HourS, k1MinuteS } from "../../../logic/util/date";
 
   const kMinOptions = [10, 15, 20, 30, 45];
   const kHourOptions = [1, 1.5, 2, 4];

@@ -158,9 +158,8 @@
     }
   }
 
-  async function deletePicture() {
+  function deletePicture() {
     person.picture = null;
-    await person.save();
   }
 </script>
 

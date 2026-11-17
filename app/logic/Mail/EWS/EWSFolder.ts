@@ -1,4 +1,6 @@
-import { ExchangeFolder, MessageFlagsPidTag, IconIndexPidTag } from "./ExchangeFolder";
+import { ExchangeFolder } from "./ExchangeFolder";
+import { MessageFlagsPidTag, IconIndexPidTag } from "./ExchangeEMail";
+import { ConnectionPurpose } from "./ConnectionPurpose";
 import { SpecialFolder } from "../Folder";
 import type { EMail } from "../EMail";
 import { getSharedPersons, ExchangePermission } from "./ExchangePermission";
@@ -8,9 +10,11 @@ import { EWSCreateItemRequest } from "./Request/EWSCreateItemRequest";
 import { EWSItemError } from "./EWSError";
 import type { EMailCollection } from "../Store/EMailCollection";
 import { CreateMIME } from "../SMTP/CreateMIME";
+import { PromiseAllDone } from "../../util/flow/PromiseAllDone";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { base64ToArrayBuffer, blobToBase64, ensureArray } from "../../util/util";
+import { ensureArray } from "../../util/util";
+import { base64ToUint8Array, blobToBase64 } from "../../util/blob";
 import { ArrayColl, type Collection } from "svelte-collections";
 
 export const kMaxCount = 50;
@@ -61,6 +65,7 @@ export class EWSFolder extends ExchangeFolder {
   async updateChangedMessages(): Promise<ArrayColl<EWSEMail>> {
     let lock = await this.listMessagesLock.lock();
     try {
+      let isNewMail = !!this.syncState; // no sync state returns the entire folder
       let sync = {
         m$SyncFolderItems: {
           m$ItemShape: {
@@ -74,6 +79,8 @@ export class EWSFolder extends ExchangeFolder {
                 FieldURI: "item:Categories",
               }, {
                 FieldURI: "item:Flag",
+              }, {
+                FieldURI: "item:Importance",
               }],
               t$ExtendedFieldURI: {
                 PropertyTag: IconIndexPidTag,
@@ -94,13 +101,14 @@ export class EWSFolder extends ExchangeFolder {
       let result: any = { IncludesLastItemInRange: "false" };
       while (result.IncludesLastItemInRange === "false") {
         try {
-          result = await this.account.callEWS(sync);
+          result = await this.account.callEWS(sync, ConnectionPurpose.Fetch);
         } catch (ex) {
           if (ex.error?.ResponseCode == 'ErrorInvalidSyncStateData') {
             this.syncState = null;
+            isNewMail = false;
             await this.storage.saveFolder(this);
             sync.m$SyncFolderItems.m$SyncState = null;
-            result = await this.account.callEWS(sync);
+            result = await this.account.callEWS(sync, ConnectionPurpose.Fetch);
           } else {
             throw ex;
           }
@@ -111,6 +119,9 @@ export class EWSFolder extends ExchangeFolder {
           this.forEachSyncChange(result.Changes.Create, this.processSyncUpdate, false),
         ])).flat();
         let newMsgsInIteration = await this.getNewMessageHeaders(newMessageIDs);
+        for (let msg of newMsgsInIteration) {
+          msg.isNewArrived = isNewMail;
+        }
         this.messages.addAll(newMsgsInIteration);
         newMsgs.addAll(newMsgsInIteration);
         await this.forEachSyncChange(result.Changes.Delete, this.processSyncDelete, true);
@@ -179,6 +190,8 @@ export class EWSFolder extends ExchangeFolder {
                 FieldURI: "item:Categories",
               }, {
                 FieldURI: "item:Flag",
+              }, {
+                FieldURI: "item:Importance",
               }],
               t$ExtendedFieldURI: {
                 PropertyTag: IconIndexPidTag,
@@ -200,7 +213,7 @@ export class EWSFolder extends ExchangeFolder {
       };
       let result: any = { RootFolder: { IncludesLastItemInRange: "false" } };
       while (result?.RootFolder?.IncludesLastItemInRange === "false") {
-        result = await this.account.callEWS(request);
+        result = await this.account.callEWS(request, ConnectionPurpose.Fetch);
         if (!result?.RootFolder?.Items) {
           // This folder is empty.
           break;
@@ -268,6 +281,8 @@ export class EWSFolder extends ExchangeFolder {
               }, {
                 FieldURI: "item:Subject",
               }, {
+                FieldURI: "item:Size",
+              }, {
                 FieldURI: "item:DateTimeReceived",
               }, {
                 FieldURI: "item:InReplyTo",
@@ -283,6 +298,8 @@ export class EWSFolder extends ExchangeFolder {
                 FieldURI: "item:Categories",
               }, {
                 FieldURI: "item:Flag",
+              }, {
+                FieldURI: "item:Importance",
               /* Non-MIME
               }, {
                 FieldURI: "item:TextBody",
@@ -300,7 +317,7 @@ export class EWSFolder extends ExchangeFolder {
         },
       };
       try {
-        let results = ensureArray(await this.account.callEWS(request));
+        let results = ensureArray(await this.account.callEWS(request, ConnectionPurpose.Fetch));
         for (let result of results) {
           try {
             if (result.ResponseClass == "Error") {
@@ -322,11 +339,15 @@ export class EWSFolder extends ExchangeFolder {
   }
 
   async downloadMessages(emails: Collection<EWSEMail>): Promise<Collection<EWSEMail>> {
+    const kMaxDownloadCount = 10;
     let downloadedEmail = new ArrayColl<EWSEMail>();
     let emailsToDownload = emails.contents;
-    for (let i = 0; i < emailsToDownload.length; i += kMaxCount) {
-      let batch = emailsToDownload.slice(i, i + kMaxCount);
+    for (let i = 0; i < emailsToDownload.length; i += kMaxDownloadCount) {
+      let batch = emailsToDownload.slice(i, i + kMaxDownloadCount);
       batch = batch.filter((email) => !email.downloadRunOnce.running);
+      if (!batch.length) {
+        continue;
+      }
       let request = {
         m$GetItem: {
           m$ItemShape: {
@@ -339,24 +360,29 @@ export class EWSFolder extends ExchangeFolder {
         },
       };
       try {
-        let results = ensureArray(await this.account.callEWS(request));
+        let results = ensureArray(await this.account.callEWS(request, ConnectionPurpose.Fetch));
+        let saving = new PromiseAllDone();
         for (let result of results) {
           try {
             if (result.ResponseClass == "Error") {
               throw new EWSItemError(result, request);
             }
             let email = emailsToDownload.find(email => email.itemID == getEWSItem(result.Items).ItemId.Id);
-            if (email && !email.downloadComplete) {
-              let mimeBase64 = sanitize.nonemptystring(getEWSItem(result.Items).MimeContent.Value);
-              email.mime = new Uint8Array(await base64ToArrayBuffer(mimeBase64, "message/rfc822"));
-              await email.parseMIME();
-              await email.saveCompleteMessage();
+            if (email && !email.downloadComplete && !email.downloadRunOnce.running) {
+              // Save the whole batch in parallel. They mostly wait for the DB.
+              saving.add(email.downloadRunOnce.runOnce(async () => {
+                let mimeBase64 = sanitize.nonemptystring(getEWSItem(result.Items).MimeContent.Value);
+                email.mime = base64ToUint8Array(mimeBase64);
+                await email.parseMIME();
+                await email.saveCompleteMessage();
+              }));
               downloadedEmail.add(email);
             }
           } catch (ex) {
             this.account.errorCallback(ex);
           }
         }
+        await saving.wait();
       } catch (ex) {
         this.account.errorCallback(ex);
       }
@@ -374,6 +400,10 @@ export class EWSFolder extends ExchangeFolder {
   /** Lists only the new messages, and downloads them.
    * @returns the new messages */
   async getNewMessages(): Promise<Collection<EWSEMail>> {
+    if (!this.syncState) {
+      // Without sync state, the server returns the entire folder
+      return await this.getRecentMessages() as Collection<EWSEMail>;
+    }
     let newMsgs = await this.listMessages(); // uses syncState and should be fast
     await this.downloadMessages(newMsgs);
     return newMsgs;
@@ -459,6 +489,7 @@ export class EWSFolder extends ExchangeFolder {
       },
     };
     await this.account.callEWS(request);
+    await folder.save();
   }
 
   async createSubFolder(name: string): Promise<EWSFolder> {
@@ -628,6 +659,6 @@ export function getEWSItem(item: any): any {
 
 /** @see getEWSItem()
  * This function is a convenience for a multiple items. */
-function getEWSItems(items: any[]): any[] {
+export function getEWSItems(items: any[]): any[] {
   return Object.values(items).flat();
 }

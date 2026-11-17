@@ -53,7 +53,7 @@ test.skipIf(!kJID || !kPassword)("Real server: login, roster and message history
   account.password = kPassword!;
   account.url = kURL!;
   appGlobal.chatAccounts.add(account);
-  await account.login(true);
+  await account.loginAndStartup(true);
   expect(account.isLoggedIn).toBe(true);
   console.log(`Roster of ${kJID}: ${account.roster.length} contacts`);
   for (let person of account.roster) {

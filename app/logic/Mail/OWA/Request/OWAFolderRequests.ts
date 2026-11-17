@@ -1,7 +1,8 @@
 import { OWARequest } from "./OWARequest";
+import type { ExchangeCondition } from "../../EWS/ExchangeSearchEMail";
 import type { OWAEMail } from "../OWAEMail";
 import type { ExchangePermission } from "../../EWS/ExchangePermission";
-// import { IconIndexPidTag } from "../../EWS/ExchangeFolder";
+// import { IconIndexPidTag } from "../../EWS/ExchangeEMail";
 
 export function owaFindMsgsInFolderRequest(folderID: string, maxFetchCount: number): OWARequest {
   return new OWARequest("FindItem", {
@@ -21,12 +22,16 @@ export function owaFindMsgsInFolderRequest(folderID: string, maxFetchCount: numb
       }, {
         __type: "PropertyUri:#Exchange",
         FieldURI: "item:Flag",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "item:Importance",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "item:InstanceKey",
         /*}, {
-          __type: "PropertyUri:#Exchange",
-          ExtendedFieldURI: {
-            PropertyTag: IconIndexPidTag,
-            PropertyType: "Integer",
-          },*/
+          __type: "ExtendedPropertyUri:#Exchange",
+          PropertyTag: IconIndexPidTag,
+          PropertyType: "Integer",*/
       }],
     },
     ParentFolderIds: [{
@@ -41,6 +46,88 @@ export function owaFindMsgsInFolderRequest(folderID: string, maxFetchCount: numb
       MaxEntriesReturned: maxFetchCount,
     },
   });
+}
+
+/** Searches the `folderIDs`, @see `ExchangeSearchEMail` */
+export function owaSearchMsgsRequest(folderIDs: string[], conditions: ExchangeCondition[], maxFetchCount: number): OWARequest {
+  return new OWARequest("FindItem", {
+    __type: "FindItemRequest:#Exchange",
+    ItemShape: {
+      __type: "ItemResponseShape:#Exchange",
+      BaseShape: "IdOnly",
+      AdditionalProperties: [{
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "item:ParentFolderId",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "item:DateTimeSent",
+      }],
+    },
+    ParentFolderIds: folderIDs.map(folderID => ({
+      __type: "FolderId:#Exchange",
+      Id: folderID,
+    })),
+    Traversal: "Shallow",
+    Restriction: {
+      Item: conditions.length == 1
+        ? toOWA(conditions[0])
+        : { __type: "And:#Exchange", Items: conditions.map(toOWA) },
+    },
+    SortOrder: [{
+      __type: "SortResults:#Exchange",
+      Order: "Descending",
+      Path: {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "item:DateTimeSent",
+      },
+    }],
+    Paging: {
+      __type: "IndexedPageView:#Exchange",
+      BasePoint: "Beginning",
+      Offset: 0,
+      MaxEntriesReturned: maxFetchCount,
+    },
+  });
+}
+
+function toOWA(condition: ExchangeCondition): any {
+  let property = condition.propertyTag ? {
+    __type: "ExtendedPropertyUri:#Exchange",
+    PropertyTag: condition.propertyTag,
+    PropertyType: "Integer",
+  } : {
+    __type: "PropertyUri:#Exchange",
+    FieldURI: condition.fieldURI,
+  };
+  switch (condition.operator) {
+    case "Or":
+      return { __type: "Or:#Exchange", Items: condition.conditions.map(toOWA) };
+    case "Not":
+      return { __type: "Not:#Exchange", Item: toOWA(condition.conditions[0]) };
+    case "Contains":
+      return {
+        __type: "Contains:#Exchange",
+        Item: property,
+        Constant: {
+          __type: "Constant:#Exchange",
+          Value: condition.value,
+        },
+        ContainmentMode: condition.containmentMode,
+        ContainmentComparison: "IgnoreCase",
+      };
+    default:
+      return {
+        __type: `${condition.operator}:#Exchange`,
+        Item: property,
+        FieldURIOrConstant: {
+          __type: "FieldURIOrConstantType:#Exchange",
+          Item: {
+            __type: "Constant:#Exchange",
+            Value: condition.value,
+          },
+        },
+      };
+  }
 }
 
 export function owaGetNewMsgHeadersRequest(newMessageIDs: string[]): OWARequest {
@@ -89,6 +176,9 @@ export function owaGetNewMsgHeadersRequest(newMessageIDs: string[]): OWARequest 
         FieldURI: "item:Subject",
       }, {
         __type: "PropertyUri:#Exchange",
+        FieldURI: "item:Size",
+      }, {
+        __type: "PropertyUri:#Exchange",
         FieldURI: "item:DateTimeReceived",
       }, {
         __type: "PropertyUri:#Exchange",
@@ -110,17 +200,18 @@ export function owaGetNewMsgHeadersRequest(newMessageIDs: string[]): OWARequest 
       }, {
         __type: "PropertyUri:#Exchange",
         FieldURI: "item:Flag",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "item:Importance",
         /* Non-MIME
         }, {
           __type: "PropertyUri:#Exchange",
           FieldURI: "item:TextBody",
         */
         /*}, {
-          __type: "PropertyUri:#Exchange",
-          ExtendedFieldURI: {
-            PropertyTag: IconIndexPidTag,
-            PropertyType: "Integer",
-          },*/
+          __type: "ExtendedPropertyUri:#Exchange",
+          PropertyTag: IconIndexPidTag,
+          PropertyType: "Integer",*/
       }],
     },
     ItemIds: newMessageIDs.map(id => ({
@@ -312,6 +403,27 @@ export function owaSharedFolderRequest(distinguishedIDs: string[], emailAddress:
         EmailAddress: emailAddress,
       },
     })),
+  });
+}
+
+export function owaGetFolderRequest(folderID: string): OWARequest {
+  return new OWARequest("GetFolder", {
+    __type: "GetFolderRequest:#Exchange",
+    FolderShape: {
+      __type: "FolderResponseShape:#Exchange",
+      BaseShape: "Default",
+      AdditionalProperties: [{
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "folder:FolderClass",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "folder:DistinguishedFolderId",
+      }],
+    },
+    FolderIds: [{
+      __type: "FolderId:#Exchange",
+      Id: folderID,
+    }],
   });
 }
 

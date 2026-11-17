@@ -46,6 +46,10 @@ export class NTLMTestServer {
   /** Body of each request that had one, in order. The Type 1 probe of the
    * handshake has none, so this is what the server actually processed. */
   requestBodies: string[] = [];
+  /** TCP connections dropped by `refuseSimultaneousConnects` */
+  connectsRefused = 0;
+  /** Accepted, but no request on them yet, i.e. still being established */
+  protected connecting = new Set<Socket>();
 
   // Behavior
   requireAuth = true;
@@ -55,12 +59,20 @@ export class NTLMTestServer {
   closeAfterResponses = 0;
   /** Destroy the TCP connection as soon as the next request arrives on it */
   killNextRequest = false;
+  /** Refuse a new TCP connection that is opened while another connection is
+   * still being established, like a server or VPN gateway that lets only one
+   * TLS handshake through at a time */
+  refuseSimultaneousConnects = false;
+  /** Refuse this many TCP connections, like a VPN tunnel that is not up yet */
+  refuseNextConnects = 0;
   /** Answer the next request only partially, then reset the TCP connection.
    * The server processed the request, so the client must not repeat it. */
   killWhileResponding = false;
   /** Answer only partially, then close the TCP connection gracefully (FIN),
    * like a proxy that times out a long-running response */
   endWhileResponding = false;
+  /** Never answer the next request, like a silently dropped TCP connection */
+  blackHoleNextRequest = false;
   /** Answer with `204 No Content`, which has no response body, by spec */
   noContent = false;
   /** Send the response in these chunks, with pauses in between */
@@ -68,6 +80,11 @@ export class NTLMTestServer {
   /** After `streamChunks`, keep the response open, like a notification stream */
   keepStreamOpen = false;
   setCookie: string | null = null;
+  /** Do not answer requests whose body contains this string, until
+   * `releaseHeldRequests()`. Models the long requests of a mail download. */
+  holdRequestsContaining: string | null = null;
+  /** `resolve()` of each request that `holdRequestsContaining` holds back */
+  protected heldRequests: (() => void)[] = [];
 
   async start(): Promise<void> {
     this.server = http.createServer((req, res) => {
@@ -77,7 +94,19 @@ export class NTLMTestServer {
       });
     });
     this.server.on("connection", socket => {
+      if (this.refuseNextConnects > 0) {
+        this.refuseNextConnects--;
+        this.connectsRefused++;
+        socket.resetAndDestroy();
+        return;
+      }
+      if (this.refuseSimultaneousConnects && this.connecting.size) {
+        this.connectsRefused++;
+        socket.resetAndDestroy();
+        return;
+      }
       this.socketsCreated++;
+      this.connecting.add(socket);
       this.states.set(socket, { authenticated: false, challenge: null, responses: 0 });
       socket.on("data", () => {
         if (this.killNextRequest) {
@@ -85,7 +114,10 @@ export class NTLMTestServer {
           socket.destroy();
         }
       });
-      socket.on("close", () => this.states.delete(socket));
+      socket.on("close", () => {
+        this.connecting.delete(socket);
+        this.states.delete(socket);
+      });
     });
     await new Promise<void>(resolve => this.server.listen(0, "127.0.0.1", resolve));
     this.url = `http://127.0.0.1:${(this.server.address() as AddressInfo).port}/EWS/Exchange.asmx`;
@@ -96,6 +128,21 @@ export class NTLMTestServer {
       socket.destroy();
     }
     await new Promise<void>(resolve => this.server.close(() => resolve()));
+  }
+
+  /** How many requests `holdRequestsContaining` is currently holding back,
+   * i.e. how many of them reached the server at all */
+  get heldRequestCount(): number {
+    return this.heldRequests.length;
+  }
+
+  /** Lets the requests that `holdRequestsContaining` held run to completion */
+  releaseHeldRequests(): void {
+    let held = this.heldRequests;
+    this.heldRequests = [];
+    for (let release of held) {
+      release();
+    }
   }
 
   /** Simulates a load balancer moving us to a backend server that has not
@@ -109,6 +156,8 @@ export class NTLMTestServer {
 
   protected async onRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     this.requests++;
+    this.connecting.delete(req.socket); // the connection is up
+
     this.cookieLog.push(req.headers.cookie ?? "");
     let body = "";
     for await (let chunk of req) {
@@ -122,11 +171,15 @@ export class NTLMTestServer {
       res.destroy();
       return;
     }
+    if (this.blackHoleNextRequest) {
+      this.blackHoleNextRequest = false;
+      return;
+    }
     if (!this.requireAuth || state.authenticated) {
       if (req.headers.authorization) {
         this.authWhileAuthenticated++;
       }
-      this.respondOK(res, state, body);
+      await this.respondOK(res, state, body);
       return;
     }
     let auth = req.headers.authorization;
@@ -144,7 +197,7 @@ export class NTLMTestServer {
         state.challenge = null;
         state.authenticated = true;
         this.handshakesCompleted++;
-        this.respondOK(res, state, body);
+        await this.respondOK(res, state, body);
         return;
       }
       // Type 3 for a challenge of another connection, or wrong password
@@ -158,7 +211,10 @@ export class NTLMTestServer {
     this.respond401(res, state, this.authScheme);
   }
 
-  protected respondOK(res: http.ServerResponse, state: SocketState, requestBody: string): void {
+  protected async respondOK(res: http.ServerResponse, state: SocketState, requestBody: string): Promise<void> {
+    if (this.holdRequestsContaining && requestBody.includes(this.holdRequestsContaining)) {
+      await new Promise<void>(resolve => this.heldRequests.push(resolve));
+    }
     if (this.noContent) {
       res.writeHead(204);
       this.finishResponse(res, state);

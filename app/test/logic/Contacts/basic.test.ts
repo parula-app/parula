@@ -1,7 +1,7 @@
 import { kAddressbooks } from './logins';
 import { newAddressbookForProtocol } from '../../../logic/Contacts/AccountsList/Addressbooks';
 import { AuthMethod } from '../../../logic/Abstract/Account';
-import { connectToBackend, stopBackend } from '../util/backend.test';
+import { connectToBackend, stopBackend } from '../util/backend';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 
 beforeAll(connectToBackend);

@@ -18,7 +18,7 @@
   import Join from "./Join.svelte";
   import LogoScreen from "./LogoScreen.svelte";
   import NotificationBar from "../../MainWindow/NotificationBar.svelte";
-  import { notifications } from "../../MainWindow/Notification";
+  import { notifications } from "../../../logic/util/Notification";
   import { gLicense } from "../../../logic/util/License";
   import { catchErrors } from "../../Util/error";
   import { onMount } from "svelte";

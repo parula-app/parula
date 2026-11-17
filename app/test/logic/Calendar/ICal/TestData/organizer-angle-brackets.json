@@ -1,0 +1,22 @@
+[
+  4,
+  {
+    "title": "Rendez-vous",
+    "startTime": "2026-09-07T16:00:00.000Z",
+    "endTime": "2026-09-07T16:30:00.000Z",
+    "allDay": false,
+    "calUID": "doctolib-8739701987387998",
+    "participants": [
+      {
+        "emailAddress": "no-reply@doctolib.fr",
+        "name": "Doctolib",
+        "response": 1
+      },
+      {
+        "emailAddress": "patient@example.com",
+        "name": "patient@example.com",
+        "response": 0
+      }
+    ]
+  }
+]

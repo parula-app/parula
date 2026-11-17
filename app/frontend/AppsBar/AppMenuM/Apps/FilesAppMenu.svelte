@@ -31,5 +31,5 @@
   import PersonIcon from "lucide-svelte/icons/user";
   import PlusIcon from "lucide-svelte/icons/plus";
   import AccountIcon from "lucide-svelte/icons/folder-open";
-  import { URLPart } from "../../../Util/util";
+  import { URLPart } from "../../../../logic/util/blob";
 </script>

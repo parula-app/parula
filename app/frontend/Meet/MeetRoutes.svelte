@@ -24,5 +24,5 @@
   import PhoneDialScreen from "./Start/Phone/PhoneDialScreen.svelte";
 
   $: location = useLocation();
-  $: params = getParams($location.state);
+  $: params = getParams($location?.state);
 </script>

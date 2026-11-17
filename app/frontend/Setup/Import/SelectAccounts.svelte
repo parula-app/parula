@@ -64,9 +64,6 @@
       }
     }
 
-    // POP3 not yet supported
-    accounts = accounts.filter(acc => acc.protocol != "pop3");
-
     for (let account of accounts) {
       (account as any).import = true;
     }

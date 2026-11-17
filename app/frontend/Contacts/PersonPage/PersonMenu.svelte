@@ -21,7 +21,7 @@
   import CopyIcon from "lucide-svelte/icons/copy";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import { getNext } from "../../../logic/util/collections";
-  import { URLPart } from "../../Util/util";
+  import { URLPart } from "../../../logic/util/blob";
   import { t } from "../../../l10n/l10n";
 
   export let person: Person;

@@ -8,6 +8,7 @@ node_modules/
 yarn.lock
 package-lock.json
 app/dist/
+*.tsbuildinfo
 *.acebase/
 claude/
 .claude/

@@ -4,7 +4,7 @@ import { AuthMethod } from "../../Abstract/Account";
 import { appGlobal } from "../../app";
 import { notifyChangedProperty } from "../../util/Observable";
 import { RunOnce } from "../../util/flow/RunOnce";
-import { NotReached, assert } from "../../util/util";
+import { NotReached, UserError, assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
 import type { AuthType, OAuthToken, WebDAVClient } from "webdav";
@@ -50,6 +50,9 @@ export class WebDAVAccount extends FileSharingAccount {
         };
       } else {
         throw new NotReached(gt`Unknown authentication method`);
+      }
+      if (!URL.canParse(this.url)) {
+        throw new UserError(gt`Please enter the server URL, e.g. https://dav.example.com/`);
       }
       this.client = await appGlobal.remoteApp.createWebDAVClient(this.url, options);
     });

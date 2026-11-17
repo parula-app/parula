@@ -17,6 +17,7 @@ export class SQLFile {
     let serverURL = (file as File & WithServerURL).serverURL ?? null;
     filesDir ??= await getFilesDir();
     let pathLocal = file.filepathLocal?.replace(`${filesDir}/files/cloud/${file.account.id}/`, "");
+    let jsonStr = JSON.stringify(file.toExtraJSON(), null, 2);
 
     if (!file.dbID) {
       let existing = await (await getDatabase()).get(sql`
@@ -31,10 +32,11 @@ export class SQLFile {
       let insert = await (await getDatabase()).run(sql`
         INSERT INTO file (
           directoryID, name, path, pathLocal, size,
-          mimetype, lastMod, lastModOnServer, syncState, serverURL
+          mimetype, lastMod, lastModOnServer, syncState, serverURL, json
         ) VALUES (
           ${directory.dbID}, ${file.name}, ${file.path}, ${pathLocal}, ${file.size},
-          ${file.mimetype}, ${lastMod}, ${lastModOnserver}, ${file.syncState}, ${serverURL}
+          ${file.mimetype}, ${lastMod}, ${lastModOnserver}, ${file.syncState}, ${serverURL},
+          ${jsonStr}
         )`);
       file.dbID = insert.lastInsertRowid;
     } else {
@@ -43,7 +45,7 @@ export class SQLFile {
           name = ${file.name}, path = ${file.path}, pathLocal = ${pathLocal},
           size = ${file.size}, mimetype = ${file.mimetype},
           lastMod = ${lastMod}, lastModOnServer = ${lastModOnserver},
-          syncState = ${file.syncState}, serverURL = ${serverURL}
+          syncState = ${file.syncState}, serverURL = ${serverURL}, json = ${jsonStr}
         WHERE id = ${file.dbID}
         `);
     }
@@ -63,7 +65,7 @@ export class SQLFile {
   static async read(dbID: number, file: File): Promise<File> {
     let row = await (await getDatabase()).get(sql`
       SELECT name, path, pathLocal, size, mimetype, lastMod, lastModOnServer,
-        syncState, serverURL
+        syncState, serverURL, json
       FROM file WHERE id = ${dbID}
       `) as any;
     assert(row, `File ${dbID} not found in DB`);
@@ -84,6 +86,7 @@ export class SQLFile {
       ? sanitize.integer(row.syncState, null)
       : sanitize.string(row.syncState, null);
     (file as File & WithServerURL).serverURL = sanitize.url(row.serverURL, null);
+    file.fromExtraJSON(sanitize.json(row.json, {}) as any);
   }
 
   /** Populates a `directory` with all its files from the cache. */
@@ -92,7 +95,7 @@ export class SQLFile {
     filesDir ??= await getFilesDir();
     let rows = await (await getDatabase()).all(sql`
       SELECT id, name, path, pathLocal, size, mimetype, lastMod, lastModOnServer,
-        syncState, serverURL
+        syncState, serverURL, json
       FROM file WHERE directoryID = ${directory.dbID}
       `) as any[];
     for (let row of rows) {

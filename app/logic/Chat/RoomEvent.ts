@@ -46,9 +46,7 @@ export class ChatRoomEvent extends Message {
     this.to = val;
   }
 
-  /** Same table and same storage as a `ChatMessage`: `SQLChatMessage` tells the
-   * two apart by the `kind` in the json column. */
-  async save(): Promise<void> {
+  async save() {
     await this.to.account.storage.saveMessage(this);
   }
 }

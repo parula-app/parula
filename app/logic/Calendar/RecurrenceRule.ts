@@ -1,5 +1,5 @@
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
-import { kAllWeekdays, weekdayLabel } from "../../frontend/Util/date";
+import { kAllWeekdays, weekdayLabel } from "../util/date";
 import { getDateTimeLocale, gt } from "../../l10n/l10n";
 import { assert } from "../util/util";
 
@@ -250,7 +250,8 @@ export class RecurrenceRule implements Readonly<Omit<RecurrenceInit, "seriesStar
    * When you change the entire series, that could include changing when it
    * recurs. The UI uses this function to tell whether the recurrence was
    * edited, as this will cause all exceptions and exclusions to be reset.
-   * But we can't check the series length though, as the UI never sets one.
+   * It ignores the end of the series, which leaves the exceptions valid.
+   * `matches()` also checks the end.
    *
    * Caveat: If you change from weekly to 7-day repetition,
    * this still (intentionally) returns false.
@@ -275,7 +276,9 @@ export class RecurrenceRule implements Readonly<Omit<RecurrenceInit, "seriesStar
 
   matches(rule: RecurrenceRule) {
     // Must be fast, because it's used by `event.hasChanged()`
-    return this.timesMatch(rule);
+    return this.timesMatch(rule) &&
+      rule.seriesEndTime?.getTime() == this.seriesEndTime?.getTime() &&
+      rule.count == this.count;
   }
 
   countIs(count: number): boolean {

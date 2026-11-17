@@ -21,16 +21,9 @@ export type TUTCDateTime = string;
 /** <https://www.rfc-editor.org/rfc/rfc8620.html#section-2> */
 export interface TJMAPSession {
   capabilities: Record<string, Record<string, any>>;
-  accounts: {
-    /** A user-friendly string to show when presenting content from
-     * this account, e.g., the email address representing the owner of
-     * the account. */
-    name: string;
-    /** Our user is the primary owner of this account */
-    isPersonal: boolean;
-    isReadOnly: boolean;
-    accountCapabilities: Record<string, any>;
-  }[];
+  /** accountID -> account. Ours, plus the accounts shared with us that we subscribed to.
+   * @see <https://www.rfc-editor.org/rfc/rfc9670.html#section-1.4> */
+  accounts: Record<TID, TJMAPSessionAccount>;
   /** capability URL -> accountID */
   primaryAccounts: Record<string, string>;
   username: string;
@@ -43,6 +36,48 @@ export interface TJMAPSession {
   /** URL to connect to for push events, in URI Template format, e.g. https://foo/{var}/ */
   eventSourceUrl: URLString;
   state: string;
+}
+
+export interface TJMAPSessionAccount {
+  /** A user-friendly string to show when presenting content from
+   * this account, e.g., the email address representing the owner of
+   * the account. */
+  name: string;
+  /** Our user is the primary owner of this account */
+  isPersonal: boolean;
+  isReadOnly: boolean;
+  accountCapabilities: Record<string, Record<string, any>>;
+}
+
+/** A user, group, room or other entity that we can share our data with.
+ * <https://www.rfc-editor.org/rfc/rfc9670.html#section-2> */
+export interface TJMAPPrincipal {
+  id: TID;
+  type: "individual" | "group" | "resource" | "location" | "other";
+  name: string;
+  description?: string;
+  email?: string;
+  timeZone?: string;
+  capabilities?: Record<string, Record<string, any>>;
+  /** accountID -> `accountCapabilities`, for this principal's accounts that we
+   * may access. Cyrus instead returns a single `accountId`. */
+  accounts?: Record<TID, Record<string, any>>;
+}
+
+/** Another user changed our access to their data.
+ * <https://www.rfc-editor.org/rfc/rfc9670.html#section-3> */
+export interface TJMAPShareNotification {
+  id: TID;
+  created: TUTCDateTime;
+  changedBy: { name: string, email?: string, principalId?: TID };
+  // `objectType` intentionally omitted: Cyrus hardcodes it to "Calendar", and we don't need it
+  /** The account that the object is in, i.e. the account shared with us */
+  objectAccountId: TID;
+  objectId: TID;
+  oldRights?: Record<string, boolean>;
+  /** Null when they revoked our access */
+  newRights?: Record<string, boolean>;
+  name: string;
 }
 
 /** <https://www.rfc-editor.org/rfc/rfc8620.html#section-3.3> */
@@ -119,8 +154,8 @@ export interface TJMAPSetError extends TJMAPError {
 export type TJMAPMethodCall = [string, Record<string, any>, string];
 /** Contents: method name, arguments, call number */
 export type TJMAPMethodResponse = [string, Record<string, any>, string];
-export type TJMAPObjectType = "Mailbox" | "Email" | "EmailSubmission" | "Thread" | "AddressBook" | "ContactCard" | "Calendar" | "CalendarEvent" | "CalendarEventNotification" | "ParticipantIdentity";
-export const TJMAPObjectTypes = ["Mailbox", "Email", "EmailSubmission", "Thread", "AddressBook", "ContactCard", "Calendar", "CalendarEvent", "CalendarEventNotification", "ParticipantIdentity" ];
+export type TJMAPObjectType = "Mailbox" | "Email" | "Identity" | "EmailSubmission" | "Thread" | "AddressBook" | "ContactCard" | "Calendar" | "CalendarEvent" | "CalendarEventNotification" | "ParticipantIdentity" | "ShareNotification";
+export const TJMAPObjectTypes = ["Mailbox", "Email", "Identity", "EmailSubmission", "Thread", "AddressBook", "ContactCard", "Calendar", "CalendarEvent", "CalendarEventNotification", "ParticipantIdentity", "ShareNotification" ];
 
 
 /** <https://www.rfc-editor.org/rfc/rfc8620.html#section-6.1> */

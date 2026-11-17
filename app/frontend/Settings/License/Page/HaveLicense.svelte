@@ -13,7 +13,7 @@
 
 <script lang="ts">
   import { Ticket } from "../../../../logic/util/LicenseClient";
-  import { getDateString } from "../../../Util/date";
+  import { getDateString } from "../../../../logic/util/date";
   import HeartIcon from "lucide-svelte/icons/heart";
   import PartyIcon from "lucide-svelte/icons/party-popper";
   import { t } from "../../../../l10n/l10n";

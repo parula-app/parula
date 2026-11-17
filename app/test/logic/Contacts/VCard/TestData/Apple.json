@@ -49,5 +49,6 @@
   "company": "Mustang",
   "department": "",
   "position": "",
+  "encryptionPublicKeys": [],
   "custom": []
 }

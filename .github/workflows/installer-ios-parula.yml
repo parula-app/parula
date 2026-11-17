@@ -59,6 +59,8 @@ jobs:
       - run: cd mobile; yarn install
       - run: cd mobile/backend; yarn install
       - run: cd mobile; yarn build:ios:release
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Find IPA file and set path
         run: |

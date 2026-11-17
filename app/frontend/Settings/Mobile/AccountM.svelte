@@ -39,7 +39,7 @@
   import { Account } from "../../../logic/Abstract/Account";
   import { appGlobal } from "../../../logic/app";
   import { goTo } from "../../AppsBar/selectedApp";
-  import { URLPart } from "../../Util/util";
+  import { URLPart } from "../../../logic/util/blob";
   import AccountBarM from "./AccountBarM.svelte";
   import RowButton from "./RowButton.svelte";
   import Scroll from "../../Shared/Scroll.svelte";
@@ -51,7 +51,7 @@
   export let isMain: boolean;
 
   $: category = isMain ? accountSettings.find(cat => account instanceof cat.type && cat.isMain) : category;
-  $: subCategories = accountSettings.filterObservable(cat => account instanceof cat.type && !cat.isMain);
+  $: subCategories = accountSettings.filterObservable(cat => account instanceof cat.type && !cat.isMain && cat.isAvailable(account));
 
   function goToSubCategory(category: SettingsCategory) {
     goTo(URLPart`/settings/account/${account.id}/${category.id}`, { account, category });

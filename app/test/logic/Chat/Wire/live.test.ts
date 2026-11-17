@@ -20,7 +20,8 @@
  * backend without cleaning up.
  */
 // app first, to resolve the import cycle around Abstract/Account.ts
-import "../../../../logic/app";
+import { appGlobal } from "../../../../logic/app";
+import { Person } from "../../../../logic/Abstract/Person";
 import { WireTestBackend, installRealNetwork, isBackendReachable, kBackendURL, type TestUser } from "./liveBackend";
 import { MemoryChatStorage } from "./memoryChatStorage";
 import { WireAccount } from "../../../../logic/Chat/Wire/WireAccount";
@@ -30,6 +31,8 @@ import { WireChatMessage } from "../../../../logic/Chat/Wire/WireChatMessage";
 import { WirePerson } from "../../../../logic/Chat/Wire/WirePerson";
 import { DeliveryStatus } from "../../../../logic/Chat/ChatMessage";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
+
+appGlobal.me = new Person(); // as `startup.ts` does
 
 const kHaveBackend = await isBackendReachable();
 const kRun = kHaveBackend ? test : test.skip;

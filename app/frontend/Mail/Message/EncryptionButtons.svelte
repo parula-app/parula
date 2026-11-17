@@ -16,6 +16,7 @@
   import type { PublicKey } from "../../../logic/Mail/Encryption/PublicKey";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
   import { getPublicKeyByKeyID } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { SMIMEPublicKey } from "../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
   import RoundButton from "../../Shared/RoundButton.svelte";
   import SignedIcon from "lucide-svelte/icons/signature";
   import EncryptedIcon from "lucide-svelte/icons/lock";
@@ -28,13 +29,14 @@
   export let isExpanded = false;
 
   let signingKey: PublicKey;
-  $: getPublicKeyByKeyID($message.signed, message)
+  $: getPublicKeyByKeyID($message.signedByKeyID, message)
     .then(key => signingKey = key)
     .catch(showError);
-  $: signed = $message.signed && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
+  $: signed = $message.signedByKeyID && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
+  $: expired = signed && signingKey instanceof SMIMEPublicKey && !signingKey.isValidAt($message.received ?? new Date());
   $: encrypted = $message.wasEncrypted;
-  $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : $signingKey?.trustLevel ?? "none";
-  $: keyName = $signingKey?.name ?? $message.signed?.substring(2, 6);
+  $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : expired ? TrustLevel.Sender : $signingKey?.trustLevel ?? "none";
+  $: keyName = $signingKey?.name ?? $message.signedByKeyID?.substring(2, 6);
   $: msg = signed && encrypted
       ? $t`This message was end-to-end-encrypted to you, and signed by ${$message.from?.name ?? $t`somebody`} with ${signingKey?.system} key ${keyName}`
       : signed

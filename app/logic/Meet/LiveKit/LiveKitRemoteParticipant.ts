@@ -1,7 +1,7 @@
 import { MeetingParticipant, ParticipantRole } from "../Participant";
 import { VideoStream } from "../VideoStream";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { catchErrors } from "../../../frontend/Util/error";
+import { catchErrors } from "../../util/error";
 import { assert } from "../../util/util";
 import type { LiveKitConf } from "./LiveKitConf";
 import type { RemoteParticipant, Track as TrackType, TrackPublication } from "livekit-client";

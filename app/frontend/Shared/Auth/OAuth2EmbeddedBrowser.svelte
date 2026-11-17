@@ -17,10 +17,11 @@
   import { OAuth2Embed } from "../../../logic/Auth/UI/OAuth2Embed";
   import Browser from "../Browser.svelte";
   import { autoFillLoginPage } from "../../../logic/Auth/LoginAutoFill";
-  import { UserCancelled, UserError, type URLString, sleep } from "../../../logic/util/util";
+  import { UserCancelled, type URLString } from "../../../logic/util/util";
   import { catchErrors } from "../../Util/error";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { t } from "../../../l10n/l10n";
+  import { k1MinuteMS } from "../../../logic/util/date";
 
   export let dialog: OAuth2Tab | OAuth2Embed;
   export let withURLbar = true;
@@ -36,16 +37,26 @@
     dialog.failed(new UserCancelled($t`Login dialog was closed`));
   }
 
+  let inactivityTimeout: NodeJS.Timeout;
+  let unsubscribe: () => void;
+
   onMount(() => catchErrors(async () => {
-    dialog.subscribe(() => {
+    unsubscribe = dialog.subscribe(() => {
       if (!startURL && dialog.startURL) {
         startURL = dialog.startURL;
       }
     });
-    await sleep(15 * 60); // 15 mins
-    // Not `UserCancelled`, because we want to show that error msg to the user
-    dialog.failed(new UserError($t`Login dialog was closed due to inaction`));
+    inactivityTimeout = setTimeout(() => catchErrors(onInactive), 15 * k1MinuteMS);
   }));
+
+  onDestroy(() => {
+    clearTimeout(inactivityTimeout);
+    unsubscribe?.();
+  });
+
+  function onInactive() {
+    dialog.failed(new UserCancelled($t`Login dialog was closed due to inaction`));
+  }
 </script>
 
 <style>

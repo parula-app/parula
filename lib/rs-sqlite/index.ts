@@ -31,6 +31,12 @@ export interface Database {
   run(query: Query): any;
 
   /**
+   * Run several DML statements with one call to the backend, each with its bound parameters.
+   * Not in `@radically-straightforward/sqlite`, but in our backend.
+   */
+  runMultiple(queries: Query[]): void;
+
+  /**
    * Run a `SELECT` statement that returns a single result.
    *
    * > **Note:** If the `SELECT` statement returns multiple results, only the first result is returned, so it’s better to write statements that return a single result (for example, using `LIMIT`).

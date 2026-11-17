@@ -110,7 +110,9 @@
   let sizeMinMB: number;
   let sizeMaxMB: number;
 
-  $: $search, loadSearch() // only when a different search is loaded, *not* `$search` when its contents change
+  // Only when a different search is loaded, *not* on `$search` when its contents
+  // change: that would write the values back while the search pane reads them.
+  $: search, loadSearch()
   function loadSearch() {
     // Enable/disable: `SearchEmail` to controls
     hasAccount = search.account ? true : null;

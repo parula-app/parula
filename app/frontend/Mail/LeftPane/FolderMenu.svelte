@@ -58,7 +58,7 @@
   async function getNewMessages() {
     let account = folder.account;
     if (!account.isLoggedIn) {
-      await account.login(true);
+      await account.loginAndStartup(true);
     }
     await folder.getNewMessages();
   }
@@ -73,7 +73,7 @@
   }
 
   async function deleteAllMsgs() {
-    for (let msg of folder.messages) {
+    for (let msg of folder.messages.contents) { // copy: deleting alters `folder.messages`
       await msg.deleteMessage();
     }
   }

@@ -60,7 +60,7 @@
   import { ThunderbirdAddressbook } from "../../../logic/Mail/Import/Thunderbird/TBAddressbook";
   import { ArrayColl } from "svelte-collections";
   import { appGlobal } from "../../../logic/app";
-  import { logError } from "../../Util/error";
+  import { logErrorToServer } from "../../Util/error";
 
   export let addressbooks = new ArrayColl<Addressbook>();
   export let onContinue = () => undefined;
@@ -106,7 +106,7 @@
       isThunderbirdRunning = true;
       return;
     }
-    logError(ex);
+    logErrorToServer(ex);
   }
 
   function entryErrorCallback(ex: Error) {

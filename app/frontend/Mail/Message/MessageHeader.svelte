@@ -1,4 +1,4 @@
-<vbox class="message-header"
+<vbox class="message-header window-drag"
   class:outgoing={$message.outgoing}
   on:swipeleft={onPreviousMessage}
   on:swiperight={onNextMessage}
@@ -107,8 +107,8 @@
   import RoundButton from "../../Shared/RoundButton.svelte";
   import RemoveIcon from "lucide-svelte/icons/x";
   import { getLocalStorage } from "../../Util/LocalStorage";
-  import { catchErrors, backgroundError } from "../../Util/error";
-  import { getDateTimeString } from "../../Util/date";
+  import { catchErrors, minorError } from "../../Util/error";
+  import { getDateTimeString } from "../../../logic/util/date";
   import { getDateTimeLocale, t } from "../../../l10n/l10n";
   import { onDestroy } from "svelte";
 
@@ -118,7 +118,7 @@
 
   let readDelaySetting = getLocalStorage("mail.read.after", 0); // 0 = Immediately; -1 = Manually; 1 to 20 = delay in seconds
   $: readDelay = $readDelaySetting.value;
-  $: catchErrors(() => markMessageAsRead(message, readDelay), backgroundError);
+  $: catchErrors(() => markMessageAsRead(message, readDelay), minorError);
   let readTimeout: NodeJS.Timeout;
   function markMessageAsRead(message: EMail, readDelay: number) {
     if (message.isRead) {

@@ -1,5 +1,4 @@
 import { OWARequest } from "../../../Mail/OWA/Request/OWARequest";
-import type { Attachment } from "../../../Abstract/Attachment";
 import type { OWAEvent } from "../OWAEvent";
 
 export function owaGetOccurrenceIdRequest(event: OWAEvent): OWARequest {
@@ -194,47 +193,6 @@ export function owaGetEventUIDsRequest(eventIDs: string[]): OWARequest {
   });
 }
 
-export function owaGetAttachmentRequest(attachmentID: string): OWARequest {
-  return new OWARequest("GetAttachment", {
-    __type: "GetAttachmentRequest:#Exchange",
-    AttachmentShape: {
-      __type: "AttachmentResponseShape:#Exchange",
-    },
-    AttachmentIds: [{
-      __type: "RequestAttachmentId:#Exchange",
-      Id: attachmentID,
-    }],
-  });
-}
-
-export function owaCreateAttachmentRequest(eventID: string, attachment: Attachment): OWARequest {
-  return new OWARequest("CreateAttachment", {
-    __type: "CreateAttachmentRequest:#Exchange",
-    Attachments: [{
-      __type: "FileAttachment:#Exchange",
-      Name: attachment.filename,
-      ContentType: attachment.mimeType,
-      Size: attachment.size,
-      IsInline: false,
-      Content: "",
-    }],
-    ParentItemId: {
-      __type: "ItemId:#Exchange",
-      Id: eventID,
-    },
-  });
-}
-
-export function owaDeleteAttachmentsRequest(attachmentIDs: string[]): OWARequest {
-  return new OWARequest("DeleteAttachment", {
-    __type: "DeleteAttachmentRequest:#Exchange",
-    AttachmentIds: attachmentIDs.map(attachmentID => ({
-      __type: "RequestAttachmentId:#Exchange",
-      Id: attachmentID,
-    })),
-  });
-}
-
 export function owaCreateExclusionRequest(excludeEvent: OWAEvent, parentEvent: OWAEvent): OWARequest {
   return owaCreateMultipleExclusionsRequest([excludeEvent], parentEvent);
 }
@@ -247,7 +205,7 @@ export function owaCreateMultipleExclusionsRequest(exclusions: OWAEvent[], paren
       RecurringMasterId: parentEvent.itemID,
       InstanceIndex: parentEvent.recurrenceRule.getIndexOfOccurrence(event.recurrenceStartTime) + 1,
     })),
-    DeleteType: "MoveToDeletedItems",
+    DeleteType: "HardDelete",
     SendMeetingCancellations: "SendToAllAndSaveCopy",
   });
 }

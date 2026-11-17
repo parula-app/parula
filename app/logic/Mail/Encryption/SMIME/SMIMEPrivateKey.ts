@@ -1,8 +1,9 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { KeyDerivationAlgorithm, PrivateKeyInfo, EncryptedPrivateKeyInfo, PBES2Params, PBKDF2Params, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage } from "./SMIMEASN1";
+import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
-import { SMIMEReadProcessor } from "./SMIMEReadProcessor";
+import { sameName } from "./SMIMEVerify";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
 import { assert } from "../../../util/util";
@@ -33,52 +34,47 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     }
   }
 
-  async matches(key: RSAPublicKey, _default: boolean): Promise<boolean> {
+  async matches(key: RSAPublicKey): Promise<boolean> {
     let rawKey = await this.decryptKey();
     return key.n == rawKey.n && key.e == rawKey.e;
   }
 
-  async decryptKey(): Promise<RSAPrivateKey> {
-    let privateKeyInfo;
-    if (!this.passphrase) {
-      privateKeyInfo = PrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
-    } else {
-      let cryptoKey = await this.decryptCryptoKey();
-      privateKeyInfo = PrivateKeyInfo.decode(new Uint8Array(await crypto.subtle.exportKey("pkcs8", cryptoKey)));
+  /** @param rid as decoded from a `KeyTransRecipientInfo` of the message */
+  isRecipient(rid: any): boolean {
+    if (!this.certificate) {
+      return false;
     }
+    let cert = this.decodedCertificate;
+    switch (rid.type) {
+    case "issuerAndSerialNumber":
+      return rid.value.serialNumber == cert.tbsCertificate.serialNumber &&
+        sameName(rid.value.issuer, cert.tbsCertificate.issuer);
+    case "subjectKeyIdentifier": {
+      let ski = cert.tbsCertificate.extensions?.find(ext => ext.extnID == "subjectKeyIdentifier");
+      return !!ski && !indexedDB.cmp(OctetString.decode(ski.extnValue), rid.value);
+    }
+    default:
+      return false;
+    }
+  }
+
+  /** Decrypts our private key with our passphrase */
+  async decryptKey(): Promise<RSAPrivateKey> {
+    let pkcs8: Uint8Array;
+    if (this.passphrase) {
+      let encryptedKey = EncryptedPrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "ENCRYPTED PRIVATE KEY" });
+      if (encryptedKey.encryptionAlgorithm.algorithm != "pkcs5PBES2") {
+        throw new Error("Unsupported private key encryption algorithm");
+      }
+      pkcs8 = await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
+    } else {
+      pkcs8 = Any.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
+    }
+    let privateKeyInfo = PrivateKeyInfo.decode(pkcs8);
     if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
       throw new Error("Unsupported private key algorithm");
     }
     return RSAPrivateKey.decode(privateKeyInfo.privateKey);
-  }
-
-  async decryptCryptoKey(): Promise<CryptoKey> {
-    if (!this.passphrase) {
-      let privateKey = PrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
-      if (privateKey.privateKeyAlgorithm.algorithm != "rsaEncryption") {
-        throw new Error("Unsupported private key algorithm");
-      }
-      return crypto.subtle.importKey("pkcs8", PrivateKeyInfo.encode(privateKey),  { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, true, ["sign"]);
-    }
-    let encryptedKey = EncryptedPrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "ENCRYPTED PRIVATE KEY" });
-    if (encryptedKey.encryptionAlgorithm.algorithm != "pkcs5PBES2") {
-      throw new Error("Unsupported private key encryption algorithm");
-    }
-    let pbes2 = PBES2Params.decode(encryptedKey.encryptionAlgorithm.parameters);
-    if (pbes2.keyDerivationFunc.algorithm != "pkcs5PBKDF2") {
-      throw new Error("Unsupported private key derivation function");
-    }
-    let length = sanitize.translate(pbes2.encryptionScheme.algorithm, { aes128cbc: 128, aes192cbc: 192, aes256cbc: 256 });
-    let pbkdf2 = PBKDF2Params.decode(pbes2.keyDerivationFunc.parameters);
-    if (pbkdf2.salt.type != "specified") {
-      throw new Error("Unsupported private key derivation salt");
-    }
-    let hash = sanitize.translate(pbkdf2.prf.algorithm, KeyDerivationAlgorithm);
-    // Cap the iterations, otherwise a malicious key file would freeze the app
-    let iterations = sanitize.integerRange(Number(pbkdf2.iterationCount), 1, 10000000);
-    let rawKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(this.passphrase), "PBKDF2", false, ["deriveKey"]);
-    let derivedKey = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: pbkdf2.salt.value, iterations, hash }, rawKey, { name: "AES-CBC", length }, false, ["unwrapKey"]);
-    return crypto.subtle.unwrapKey("pkcs8", encryptedKey.encryptedData, derivedKey, { name: "AES-CBC", iv: OctetString.decode(pbes2.encryptionScheme.parameters) }, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, true, ["sign"]);
   }
 
   privateKeyAsFile(): File {
@@ -112,7 +108,21 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
           data: RSAPublicKey.encode(key),
         },
       },
-      attributes: [],
+      attributes: [{
+        attrType: "extensionRequest",
+        attrValue: [Extensions.encode([{
+          extnID: "subjectAlternativeName",
+          extnValue: SubjectAlternativeName.encode([{ type: "rfc822Name", value: subject.E }]),
+        }, {
+          extnID: "keyUsage",
+          critical: true,
+          // digitalSignature and keyEncipherment
+          extnValue: KeyUsage.encode({ unused: 5, data: Uint8Array.of(0b10100000) }),
+        }, {
+          extnID: "extKeyUsage",
+          extnValue: ExtKeyUsage.encode(["emailProtection"]),
+        }])],
+      }],
     };
     let digestInfo = {
       digestAlgorithm: {
@@ -140,23 +150,13 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
    * Factory function. */
   static async createNewPrivateKey(emailAddress: string): Promise<SMIMEPrivateKey> {
     let passphrase = crypto.randomUUID();
-    let salt = new Uint8Array(8);
-    let iv = new Uint8Array(16);
-    crypto.getRandomValues(salt);
-    crypto.getRandomValues(iv);
-    let rawKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), "PBKDF2", false, ["deriveKey"]);
-    let derivedKey = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 2048, hash: "SHA-256" }, rawKey, { name: "AES-CBC", length: 256 }, false, ["wrapKey"]);
     let { privateKey } = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 4096, publicExponent: Uint8Array.of(1, 0, 1), hash: "SHA-256" }, true, ["sign"]);
-    let wrappedKey = new Uint8Array(await crypto.subtle.wrapKey("pkcs8", privateKey, derivedKey, { name: "AES-CBC", iv }));
-    let pbkdf2: PBKDF2Params = { salt: { type: "specified", value: salt }, iterationCount: 2048n, prf: { algorithm: "hmacWithSHA256", parameters: Null.encode() } };
-    let pbes2 = { keyDerivationFunc: { algorithm: "pkcs5PBKDF2", parameters: PBKDF2Params.encode(pbkdf2) }, encryptionScheme: { algorithm: "aes256cbc", parameters: OctetString.encode(iv) } };
-    let encryptedKey = { encryptionAlgorithm: { algorithm: "pkcs5PBES2", parameters: PBES2Params.encode(pbes2) }, encryptedData: wrappedKey };
-    let privateKeyInfo = PrivateKeyInfo.decode(new Uint8Array(await crypto.subtle.exportKey("pkcs8", privateKey)));
-    let rsaKey = RSAPrivateKey.decode(privateKeyInfo.privateKey);
+    let privateKeyPKCS8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", privateKey));
+    let rsaKey = RSAPrivateKey.decode(PrivateKeyInfo.decode(privateKeyPKCS8).privateKey);
     let key = new SMIMEPrivateKey();
-    key.privateKeyArmored = EncryptedPrivateKeyInfo.encodePEM(encryptedKey, { label: "ENCRYPTED PRIVATE KEY" });
+    key.privateKeyArmored = await encryptPrivateKey(privateKeyPKCS8, passphrase);
     key.passphrase = passphrase;
-    key.id = rsaKey.n.toString(16).slice(-16);
+    key.id = key.keyID(rsaKey);
     key.name = key.defaultName;
     key.userIDs.add(emailAddress);
     key.keyLengthInBits = 4096;
@@ -182,7 +182,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     assert(rawKey.dQ == rawKey.d % (rawKey.q - 1n), "prime 2 exponent does not match private exponent");
     assert(rawKey.qInv * rawKey.q % rawKey.p == 1n, "inverse does not match primes");
     let id = sanitize.bigint(rawKey.n).toString(16);
-    key.id = id.slice(-16);
+    key.id = key.keyID(rawKey);
     key.name = key.defaultName;
     key.keyLengthInBits = id.length * 4;
     key.justCreated = true;
@@ -218,5 +218,3 @@ const attributeTypes: Record<string, "printstr" | "utf8str" | "ia5str"> = {
   CN: "utf8str", // commonName
   E: "ia5str", // emailAddress
 };
-
-SMIMEReadProcessor.hookup();

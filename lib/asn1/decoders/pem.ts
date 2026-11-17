@@ -51,6 +51,6 @@ export function base64ToBytes(base64: string): Uint8Array {
 
 declare global {
   interface Uint8ArrayConstructor {
-    fromBase64(data: string): Uint8Array;
+    fromBase64(data: string): Uint8Array<ArrayBuffer>;
   }
 }

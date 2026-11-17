@@ -11,13 +11,12 @@ import { DummyAddressbookStorage } from "../../../../logic/Contacts/SQL/DummyAdd
 import { Person, ContactEntry } from "../../../../logic/Abstract/Person";
 import { ChatPersonUID } from "../../../../logic/Chat/ChatPersonUID";
 import { Group } from "../../../../logic/Abstract/Group";
+import { InProcessSQLiteDatabase } from "../../util/inProcessSQLite";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, expect, test } from "vitest";
 import sql from "../../../../../lib/rs-sqlite";
-// @ts-ignore Using the backend's SQLite in-process, instead of via JPC
-import { Database } from "../../../../../desktop/backend/node_modules/@radically-straightforward/sqlite/build/index.mjs";
 
 const kAliceJID = "491761111111@s.whatsapp.net";
 const kGroupJID = "12345-67890@g.us";
@@ -25,12 +24,8 @@ const kGroupJID = "12345-67890@g.us";
 beforeAll(async () => {
   let tempDir = mkdtempSync(path.join(tmpdir(), "room-reload-test-"));
   appGlobal.remoteApp = {
-    getSQLiteDatabase(filename: string, options?: any, buffer?: Uint8Array) {
-      if (buffer) {
-        return new Database(Buffer.from(buffer), options);
-      }
-      return new Database(path.join(tempDir, filename), options);
-    },
+    getSQLiteDatabase: (filename: string) =>
+      new InProcessSQLiteDatabase(path.join(tempDir, filename)),
   };
   // The chat and contacts databases lazily create + migrate themselves in the
   // fresh temp dir on first use (getDatabase()).

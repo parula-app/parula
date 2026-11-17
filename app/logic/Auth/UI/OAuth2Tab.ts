@@ -1,5 +1,4 @@
 import { OAuth2UI } from "./OAuth2UI";
-import type { LoginDialogMustangApp } from "../../../frontend/Mail/MailMustangApp";
 import { UserCancelled, assert, type URLString } from "../../util/util";
 import { ArrayColl } from "svelte-collections";
 import { gt } from "../../../l10n/l10n";
@@ -12,7 +11,7 @@ export class OAuth2Tab extends OAuth2UI {
   startURL: URLString;
   protected doneFunc: (authCode: string) => void;
   protected failFunc: (ex: Error) => void;
-  mustangApp: LoginDialogMustangApp;
+  mustangApp: any; // LoginDialogMustangApp
 
   /**
    * Does an interactive login
@@ -39,7 +38,9 @@ export class OAuth2Tab extends OAuth2UI {
     oAuth2TabsOpen.remove(this);
   }
   success(finalURL: URLString) {
-    assert(this.doneFunc, "Need doneFunc");
+    if (!this.doneFunc) {
+      return; // E.g. the tab was closed
+    }
     this.close();
     try {
       this.doneFunc(this.oAuth2.getAuthCodeFromDoneURL(finalURL));
@@ -48,9 +49,8 @@ export class OAuth2Tab extends OAuth2UI {
     }
   }
   failed(ex: Error) {
-    assert(this.failFunc, "Need failFunc");
     this.close();
-    this.failFunc(ex);
+    this.failFunc?.(ex);
     this.failFunc = null;
     this.doneFunc = null;
   }

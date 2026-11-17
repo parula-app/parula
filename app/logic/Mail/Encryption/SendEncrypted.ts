@@ -1,6 +1,6 @@
 import type { EMail } from "../EMail";
 import type { PersonUID } from "../../Abstract/PersonUID";
-import { getMyPrivateKey, getPublicKeyForPerson } from "./KeyUtils";
+import { getMyPrivateKey, getPublicKeyForPersonUID } from "./KeyUtils";
 import { PGPSend } from "./PGP/PGPSend";
 import { PGPPublicKey } from "./PGP/PGPPublicKey";
 import { PGPPrivateKey } from "./PGP/PGPPrivateKey";
@@ -33,15 +33,15 @@ export class SendEncrypted {
       assert(privateKey, gt`Please first set up encryption for yourself, in Settings | Mail | Identity | Encryption`);
       let recipients = new ArrayColl<PersonUID>(mail.allRecipients());
       if (getMyPrivateKey(mail.identity, PGPPrivateKey) &&
-          recipients.every(puid => getPublicKeyForPerson(puid.findPerson(), PGPPublicKey))) {
+          recipients.every(puid => getPublicKeyForPersonUID(puid, PGPPublicKey))) {
         return await PGPSend.encryptAndSign(mail);
       } else if (getMyPrivateKey(mail.identity, SMIMEPrivateKey) &&
-          recipients.every(puid => getPublicKeyForPerson(puid.findPerson(), SMIMEPublicKey))) {
+          recipients.every(puid => getPublicKeyForPersonUID(puid, SMIMEPublicKey))) {
         return await SMIMESend.encryptAndSign(mail);
       } else {
         throw new UserError(gt`Cannot encrypt to all recipients using PGP or S/MIME`);
       }
-    } else if (mail.signed) {
+    } else if (mail.signedByKeyID) {
       if (privateKey instanceof PGPPrivateKey) {
         return await PGPSend.encryptAndSign(mail);
       } else if (privateKey instanceof SMIMEPrivateKey) {
@@ -51,6 +51,19 @@ export class SendEncrypted {
       }
     } else {
       return mail;
+    }
+  }
+
+  /** Encrypts only to ourselves, because the recipients may not have keys yet */
+  static async encryptDraft(mail: EMail): Promise<EMail> {
+    let privateKey = getMyPrivateKey(mail.identity);
+    let noRecipients = new ArrayColl<PersonUID>();
+    if (privateKey instanceof PGPPrivateKey) {
+      return await PGPSend.encryptAndSign(mail, noRecipients);
+    } else if (privateKey instanceof SMIMEPrivateKey) {
+      return await SMIMESend.encryptAndSign(mail, noRecipients);
+    } else {
+      throw new UserError(gt`Please first set up encryption for yourself, in Settings | Mail | Identity | Encryption`);
     }
   }
 
@@ -70,7 +83,7 @@ export class SendEncrypted {
     // </copied>
 
     result.wasEncrypted = mail.wasEncrypted;
-    result.signed = mail.signed;
+    result.signedByKeyID = mail.signedByKeyID;
     return result;
   }
 }

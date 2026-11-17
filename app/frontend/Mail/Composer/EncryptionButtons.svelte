@@ -5,9 +5,9 @@
     <ButtonMenu bind:isMenuOpen>
       <RoundButton
         label={$t`Sign or encrypt`}
-        tooltip={signDisabledReason ?? encryptDisabledReason ?? mail.shouldEncrypt ? $t`Encrypt and sign` : mail.signed ? $t`Sign digitally` : $t`Sign or encrypt`}
-        icon={mail.shouldEncrypt ? EncryptIcon : mail.signed ? SignIcon : NoEncryptIcon}
-        selected={!!mail.signed || mail.shouldEncrypt}
+        tooltip={signDisabledReason ?? encryptDisabledReason ?? mail.shouldEncrypt ? $t`Encrypt and sign` : mail.signedByKeyID ? $t`Sign digitally` : $t`Sign or encrypt`}
+        icon={mail.shouldEncrypt ? EncryptIcon : mail.signedByKeyID ? SignIcon : NoEncryptIcon}
+        selected={!!mail.signedByKeyID || mail.shouldEncrypt}
         onClick={() => isMenuOpen = !isMenuOpen}
         disabled={mail.mustEncrypt || !!signDisabledReason && !!encryptDisabledReason}
         classes="plain"
@@ -20,7 +20,7 @@
       <MenuItem
         label={$t`Don't encrypt nor sign`}
         icon={NoneIcon}
-        selected={!mail.signed && !mail.shouldEncrypt}
+        selected={!mail.signedByKeyID && !mail.shouldEncrypt}
         onClick={onDisableBoth}
         classes="nothing"
         iconSize="16px"
@@ -30,7 +30,7 @@
         label={$t`Sign digitally`}
         tooltip={signDisabledReason ?? $t`This proves that I wrote this email`}
         icon={SignIcon}
-        selected={!!mail.signed}
+        selected={!!mail.signedByKeyID}
         onClick={toggleSigned}
         disabled={!!signDisabledReason}
         classes="sign"
@@ -55,7 +55,7 @@
 <script lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
   import { MailIdentity } from "../../../logic/Mail/MailIdentity";
-  import { getMyPrivateKey, getPublicKeyForPerson } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { getMyPrivateKey, getPublicKeyForPersonUID } from "../../../logic/Mail/Encryption/KeyUtils";
   import type { PublicKey } from "../../../logic/Mail/Encryption/PublicKey";
   import { TrustLevel, trustColor, trustColorFG, trustOrder } from "../../../logic/Mail/Encryption/enums";
   import ButtonMenu from "../../Shared/Menu/ButtonMenu.svelte";
@@ -80,7 +80,7 @@
   $: to = mail.to;
   $: cc = mail.cc;
   $: allRecipients = $to.concat($cc);
-  $: allRecipientsKeys = $allRecipients.map(p => getPublicKeyForPerson(p.findPerson()));
+  $: allRecipientsKeys = $allRecipients.map(p => getPublicKeyForPersonUID(p));
   $: trustLevel = mail.shouldEncrypt ? lowestTrust($allRecipientsKeys) : TrustLevel.Personal;
   $: encryptDisabledReason =
     $mail.mustEncrypt
@@ -93,16 +93,16 @@
   $: privateKey, changedIdentity()
   function changedIdentity() {
     if (privateKey) {
-      if (!mail.signed && privateKey.useToSign) {
-        mail.signed = privateKey.id;
+      if (!mail.signedByKeyID && privateKey.useToSign) {
+        mail.signedByKeyID = privateKey.id;
         extra.signOnlyByDefault = true;
       }
       if (!mail.shouldEncrypt && privateKey.encryptByDefault) {
         mail.shouldEncrypt = true;
         extra.encryptOnlyByDefault = true;
       }
-      if (mail.signed && extra.signOnlyByDefault && !privateKey.useToSign) {
-        mail.signed = null;
+      if (mail.signedByKeyID && extra.signOnlyByDefault && !privateKey.useToSign) {
+        mail.signedByKeyID = null;
         extra.signOnlyByDefault = false;
       }
       if (mail.shouldEncrypt && extra.encryptOnlyByDefault && !privateKey.encryptByDefault) {
@@ -112,7 +112,7 @@
     } else {
       assert(!mail.mustEncrypt, gt`This email must be encrypted.`);
       mail.shouldEncrypt = false;
-      mail.signed = null;
+      mail.signedByKeyID = null;
     }
   }
 
@@ -120,10 +120,10 @@
     if (mail.mustEncrypt) {
       return;
     }
-    if (mail.signed && mail.shouldEncrypt) {
+    if (mail.signedByKeyID && mail.shouldEncrypt) {
       mail.shouldEncrypt = false;
-    } else if (mail.signed) {
-      mail.signed = null;
+    } else if (mail.signedByKeyID) {
+      mail.signedByKeyID = null;
       mail.shouldEncrypt = false;
     } else {
       doSign();
@@ -134,8 +134,8 @@
       openSettingsCategoryForAccount(identity.account, "mail-identity");
       return;
     }
-    mail.signed = getMyPrivateKey(identity)?.id;
-    assert(mail.signed, "No signing key found");
+    mail.signedByKeyID = getMyPrivateKey(identity)?.id;
+    assert(mail.signedByKeyID, "No signing key found");
   }
   function toggleEncrypted() {
     if (mail.mustEncrypt) {
@@ -147,7 +147,7 @@
     }
 
     mail.shouldEncrypt = !mail.shouldEncrypt;
-    if (mail.shouldEncrypt && !mail.signed) {
+    if (mail.shouldEncrypt && !mail.signedByKeyID) {
       doSign();
     }
   }
@@ -155,7 +155,7 @@
     if (mail.mustEncrypt) {
       return;
     }
-    mail.signed = null;
+    mail.signedByKeyID = null;
     mail.shouldEncrypt = false;
   }
 
@@ -168,6 +168,7 @@
     }
     return allTrust(keys, TrustLevel.Personal)
       || allTrust(keys, TrustLevel.ThirdParty)
+      || allTrust(keys, TrustLevel.OS)
       || allTrust(keys, TrustLevel.Sender)
       || TrustLevel.Distrusted;
   }

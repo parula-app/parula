@@ -1,4 +1,4 @@
-<hbox class="header">
+<hbox class="header window-drag">
   <hbox class="buttons" class:hidden={!dir.parent}>
     <RoundButton
       onClick={goBack}
@@ -106,17 +106,20 @@
   }
 
   let fileSelector: FileSelector;
+  // <copied to="../../../lookout/Files/FilesRibbon.svelte, ../drag.ts">
   async function addFile() {
-    let fileBlob = await fileSelector.selectFile();
-    if (!fileBlob) {
+    let fileBlobs = await fileSelector.selectFiles();
+    if (!fileBlobs?.length) {
       console.log("no file selected");
       return;
     }
-    console.log("Selected attachment file", fileBlob);
-    let ourFile = dir.newFile(fileBlob.name);
-    ourFile.fromBrowserFile(fileBlob);
-    await dir.addFile(ourFile);
+    for (let fileBlob of fileBlobs) {
+      let ourFile = dir.newFile(fileBlob.name);
+      ourFile.fromBrowserFile(fileBlob);
+      await dir.addFile(ourFile);
+    }
   }
+  // </copied>
   async function newFolder() {
     let newFolder = dir.newDirectory($t`New Folder`);
     // TODO open sidebar and focus rename

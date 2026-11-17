@@ -22,6 +22,12 @@ export class CalendarMustangApp extends MustangApp {
     }
     openApp(edit, edit.windowParams);
   }
+
+  /** Closes the full window that `showEvent()` opened, if any */
+  closeEvent(event: Event) {
+    let window = this.subApps.find(app => app instanceof CalendarEventMustangApp && app.windowParams.event == event);
+    this.subApps.remove(window);
+  }
 }
 
 export class CalendarEventMustangApp extends MustangApp {

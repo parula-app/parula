@@ -3,7 +3,8 @@ import { AccountType, SQLAccount, type AccountDBRow } from "../../Mail/SQL/Accou
 import { getDatabase } from "./SQLDatabase";
 import { SQLMeetStorage } from "./SQLMeetStorage";
 import { newMeetAccountForProtocol } from "../AccountsList/MeetAccounts";
-import { backgroundError } from "../../../frontend/Util/error";
+import { internalError } from "../../util/error";
+import { exMessage } from "../../util/util";
 import { ArrayColl } from "svelte-collections";
 import sql from "../../../../lib/rs-sqlite";
 
@@ -71,7 +72,7 @@ export class SQLMeetAccount {
         await SQLMeetAccount.read(row, account);
         accounts.add(account);
       } catch (ex) {
-        backgroundError(ex);
+        internalError(exMessage(ex, `Failed to load ${row.protocol} account (ID ${row.idStr}): ${ex.message}`));
       }
     }
     return accounts;

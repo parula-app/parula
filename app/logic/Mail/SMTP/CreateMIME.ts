@@ -3,9 +3,8 @@ import type { PersonUID } from "../../Abstract/PersonUID";
 import { Attachment , ContentDisposition } from "../../Abstract/Attachment";
 import { getICal } from "../../Calendar/ICal/ICalGenerator";
 import { appGlobal } from "../../app";
-import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
+import { getUserPreference } from "../../util/util";
 import { fixNewlines } from "../../util/convertHTML";
-import { blobToBase64 } from "../../util/util";
 import type { ArrayColl } from "svelte-collections";
 import type { default as Mail, Attachment as NMAttachment, Address as NMAddress } from "nodemailer/lib/mailer";
 type NMMail = Mail.Options;
@@ -28,10 +27,11 @@ export class CreateMIME {
         raw: email.sendRawMIME,
       };
     }
-    let doHTML = getLocalStorage("mail.send.format", "html").value == "html";
+    let doHTML = getUserPreference("mail.send.format", "html") == "html";
     let iCal = email.event ? await getICal(email.event, email.iCalMethod) : null;
     // <https://nodemailer.com/message/>
     return {
+      messageId: email.messageID ?? undefined,
       subject: email.subject,
       inReplyTo: email.inReplyTo,
       from: CreateMIME.getRecipient(email.from),
@@ -71,7 +71,7 @@ export class CreateMIME {
   protected static async getAttachment(a: Attachment): Promise<NMAttachment> {
     return {
       filename: a.filename,
-      content: await blobToBase64(a.content),
+      content: await a.contentAsBase64(),
       encoding: "base64",
       contentType: a.mimeType,
       contentDisposition: a.disposition == ContentDisposition.inline ? 'inline' : 'attachment',

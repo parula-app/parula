@@ -21,6 +21,22 @@ export class EWSUpdateItemRequest {
     return this.m$UpdateItem.m$ItemChanges.t$ItemChange;
   }
 
+  /** Sets a MAPI property that EWS has no field for
+   * @param PropertyTag the MAPI property tag, e.g. "0x1081"
+   * @param PropertyType the MAPI property type, e.g. "Integer" */
+  addExtendedField(type: string, PropertyTag: string, PropertyType: string, value: any) {
+    let fieldURI = { PropertyTag, PropertyType };
+    this.itemChange.t$Updates.t$SetItemField.unshift({
+      t$ExtendedFieldURI: fieldURI,
+      ["t$" + type]: {
+        t$ExtendedProperty: {
+          t$ExtendedFieldURI: fieldURI,
+          t$Value: value,
+        },
+      },
+    });
+  }
+
   addField(type: string, key: string, value: any, FieldURI: string, FieldIndex?: string) {
     let field = {} as any;
     if (FieldIndex) {

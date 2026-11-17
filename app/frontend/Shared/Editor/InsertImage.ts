@@ -1,7 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import type { Message } from "../../../logic/Abstract/Message";
 import { Attachment, ContentDisposition } from "../../../logic/Abstract/Attachment";
-import { blobToDataURL } from "../../../logic/util/util";
+import { blobToDataURL } from "../../../logic/util/blob";
 
 export async function insertImage(editor: Editor, file: File, message: Message) {
   // let url = URL.createObjectURL(file);

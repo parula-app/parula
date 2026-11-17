@@ -1,16 +1,18 @@
-import { ExchangeEMail } from "../EWS/ExchangeEMail";
+import { ExchangeEMail, type EMailFlag, EMailFlagPidTag, EMailFlagTimePidTag, type IconIndex, IconIndexPidTag } from "../EWS/ExchangeEMail";
 import type { OWAFolder } from "./OWAFolder";
 import { SpecialFolder } from "../Folder";
 import { DeleteStrategy } from "../MailAccount";
 import { OWAEvent } from "../../Calendar/OWA/OWAEvent";
 import { getTagByName } from "../../Abstract/Tag";
+import { OWARequest } from "./Request/OWARequest";
 import { OWADeleteItemRequest } from "./Request/OWADeleteItemRequest";
 import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
 import { owaDownloadMsgsRequest } from "./Request/OWAFolderRequests";
 import { owaGetEventsRequest } from "../../Calendar/OWA/Request/OWAEventRequests";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
 import { InvitationMessage } from "../../Calendar/Invitation/InvitationStatus";
-import { base64ToArrayBuffer, assert, ensureArray } from "../../util/util";
+import { assert, ensureArray } from "../../util/util";
+import { base64ToUint8Array } from "../../util/blob";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import type { ArrayColl } from "svelte-collections";
 
@@ -29,7 +31,7 @@ export class OWAEMail extends ExchangeEMail {
     await this.downloadRunOnce.runOnce(async () => {
       let result = await this.folder.account.callOWA(owaDownloadMsgsRequest([ this ]));
       let mimeBase64 = sanitize.nonemptystring(result.Items[0].MimeContent.Value);
-      this.mime = new Uint8Array(await base64ToArrayBuffer(mimeBase64, "message/rfc822"));
+      this.mime = base64ToUint8Array(mimeBase64);
       await this.parseMIME();
       await this.saveCompleteMessage();
     });
@@ -39,6 +41,7 @@ export class OWAEMail extends ExchangeEMail {
     this.itemID = sanitize.nonemptystring(json.ItemId.Id);
     this.id = sanitize.nonemptystring(json.InternetMessageId, "");
     this.subject = sanitize.nonemptystring(json.Subject, "");
+    this.size = sanitize.integer(json.Size, null);
     this.sent = sanitize.date(json.DateTimeSent, new Date());
     this.received = sanitize.date(json.DateTimeReceived, new Date());
     this.setFlags(json);
@@ -70,7 +73,9 @@ export class OWAEMail extends ExchangeEMail {
 
   setFlags(json: Record<string, any>) {
     this.isRead = sanitize.boolean(json.IsRead);
-    // don't know how to get new or replied status
+    // don't know how to get new, replied or forwarded status
+    // Not `=`: The sender's `Importance:` header is not in the response
+    this.isImportant ||= json.Importance == "High";
     this.isStarred = json.Flag?.FlagStatus == "Flagged";
     // can't work out how to find junk status
     this.isDraft = sanitize.boolean(json.IsDraft);
@@ -84,7 +89,15 @@ export class OWAEMail extends ExchangeEMail {
       SuppressReadReceipts: true,
     });
     request.addField("Message", "IsRead", read, "message:IsRead");
-    await this.folder.account.callOWA(request);
+    try {
+      await this.folder.account.callOWA(request);
+    } catch (ex) {
+      if (ex.type == "ErrorItemNotFound") { // it is gone on the server
+        await this.deleteMessageLocally();
+        return;
+      }
+      throw ex;
+    }
     await super.markRead(read);
   }
 
@@ -105,8 +118,42 @@ export class OWAEMail extends ExchangeEMail {
     await super.markStarred(starred);
   }
 
-  //async markSpam(spam = true) {
-  //} Don't know how to do this in OWA
+  /*async markSpam(spam = true) {
+    let request = new OWARequest("MarkAsJunk", {
+      __type: "MarkAsJunkRequest:#Exchange",
+      IsJunk: spam,
+      MoveItem: false,
+      ItemIds: [{
+        __type: "ItemId:#Exchange",
+        Id: this.itemID,
+      }],
+    });
+    await this.folder.account.callOWA(request);
+    await super.markSpam(spam);
+  }*/
+
+  async markImportant(isImportant = true) {
+    let request = new OWAUpdateItemRequest(this.itemID, {
+      MessageDisposition: "SaveOnly",
+      SendCalendarInvitationsOrCancellations: "SendToNone",
+      SuppressReadReceipts: true,
+    });
+    request.addField("Message", "Importance", isImportant ? "High" : "Normal", "item:Importance");
+    await this.folder.account.callOWA(request);
+    await super.markImportant(isImportant);
+  }
+
+  protected async setFlagOnServer(verb: EMailFlag, icon: IconIndex) {
+    let request = new OWAUpdateItemRequest(this.itemID, {
+      MessageDisposition: "SaveOnly",
+      SendCalendarInvitationsOrCancellations: "SendToNone",
+      SuppressReadReceipts: true,
+    });
+    request.addExtendedField("Message", EMailFlagPidTag, "Integer", verb);
+    request.addExtendedField("Message", EMailFlagTimePidTag, "SystemTime", new Date().toISOString());
+    request.addExtendedField("Message", IconIndexPidTag, "Integer", icon);
+    await this.folder.account.callOWA(request);
+  }
 
   async markDraft(isDraft = true) {
     await super.markDraft(isDraft);
@@ -127,6 +174,9 @@ export class OWAEMail extends ExchangeEMail {
       let request = new OWADeleteItemRequest(this.itemID, {
         DeleteType: hardDelete ? "HardDelete" : "MoveToDeletedItems",
         SuppressReadReceipts: true,
+        // Otherwise server refuses to delete calendar and tasks, and they can be any mail
+        SendMeetingCancellations: "SendToNone",
+        AffectedTaskOccurrences: "AllOccurrences",
       });
       await this.folder.account.callOWA(request);
     } finally {

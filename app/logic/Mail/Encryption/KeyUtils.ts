@@ -6,7 +6,10 @@ import { PGPPrivateKey } from "./PGP/PGPPrivateKey";
 import { PGPPublicKey } from "./PGP/PGPPublicKey";
 import { SMIMEPrivateKey } from "./SMIME/SMIMEPrivateKey";
 import { SMIMEPublicKey } from "./SMIME/SMIMEPublicKey";
+import { PKCS12 } from "./SMIME/PKCS12";
+import { Any } from "./SMIME/SMIMEASN1";
 import { readAutoCryptKeys } from "./PGP/AutoCrypt";
+import { publicKeyFromJSON } from "./KeyFromJSON";
 import { EncryptionSystem } from "./enums";
 import type { EMail } from "../EMail";
 import { findAllIdentities, type MailIdentity } from "../MailIdentity";
@@ -18,11 +21,20 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   if (!id) {
     return null;
   }
+  let signedKey = email?.signedKey?.id == id ? email.signedKey : null;
+  if (!signedKey && email?.signedKeyJSON) {
+    let key = publicKeyFromJSON(email.signedKeyJSON);
+    if (key.id == id) {
+      email.signedKey = key;
+      signedKey = key;
+    }
+  }
   if (email?.from) {
     let person = email.from.findPerson();
     if (person) {
       for (let key of person.encryptionPublicKeys.each) {
-        if (key.id == id) {
+        // The very certificate that signed, not another one for the same key pair
+        if (key.id == id && (!signedKey || key.fingerprint == signedKey.fingerprint)) {
           return key;
         }
       }
@@ -43,10 +55,21 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
       }
     }
   }
+  if (signedKey) {
+    return signedKey;
+  }
   if (email && email.system != EncryptionSystem.SMIME) {
     let key = await readAutoCryptKeys(email);
     if (key?.id == id) {
       return key;
+    }
+  }
+  if (email) {
+    // Last resort, for messages that we stored before we kept the key
+    await email.loadMIME(); // calls `rememberSigner()` via processors
+    if (email.signedKey?.id == id) {
+      await email.saveWritablePropsLocally();
+      return email.signedKey;
     }
   }
   return null;
@@ -57,19 +80,64 @@ export function getPublicKeyForPerson<T extends PublicKey>(person: Person, keyTy
   if (!person || person.encryptionPublicKeys.isEmpty) {
     return null;
   }
-  let keys = person.encryptionPublicKeys.filterOnce(key => !key.obsolete && (!keyType || key instanceof keyType));
+  let keys = person.encryptionPublicKeys.filterOnce(key => isUsableKey(key, keyType));
   return (keys.find(key => key.encryptByDefault) ?? keys.first) as T;
+}
+
+/** For composer, which recipient key to use for encrypting the outgoing email.
+ * Also considers the key that we know only for this email address, e.g. the
+ * certificate with which the recipient signed the email that we are replying to. */
+export function getPublicKeyForPersonUID<T extends PublicKey>(uid: PersonUID, keyType?: new () => T): T | null {
+  let saved = getPublicKeyForPerson(uid?.findPerson(), keyType);
+  if (saved) {
+    return saved;
+  }
+  let known = uid?.encryptionPublicKey;
+  return isUsableKey(known, keyType) ? known : null;
+}
+
+export function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {
+  return !!key && !key.obsolete && key.usableForEncryption() && (!keyType || key instanceof keyType);
 }
 
 /** For composer, which own key to use for signing the outgoing email */
 export function getMyPrivateKey<T extends PublicKey & PrivateKey>(identity: MailIdentity, keyType?: new () => T): T | null {
-  if (identity.encryptionPrivateKeys.isEmpty) {
+  if (!identity || identity.encryptionPrivateKeys.isEmpty) {
     return null;
   }
   let keys = identity.encryptionPrivateKeys.filterOnce(key => !key.obsolete && (!keyType || key instanceof keyType));
   return (keys.find(key => key.encryptByDefault && key.useToSign) ??
     keys.find(key => key.useToSign) ??
     keys.first) as T | null;
+}
+
+/** Whether we have an own key for this identity, e.g. an S/MIME certificate */
+export function usesCrypto<T extends PublicKey & PrivateKey>(identity: MailIdentity, keyType?: new () => T): boolean {
+  return !!getMyPrivateKey(identity, keyType);
+}
+
+/** For composer, which encryption system the outgoing email uses:
+ * the one of the email that we answer, otherwise the one of our own key. */
+export function getEncryptionSystem(mail: EMail): EncryptionSystem | null {
+  return mail.system ?? getMyPrivateKey(mail.identity)?.system ?? null;
+}
+
+/**
+ * Reads the key file that the user picked.
+ * .p12 files, also called .pfx, are binary and encrypted, so they are
+ * converted here into the PEM that `importPrivateKey()` reads.
+ * @returns the contents of the file, as PEM
+ */
+export async function readPrivateKeyFile(file: File, passphrase: string): Promise<string> {
+  let fileContents = new Uint8Array(await file.arrayBuffer());
+  // PEM and ASCII armor start with the "-----BEGIN " line,
+  // whereas a .p12 file starts with the ASN.1 tag for a sequence.
+  if (fileContents[0] != 0x30) {
+    return new TextDecoder().decode(fileContents);
+  }
+  let p12 = new PKCS12(passphrase);
+  await p12.read(fileContents);
+  return await p12.toPEM();
 }
 
 export async function importPrivateKey(fileContent: string, passphrase: string): Promise<PublicKey & PrivateKey> {
@@ -84,13 +152,31 @@ export async function importPrivateKey(fileContent: string, passphrase: string):
   throw new UserError(gt`Could not find a key in this file`);
 }
 
+/**
+ * Reads the public key or certificate file that the user picked.
+ * .cer, .crt and .p7b files are often binary, so they are
+ * converted here into the PEM that `importPublicKey()` reads.
+ * @returns the contents of the file, as PEM
+ */
+export async function readPublicKeyFile(file: File): Promise<string> {
+  let fileContents = new Uint8Array(await file.arrayBuffer());
+  // PEM and ASCII armor start with the "-----BEGIN " line,
+  // whereas DER starts with the ASN.1 tag for a sequence.
+  if (fileContents[0] != 0x30) {
+    return new TextDecoder().decode(fileContents);
+  }
+  // Also for PKCS#7, which `addCertificates()` reads from a CERTIFICATE block
+  return Any.encodePEM(fileContents, { label: "CERTIFICATE" });
+}
+
 export async function importPublicKey(fileContent: string): Promise<PublicKey> {
   assert(fileContent.includes("---BEGIN ") && fileContent.includes("---END "), gt`Could not find a key in this file`);
   assert(!fileContent.includes("PRIVATE KEY"), gt`This is a secret key. If this is your key, go to Settings | Mail | Identity | Encryption and import it there.`);
   if (fileContent.includes("-----BEGIN PGP PUBLIC KEY BLOCK-----")) {
     return await PGPPublicKey.importPublicKey(fileContent);
   } else if (fileContent.includes("-----BEGIN CERTIFICATE-----") ||
-    fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----")) {
+    fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----") ||
+    fileContent.includes("-----BEGIN PKCS7-----")) {
     return await SMIMEPublicKey.importPublicKey(fileContent);
   }
   throw new UserError(gt`Could not find a key in this file`);
@@ -99,10 +185,7 @@ export async function importPublicKey(fileContent: string): Promise<PublicKey> {
 export function addPublicKeyToPersonUID(uid: PersonUID, key: PublicKey) {
   let person = uid.createPerson(appGlobal.collectedAddressbook);
   assert(person, "Need person");
-  if (person.encryptionPublicKeys.find(existing => existing.id == key.id)) {
-    return;
-  }
-  person.encryptionPublicKeys.add(key);
+  person.addEncryptionPublicKey(key);
 }
 
 

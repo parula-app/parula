@@ -2,7 +2,11 @@
   {#await filterPersons()}
     <hbox class="progress">{$t`Searching...`}</hbox>
   {:then}
-  <PersonsList {persons} bind:selected={$selectedPerson} />
+  <PersonsList {persons} bind:selected={$selectedPerson}>
+    <hbox class="email" slot="second-row" let:person>
+      {person instanceof Person ? person.emailAddresses.sortBy(entry => entry.preference).first?.value ?? "" : ""}
+    </hbox>
+  </PersonsList>
   {:catch ex}
     <ErrorMessageInline {ex} />
   {/await}
@@ -35,6 +39,9 @@
   /** Show only those persons that have files*/
   async function filterPersons(): Promise<Collection<Person>> {
     persons.clear();
+    if (!appGlobal.remoteApp) {
+      return persons;
+    }
     let uids = new MapColl<string, PersonUID>();
     let search = newSearchEMail();
     search.hasAttachment = true;
@@ -116,6 +123,24 @@
 <style>
   .persons-file-pane {
     margin-block-start: 8px;
+  }
+  .email {
+    display: none;
+  }
+  :global(.lookout-window) .persons-file-pane {
+    min-height: 0;
+    overflow: hidden;
+    background-color: var(--lo-pane-bg);
+    border-radius: var(--lo-radius);
+    box-shadow: var(--lo-shadow-card);
+  }
+  :global(.lookout-window) .email {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--lo-fg-secondary);
+    font-size: var(--lo-font-size-small);
   }
   .progress {
     align-self: center;

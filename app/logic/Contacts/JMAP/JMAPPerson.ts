@@ -33,6 +33,10 @@ export class JMAPPerson extends Person {
     JSContact.fromPerson(this, jscontact); // overwrites `jscontact`, so must be first
     jscontact.addressBookIds ??= {};
     jscontact.addressBookIds[this.addressbook.jmapID] = true;
+    if (!isNew) {
+      delete jscontact.id; // immutable
+      delete jscontact.uid; // ditto, and sending `null` deletes it on the server
+    }
     assert(this.id, "ContactBase ctor should set this");
 
     let results = await this.account.makeSingleCall("ContactCard/set", {

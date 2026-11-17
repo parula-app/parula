@@ -27,7 +27,7 @@
 
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
-  import { getDateTimeString, getDateString, getDurationString, getTimezoneDisplay, isSameTimezone } from "../../Util/date";
+  import { getDateTimeString, getDateString, getDurationString, getTimezoneDisplay, isSameTimezone } from "../../../logic/util/date";
   import { getDateTimeLocale, t } from "../../../l10n/l10n";
 
   export let event: Event;

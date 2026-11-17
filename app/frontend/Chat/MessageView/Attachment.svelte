@@ -55,6 +55,7 @@
   import type { Attachment } from "../../../logic/Abstract/Attachment";
   import { fileSize } from "../../Files/file";
   import { openFileInternallyFromFile, canOpenFileInternally } from "../../Files/open";
+  import { saveBlobAsFile } from "../../Util/util";
   import AttachmentMenu from "../../Mail/Message/AttachmentMenu.svelte";
   import FileIcon from "../../Files/Thumbnail/FileIcon.svelte";
   import Clickable from "../../Shared/Clickable.svelte";
@@ -69,13 +70,14 @@
     if (!attachment.content) {
       await attachment.read(); // restore the bytes from disk if we have them
     }
-    if (!attachment.content) {
+    let content = await attachment.getContent();
+    if (!content) {
       return; // not downloaded yet
     }
     if (canOpenFileInternally(attachment.mimeType)) {
-      await openFileInternallyFromFile(attachment.content);
+      await openFileInternallyFromFile(content);
     } else {
-      await attachment.saveFile(); // offer to save the blob to disk
+      await saveBlobAsFile(content); // offer to save the blob to disk
     }
   }
 

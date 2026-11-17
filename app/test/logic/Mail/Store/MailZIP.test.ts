@@ -1,7 +1,7 @@
 import { MailAccount } from "../../../../logic/Mail/MailAccount";
 import { MailZIP } from "../../../../logic/Mail/Store/MailZIP";
 import { appGlobal } from "../../../../logic/app";
-import { connectToBackend } from "../../util/backend.test";
+import { connectToBackend } from "../../util/backend";
 import fs from 'node:fs/promises';
 import { test, expect, beforeAll } from "vitest";
 

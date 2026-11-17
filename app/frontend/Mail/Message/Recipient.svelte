@@ -80,9 +80,13 @@
     recipient = recipient;
   }
 
-  function addToPerson(otherPerson: Person) {
+  async function addToPerson(otherPerson: Person) {
     otherPerson.emailAddresses.add(new ContactEntry(recipient.emailAddress));
+    if (recipient.encryptionPublicKey) {
+      otherPerson.addEncryptionPublicKey(recipient.encryptionPublicKey);
+    }
     recipient.person = otherPerson;
+    await otherPerson.save();
   }
 
   async function copyToClipboard() {

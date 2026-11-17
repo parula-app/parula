@@ -66,6 +66,7 @@ export class IMAPEMail extends EMail {
     // <https://imapflow.com/global.html#FetchMessageObject>
     this.uid = sanitize.integer(msgInfo.uid, null);
     this.seq = sanitize.integer(msgInfo.seq, null);
+    this.size = sanitize.integer(msgInfo.size, null);
     if (this.downloadComplete) {
       return;
     }
@@ -112,6 +113,9 @@ export class IMAPEMail extends EMail {
     this.isNewArrived = flags.has("\\Recent");
     this.isStarred = flags.has("\\Flagged");
     this.isReplied = flags.has("\\Answered");
+    this.isForwarded = flags.has("$Forwarded");
+    // Not `=`: The sender's `Importance:` header is not on the server
+    this.isImportant ||= flags.has("$Important"); // RFC 8457
     this.isDraft = flags.has("\\Draft");
     this.isSpam = flags.has("$Junk");
 
@@ -135,6 +139,12 @@ export class IMAPEMail extends EMail {
     }
     if (message.isReplied) {
       flags.push("\\Answered");
+    }
+    if (message.isForwarded) {
+      flags.push("$Forwarded");
+    }
+    if (message.isImportant) {
+      flags.push("$Important");
     }
     if (message.isDraft) {
       flags.push("\\Draft");
@@ -166,6 +176,16 @@ export class IMAPEMail extends EMail {
   async markReplied() {
     await super.markReplied();
     await this.setFlagServer("\\Answered", true);
+  }
+
+  async markForwarded() {
+    await super.markForwarded();
+    await this.setFlagServer("$Forwarded", true);
+  }
+
+  async markImportant(isImportant = true) {
+    await super.markImportant(isImportant);
+    await this.setFlagServer("$Important", isImportant); // RFC 8457
   }
 
   async markDraft(isDraft = true) {

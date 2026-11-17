@@ -16,7 +16,8 @@
  */
 
 // app first, to resolve the import cycle around Abstract/Account.ts
-import "../../../../logic/app";
+import { appGlobal } from "../../../../logic/app";
+import { Person } from "../../../../logic/Abstract/Person";
 import { WireBackendFake, type FakeNotification, type FakeUser } from "./wireBackendFake";
 import { WireAccount } from "../../../../logic/Chat/Wire/WireAccount";
 import type { WireChatRoom } from "../../../../logic/Chat/Wire/WireChatRoom";
@@ -28,6 +29,8 @@ import { base64Decode } from "../../../../logic/Chat/Signal/Crypto/primitives";
 import { MemoryChatStorage } from "./memoryChatStorage";
 import { DeliveryStatus } from "../../../../logic/Chat/ChatMessage";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
+
+appGlobal.me = new Person(); // as `startup.ts` does
 
 const kAliceID = "11111111-1111-4111-8111-111111111111";
 const kBobID = "22222222-2222-4222-8222-222222222222";

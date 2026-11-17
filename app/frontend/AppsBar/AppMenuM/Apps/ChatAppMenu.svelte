@@ -24,5 +24,5 @@
   import PersonIcon from "lucide-svelte/icons/user";
   import PencilIcon from "lucide-svelte/icons/pencil";
   import AccountIcon from "lucide-svelte/icons/message-square";
-  import { URLPart } from "../../../Util/util";
+  import { URLPart } from "../../../../logic/util/blob";
 </script>

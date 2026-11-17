@@ -41,8 +41,13 @@
   let incomingInvitation: IncomingInvitation;
   let eventInCalendar: Event | undefined;
 
-  $: $message.event && initCalendar(message);
+  $: $message, initCalendar(message);
   function initCalendar(message: EMail) {
+    incomingInvitation = null;
+    eventInCalendar = null;
+    if (!message.event) {
+      return; // Old messages load the event async
+    }
     for (let calendar of calendars) {
       if (calendar.hasMatchingEvent(message.event)) {
         selectCalendar(calendar);

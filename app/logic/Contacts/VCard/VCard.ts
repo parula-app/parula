@@ -1,6 +1,7 @@
 import { ICalParser, type ICalEntry, type ICalContainer } from "../../Calendar/ICal/ICalParser";
 import type { Person } from "../../Abstract/Person";
 import { ContactEntry } from "../../Abstract/Person";
+import type { CardDAVPerson } from "../CardDAV/CardDAVPerson";
 import { StreetAddress } from "../StreetAddress";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import type { ArrayColl, Collection } from 'svelte-collections';
@@ -53,6 +54,7 @@ export function convertVCardToPerson(vcard: string, person: Person) {
  * Writes a rich intermediate vCard object to a Person object.
  */
 export function updatePerson(vcard: ICalContainer, person: Person) {
+  (person as CardDAVPerson).uid = sanitize.nonemptystring(vcard.entries.uid?.[0].value, person.id);
   person.name = vcard.entries.fn?.[0].value ?? "";
   if (vcard.entries.photo) {
     let photo = vcard.entries.photo[0];
@@ -69,7 +71,7 @@ export function updatePerson(vcard: ICalContainer, person: Person) {
   person.emailAddresses.clear();
   if (vcard.entries.email) {
     for (let entry of vcard.entries.email) {
-      person.emailAddresses.add(makeContactEntry(entry, "mailto", false));
+      person.emailAddresses.add(makeContactEntry(entry, "mailto", true, true));
     }
   }
   person.phoneNumbers.clear();
@@ -196,6 +198,9 @@ export function vCardToContainer(vcard: ICalContainer): Record<string, string[]>
  * Updates a record object from a Person object.
  */
 export function updateContainerFromPerson(person: Person, container: Record<string, string[]>) {
+  if (!container.uid) { // Why not always: Never change the UID that the contact has on the server
+    setValue(container, "uid", (person as CardDAVPerson).uid ?? person.id);
+  }
   setValue(container, "fn", person.name ?? "");
   setValue(container, "photo", person.picture ?? "", { value: "uri" });
   setValue(container, "n", [person.lastName, person.firstName, "", "", ""]);
@@ -247,7 +252,7 @@ function setValue(container: Record<string, string[]>, key: string, value: strin
     delete container[key];
     return;
   }
-  if (typeof value == "string") {
+  if (typeof value == "string" && parameters.value != "uri") {
     value = value.split(";");
   }
   let line = key.toUpperCase();
@@ -256,7 +261,8 @@ function setValue(container: Record<string, string[]>, key: string, value: strin
     line += ";" + parameter.toUpperCase() + "=" + parameters[parameter];
   }
   line += ":";
-  line += value.map(value => escaped(value, false)).join(";");
+  // `;` and `,` are part of a URI, e.g. of a `data:` URL, and must stay unescaped
+  line += typeof value == "string" ? value : value.map(value => escaped(value, false)).join(";");
   container[key.replace("-", "")] = [line];
 }
 

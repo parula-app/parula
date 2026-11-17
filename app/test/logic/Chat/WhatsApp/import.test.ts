@@ -13,12 +13,12 @@ import { ContactEntry, Person } from "../../../../logic/Abstract/Person";
 import { ChatPersonUID } from "../../../../logic/Chat/ChatPersonUID";
 import { Group } from "../../../../logic/Abstract/Group";
 import sql from "../../../../../lib/rs-sqlite";
-import { mkdtempSync } from "node:fs";
+import { InProcessSQLiteDatabase } from "../../util/inProcessSQLite";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { beforeAll, expect, test } from "vitest";
-// @ts-ignore Using the backend's SQLite in-process, instead of via JPC
-import { Database } from "../../../../../desktop/backend/node_modules/@radically-straightforward/sqlite/build/index.mjs";
 
 const kAliceJID = "491761111111@s.whatsapp.net";
 const kBobJID = "491762222222@s.whatsapp.net";
@@ -29,12 +29,15 @@ let addressbook: Addressbook;
 beforeAll(async () => {
   // Run the backend's SQLite factory in-process, instead of via JPC
   let tempDir = mkdtempSync(path.join(tmpdir(), "whatsapp-import-test-"));
+  let backupCount = 0;
   appGlobal.remoteApp = {
     getSQLiteDatabase(filename: string, options?: any, buffer?: Uint8Array) {
       if (buffer) {
-        return new Database(Buffer.from(buffer), options);
+        // node:sqlite opens only files, so write the backup image to disk first
+        filename = `backup-${++backupCount}.db`;
+        writeFileSync(path.join(tempDir, filename), buffer);
       }
-      return new Database(path.join(tempDir, filename), options);
+      return new InProcessSQLiteDatabase(path.join(tempDir, filename));
     },
   };
   await makeTestDatabase();
@@ -143,7 +146,7 @@ test("Import WhatsApp backup, then import again without duplicates", { timeout: 
 
   // Reload everything from the local database, like after a restart
   account.rooms.clear();
-  await account.listRooms();
+  await account.readFromDB();
   expect(account.rooms.length).toBe(2);
   let aliceRoom2 = account.rooms.contents.find(r => r.id == kAliceJID)!;
   expect((aliceRoom2.contact as ChatPersonUID).person).toBe(alice);
@@ -154,7 +157,8 @@ test("Import WhatsApp backup, then import again without duplicates", { timeout: 
   let groupRoom2 = account.rooms.contents.find(r => r.id == kGroupJID)!;
   expect(groupRoom2.contact).toBe(group);
   await groupRoom2.listMessages();
-  expect(groupRoom2.messages.contents.find(m => m.text == "Group hello")!.contact).toBe(bob);
+  let groupMsg2 = groupRoom2.messages.contents.find(m => m.text == "Group hello")!;
+  expect((groupMsg2.contact as ChatPersonUID).person).toBe(bob);
 });
 
 test("Phone number matching", () => {
@@ -169,7 +173,7 @@ test("Phone number matching", () => {
 
 /** Builds a minimal msgstore.db with the tables and columns that the import reads */
 function makeMsgstore(withExtraMessage = false): Uint8Array {
-  let db = new Database(":memory:");
+  let db = new DatabaseSync(":memory:");
   db.exec(`
     CREATE TABLE jid (_id INTEGER PRIMARY KEY, raw_string TEXT);
     CREATE TABLE jid_map (lid_row_id INTEGER, jid_row_id INTEGER);
@@ -229,7 +233,7 @@ function makeMsgstore(withExtraMessage = false): Uint8Array {
 
 /** Builds a minimal wa.db with the contact names */
 function makeWADB(): Uint8Array {
-  let db = new Database(":memory:");
+  let db = new DatabaseSync(":memory:");
   db.exec(`
     CREATE TABLE wa_contacts (jid TEXT, display_name TEXT, wa_name TEXT);
     INSERT INTO wa_contacts VALUES

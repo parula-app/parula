@@ -3,12 +3,12 @@ import type { GraphFolder } from "./GraphFolder";
 import type { GraphAccount } from "./GraphAccount";
 import { SpecialFolder } from "../Folder";
 import { DeleteStrategy } from "../MailAccount";
+import { EMailFlag, EMailFlagPidTag, EMailFlagTimePidTag, IconIndex, IconIndexPidTag } from "../EWS/ExchangeEMail";
 import { getTagByName, type Tag } from "../../Abstract/Tag";
 import { PersonUID, findOrCreatePersonUID } from "../../Abstract/PersonUID";
 import type { TGraphEMail, TGraphPersonUID, TGraphEMailHeader, TGraphMailAttachment } from "./TGraphMail";
-import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { arrayRemove, assert, blobToBase64, NotReached } from "../../util/util";
+import { arrayRemove, assert, NotReached, getUserPreference } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import type { ArrayColl, Collection } from "svelte-collections";
 import { ContentDisposition } from "../../Abstract/Attachment";
@@ -49,19 +49,27 @@ export class GraphEMail extends EMail {
   }
 
   setFlagsLocal(json: TGraphEMail) {
-    // isNewArrived, isReplied, isSpam are not supported
+    // isReplied, isForwarded, isSpam are not supported
+    // `isNewArrived` @see GraphFolder.processChangedMessages()
     this.isRead = sanitize.boolean(json.isRead, true);
+    // Not `=`: The sender's `Importance:` header is not in the response
+    this.isImportant ||= json.importance == "high";
     this.isDraft = sanitize.boolean(json.isDraft, false);
     this.isStarred = json.flag?.flagStatus && json.flag.flagStatus != "notFlagged";
 
-    for (let customTag in json.categories) {
+    if (!Array.isArray(json.categories)) {
+      return;
+    }
+    let tags: Tag[] = [];
+    for (let customTag of json.categories) {
       if (!customTag ||
           customTag.startsWith("$") ||
           ["nonjunk", "junk"].includes(customTag.toLowerCase())) {
         continue;
       }
-      this.tags.add(getTagByName(sanitize.string(customTag)));
+      tags.push(getTagByName(sanitize.string(customTag)));
     }
+    this.tags.replaceAll(tags);
   }
 
   fromHeaders(headers: TGraphEMailHeader[]) {
@@ -78,6 +86,9 @@ export class GraphEMail extends EMail {
     }
     if (email.isReplied) {
       flags.push("$answered");
+    }
+    if (email.isForwarded) {
+      flags.push("$forwarded");
     }
 
     for (let tag of email.tags) {
@@ -101,7 +112,7 @@ export class GraphEMail extends EMail {
 
   static async getGraphEmailObject(email: EMail, account: GraphAccount): Promise<any> {
     assert(email.folder.id, "need folder");
-    let doHTML = getLocalStorage("mail.send.format", "html").value == "html";
+    let doHTML = getUserPreference("mail.send.format", "html") == "html";
     let e: TGraphEMail = {
       id: undefined,
       subject: email.subject,
@@ -118,7 +129,7 @@ export class GraphEMail extends EMail {
       sentDateTime: email.sent?.toISOString(),
       receivedDateTime: email.received?.toISOString(),
       categories: GraphEMail.getGraphCategories(email),
-      importance: "normal",
+      importance: email.isImportant ? "high" : "normal",
       parentFolderId: email.folder.id,
       internetMessageHeaders: [] as TGraphEMailHeader[],
       isRead: email.isRead,
@@ -138,7 +149,7 @@ export class GraphEMail extends EMail {
         name: attachment.filename,
         size: attachment.size,
         contentType: attachment.mimeType,
-        contentBytes: await blobToBase64(attachment.content),
+        contentBytes: await attachment.contentAsBase64(),
         contentId: attachment.contentID,
         isInline: attachment.disposition == ContentDisposition.inline,
       });
@@ -182,7 +193,34 @@ export class GraphEMail extends EMail {
 
   async markReplied() {
     await super.markReplied();
-    await this.setFlagServer("$answered", true);
+    await this.setLastVerb(EMailFlag.ReplyToSender, IconIndex.Replied);
+  }
+
+  async markForwarded() {
+    await super.markForwarded();
+    await this.setLastVerb(EMailFlag.Forward, IconIndex.Forwarded);
+  }
+
+  async markImportant(isImportant = true) {
+    await super.markImportant(isImportant);
+    await this.folder.account.graphPatch(this.path, { importance: isImportant ? "high" : "normal" });
+  }
+
+  /** Graph has no replied and forwarded flags, only the MAPI properties
+   * that make Outlook show the reply and forward arrows. */
+  protected async setLastVerb(verb: EMailFlag, icon: IconIndex) {
+    await this.folder.account.graphPatch(this.path, {
+      singleValueExtendedProperties: [{
+        id: `Integer ${EMailFlagPidTag}`,
+        value: String(verb),
+      }, {
+        id: `SystemTime ${EMailFlagTimePidTag}`,
+        value: new Date().toISOString(),
+      }, {
+        id: `Integer ${IconIndexPidTag}`,
+        value: String(icon),
+      }],
+    });
   }
 
   async markDraft(isDraft = true) {

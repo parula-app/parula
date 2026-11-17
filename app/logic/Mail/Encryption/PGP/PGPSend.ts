@@ -1,14 +1,15 @@
 import { SendEncrypted } from "../SendEncrypted";
 import type { EMail } from "../../EMail";
-import { getMyPrivateKey, getPublicKeyForPerson } from "../KeyUtils";
+import { getMyPrivateKey, getPublicKeyForPersonUID } from "../KeyUtils";
 import { CreateMIME } from "../../SMTP/CreateMIME";
 import { PGPPublicKey } from "./PGPPublicKey";
 import { PGPPrivateKey } from "./PGPPrivateKey";
 import { sendAutoCryptHeader } from "./AutoCrypt";
-import type { PersonUID } from "../../../Abstract/PersonUID";
+import { splitMIMEHeaders, kLineBreak, newBoundary } from "../MIME";
 import { NotReached, assert } from "../../../util/util";
 import { gt } from "../../../../l10n/l10n";
 import type OpenPGP from "openpgp";
+import type { HeaderLine } from "postal-mime";
 
 export class PGPSend {
   /**
@@ -21,19 +22,20 @@ export class PGPSend {
    * @returns a new email that is encrypted and/or signed.
    *   The original email is untouched.
    */
-  static async encryptAndSign(mail: EMail): Promise<EMail> {
+  static async encryptAndSign(mail: EMail, recipients = mail.allRecipients()): Promise<EMail> {
     let privateKey = getMyPrivateKey(mail.identity, PGPPrivateKey);
     assert(privateKey, gt`Please first set up PGP encryption for yourself, in Settings | Mail | Identity | Encryption`);
     let result = SendEncrypted.cloneEMail(mail);
     let originalMIME = await CreateMIME.getMIME(mail);
     let originalMIMEStr = new TextDecoder().decode(originalMIME);
     originalMIMEStr = originalMIMEStr.replace(/User-Agent: [^\r]+\r\n/, "");
+    let { headers } = await splitMIMEHeaders(originalMIMEStr);
     let openPGP = await import("openpgp");
-    let message = await openPGP.createMessage({ text: originalMIMEStr });
     let privateOpenPGPKey = await privateKey.openPGPPrivateKey();
     if (mail.shouldEncrypt) {
-      let recipientKeys = mail.allRecipients().contents.flatMap(puid =>
-        getPublicKeyForPerson(puid.findPerson(), PGPPublicKey));
+      let message = await openPGP.createMessage({ text: await PGPSend.protectHeaders(originalMIMEStr) });
+      let recipientKeys = recipients.contents.flatMap(puid =>
+        getPublicKeyForPersonUID(puid, PGPPublicKey));
       let recipientOpenPGPKeys: OpenPGP.PublicKey[] = [];
       for (let recipientKey of recipientKeys) {
         recipientOpenPGPKeys.push(await recipientKey.openPGPPublicKey(openPGP));
@@ -44,8 +46,9 @@ export class PGPSend {
         signingKeys: privateOpenPGPKey,
         encryptionKeys: recipientOpenPGPKeys,
       });
-      result.sendRawMIME = PGPSend.createMIMEForEncrypted(mail, encrypted, privateKey);
-    } else if (mail.signed) {
+      result.sendRawMIME = PGPSend.createMIMEForEncrypted(mail, headers, encrypted, privateKey);
+    } else if (mail.signedByKeyID) {
+      let message = await openPGP.createMessage({ text: originalMIMEStr });
       let signature = await openPGP.sign({
         message: message,
         signingKeys: privateOpenPGPKey,
@@ -54,44 +57,31 @@ export class PGPSend {
 
       const inHeader = false;
       if (inHeader) {
-        result.sendRawMIME = PGPSend.createMIMEForSignedInHeader(mail, originalMIMEStr, signature, privateKey);
+        result.sendRawMIME = PGPSend.createMIMEForSignedInHeader(mail, headers, originalMIMEStr, signature, privateKey);
       } else {
-        result.sendRawMIME = PGPSend.createMIMEForSignedDetached(mail, originalMIMEStr, signature, privateKey);
+        result.sendRawMIME = PGPSend.createMIMEForSignedDetached(mail, headers, originalMIMEStr, signature, privateKey);
       }
     } else {
       throw new NotReached();
     }
-    result.signed = privateKey.id;
+    result.signedByKeyID = privateKey.id;
     return result;
   }
 
-  static createMIMEHeader(mail: EMail, privateKey: PGPPrivateKey): string[] {
-    function esc(str: string): string {
-      return str?.replace(/<>,/g, "") ?? ""; // TODO implement better
-    }
-    function recipient(p: PersonUID): string {
-      if (p.name) {
-        return esc(p.name) + " <" + esc(p.emailAddress) + ">";
-      } else {
-        return esc(p.emailAddress);
-      }
-    }
-
+  static createMIMEHeader(mail: EMail, headers: HeaderLine[], privateKey: PGPPrivateKey): string[] {
     return [
       `MIME-Version: 1.0`,
       `Date: ` + toRFC822DateString(new Date()),
-      `From: ` + recipient(mail.from),
-      `To: ` + mail.to.contents.map(p => recipient(p)),
-      `CC: ` + mail.cc.contents.map(p => recipient(p)),
+      ...copyHeaders(headers, ["from", "to", "cc"]),
       ...this.wrapHeader(sendAutoCryptHeader(mail.identity, privateKey)),
     ];
   }
 
-  static createMIMEForEncrypted(mail: EMail, encryptedMessage: string, privateKey: PGPPrivateKey): string {
+  static createMIMEForEncrypted(mail: EMail, headers: HeaderLine[], encryptedMessage: string, privateKey: PGPPrivateKey): string {
     // RFC 3156 Sec 4 <https://www.rfc-editor.org/rfc/rfc3156>
-    let boundary = "----" + crypto.randomUUID().replace(/-/g, "");
+    let boundary = newBoundary();
     let mime = [
-      ...PGPSend.createMIMEHeader(mail, privateKey),
+      ...PGPSend.createMIMEHeader(mail, headers, privateKey),
       `Subject: PGP encrypted message`,
       `Content-Type: multipart/encrypted; protocol="application/pgp-encrypted";`,
       ` boundary="${boundary}"`,
@@ -110,16 +100,49 @@ export class PGPSend {
       encryptedMessage,
       ``,
       `--${boundary}--`,
-    ].join('\r\n');
+    ].join(kLineBreak);
     return mime;
   }
 
-  static createMIMEForSignedDetached(mail: EMail, message: string, signature: string, privateKey: PGPPrivateKey): string {
+  /**
+   * Wraps the message in a `multipart/mixed; protected-headers="v1"` and moves the
+   * `Subject` and other headers into that part, so that they are encrypted.
+   * <https://www.ietf.org/archive/id/draft-autocrypt-lamps-protected-headers-02.html>
+   */
+  static async protectHeaders(mime: string): Promise<string> {
+    let { headers, body } = await splitMIMEHeaders(mime);
+    let messageHeaders: string[] = []; // Protected, e.g. From, To, Subject, Date, Message-ID
+    let contentHeaders: string[] = []; // Describe the body and stay with it, e.g. Content-Type
+    for (let header of headers) {
+      if (header.key.startsWith("content-")) {
+        contentHeaders.push(header.line);
+      } else if (header.key == "mime-version") {
+        // stays on the outer message only
+      } else {
+        messageHeaders.push(header.line);
+      }
+    }
+
+    let boundary = newBoundary();
+    return [
+      `Content-Type: multipart/mixed; protected-headers="v1"; boundary="${boundary}"`,
+      ...messageHeaders,
+      ``,
+      `--${boundary}`,
+      ...contentHeaders,
+      ``,
+      body.replace(/(\r\n)+$/, ""), // trim trailing newlines
+      `--${boundary}--`,
+      ``,
+    ].join(kLineBreak);
+  }
+
+  static createMIMEForSignedDetached(mail: EMail, headers: HeaderLine[], message: string, signature: string, privateKey: PGPPrivateKey): string {
     // RFC 3156 Sec 5 <https://www.rfc-editor.org/rfc/rfc3156>
-    let boundary = "----" + crypto.randomUUID().replace(/-/g, "");
+    let boundary = newBoundary();
     let mime = [
-      ...PGPSend.createMIMEHeader(mail, privateKey),
-      ...this.wrapHeader(`Subject: ` + mail.subject),
+      ...PGPSend.createMIMEHeader(mail, headers, privateKey),
+      ...copyHeaders(headers, ["subject"]),
       `Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha512;`,
       ` boundary="${boundary}"`,
       ``,
@@ -129,18 +152,18 @@ export class PGPSend {
       `Content-Type: application/pgp-signature; name="signature.asc"`,
       `Content-Disposition: inline; filename="signature.asc"`,
       ``,
-      signature.replaceAll("\n", "\r\n"),
+      signature.replaceAll("\n", kLineBreak),
       ``,
       `--${boundary}--`,
-    ].join('\r\n');
+    ].join(kLineBreak);
     return mime;
   }
 
-  static createMIMEForSignedInHeader(mail: EMail, message: string, signature: string, privateKey: PGPPrivateKey): string {
+  static createMIMEForSignedInHeader(mail: EMail, headers: HeaderLine[], message: string, signature: string, privateKey: PGPPrivateKey): string {
     // <https://www.ietf.org/archive/id/draft-gallagher-email-unobtrusive-signatures-02.html#name-sig-header-field>
 
     // need to add `hp=clean` *sigh*
-    let msgLines = message.split("\r\n");
+    let msgLines = message.split(kLineBreak);
     for (let i = 0; i < msgLines.length; i++) {
       let msgLine = msgLines[i];
       if (msgLine.startsWith("Content-Type: ")) {
@@ -154,17 +177,17 @@ export class PGPSend {
       }
     }
 
-    let boundary = "----" + crypto.randomUUID().replace(/-/g, "");
+    let boundary = newBoundary();
     let mime = [
-      ...PGPSend.createMIMEHeader(mail, privateKey),
-      ...this.wrapHeader(`Subject: ` + mail.subject),
+      ...PGPSend.createMIMEHeader(mail, headers, privateKey),
+      ...copyHeaders(headers, ["subject"]),
       `Content-Type: multipart/mixed; boundary="${boundary}"`,
       ``,
       `--${boundary}`,
       ...this.wrapHeader(`Sig: t=p; b=` + btoa(signature)),
       ...msgLines,
       `--${boundary}--`,
-    ].join('\r\n');
+    ].join(kLineBreak);
     return mime;
   }
 
@@ -235,4 +258,9 @@ export function toRFC822DateString(date: Date) {
       timeZone: "UTC",
     }) +
     " +0000";
+}
+
+/** @param keys the header names that should be copied. All other headers are not copied. */
+function copyHeaders(headers: HeaderLine[], keys: string[]): string[] {
+  return headers.filter(header => keys.includes(header.key)).map(header => header.line);
 }

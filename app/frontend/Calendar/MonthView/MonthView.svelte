@@ -1,89 +1,65 @@
 <vbox class="month-view" flex
   on:mousewheel={event => catchErrors(() => onScrollWheel(event))}>
-  <hbox class="range-header">
+  <hbox class="range-header window-drag">
     <slot name="top-left" />
     <hbox flex />
-    <DateRange bind:date={start} dateInterval={showDays} />
+    <DateRange bind:date={start} {range} />
     <hbox flex />
     <slot name="top-right" />
   </hbox>
   <grid flex class="month"
-    on:swipeleft={onNextMonth}
-    on:swiperight={onPreviousMonth}
-    on:swipeup={onNextMonth}
-    on:swipedown={onPreviousMonth}
+    style="--selected-calendar-color: {$selectedCalendar?.color ?? "black"}"
+    on:swipeleft={() => page(1)}
+    on:swiperight={() => page(-1)}
+    on:swipeup={() => page(1)}
+    on:swipedown={() => page(-1)}
     >
-    {#each weekDays as day}
+    {#each range.weeks[0] as day}
       <hbox class="weekday">
         {day.toLocaleDateString(getDateTimeLocale(), { weekday: "short" })}
       </hbox>
     {/each}
-    {#each days as day}
-      <vbox class="day"
-        class:selected={day.getTime() == $selectedDate?.getTime()}
-        >
-        <DayLabel {day} />
-        <DayCell start={day} events={filteredEvents} intervalInHours={24}
-          withMonthOnFirst={true} withMonthOnMonday={true} />
-      </vbox>
+    {#each range.weeks as week}
+      <WeekRow days={week} events={filteredEvents}
+        on:celldblclick={(param) => newEventMenu.openMenu(param.detail.mouseEvent, param.detail.start)} />
     {/each}
   </grid>
 </vbox>
 
+<NewEventMenu bind:this={newEventMenu} />
+
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
-  import DayLabel from "./DayLabel.svelte";
-  import DayCell from "./DayCell.svelte";
+  import WeekRow from "./WeekRow.svelte";
   import DateRange from "../DateRange.svelte";
-  import { selectedDate } from "../selected";
-  import { getWeekDays } from "../../Util/date";
+  import NewEventMenu from "../NewEventMenu.svelte";
+  import { selectedCalendar } from "../selected";
+  import type { CalendarRange } from "../CalendarRange";
   import { catchErrors } from "../../Util/error";
   import { getDateTimeLocale } from "../../../l10n/l10n";
   import type { Collection } from "svelte-collections";
 
   export let start: Date;
+  /** Month or 4 weeks */
+  export let range: CalendarRange;
   export let events: Collection<Event>;
-  export let showDays = 35;
 
-  let days: Date[] = [];
-  let weekDays: Date[] = [];
+  let newEventMenu: NewEventMenu;
   let filteredEvents: Collection<Event>;
-  $: start, showDays, setDays();
-  function setDays() {
-    weekDays = getWeekDays(start);
-    if (showDays == 35) {
-      while (weekDays[6].getDate() > 7) {
-        start.setDate(start.getDate() - 7);
-        weekDays = getWeekDays(start);
-      }
-    }
-    let startTime = weekDays[0]; // Always start with Monday
-    let filterStart = new Date(startTime);
-    days = [];
-    for (let i = 0; i < showDays; i++) {
-      days.push(new Date(startTime));
-      startTime.setDate(startTime.getDate() + 1)
-    }
-    let filterEnd = startTime;
-    filteredEvents = events.filterObservable(ev => ev.startTime && ev.startTime < filterEnd && filterStart < ev.endTime);
+  $: events, range, filterEvents();
+  function filterEvents() {
+    let rangeStart = range.start;
+    let rangeEnd = range.end;
+    filteredEvents = events.filterObservable(ev => ev.startTime && ev.startTime < rangeEnd && rangeStart < ev.endTime);
   }
 
   function onScrollWheel(event: WheelEvent) {
-    const upDown = event.deltaY > 0 ? 1 : -1;
-    start.setDate(start.getDate() + showDays * upDown);
-    start = start;
+    page(event.deltaY > 0 ? 1 : -1);
   }
 
-  // <copied from="DateRange.svelte">
-  function onNextMonth() {
-    start.setDate(start.getDate() + (showDays == 35 ? 42 : showDays));
-    start = start;
+  function page(direction: number) {
+    start = range.step(start, direction);
   }
-  function onPreviousMonth() {
-    start.setDate(start.getDate() - (showDays == 35 ? 28 : showDays));
-    start = start;
-  }
-  // </copied>
 </script>
 
 <style>
@@ -91,7 +67,7 @@
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
     grid-template-rows: max-content;
-    grid-auto-rows: 1fr;
+    grid-auto-rows: minmax(0, 1fr);
     border-right: 1px dotted var(--border);
     container-type: size;
   }
@@ -105,28 +81,6 @@
     letter-spacing: 0.378px;
     text-transform: uppercase;
     font-weight: 300;
-  }
-  .day {
-    overflow: hidden;
-  }
-  .day.selected {
-    background-color: #E9F5F4;
-  }
-  .day:hover:not(.selected) {
-    background-color: #F1F9F8;
-  }
-  @media (prefers-color-scheme: dark) {
-    .day.selected {
-      background-color: #193D39;
-    }
-    .day:hover:not(.selected) {
-      background-color: var(--hover-bg);
-      color: var(--hover-fg);
-    }
-    .day.selected:hover {
-      background-color: var(--selected-hover-bg);
-      color: var(--selected-hover-fg);
-    }
   }
   .month-view :global(.date-range) {
     font-weight: bold;

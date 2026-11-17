@@ -50,7 +50,9 @@ export class ChatPersonUID extends PersonUID {
   }
 
   matchesPerson(person: Person): boolean {
-    return person && !!person.chatAccounts.find(e => e.value == this.chatID);
+    // `chatID` is the ID on the chat server, and needs not be listed as chat account of the person
+    return person && (this.person == person ||
+      !!person.chatAccounts.find(e => e.value == this.chatID));
   }
 }
 

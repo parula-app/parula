@@ -10,7 +10,7 @@
 
 <script lang="ts">
   import { Ticket, openPurchasePage } from "../../../../logic/util/LicenseClient";
-  import { getDateString } from "../../../Util/date";
+  import { getDateString } from "../../../../logic/util/date";
   import Button from "../../../Shared/Button.svelte";
   import { t } from "../../../../l10n/l10n";
 

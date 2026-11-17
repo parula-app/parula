@@ -2,8 +2,10 @@ import { NTLMResponse, joinHeader, type NTLMRequestOptions } from "./NTLMRespons
 import type { EWSAccount } from "../../Mail/EWS/EWSAccount";
 import { LoginError } from "../../Abstract/Account";
 import { appGlobal } from "../../app";
+import { retryOnTransientError } from "../../util/netUtil";
 import { Lock } from "../../util/flow/Lock";
-import { assert } from "../../util/util";
+import { Timeout } from "../../util/flow/Timeout";
+import { assert, waitTime } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
 /**
@@ -36,10 +38,13 @@ export class NTLMConnection {
   /** `socketID` of the TCP connection that we logged in to. 0 = none. */
   protected authenticatedSocketID = 0;
   protected readonly lock = new Lock();
+  /** from `NTLMConnectionPool` */
+  protected readonly handshakeLock: Lock;
 
-  constructor(account: EWSAccount, cookies?: CookieJar) {
+  constructor(account: EWSAccount, cookies?: CookieJar, handshakeLock?: Lock) {
     this.account = account;
     this.cookies = cookies ?? new CookieJar();
+    this.handshakeLock = handshakeLock ?? new Lock();
   }
 
   /**
@@ -114,7 +119,18 @@ export class NTLMConnection {
   protected async negotiate(): Promise<{ socketID: number, type2: string | null }> {
     let type1 = await appGlobal.remoteApp.createType1Message();
     // Server ignores the body of this step, so don't waste bandwidth
-    let response = await this.send(type1, "");
+    // A VPN tunnel needs some time after computer woke up, can cause errors "before secure TLS connection"
+    let response = await retryOnTransientError(async () => {
+      // Some servers and VPN gateways drop connections when multiple are established at the same time.
+      let locked = await this.handshakeLock.lock();
+      let timeout = new Timeout(11, () => locked.release()); // if we hang, let the others connect
+      try {
+        return await this.send(type1, "", { timeoutSec: 10 * waitTime.factor }); // tests wait less
+      } finally {
+        timeout.fulfilled();
+        locked.release();
+      }
+    }, 3, 8);
     if (response.status != 401) {
       return { socketID: response.socketID, type2: null };
     }
@@ -136,7 +152,11 @@ export class NTLMConnection {
     if (cookie) {
       headers.Cookie = cookie;
     }
-    let response = await this.conn.request({ headers, body }, options.onChunk);
+    let response = await this.conn.request({
+      headers,
+      body,
+      timeoutSec: options.timeoutSec,
+    }, options.onChunk);
     this.cookies.update(response.headers);
     return response;
   }

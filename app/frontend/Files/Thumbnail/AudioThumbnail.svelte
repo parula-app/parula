@@ -14,3 +14,10 @@
 <script lang="ts" context="module">
   export const kSupportedExt = ["mp3", "mp2", "mp2a", "m2a", "m3a", "mpga", "wav"];
 </script>
+
+<style>
+  audio {
+    max-width: 100%;
+    max-height: 100%;
+  }
+</style>

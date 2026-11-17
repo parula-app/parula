@@ -1,8 +1,8 @@
-{#each $dirs?.each as dir }
+{#each $dirs?.each as dir (dir)}
   <DirectoryTile {dir} />
 {/each}
 <hbox class="linebreak" />
-{#each $files?.each as file }
+{#each $files?.each as file (file)}
   <FileTile {file} />
 {/each}
 

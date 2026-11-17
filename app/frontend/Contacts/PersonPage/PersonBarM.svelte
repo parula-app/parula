@@ -68,7 +68,7 @@
   import HistoryIcon from "lucide-svelte/icons/history";
   import EditIcon from "lucide-svelte/icons/pencil";
   import SaveIcon from "lucide-svelte/icons/save";
-  import { URLPart } from "../../Util/util";
+  import { URLPart } from "../../../logic/util/blob";
   import { t } from "../../../l10n/l10n";
 
   export let person: Person;

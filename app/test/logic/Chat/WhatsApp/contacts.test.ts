@@ -122,6 +122,16 @@ test("fetchPicture is null when the contact has no picture", async () => {
   expect(contact.picture).toBe(null);
 });
 
+test("fetchPicture refuses an avatar URL off the allowlist without fetching it", async () => {
+  let picture = new WANode("iq", { type: "result" },
+    [new WANode("picture", { type: "preview", url: "https://internal.corp.local/alice.jpg" })]);
+  let http = stubHttp(new Uint8Array([1, 2, 3, 4]));
+  let contact = new WhatsAppContact(JID.parse(kAliceJID));
+  await expect(contact.fetchPicture(fakeConnection({ picture }))).rejects.toThrow(/untrusted/i);
+  expect(http.urls).toEqual([]); // the backend was never asked
+  expect(contact.picture).toBeFalsy();
+});
+
 test("fetch never throws if the server/IQ fails", async () => {
   let contact = new WhatsAppContact(JID.parse(kAliceJID));
   await contact.fetch({ async sendIQ() { throw new Error("connection lost"); } } as any);

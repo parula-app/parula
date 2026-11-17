@@ -6,7 +6,17 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/icon/logo.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src * data:; script-src 'self' 'wasm-unsafe-eval'; frame-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; media-src 'self' blob: https://www.mustang.im; font-src 'self';">
+  <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+    `self` -> `file:`, because the packaged desktop build loads us via `loadFile()`. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none';
+    script-src 'self' file: 'wasm-unsafe-eval';
+    style-src 'self' file: 'unsafe-inline';
+    img-src 'self' file: blob: data: https:;
+    font-src 'self' file:;
+    media-src 'self' file: blob: https://www.mustang.im;
+    frame-src 'self' file: data: blob: https:;
+    connect-src * data:;
+    base-uri 'none';">
 </head>
 
 <body>

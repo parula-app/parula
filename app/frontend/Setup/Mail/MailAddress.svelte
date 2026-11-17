@@ -31,6 +31,7 @@
   import Microsoft365Icon from '../../asset/icon/brand/microsoft365.svg?raw';
   import YahooIcon from '../../asset/icon/brand/yahoo.svg?raw';
   import { onKeyEnter } from '../../Util/util';
+  import { sanitize } from '../../../../lib/util/sanitizeDatatypes';
   import { createEventDispatcher } from 'svelte';
   const dispatchEvent = createEventDispatcher();
 
@@ -38,7 +39,7 @@
   export let emailAddress: string;
 
   let inputEl: HTMLInputElement;
-  $: valid = emailAddress && emailAddress.includes(".") && inputEl?.validity.valid;
+  $: valid = emailAddress && sanitize.emailAddress(emailAddress, null) && inputEl?.validity.valid;
 
   function onEnter() {
     if (valid) {

@@ -31,7 +31,7 @@
   {:else if !$mailAccount?.isLoggedIn}
     <vbox class="login">
       <hbox class="label">{$t`Please log in to account ${mailAccount?.name} first`}</hbox>
-      <Button label={$t`Login`} onClick={async () => await mailAccount.login(true)} />
+      <Button label={$t`Login`} onClick={async () => await mailAccount.loginAndStartup(true)} />
     </vbox>
   {/if}
 </vbox>

@@ -24,7 +24,7 @@
     } else if (interval == 1) {
       return $t`Day`;
     } else if (interval == 5) {
-      return $t`Weekdays`;
+      return $t`Work week`;
     } else if (interval == 7) {
       return $t`Week`;
     } else if (interval == 31) {

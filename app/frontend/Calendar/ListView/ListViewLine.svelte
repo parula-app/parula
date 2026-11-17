@@ -14,6 +14,8 @@
   style="--color: {event.color ?? event.calendar?.color}"
   class:all-day={$event.allDay}
   class:selected={$selectedEvent == event}
+  class:unanswered={$event.isUnanswered}
+  class:cancelled={$event.isCancelled}
   >
   {$event.title}
 </hbox>
@@ -22,7 +24,7 @@
   import type { Event } from "../../../logic/Calendar/Event";
   import { selectedEvent } from "../selected";
   import { openEvent } from "../open";
-  import { getDurationString } from "../../Util/date";
+  import { getDurationString } from "../../../logic/util/date";
   import { getDateTimeLocale } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -49,6 +51,7 @@
     text-overflow: ellipsis;
 
     background-color: var(--color);
+    --stripe-color: rgb(from var(--color) r g b / 50%);
   }
   @media (prefers-color-scheme: dark) {
     .event {
@@ -57,8 +60,28 @@
         linear-gradient(#000000AA, #000000AA);
       background-blend-mode: overlay;
       background-color: unset;
+      --stripe-color: rgb(from var(--color) r g b / 25%);
     }
   }
+  /* <copied from="../DayView/EventContent.svelte"> */
+  .event.unanswered {
+    background-image: repeating-linear-gradient(-45deg, transparent 0 4px, var(--stripe-color) 4px 8px);
+    background-blend-mode: normal;
+    background-color: transparent;
+  }
+  .event.cancelled {
+    --cancelled-stripe-color: rgb(from var(--stripe-color) r g b / calc(alpha / 6));
+    background-image:
+      repeating-linear-gradient(45deg, transparent 0 6px, var(--cancelled-stripe-color) 6px 10px),
+      repeating-linear-gradient(-45deg, transparent 0 6px, var(--cancelled-stripe-color) 6px 10px);
+    background-blend-mode: normal;
+    background-color: transparent;
+    text-decoration: line-through;
+  }
+  .event.cancelled.unanswered {
+    opacity: 10%;
+  }
+  /* </copied> */
   .event:hover {
     background-color: #20AF9E70;
   }

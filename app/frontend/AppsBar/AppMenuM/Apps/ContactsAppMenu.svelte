@@ -31,7 +31,7 @@
   import PlusIcon from "lucide-svelte/icons/plus";
   import contactsIcon from '../../../asset/icon/appBar/contacts.svg?raw';
   import HistoryIcon from "lucide-svelte/icons/history";
-  import { URLPart } from "../../../Util/util";
+  import { URLPart } from "../../../../logic/util/blob";
   import { assert } from "../../../../logic/util/util";
 
   function onCreatePerson() {

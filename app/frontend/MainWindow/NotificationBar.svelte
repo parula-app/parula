@@ -39,7 +39,7 @@
 {/if}
 
 <script lang="ts">
-  import type { Notification } from "./Notification";
+  import type { Notification } from "../../logic/util/Notification";
   import Button from "../Shared/Button.svelte";
   import RoundButton from "../Shared/RoundButton.svelte";
   import XIcon from "lucide-svelte/icons/x";

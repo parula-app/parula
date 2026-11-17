@@ -7,6 +7,7 @@
   "company": "ACME",
   "department": "",
   "position": "Father",
+  "encryptionPublicKeys": [],
   "popularity": 0,
   "addressbookID": true,
   "emailAddresses": [

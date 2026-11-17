@@ -1,7 +1,9 @@
-import type { PersonOrGroup } from "../../frontend/Contacts/Person/PersonOrGroup";
 import { Group } from "./Group";
 import type { Addressbook } from "../Contacts/Addressbook";
 import { ContactEntry, Person } from "./Person";
+import type { PublicKey } from "../Mail/Encryption/PublicKey";
+import { getPublicKeyForPersonUID, isUsableKey } from "../Mail/Encryption/KeyUtils";
+import { SMIMEPublicKey } from "../Mail/Encryption/SMIME/SMIMEPublicKey";
 import { appGlobal } from "../app";
 import { Observable, notifyChangedProperty } from "../util/Observable";
 import { capitalizeWords } from "../util/util";
@@ -14,6 +16,11 @@ export class PersonUID extends Observable {
   emailAddress: string;
   @notifyChangedProperty
   person?: Person;
+  /** A key that we know for this email address, but that is not saved in an
+   * addressbook, e.g. the certificate of an email that this address signed.
+   * `createPerson()` saves it with the contact. */
+  @notifyChangedProperty
+  encryptionPublicKey?: PublicKey;
 
   constructor(emailAddress?: string, name?: string) {
     super();
@@ -43,14 +50,37 @@ export class PersonUID extends Observable {
 
   createPerson(addressbook: Addressbook) {
     this.person = this.findPerson();
-    if (this.person) {
-      return this.person;
+    if (!this.person) {
+      this.person = addressbook.newPerson();
+      this.person.name = this.name || nameFromEmailAddress(this.emailAddress);
+      this.person.emailAddresses.add(new ContactEntry(this.emailAddress, "primary"));
+      addressbook.persons.add(this.person);
     }
-    this.person = addressbook.newPerson();
-    this.person.name = this.name || nameFromEmailAddress(this.emailAddress);
-    this.person.emailAddresses.add(new ContactEntry(this.emailAddress, "primary"));
-    addressbook.persons.add(this.person);
+    if (this.encryptionPublicKey) {
+      this.person.addEncryptionPublicKey(this.encryptionPublicKey);
+    }
     return this.person;
+  }
+
+  /** Fetches the S/MIME certificate that the company directories have for
+   * this email address, unless we already have one.
+   * Works also without contact.
+   * Reports errors, does not throw. */
+  async fetchEncryptionKeys(): Promise<void> {
+    if (getPublicKeyForPersonUID(this, SMIMEPublicKey)) {
+      return;
+    }
+    let person = this.findPerson();
+    if (person) {
+      await person.fetchEncryptionKeys();
+      return;
+    }
+    let found = await Promise.all(appGlobal.searchOnlyAddressbooks.contents.map(ab =>
+      ab.fetchEncryptionKeys(new ArrayColl([this.emailAddress]))));
+    let key = found.flatMap(keys => keys.contents).find(key => isUsableKey(key));
+    if (key) {
+      this.encryptionPublicKey = key;
+    }
   }
 
   matchesPerson(person: Person): boolean {
@@ -101,7 +131,8 @@ export function findOrCreatePersonUID(emailAddress: string, realname: string): P
     add the `Person` to the cached `PersonUID` entry.
     We currently search all address books on every call to `personUID.findPerson()` */
   let existing = findPerson(emailAddress);
-  let uid = new PersonUID(emailAddress, realname ?? existing?.name ?? emailAddress);
+  // Avoid names by sender with an @ that can deceive to be an email address
+  let uid = new PersonUID(emailAddress, realname?.split("@")[0].trim() || existing?.name || emailAddress);
   if (existing) {
     uid.person = existing;
   }
@@ -116,7 +147,7 @@ export function findPerson(emailAddress: string): Person | undefined {
   }
   emailAddress = emailAddress.toLowerCase();
   for (let ab of appGlobal.addressbooks) {
-    let existing = ab.persons.find(p => p.emailAddresses.some(e => e.value?.toLowerCase() == emailAddress));
+    let existing = ab.personsByEMailAddress.get(emailAddress)?.person;
     if (existing) {
       return existing;
     }
@@ -149,7 +180,7 @@ export function findPersonsWithName(name: string): ArrayColl<Person> {
   return results;
 }
 
-export function personDisplayName(person: PersonOrGroup | PersonUID) {
+export function personDisplayName(person: Person | Group | PersonUID) {
   if (!person) {
     return "";
   } else if (person instanceof Person || person instanceof Group) {

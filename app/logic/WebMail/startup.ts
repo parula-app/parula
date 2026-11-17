@@ -1,4 +1,5 @@
 import { appGlobal } from '../app';
+import { Person } from '../Abstract/Person';
 import { WebMailBackend } from './backend';
 import { login } from './config';
 import type { Account } from '../Abstract/Account';
@@ -8,7 +9,10 @@ import { createPersonalCalendar } from '../Calendar/AccountsList/Calendars';
 import { readSavedSearches } from '../Mail/Virtual/SavedSearchFolder';
 import { loadTagsList } from '../Abstract/Tag';
 import { getComputerOn } from '../util/backend-wrapper';
-import { logError } from '../../frontend/Util/error';
+import { logErrorToServer } from '../util/error';
+
+// Before anything reads it, @see `startup.ts`
+appGlobal.me = new Person();
 
 export async function getStartObjects(): Promise<void> {
   gLicense.license = { valid: true }; // Proprietary, see comment in License.ts
@@ -18,10 +22,10 @@ export async function getStartObjects(): Promise<void> {
   appGlobal.addressbooks.add(appGlobal.collectedAddressbook);
   appGlobal.calendars.add(await createPersonalCalendar());
 
+  await loadTagsList(); // before the accounts: their filter rules reference the tags
   await login();
 
   readSavedSearches();
-  await loadTagsList();
 }
 
 /**
@@ -34,14 +38,14 @@ export async function loginOnStartup(startupErrorCallback: (ex: Error) => void):
   for (let account of appGlobal.chatAccounts) {
     account.errorCallback = (ex) => backgroundErrorInAccount(ex, account);
     if (!account.isDependentAccount) {
-      account.login(false)
+      account.loginAndStartup(false)
         .catch(startupErrorCallback);
     }
   }
 
   for (let account of appGlobal.emailAccounts) {
     account.errorCallback = (ex) => backgroundErrorInAccount(ex, account);
-    account.login(false)
+    account.loginAndStartup(false)
       .catch(startupErrorCallback);
   }
 }
@@ -50,7 +54,7 @@ export async function loginOnStartup(startupErrorCallback: (ex: Error) => void):
 function checkAccounts(): void {
   for (let account of appGlobal.chatAccounts) {
     if (!account.isLoggedIn && !account.isDependentAccount) {
-      account.login(false)
+      account.loginAndStartup(false)
         .catch(account.errorCallback);
     }
   }
@@ -59,7 +63,7 @@ function checkAccounts(): void {
       account.inbox?.getNewMessages()
         .catch(account.errorCallback);
     } else {
-      account.login(false)
+      account.loginAndStartup(false)
         .catch(account.errorCallback);
     }
   }
@@ -86,5 +90,5 @@ export function checkWakeUp(): void {
 function backgroundErrorInAccount(ex: Error, account: Account) {
   account.errors.add(ex);
   console.error(ex);
-  logError(ex);
+  logErrorToServer(ex);
 }

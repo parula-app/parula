@@ -5,7 +5,7 @@ import { ChatPersonUID } from "../Chat/ChatPersonUID";
 import type { Attachment } from "./Attachment";
 import { convertHTMLToText, convertTextToHTML, sanitizeHTML, sanitizeHTMLExternal } from "../util/convertHTML";
 import { Observable, notifyChangedProperty } from "../util/Observable";
-import { backgroundError } from "../../frontend/Util/error";
+import { dataError } from "../util/error";
 import { AbstractFunction } from "../util/util";
 import { ArrayColl, MapColl } from "svelte-collections";
 
@@ -72,7 +72,10 @@ export class Message extends Observable {
   /** Re-create the plaintext from the current HTML, which is the source of
    * truth in the composer. Unlike `set text`, this keeps the HTML. */
   regenerateTextFromHTML() {
-    this._text = this._rawHTML ? convertHTMLToText(this._rawHTML) : null;
+    if (!this._rawHTML) { // plaintext-only
+      return;
+    }
+    this._text = convertHTMLToText(this._rawHTML);
   }
 
   /** HTML version of the message.
@@ -107,7 +110,7 @@ export class Message extends Observable {
         return this._sanitizedHTML = convertTextToHTML(this._text);
       }
     } catch (ex) {
-      backgroundError(ex);
+      dataError(ex);
     }
     return "";
   }

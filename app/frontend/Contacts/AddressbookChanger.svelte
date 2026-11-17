@@ -2,7 +2,7 @@
   selectedAccount={selectedAddressbook}
   accounts={addressbooks}
   filterByWorkspace={false}
-  icon={selectedAddressbook?.icon ?? AddressbookIcon}
+  icon={AddressbookIcon}
   {withLabel}
   on:select={(ev) => catchErrors(() => onChangeAddressbook(ev.detail as Addressbook))}
   />

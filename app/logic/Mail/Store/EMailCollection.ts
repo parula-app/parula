@@ -10,7 +10,8 @@ export class EMailCollection<T extends EMail> extends SortedCollection<T> {
   protected readonly readMessageRunOnce = new Map<number, RunOnce<void>>();
 
   constructor(folder: Folder) {
-    let sortFunc = (a: T, b: T) => compareValues(b.sent, a.sent); // inverted = newest first
+    // `sent` is null after `resetProperties()`. That sorts as 0, the oldest.
+    let sortFunc = (a: T, b: T) => compareValues(b.sent?.getTime() ?? 0, a.sent?.getTime() ?? 0); // inverted = newest first
     /* Normally, a `SortedCollection` is simply a sorted /copy/ of the source collection.
      * Here, we don't use a source collection, but add the items directly to the
      * `SortedCollection`, using `.add()` and `.remove()`. The `SortedCollection`
@@ -72,6 +73,11 @@ export class EMailCollection<T extends EMail> extends SortedCollection<T> {
         this.readMessageRunOnce.delete(runOnceKey);
       }
     });
+  }
+
+  // TODO: Move to SortedCollection in svelte-collections
+  add(email: T) {
+    this.addAll([email]);
   }
 }
 

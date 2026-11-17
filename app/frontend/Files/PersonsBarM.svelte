@@ -22,7 +22,7 @@
   import AppBarM from "../AppsBar/AppBarM.svelte";
   import ButtonMenu from "../Shared/Menu/ButtonMenu.svelte";
   import AppMenuButton from "../AppsBar/AppMenuM/AppMenuButton.svelte";
-  import { URLPart } from "../Util/util";
+  import { URLPart } from "../../logic/util/blob";
 
   let isMenuOpen = false;
 

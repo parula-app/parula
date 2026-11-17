@@ -60,3 +60,45 @@ test("Semaphore", async () => {
   expect(a.sema.countRunning).toBe(0);
   expect(a.sema.countWaiting).toBe(0);
 });
+
+test("Semaphore: Ask while another task waits and none runs", async () => {
+  let sema = new Semaphore(1);
+  let first = await sema.lock();
+  let second = sema.lock(); // waits for `first`
+  first.release();
+  let third = sema.lock(); // asks before `second` continued
+  (await second).release();
+  (await third).release();
+  expect(sema.countRunning).toBe(0);
+  expect(sema.countWaiting).toBe(0);
+});
+
+test("Semaphore: Task chains that keep the queue busy", async () => {
+  let sema = new Semaphore(6);
+  let ran = 0;
+  let maxParallelSeen = 0;
+  const runChain = async (left: number) => {
+    let locked = await sema.lock();
+    try {
+      maxParallelSeen = Math.max(maxParallelSeen, sema.countRunning);
+      for (let i = 0; i < left % 5; i++) {
+        await Promise.resolve(); // a deep promise chain, like a real request
+      }
+      ran++;
+    } finally {
+      locked.release();
+    }
+    if (left > 1) {
+      await runChain(left - 1); // the response triggers the next request
+    }
+  };
+  let chains = [];
+  for (let i = 0; i < 14; i++) {
+    chains.push(runChain(5));
+  }
+  await Promise.all(chains);
+  expect(ran).toBe(14 * 5);
+  expect(maxParallelSeen).toBe(6);
+  expect(sema.countRunning).toBe(0);
+  expect(sema.countWaiting).toBe(0);
+});

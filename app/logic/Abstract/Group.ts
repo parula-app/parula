@@ -14,8 +14,14 @@ export class Group extends ContactBase {
    */
   async save() {
     await super.save();
-    await this.saveLocally();
-    await this.saveToServer();
+    try {
+      await this.saveToServer();
+    } finally {
+      // Why locally after server: Exchange assigns item ID etc., so need to store it locally.
+      // Even a failed save may have created the group, and losing its ID
+      // would create a second one on the next save.
+      await this.saveLocally();
+    }
   }
 
   /**

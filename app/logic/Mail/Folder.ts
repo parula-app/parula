@@ -1,6 +1,5 @@
 import { EMail } from "./EMail";
 import type { MailAccount } from "./MailAccount";
-import type { TreeItem } from "../../frontend/Shared/FastTree";
 import { EMailCollection } from "./Store/EMailCollection";
 import { Observable, notifyChangedProperty } from "../util/Observable";
 import { ArrayColl, Collection } from 'svelte-collections';
@@ -8,7 +7,7 @@ import { Lock } from "../util/flow/Lock";
 import { assert, AbstractFunction } from "../util/util";
 import { gt } from "../../l10n/l10n";
 
-export class Folder extends Observable implements TreeItem<Folder> {
+export class Folder extends Observable {
   /** IMAP: folder path */
   id: string;
   dbID: number | string;
@@ -95,24 +94,48 @@ export class Folder extends Observable implements TreeItem<Folder> {
   }
 
   /** Downloads the entire MIME of *all* emails in this folder.
-   * Tries to download the small emails first, then the large emails.
    * Assumes that you did `listMessages()` first.
    * @returns the actually downloaded emails. */
   async downloadAllMessages(): Promise<Collection<EMail>> {
-    let missing = this.messages.filter(msg => !msg.downloadComplete) as any as Collection<EMail>;
+    return await this.downloadSmallMessagesFirst(this.messages as any as Collection<EMail>);
+  }
+
+  /** Downloads the `emails` that we do not have yet, the small ones first,
+   * so that most of them are readable as early as possible.
+   * @returns the actually downloaded emails. */
+  protected async downloadSmallMessagesFirst(emails: Collection<EMail>): Promise<Collection<EMail>> {
     const kMaxSize = 50000;
-    let missingLarge = missing.filter(msg => msg.size && msg.size > kMaxSize);
-    let missingSmall = missing.subtract(missingLarge);
-    // First the small messages, then the large ones
-    let downloadedSmall = await this.downloadMessages(missingSmall);
-    let downloadedLarge = await this.downloadMessages(missingLarge);
+    let isLarge = (msg: EMail) => !!msg.size && msg.size > kMaxSize;
+    let missing = emails.filterOnce(msg => !msg.downloadComplete);
+    let downloadedSmall = await this.downloadMessages(missing.filterOnce(msg => !isLarge(msg)));
+    let downloadedLarge = await this.downloadMessages(missing.filterOnce(isLarge));
     return downloadedSmall.concat(downloadedLarge);
+  }
+
+  /** Downloads the emails of the last 2 weeks. Listing a folder for the first
+   * time returns years of mail, and we do not want to download all of that.
+   * Older mail is downloaded on demand, or by `downloadAllMessages()`.
+   * @param emails the emails that `listMessages()` just returned
+   * @returns the actually downloaded emails. */
+  async downloadRecentMessages(emails: Collection<EMail>): Promise<Collection<EMail>> {
+    const kDaysPast = 14;
+    let oldest = new Date();
+    oldest.setDate(oldest.getDate() - kDaysPast);
+    return await this.downloadSmallMessagesFirst(emails.filterOnce(msg => msg.received > oldest));
   }
 
   /** Downloads the entire MIME of the given emails.
    * @returns the actually downloaded emails. */
   async downloadMessages(emails: Collection<EMail>): Promise<Collection<EMail>> {
     throw new AbstractFunction();
+  }
+
+  /** Lists all messages of this folder, and then downloads the recent ones
+   * @returns the newly listed messages */
+  async getRecentMessages(): Promise<Collection<EMail>> {
+    let newMessages = await this.listMessages();
+    await this.downloadRecentMessages(this.messages); // not newMessages, in case we missed some last time
+    return newMessages;
   }
 
   /** Lists only the new messages, and downloads them.
@@ -238,12 +261,12 @@ export class Folder extends Observable implements TreeItem<Folder> {
   async moveFolderHere(folder: Folder) {
     assert(folder.account == this.account, gt`Cannot move folders between accounts yet. You can create a new folder and move the messages`);
     assert(folder != folder.account.getSpecialFolder(SpecialFolder.Inbox), "Cannot move the inbox");
-    assert(!folder.specialFolder, "Should not move special folders");
+    assert(!folder.specialFolder || folder.specialFolder == SpecialFolder.Normal, "Should not move special folders");
     assert(folder != this, "Cannot move a folder into itself. Neither physics nor logic allow that. We would run into a circle and run and run and run...");
-    assert(this.subFolders.contains(folder), "This folder is *already* a subfolder of the target folder");
+    assert(!folder.getInclusiveDescendants().contains(this), gt`You cannot move a folder into its own subfolder`);
+    assert(!this.subFolders.contains(folder), "This folder is *already* a subfolder of the target folder");
     let disableSubfolders = this.disableSubfolders();
     assert(!disableSubfolders, disableSubfolders || "This folder cannot have subfolders");
-    // TODO Check sub sub folders
     if (folder.parent) {
       folder.parent.subFolders.remove(folder);
     } else {
@@ -282,8 +305,11 @@ export class Folder extends Observable implements TreeItem<Folder> {
     await this.deleteItOnServer();
   }
 
-  /** Warning: Also deletes all messages in the folder, also on the server */
+  /** Warning: Also deletes all messages and subfolders of the folder */
   async deleteItLocally(): Promise<void> {
+    for (let subFolder of this.subFolders.contents) {
+      await subFolder.deleteItLocally();
+    }
     if (this.parent) {
       this.parent.subFolders.remove(this);
     } else {

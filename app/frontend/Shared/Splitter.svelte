@@ -1,7 +1,8 @@
 {#if hasLeft && hasRight}
   <hbox class="splitter" bind:clientWidth={containerWidth}
     class:mobile={appGlobal.isMobile}>
-    <hbox class="left" bind:clientWidth={currentLeftWidth}>
+    <hbox class="left" bind:clientWidth={currentLeftWidth}
+      style="min-width: {leftMinWidth}px;">
       <ErrorBoundary>
         <slot name="left" />
       </ErrorBoundary>
@@ -12,8 +13,8 @@
       />
     <hbox class="right" style={
       rightFixedWidth
-      ? `width: ${rightFixedWidth};`
-      : `flex: ${rightRatio} 0 0;`
+      ? `width: ${rightFixedWidth}px;`
+      : `flex: ${rightRatio} 0 0; min-width: ${rightMinWidth}px;`
       }>
       <ErrorBoundary>
         <slot name="right" />
@@ -32,7 +33,7 @@
   <vbox class="splitter" />
 {/if}
 
-<svelte:window
+<AppWindowEvents
   on:pointermove={onMouseMove}
   on:pointerup={onMouseUp}
   />
@@ -41,6 +42,7 @@
 	import { appGlobal } from "../../logic/app";
   import { sanitize } from "../../../lib/util/sanitizeDatatypes";
   import ErrorBoundary from "./ErrorBoundary.svelte";
+  import AppWindowEvents from "../MainWindow/AppWindowEvents.svelte";
 
   /** Left pane cannot be made smaller than this
    * in px */
@@ -140,6 +142,12 @@
   .left :global(> *:first-child),
   .right :global(> *:first-child) {
     flex: 1 0 0;
+  }
+
+  .left,
+  .right {
+    overflow-x: clip;
+    contain: inline-size; /* else content width widens the window. Vertically, height: 100% prevents that */
   }
 
   /*

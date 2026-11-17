@@ -12,10 +12,16 @@
   >
   <hbox class="top-row">
     <hbox class="direction">
-      {#if $message.outgoing}
+      {#if $message.isSending}
+        <SendingIcon size={16} class="sending" />
+      {:else if $message.outgoing}
         <OutgoingIcon size={16} class="outgoing" />
       {:else if $message.isReplied}
         <ReplyIcon size={16} class="reply" />
+      {:else if $message.isForwarded}
+        <ForwardIcon size={16} class="forward" />
+      {:else if $message.isImportant}
+        <ImportantIcon size={16} class="important" />
       {/if}
     </hbox>
     <hbox class="contact font-small">{contactName}</hbox>
@@ -27,6 +33,7 @@
     {/if}
     <hbox class="date font-smallest">{getDateTimeString($message.sent)}</hbox>
     <hbox class="unread-dot button" class:unread={!$message.isRead}>
+      {#key message} <!-- Rebuild per mail, otherwise the spinner from the previous mail stays. -->
       <Button
         icon={CircleIcon}
         iconSize="7px"
@@ -35,6 +42,7 @@
         onClick={toggleRead}
         plain
         />
+      {/key}
     </hbox>
     <!--
     <hbox class="buttons hover">
@@ -78,6 +86,7 @@
       </hbox>
     {/if}
     <hbox class="star button" class:starred={$message.isStarred}>
+      {#key message}
       <Button
         icon={StarIcon}
         iconSize="16px"
@@ -86,6 +95,7 @@
         onClick={toggleStar}
         plain
         />
+      {/key}
     </hbox>
     <hbox class="attachments">
       {#if $message.hasVisibleAttachments}
@@ -117,13 +127,16 @@
   import ContextMenu from "../../Shared/Menu/ContextMenu.svelte";
   import Button from "../../Shared/Button.svelte";
   import OutgoingIcon from "lucide-svelte/icons/arrow-big-left";
+  import SendingIcon from "lucide-svelte/icons/send";
   import ReplyIcon from "lucide-svelte/icons/reply";
+  import ForwardIcon from "lucide-svelte/icons/forward";
+  import ImportantIcon from "lucide-svelte/icons/circle-alert";
   import StarIcon from "lucide-svelte/icons/star";
   import CircleIcon from "lucide-svelte/icons/circle";
   import AttachmentIcon from "lucide-svelte/icons/paperclip";
   import FolderActionsIcon from "lucide-svelte/icons/folder-dot";
   import { isMobile } from "../../../logic/build";
-  import { getDateTimeString } from "../../Util/date";
+  import { getDateTimeString } from "../../../logic/util/date";
   import { catchErrors } from "../../Util/error";
   import { ArrayColl } from "svelte-collections";
   import { t } from "../../../l10n/l10n";
@@ -210,7 +223,7 @@
   .date {
     min-width: 8em;
     justify-content: end;
-    font-family: Helvetica, Arial, sans-serif;
+    font-family: Helvetica, Arial, Constr-Klingon, sans-serif;
     padding-top: 2px; /** HACK Fix vertical alignment */
   }
   .subject {
@@ -262,16 +275,40 @@
   .direction :global(svg.outgoing) {
     stroke-width: 1px;
   }
+  .direction :global(svg.important) {
+    color: crimson;
+  }
   @media (prefers-color-scheme: light) {
     .direction :global(svg.outgoing) {
       color: darkred;
     }
-    .direction :global(svg.reply) {
+    .direction :global(svg.reply),
+    .direction :global(svg.forward),
+    .direction :global(svg.sending) {
       color: grey;
     }
   }
-  .direction :global(svg.reply) {
+  .direction :global(svg.reply),
+  .direction :global(svg.forward),
+  .direction :global(svg.sending) {
     stroke-width: 1px;
+  }
+  .direction :global(svg.sending) {
+    animation: sending 1.5s linear infinite;
+  }
+  /* Flies away to the top right. The middle points sit above the straight
+   * line, so that it climbs steeply first and then flattens out. */
+  @keyframes sending {
+    0% { opacity: 0%; transform: translate(-4px, 3px); animation-timing-function: ease-out; }
+    20% { opacity: 100%; transform: translate(-2px, -1px); }
+    80% { opacity: 100%; transform: translate(2px, -2px); animation-timing-function: ease-in; }
+    100% { opacity: 0%; transform: translate(4px, -3px); }
+  }
+  :global(.row.selected) .direction :global(svg.reply),
+  :global(.row.selected) .direction :global(svg.forward),
+  :global(.row.selected) .direction :global(svg.sending),
+  :global(.row.selected) .direction :global(svg.important) {
+    color: var(--selected-fg);
   }
   .star :global(svg) {
     stroke-width: 1px;

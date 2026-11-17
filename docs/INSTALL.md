@@ -23,9 +23,9 @@ yarn run dev
 2. Build
 ```
 (cd app; yarn build)
-(cd e2; yarn build:win)
-(cd e2; yarn build:linux)
-(cd e2; yarn build:mac)
+(cd desktop; yarn build:win)
+(cd desktop; yarn build:linux)
+(cd desktop; yarn build:mac)
 ```
 
 # Problems

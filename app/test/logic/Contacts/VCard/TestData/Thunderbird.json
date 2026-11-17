@@ -44,6 +44,7 @@
   "company": "Mustang",
   "department": "Admin",
   "position": "CEO",
+  "encryptionPublicKeys": [],
   "custom": [{
     "value": "Custom prop",
     "purpose": null,

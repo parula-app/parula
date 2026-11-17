@@ -1,11 +1,11 @@
-{#each $dirs?.each as dir }
+{#each $dirs?.each as dir (dir)}
   <DirectoryLine {dir} {indent} />
 {/each}
 <hbox class="separator" />
 <hbox class="separator" />
 <hbox class="separator" />
 <hbox class="separator" />
-{#each $files?.each as file }
+{#each $files?.each as file (file)}
   <FileLine {file} {indent} />
 {/each}
 

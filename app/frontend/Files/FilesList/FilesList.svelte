@@ -41,6 +41,15 @@
   </grid>
 </Scroll>
 
+<script lang="ts" context="module">
+  export enum SortCriteria {
+    Name = "name",
+    Type = "type",
+    Size = "size",
+    LastMod = "last-mod",
+  }
+</script>
+
 <script lang="ts">
   import { File } from "../../../logic/Files/File";
   import { Directory } from "../../../logic/Files/Directory";
@@ -56,13 +65,6 @@
 
   export let files: Collection<File>;
   export let dirs: Collection<Directory>;
-
-  enum SortCriteria {
-    Name = "name",
-    Type = "type",
-    Size = "size",
-    LastMod = "last-mod",
-  }
 
   let sortSetting = getLocalStorage("files.sort", SortCriteria.Name);
   $: sortBy = $sortSetting.value;

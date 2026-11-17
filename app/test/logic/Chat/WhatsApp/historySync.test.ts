@@ -15,6 +15,8 @@ import { expect, test } from "vitest";
 
 const kAliceJID = "491761111111@s.whatsapp.net";
 const kBobJID = "491762222222@s.whatsapp.net";
+/** `kOnDemandPageSize` in `WhatsAppHistorySync.ts` */
+const kOnDemandPageSize = 50;
 
 /** A WhatsApp account on no-op storage, as in liveReceive.test.ts. */
 function setup(): WhatsAppAccount {
@@ -185,13 +187,13 @@ test("on-demand request: PeerDataOperationRequestMessage round-trips on the wire
   expect(onDemand.chatJID).toBe(kBobJID);
   expect(onDemand.oldestMsgID).toBe("OLDEST123");
   expect(onDemand.oldestMsgFromMe).toBe(true);
-  expect(onDemand.onDemandMsgCount).toBe(50);
+  expect(onDemand.onDemandMsgCount).toBe(kOnDemandPageSize);
   expect(onDemand.oldestMsgTimestampSec).toBe(1700000000); // seconds, despite the *MS name
 
   // The standalone sub-message also round-trips (field numbers isolated).
   let bare = decode(PeerDataOperationRequestMessage,
     encode(PeerDataOperationRequestMessage, original.protocolMessage.peerDataOperationRequestMessage));
-  expect(bare.historySyncOnDemandRequest!.onDemandMsgCount).toBe(50);
+  expect(bare.historySyncOnDemandRequest!.onDemandMsgCount).toBe(kOnDemandPageSize);
 });
 
 test("on-demand paging (on by default) requests the page before the oldest message", async () => {
@@ -213,7 +215,7 @@ test("on-demand paging (on by default) requests the page before the oldest messa
   let request = sent.protocolMessage.peerDataOperationRequestMessage.historySyncOnDemandRequest;
   expect(request.chatJID).toBe(room.id);
   expect(request.oldestMsgID).toBe("anchor");
-  expect(request.onDemandMsgCount).toBe(50);
+  expect(request.onDemandMsgCount).toBe(kOnDemandPageSize);
 });
 
 test("history sync skips a message already in the room (e.g. from a backup import), by key id", async () => {

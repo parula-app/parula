@@ -1,5 +1,5 @@
 import { OAuth2UI } from "./OAuth2UI";
-import { UserCancelled, assert, type URLString } from "../../util/util";
+import { UserCancelled, type URLString } from "../../util/util";
 import { notifyChangedProperty } from "../../util/Observable";
 import { gt } from "../../../l10n/l10n";
 
@@ -32,7 +32,9 @@ export class OAuth2Embed extends OAuth2UI {
     }
   }
   success(finalURL: URLString) {
-    assert(this.doneFunc, "Need doneFunc");
+    if (!this.doneFunc) {
+      return; // E.g. the dialog was closed
+    }
     try {
       this.doneFunc(this.oAuth2.getAuthCodeFromDoneURL(finalURL));
     } catch (ex) {
@@ -40,8 +42,7 @@ export class OAuth2Embed extends OAuth2UI {
     }
   }
   failed(ex: Error) {
-    assert(this.failFunc, "Need failFunc");
-    this.failFunc(ex);
+    this.failFunc?.(ex);
     this.failFunc = null;
     this.doneFunc = null;
   }

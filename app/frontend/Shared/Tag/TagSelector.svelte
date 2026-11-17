@@ -2,7 +2,7 @@
   <hbox class="tag-list">
     {#each $tags.each as tag}
       <TagBubble {tag}
-        selected={$selectedTags ? $selectedTags.contains(tag) : undefined}
+        selected={$partialTags?.contains(tag) ? null : $selectedTags?.contains(tag)}
         on:click={() => catchErrors(() => onSelectToggle(tag))}
         >
         <slot name="tag-button" slot="tag-button" {tag} />
@@ -44,6 +44,8 @@
 
   export let tags: SetColl<Tag>;
   export let selectedTags: SetColl<Tag> = undefined;
+  /** The tags that only some of the objects have, when several objects are being tagged */
+  export let partialTags: SetColl<Tag> = undefined;
   export let object: TaggableObject | undefined = undefined;
   export let canAdd = true;
 

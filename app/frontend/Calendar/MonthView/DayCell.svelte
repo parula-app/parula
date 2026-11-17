@@ -1,76 +1,81 @@
-<Clickable onClick={selectDay} onDoubleClick={addEvent}>
-  <vbox flex class="events"
-    style="--selected-calendar-color: {$selectedCalendar?.color ?? "black"}">
-    {#if $displayEvents?.hasItems}
-      <Scroll>
-        {#each $displayEvents.each as event (event.id)}
-          {#if event.startTime && event.endTime}
-            <EventContainer {event} {start} />
-          {/if}
-        {/each}
-      </Scroll>
-    {/if}
+<Clickable onClick={selectDay} {onDoubleClick}>
+  <vbox class="day-cell"
+    style="grid-column: {column}"
+    class:selected={start.getTime() == $selectedDate?.getTime()}>
     {#if withMonthOnFirst && start.getDate() == 1 ||
       withMonthOnMonday && start.getDay() == 1 }
       <hbox class="month-name font-normal">
         {start.toLocaleDateString(getDateTimeLocale(), { month: "long" })}
       </hbox>
     {/if}
+    <vbox class="current-time-marker-range">
+      <CurrentTimeMarker day={start} startHour={WeekRowLayout.kStartHour} endHour={WeekRowLayout.kEndHour} />
+    </vbox>
   </vbox>
 </Clickable>
 
 <script lang="ts">
-  import type { Event } from "../../../logic/Calendar/Event";
-  import { setNewEventTime } from "../event";
-  import { selectedCalendar, selectedDate } from "../selected";
-  import { openEvent } from "../open";
-  import { appGlobal } from "../../../logic/app";
-  import EventContainer from "./EventContainer.svelte";
+  import { selectedDate } from "../selected";
   import Clickable from "../../Shared/Clickable.svelte";
-  import Scroll from "../../Shared/Scroll.svelte";
-  import { k1HourMS } from "../../Util/date";
-  import { assert } from "../../../logic/util/util";
-  import { getDateTimeLocale, t } from "../../../l10n/l10n";
-  import type { Collection } from "svelte-collections";
+  import CurrentTimeMarker from "../CurrentTimeMarker.svelte";
+  import { WeekRowLayout } from "./WeekRow";
+  import { k1HourMS } from "../../../logic/util/date";
+  import { getDateTimeLocale } from "../../../l10n/l10n";
+  import { createEventDispatcher } from "svelte";
+  const dispatchEvent = createEventDispatcher<{ celldblclick: { start: Date, mouseEvent: MouseEvent } }>();
 
   export let start: Date;
-  export let intervalInHours: number;
-  export let events: Collection<Event>;
+  export let column: number;
   export let withMonthOnFirst = false;
   export let withMonthOnMonday = false;
-
-  let displayEvents: Collection<Event>;
-  let end: Date;
-  $: start, intervalInHours, setEnd();
-  function setEnd() {
-    end = new Date(start);
-    end.setHours(end.getHours() + intervalInHours);
-    displayEvents = events.filterObservable(ev => ev.startTime < end && ev.endTime > start);
-  }
 
   function selectDay() {
     $selectedDate = start;
   }
 
-  function addEvent() {
-    $selectedCalendar ??= appGlobal.calendars.first;
-    assert($selectedCalendar, $t`Please set up a calendar first`);
-    let event = $selectedCalendar.newEvent();
+  function onDoubleClick(mouseEvent: MouseEvent) {
     let startTime = new Date(start.getTime() + 10 * k1HourMS);
-    setNewEventTime(event, true, startTime);
-    openEvent(event, true);
+    dispatchEvent("celldblclick", { start: startTime, mouseEvent });
   }
 </script>
 
 <style>
-  .events {
+  .day-cell {
+    grid-row: 1 / -1;
     position: relative;
     border-left: 1px dotted var(--border);
     border-bottom: 1px dotted var(--border);
   }
-  .events:hover {
-    background-color: color-mix(in srgb, var(--selected-calendar-color) 10%, transparent);
+  .day-cell.selected {
+    background-color: #E9F5F4;
+  }
+  .day-cell:hover:not(.selected) {
+    background-color: #F1F9F8;
+  }
+  .day-cell:hover {
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--selected-calendar-color) 10%, transparent),
+      color-mix(in srgb, var(--selected-calendar-color) 10%, transparent));
     color: white;
+  }
+  @media (prefers-color-scheme: dark) {
+    .day-cell.selected {
+      background-color: #193D39;
+    }
+    .day-cell:hover:not(.selected) {
+      background-color: var(--hover-bg);
+      color: var(--hover-fg);
+    }
+    .day-cell.selected:hover {
+      background-color: var(--selected-hover-bg);
+      color: var(--selected-hover-fg);
+    }
+  }
+  .current-time-marker-range {
+    position: absolute;
+    top: 0px;
+    inset-inline: 0px;
+    height: calc(var(--rows) * var(--row-height));
   }
   .month-name {
     position: absolute;

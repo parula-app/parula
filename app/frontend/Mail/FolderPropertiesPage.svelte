@@ -8,7 +8,7 @@
   <vbox class="main" slot="right" flex>
     <hbox class="top">
       <vbox>
-        <h2>{$t`Folder`} - {$folder.name} - {$folder.account.name}</h2>
+        <h2>{$t`Folder`} {#if folder}- {$folder.name} - {$folder.account.name}{/if}</h2>
         <hbox class="subtitle">{$t`Rename folders, set special folders, share them with others`}</hbox>
       </vbox>
       <hbox flex />

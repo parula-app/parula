@@ -6,7 +6,7 @@ import { LiveKitRemoteParticipant } from "./LiveKitRemoteParticipant";
 import { ensureLicensed, getSavedTicket } from "../../util/LicenseClient";
 import { appGlobal } from "../../app";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { catchErrors } from "../../../frontend/Util/error";
+import { catchErrors } from "../../util/error";
 import { assert, type URLString } from "../../util/util";
 import { fetchJSON } from "../../util/netUtil";
 import { getDateTimeLocale, gt } from "../../../l10n/l10n";

@@ -82,7 +82,7 @@
   import OpenCloudIcon from "lucide-svelte/icons/cloud";
   import CollapseIcon from "lucide-svelte/icons/chevrons-right";
   import XIcon from "lucide-svelte/icons/x";
-  import { getDateTimeString } from "../../Util/date";
+  import { getDateTimeString } from "../../../logic/util/date";
   import { catchErrors } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
   import type { Collection } from "svelte-collections";

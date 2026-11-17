@@ -46,9 +46,6 @@
       </vbox>
     {/if}
   </hbox>
-  {#if $personUID.name == $personUID.emailAddress && nameInputEl == document.activeElement}
-    <hbox class="helptext font-small">{$t`Add the name of the person, and press ENTER`}</hbox>
-  {/if}
   {#if !disabled}
     {#if person?.emailAddresses.hasItems}
       <vbox class="other-email-addresses">
@@ -93,9 +90,9 @@
   import CheckIcon from "lucide-svelte/icons/check";
   import MailIcon from "lucide-svelte/icons/mail";
   import { createIsSame, onKeyEnter } from "../../Util/util";
-  import { backgroundError } from "../../Util/error";
+  import { minorError } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   const dispatch = createEventDispatcher<{ close: void }>();
 
   export let personUID: PersonUID;
@@ -127,10 +124,16 @@
     isEditing = (!person.addressbook || person.addressbook == appGlobal.collectedAddressbook) && !disabled;
   }
 
+  /** The user closes the popup in many ways, not only with ENTER. */
+  onDestroy(() => {
+    if (isEditing) {
+      onSave()
+        .catch(minorError);
+    }
+  });
   function onClose() {
-    onSave()
-      .catch(backgroundError);
     dispatch("close");
+    // continue in onDestroy()
   }
   async function onSave() {
     person ??= personUID.createPerson(appGlobal.personalAddressbook);
@@ -179,11 +182,6 @@
   }
   input {
     min-width: 15em;
-  }
-  .helptext {
-    max-width: 15em;
-    margin: 0px 24px;
-    opacity: 50%;
   }
   .top-right.buttons {
     justify-content: start;

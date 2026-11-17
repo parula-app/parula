@@ -31,8 +31,8 @@ export const SplitBlockquote = Blockquote.extend({
     return {
       splitBlockquote: () => ({ chain, tr }) => {
         let {$from, $to} = tr.selection;
-        // if not in blockquote
-        if ($from.node(1).type.name !== 'blockquote') {
+        // if not in blockquote. depth 0 = gap cursor or a selected top-level node
+        if ($from.depth < 1 || $from.node(1).type.name !== 'blockquote') {
           return false;
         }
         // if at start of blockquote

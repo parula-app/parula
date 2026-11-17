@@ -1,4 +1,5 @@
 import { TCPAccount } from "../Abstract/TCPAccount";
+import { unusedAccountColor } from "../Abstract/Account";
 import { MailIdentity } from "./MailIdentity";
 import { Folder, SpecialFolder, type MailShareCombinedPermissions, type MailShareIndividualPermissions } from "./Folder";
 import type { EMail } from "./EMail";
@@ -6,10 +7,15 @@ import type { SMTPAccount } from "./SMTP/SMTPAccount";
 import { ContactEntry } from "../Abstract/Person";
 import type { PersonUID } from "../Abstract/PersonUID";
 import { FilterRuleAction } from "./FilterRules/FilterRuleAction";
+import { AutoResponder } from "./AutoResponder";
 import { OAuth2 } from "../Auth/OAuth2";
+import { getOAuth2BuiltIn, getProvider } from "../Auth/OAuth2Util";
+import type { Provider } from "../Auth/OAuth2URLs";
 import type { AttachmentStorage } from "../Abstract/Attachment";
 import type { Calendar } from "../Calendar/Calendar";
+import type { Addressbook } from "../Contacts/Addressbook";
 import type { SetupInfo } from "./AutoConfig/SetupInfo";
+import type { SearchEMail } from "./Store/SearchEMail";
 import { appGlobal } from "../app";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { AbstractFunction, assert } from "../util/util";
@@ -45,9 +51,10 @@ export class MailAccount extends TCPAccount {
 
   readonly rootFolders: Collection<Folder> = new ArrayColl<Folder>();
   readDBRunOnce = new RunOnce();
+  protected _autoResponder: AutoResponder;
 
-  async startup() {
-    await super.startup();
+  async syncOnStartup() {
+    await super.syncOnStartup();
     await this.listFolders();
     assert(this.inbox, gt`Inbox not found`);
     await this.inbox.getNewMessages();
@@ -79,9 +86,10 @@ export class MailAccount extends TCPAccount {
   }
 
   get inbox(): Folder | null {
-    return this._inbox ??
-      (this._inbox = this.getSpecialFolder(SpecialFolder.Inbox)) ??
-      this.rootFolders.first;
+    // Cache only the real inbox: While we are still reading the folders,
+    // the first folder that we get is often not the inbox.
+    this._inbox ??= this.findFolder(folder => folder.specialFolder == SpecialFolder.Inbox);
+    return this._inbox ?? this.rootFolders.first;
   }
 
   get outgoing(): SMTPAccount {
@@ -97,11 +105,10 @@ export class MailAccount extends TCPAccount {
   /** When accepting an incoming invitation, put the meeting in this calendar, by default.
    * The user can still change it in the dropdown. */
   get calendar(): Calendar | null {
-    let cal = appGlobal.calendars.find(cal => cal.id == this.calendarID);
-    if (!cal) {
-      this.calendar = cal = this.calendarsAvailable.first;
-    }
-    return cal;
+    // Don't store the fallback: a calendar picked while the account's own
+    // calendars were not known yet would stay the default forever.
+    let available = this.calendarsAvailable;
+    return available.find(cal => cal.id == this.calendarID) ?? available.first;
   }
   set calendar(cal: Calendar | null) {
     this.calendarID = cal?.id;
@@ -139,6 +146,47 @@ export class MailAccount extends TCPAccount {
     return new Folder(this);
   }
 
+  newIdentity(): MailIdentity {
+    return new MailIdentity(this);
+  }
+
+  /** Automatic replies, e.g. during vacation.
+   * Check `autoResponder.supported`. */
+  get autoResponder(): AutoResponder {
+    return this._autoResponder ??= this.newAutoResponder();
+  }
+
+  newAutoResponder(): AutoResponder {
+    return new AutoResponder(this);
+  }
+
+  /** Logins from older app versions have only the scopes of that time.
+   * Asks the user to log in again with the current scopes.
+   * For `PermissionMissing`. */
+  async upgradeScopes(): Promise<void> {
+    let oAuth2 = this.oAuth2 as OAuth2;
+    let newScope = (getOAuth2BuiltIn(this) as OAuth2)?.scope;
+    assert(oAuth2 && newScope, this.name + `: ` + gt`Need OAuth2 configuration`);
+    let oldScope = oAuth2.scope;
+    if (oldScope == newScope) {
+      return; // A new login would not get more
+    }
+    oAuth2.scope = newScope;
+    try {
+      await oAuth2.loginWithUI();
+    } catch (ex) {
+      oAuth2.scope = oldScope;
+      throw ex;
+    }
+    await this.save();
+  }
+
+  /** Lets the server search this account, also emails that we did not download.
+   * @returns null, if this protocol has no server-side search */
+  newSearch(): SearchEMail | null {
+    return null;
+  }
+
   newEMailFrom(): EMail {
     let folder = this.getSpecialFolder(SpecialFolder.Sent);
     let email = folder.newEMail();
@@ -162,7 +210,7 @@ export class MailAccount extends TCPAccount {
   }
 
   isMyEMailAddress(emailAddress: string): boolean {
-    return this.emailAddress == emailAddress ||
+    return this.emailAddress?.toLowerCase() == emailAddress.toLowerCase() ||
       this.identities.some(id => id.isEMailAddress(emailAddress));
   }
 
@@ -193,8 +241,49 @@ export class MailAccount extends TCPAccount {
     return this.rootFolders.first;
   }
 
+  provider(): Provider | null {
+    return getProvider(this);
+  }
+
   canShareWithPersons(): boolean {
     return false;
+  }
+
+  /** The access levels that this server can grant to other users.
+   * Ordered from least to most permission. Used by @see `addSharedPerson()` */
+  get sharePermissionLevels(): MailShareCombinedPermissions[] {
+    return [];
+  }
+
+  /** The accounts of other users that the server lists for us, set up here or not.
+   * Only where the server lists them, e.g. JMAP.
+   * Otherwise, the user manually enters the colleague's email address, and we use `findSharedFolders()`. */
+  async availableSharedAccounts(): Promise<ArrayColl<PersonUID>> {
+    return new ArrayColl<PersonUID>();
+  }
+
+  /** Which of the `distinguishedIDs` of `person`'s account we may access. */
+  async findSharedFolders(person: PersonUID, distinguishedIDs: string[]): Promise<string[]> {
+    return [];
+  }
+
+  /** Adds the mails that `person` shared with us as an account of their own. */
+  async addSharedFolders(person: PersonUID, sharedFolderRoot: "msgfolderroot" | "inbox"): Promise<MailAccount> {
+    throw new AbstractFunction();
+  }
+
+  async addSharedAddressbook(person: PersonUID): Promise<Addressbook> {
+    throw new AbstractFunction();
+  }
+
+  async addSharedCalendar(person: PersonUID): Promise<Calendar> {
+    throw new AbstractFunction();
+  }
+
+  /** So that the user does not mistake another person's mails for ours */
+  colorForSharedAccount(person: PersonUID): string {
+    return this.dependentAccounts().find(acc => acc.username == person.emailAddress)?.color ??
+      unusedAccountColor();
   }
 
   async getSharedPersons(): Promise<ArrayColl<PersonUID>> {
@@ -213,7 +302,9 @@ export class MailAccount extends TCPAccount {
     this.identities.clear();
     for (let idJSON of sanitize.array(json.identities, [])) {
       try {
-        this.identities.add(MailIdentity.fromConfigJSON(idJSON, this));
+        let identity = this.newIdentity();
+        identity.fromConfigJSON(idJSON);
+        this.identities.add(identity);
       } catch (ex) {
         this.errorCallback(ex);
       }
@@ -254,6 +345,7 @@ export class MailAccount extends TCPAccount {
 
   /** Fills this object with the config values from the other config */
   cloneFrom(other: MailAccount) {
+    this.name = other.name;
     this.url = other.url;
     this.hostname = other.hostname;
     this.port = other.port;
@@ -267,6 +359,10 @@ export class MailAccount extends TCPAccount {
 
     // objects
     this.oAuth2 = other.oAuth2;
+    if (this.oAuth2) {
+      // It logs in as us now, and its login web session is `webSessionID` = our account ID
+      this.oAuth2.account = this;
+    }
     this.identities.addAll(other.identities);
   }
 

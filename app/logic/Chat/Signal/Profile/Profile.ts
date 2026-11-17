@@ -17,7 +17,7 @@ import {
 } from "../Encryption/ProfileCipher";
 import { base64Encode, base64Decode, aesGCMDecrypt } from "../Crypto/primitives";
 import { appGlobal } from "../../../app";
-import { blobToDataURL } from "../../../util/util";
+import { blobToDataURL } from "../../../util/blob";
 
 /** `GET /v1/profile/{aci}[/{version}[/{credentialRequest}]]` response. The base
  * fields (`VersionedProfileResponse` unwraps `BaseProfileResponse`) are flat, per

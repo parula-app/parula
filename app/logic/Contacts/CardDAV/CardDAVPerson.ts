@@ -10,6 +10,9 @@ import type { DAVObject } from "tsdav";
 export class CardDAVPerson extends Person {
   declare addressbook: CardDAVAddressbook | null;
   url: URLString | null = null;
+  /** The UID in the vCard, which identifies the contact on the server
+   * (because `.id` is the ID in our database) */
+  uid: string;
   /** The vCard that we downloaded from the server.
    * Allows updates of only the properties that we know about,
    * leaving unknown properties as-is. */
@@ -54,10 +57,12 @@ export class CardDAVPerson extends Person {
         vCard: this.getDAVObject(vCard),
       });
       await assertHTTPResponseOK(response, gt`Saving the contact failed`);
+      this.originalVCard = vCard;
+      await this.readETag(response);
     } else {
       let vCard = personToVCard(this);
       console.log("creating with vCard", vCard);
-      let filename = this.id + ".vcf";
+      let filename = sanitize.filename(this.id) + ".vcf";
       let response = await this.addressbook.client.createVCard({
         addressBook: this.addressbook.davAddressbook,
         vCardString: vCard,
@@ -66,8 +71,17 @@ export class CardDAVPerson extends Person {
       await assertHTTPResponseOK(response, gt`Saving the contact failed`);
       this.url = new URL(filename, this.addressbook.addressbookURL).href;
       this.originalVCard = vCard;
+      await this.readETag(response);
     }
     await super.saveToServer();
+  }
+
+  /** We must send the current ETag with our next save, otherwise the server gives
+   * `412 Precondition failed`. If the server changed the contact itself,
+   * it sends no ETag, and we have none until the next sync. */
+  protected async readETag(response: Response) {
+    let headers = await response.headers;
+    this.etag = await headers.get("ETag");
   }
 
   async saveTask() {
@@ -77,11 +91,13 @@ export class CardDAVPerson extends Person {
     super.fromExtraJSON(json);
     this.originalVCard = sanitize.string(json.original, null);
     this.url = sanitize.url(json.url, null);
+    this.uid = sanitize.nonemptystring(json.uid, null);
   }
   toExtraJSON(): any {
     let json = super.toExtraJSON();
     json.url = this.url;
     json.original = this.originalVCard;
+    json.uid = this.uid;
     return json;
   }
 

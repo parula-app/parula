@@ -1,6 +1,8 @@
 import { getUILocale } from "../../l10n/l10n";
 import { sourceLocale } from "../../l10n/list";
 import { getAllAccounts, type Account } from "../Abstract/Account";
+import { Provider } from "../Auth/OAuth2URLs";
+import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { assert } from "../util/util";
 
 /**
@@ -39,6 +41,28 @@ export class WebAppListed {
   /** Launch the application itself.
    * URL */
   start: string;
+  /** Which login the app needs, and therefore which accounts we can offer for it. */
+  loginType: WebAppLoginType;
+
+  /** `start`, logged in as `account`.
+   * Microsoft: Without `login_hint`, the app shows its welcome page with a "Sign in" button
+   * when the web login of the account has expired, and the user has to enter the email address. */
+  get startWithLogin(): string {
+    if (this.loginType == WebAppLoginType.Office365 && this.account?.username) {
+      let url = new URL(this.start);
+      url.searchParams.set("login_hint", this.account.username);
+      return url.href;
+    }
+    return this.start;
+  }
+
+  /** The provider that the app needs an account of, or null if any account works */
+  get loginProvider(): Provider | null {
+    return sanitize.translate(this.loginType, {
+      [WebAppLoginType.Office365]: Provider.Office365,
+      [WebAppLoginType.Google]: Provider.Google,
+    }, null);
+  }
 
   /** The name in the user's language, or a fallback when not available */
   get nameTranslated(): string {
@@ -77,6 +101,7 @@ export class WebAppListed {
     for (let name of WebAppListed.jsonProps) {
       result[name] = json[name];
     }
+    result.loginType = sanitize.enum(json.loginType, Object.values(WebAppLoginType), WebAppLoginType.Account);
     if (result.webSessionID) {
       result.account = getAllAccounts().find(acc => acc.webSessionID == result.webSessionID);
     }
@@ -90,5 +115,16 @@ export class WebAppListed {
     return json;
   }
   protected static jsonProps = ['id', 'categoryFullIDs', 'name', 'description', 'icon',
-    'homepage', 'pricePage', 'start', 'webSessionID',];
+    'homepage', 'pricePage', 'start', 'loginType', 'webSessionID',];
+}
+
+/** Which login a web app needs. Decides which accounts we offer for it in the app store. */
+export enum WebAppLoginType {
+  /** The app works without any login. */
+  None = "none",
+  /** Any of the user's accounts, or a login that the user makes in the app itself. */
+  Account = "account",
+  /** Only an account of this provider. @see `loginProvider` */
+  Office365 = "office365",
+  Google = "google",
 }

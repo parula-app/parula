@@ -1,14 +1,14 @@
 import type { EMail } from "../EMail";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
-import { Attachment, ContentDisposition } from "../../Abstract/Attachment";
+import { Attachment } from "../../Abstract/Attachment";
 import { getTagByName } from "../../Abstract/Tag";
 import { getFilesDir } from "../../../logic/util/backend-wrapper";
 import { EMailProcessorList } from "../EMailProcessor";
 import { SMLData } from "../SML/SMLData";
 import { EncryptionSystem } from "../Encryption/enums";
-import { assert, fileExtensionForMIMEType, ensureArray } from "../../util/util";
+import { assert, ensureArray } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { logError } from "../../../frontend/Util/error";
+import { internalError } from "../../util/error";
 import type { ArrayColl } from "svelte-collections";
 
 export class JSONEMail {
@@ -46,6 +46,8 @@ export class JSONEMail {
     json.isRead = email.isRead;
     json.isStarred = email.isStarred;
     json.isReplied = email.isReplied;
+    json.isForwarded = email.isForwarded;
+    json.isImportant = email.isImportant;
     json.isSpam = email.isSpam;
     json.isDraft = email.isDraft;
     json.threadID = email.threadID;
@@ -73,14 +75,28 @@ export class JSONEMail {
       json.invitationMessage = email.invitationMessage;
     }
 
-    if (email.signed || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt) {
+    if (email.signedByKeyID || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt) {
       let e = json.encryption = {} as any;
       e.system = email.system;
-      e.signedPublicKeyID = email.signed;
+      e.signedPublicKeyID = email.signedByKeyID;
+      e.signedPublicKey = this.saveSigner(email);
       e.wasEncrypted = email.wasEncrypted;
       e.mustEncrypt = email.mustEncrypt;
       e.shouldEncrypt = email.shouldEncrypt;
     }
+  }
+
+  /** Only if the contact does not have this very key or certificate,
+   * because the addressbook has the better copy.
+   * @returns {JSON} what we read, if we never parsed the key */
+  protected static saveSigner(email: EMail): any {
+    let signer = email.signedKey?.toJSON() ?? email.signedKeyJSON;
+    let onContact = email.from?.findPerson()?.encryptionPublicKeys
+      .find(key => key.fingerprint == signer?.fingerprint);
+    if (onContact) {
+      return null;
+    }
+    return signer;
   }
 
   protected static saveRecipients(email: EMail, json: any) {
@@ -111,14 +127,8 @@ export class JSONEMail {
 
   static saveAttachment(email: EMail, a: Attachment): any {
     assert(this.filesDir, "Please call init() first");
-    let json: any = {};
-    json.filename = a.filename;
+    let json = a.toJSON();
     json.filepathLocal = a.filepathLocal?.replace(this.filesDir + "/", "");
-    json.mimeType = a.mimeType;
-    json.size = a.size;
-    json.contentID = a.contentID;
-    json.disposition = a.disposition;
-    json.related = a.related;
     return json;
   }
 
@@ -183,6 +193,8 @@ export class JSONEMail {
     email.isRead = sanitize.boolean(json.isRead, false);
     email.isStarred = sanitize.boolean(json.isStarred, false);
     email.isReplied = sanitize.boolean(json.isReplied, false);
+    email.isForwarded = sanitize.boolean(json.isForwarded, false);
+    email.isImportant = sanitize.boolean(json.isImportant, false);
     email.isSpam = sanitize.boolean(json.isSpam, false);
     email.threadID = sanitize.string(json.threadID ?? json.inReplyTo, null);
     email.downloadComplete = sanitize.boolean(json.downloadComplete);
@@ -194,6 +206,8 @@ export class JSONEMail {
     email.isRead = sanitize.boolean(json.isRead, false);
     email.isStarred = sanitize.boolean(json.isStarred, false);
     email.isReplied = sanitize.boolean(json.isReplied, false);
+    email.isForwarded = sanitize.boolean(json.isForwarded, false);
+    email.isImportant = sanitize.boolean(json.isImportant, false);
     email.isDraft = sanitize.boolean(json.isDraft, false);
     email.isSpam = sanitize.boolean(json.isSpam, false);
     email.threadID = sanitize.string(json.threadID ?? json.inReplyTo, null);
@@ -211,7 +225,7 @@ export class JSONEMail {
           data.fromJSON(extra);
           email.extraData.set(type, data);
         } catch (ex) {
-          logError(ex);
+          internalError(ex);
         }
       }
     }
@@ -224,7 +238,9 @@ export class JSONEMail {
     let e = json.encryption;
     if (e) {
       email.system = sanitize.enum<EncryptionSystem>(e.system, Object.values(EncryptionSystem), null);
-      email.signed = sanitize.alphanumdash(e.signedPublicKeyID, null);
+      email.signedByKeyID = sanitize.alphanumdash(e.signedPublicKeyID, null);
+      // Parsed on demand, @see `getPublicKeyByKeyID()`
+      email.signedKeyJSON = e.signedPublicKey ?? null;
       email.wasEncrypted = sanitize.boolean(e.wasEncrypted, false);
       email.shouldEncrypt = sanitize.boolean(e.shouldEncrypt, false);
       email.mustEncrypt = sanitize.boolean(e.mustEncrypt, false);
@@ -270,22 +286,10 @@ export class JSONEMail {
     }
   }
 
-  protected static readAttachment(email: EMail, json: any, fallbackID): Attachment | null {
+  protected static readAttachment(email: EMail, json: any, fallbackID: number): Attachment | null {
     try {
       let a = email.newAttachment();
-      a.mimeType = sanitize.nonemptystring(json.mimeType, "application/octet-stream");
-      a.contentID = sanitize.nonemptystring(json.contentID, "" + fallbackID);
-      a.filename = sanitize.nonemptystring(json.filename, "attachment-" + fallbackID + "." + fileExtensionForMIMEType(a.mimeType));
-      let filepathLocal = sanitize.string(json.filepathLocal, null)
-      if (filepathLocal) {
-        a.filepathLocal = this.filesDir + "/" + filepathLocal;
-      }
-      a.size = sanitize.integer(json.size, -1);
-      a.disposition = sanitize.translate(json.disposition, {
-        attachment: ContentDisposition.attachment,
-        inline: ContentDisposition.inline,
-      }, ContentDisposition.unknown);
-      a.related = sanitize.boolean(json.related, false);
+      a.fromJSON(json, fallbackID, this.filesDir);
       email.attachments.add(a);
       return a;
     } catch (ex) {

@@ -7,7 +7,7 @@ import { SQLChatMessage } from '../../../../logic/Chat/SQL/SQLChatMessage';
 import { FakeChatAccount, FakeChatPerson, FakeAddressbook, fakePersons } from '../../../../logic/testData';
 import { SQLPerson } from '../../../../logic/Contacts/SQL/SQLPerson';
 import { appGlobal } from '../../../../logic/app';
-import { connectToBackend } from '../../util/backend.test';
+import { connectToBackend } from '../../util/backend';
 import { ArrayColl } from 'svelte-collections';
 import { expect, test } from 'vitest';
 

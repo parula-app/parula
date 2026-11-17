@@ -1,7 +1,7 @@
 {#if $visible.hasItems}
   <vbox class="attachments">
     <hbox class="attachments-list">
-      {#each $visible.each as attachment}
+      {#each $visible.each as attachment (attachment)}
         <MessageAttachment {attachment} />
       {/each}
     </hbox>
