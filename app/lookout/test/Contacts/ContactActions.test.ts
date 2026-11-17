@@ -7,9 +7,12 @@ import { ContactEntry, Person } from "../../../logic/Abstract/Person";
 import { Group } from "../../../logic/Abstract/Group";
 import { ContactActions } from "../../Contacts/ContactActions";
 import { defaultContactSearchOptions, hasContactRefiners, findContacts, matchesContactRefiners } from "../../Contacts/ContactSearch";
-import { ContactSearchScope } from "../../Contacts/Person/Selected";
+import { ContactSearchScope, selectedContact } from "../../Contacts/Person/Selected";
+import { selectedPerson } from "../../../frontend/Contacts/Person/Selected";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 import { mockMessageBox } from "../Shared/Dialog/mockMessageBox";
 import { beforeEach, expect, test } from "vitest";
+import { get } from "svelte/store";
 
 class TestGAL extends SearchOnlyAddressbook {
   readonly protocol: string = "gal-test";
@@ -174,4 +177,23 @@ test("Delete Folder asks Yes / No, and No keeps the address book", async () => {
   expect(messageBox.mock.calls[0][0]).toBe("Delete Folder");
   expect(messageBox.mock.calls[0].slice(2)).toEqual(["Yes", "No"]);
   expect(appGlobal.addressbooks.contents).toContain(addressbook);
+});
+
+test("Showing a contact from a secondary window selects it in the Contacts app of its main window", () => {
+  // Stands in for a composer window. `acting` is what `AppWindow.current()` returns first.
+  class ComposerWindow extends AppWindow {
+    constructor() {
+      super(window, "composer", AppWindow.main);
+    }
+  }
+  let composerWindow = new ComposerWindow();
+  AppWindow["acting"] = composerWindow;
+  try {
+    ContactActions.show(anna);
+  } finally {
+    AppWindow["acting"] = null;
+  }
+  expect(get(AppWindow.main.uiState(selectedContact))).toBe(anna);
+  expect(get(AppWindow.main.uiState(selectedPerson))).toBe(anna);
+  expect(get(composerWindow.uiState(selectedContact))).toBeNull();
 });

@@ -33,8 +33,7 @@
   import { selectedAccount, selectedFolder } from "../../../frontend/Mail/Selected";
   import { openAccountSettings } from "../../Settings/SettingsDialogs";
   import { askYesNo } from "../../Shared/Dialog/MessageBox";
-  import { openNewFolder } from "./NewFolderDialog.svelte";
-  import { openSharedFolder } from "./SharedFolderDialog.svelte";
+  import { openNewFolder, openSharedFolder } from "../Selected";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
   import UpdateIcon from "lucide-svelte/icons/refresh-cw";
@@ -48,6 +47,10 @@
   import { appName } from "../../../logic/build";
   import { t } from "../../../l10n/l10n";
   import { goTo } from "../../../frontend/AppsBar/selectedApp";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import { get } from "svelte/store";
+
+  const appWindow = AppWindow.current();
 
   export let account: MailAccount;
 
@@ -65,9 +68,10 @@
     }
     await account.inbox.getNewMessages();
 
-    $selectedAccount = account;
-    if ($selectedFolder?.account != account) {
-      $selectedFolder = account.inbox;
+    appWindow.uiState(selectedAccount).set(account);
+    let selection = appWindow.uiState(selectedFolder);
+    if (get(selection)?.account != account) {
+      selection.set(account.inbox);
     }
     // </copied>
   }

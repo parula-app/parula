@@ -4,9 +4,10 @@ import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { EnvelopedData, OctetString } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { SQLMailStorage } from "../../../../../logic/Mail/SQL/SQLMailStorage";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { base64ToBytes } from "../../../../../../lib/asn1/decoders/pem";
-import { expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 // The browser has this, but Node does not.
 globalThis.indexedDB ??= {
@@ -90,9 +91,81 @@ test("A 3DES message with an empty IV gives an error, instead of hanging the app
   expect(email.wasEncrypted).toBe(false);
 });
 
+describe("Opening the message", () => {
+  test("A message encrypted with Camellia shows the error instead of an empty body", async () => {
+    let { email, errors } = await newMailToBob(cmsMail("enveloped-data", kCamellia));
+    serveFromServer(email);
+    await email.download(); // the sync, in the background
+    expect(errors.map(ex => ex.message)).toEqual([expect.stringMatching(/camellia|1\.2\.392\.200011\.61\.1\.1\.1\.2/i)]);
+    expect(email.downloadComplete).toBe(true); // saved, so that the sync doesn't download it again
+
+    await email.loadBody();
+    expect(email.html).toMatch(/camellia|1\.2\.392\.200011\.61\.1\.1\.1\.2/i);
+  });
+
+  test("A message that we couldn't decrypt is read when opened again after the user imported the key", async () => {
+    let { folder } = await setupTestFolder();
+    folder.account.storage = new SQLMailStorage();
+    let identity = new MailIdentity(folder.account);
+    identity.emailAddress = "bob@example.com";
+    identity.realname = "Bob";
+    folder.account.identities.add(identity);
+    appGlobal.emailAccounts.replaceAll([folder.account]);
+    let mime = new TextEncoder().encode(kEncryptedAsFile.replace(/\n/g, "\r\n"));
+    let email = folder.newEMail();
+    email.received = new Date(); // from the server's listing
+    serveFromServer(email, mime);
+    await email.download(); // the sync, before the key is there
+    expect(email.html).toContain("the key is not available");
+    expect(email.dbID).toBeTruthy(); // saved
+
+    identity.encryptionPrivateKeys.add(await SMIMEPrivateKey.importPrivateKey(kBobKey + "\n" + kBobCert));
+    let reopened = folder.newEMail(); // as after the app restart
+    reopened.dbID = email.dbID;
+    await reopened.storage.readMessage(reopened);
+    serveFromServer(reopened, mime);
+    await reopened.loadBody();
+    expect(reopened.text.trim()).toBe("Hello Bob");
+  });
+
+  test("A message whose signature we can't read still shows its body", async () => {
+    let { email, errors } = await newMailToBob(kBrokenSignature);
+    serveFromServer(email);
+    await email.loadBody();
+    expect(email.text.trim()).toBe("Hello, this is signed.");
+    expect(errors).toHaveLength(1);
+  });
+
+  test("A normal message is parsed once", async () => {
+    let { email, errors } = await newMailToBob(kPlain);
+    serveFromServer(email);
+    let parse = vi.spyOn(email, "parseMIME");
+    await email.loadBody();
+    expect(email.text.trim()).toBe("Hello Bob");
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(errors).toEqual([]);
+  });
+});
+
 /** Reads the CMS blob as a message to Bob, whose private key we have.
  * @returns the message, and the errors that the user sees */
 async function readAsBob(smimeType: string, cms: string): Promise<{ email: EMail, errors: Error[] }> {
+  let { email, errors } = await newMailToBob(cmsMail(smimeType, cms));
+  await email.parseMIME();
+  return { email, errors };
+}
+
+/** Lets `download()` fetch the message again, parse and save it, as the protocols do */
+function serveFromServer(email: EMail, mime = email.mime) {
+  email.download = async () => {
+    email.mime = mime;
+    await email.parseMIME();
+    await email.saveCompleteMessage();
+  };
+}
+
+/** A message to Bob, whose private key we have */
+async function newMailToBob(mime: string): Promise<{ email: EMail, errors: Error[] }> {
   let { folder } = await setupTestFolder();
   let identity = new MailIdentity(folder.account);
   identity.emailAddress = "bob@example.com";
@@ -104,7 +177,12 @@ async function readAsBob(smimeType: string, cms: string): Promise<{ email: EMail
   folder.account.errorCallback = (ex) => errors.push(ex);
 
   let email = folder.newEMail();
-  email.mime = new TextEncoder().encode(`From: Alice <alice@example.com>
+  email.mime = new TextEncoder().encode(mime.replace(/\n/g, "\r\n"));
+  return { email, errors };
+}
+
+function cmsMail(smimeType: string, cms: string): string {
+  return `From: Alice <alice@example.com>
 To: Bob <bob@example.com>
 Subject: Encrypted
 Date: Tue, 14 Jul 2026 10:00:00 +0000
@@ -115,10 +193,43 @@ Content-Type: application/pkcs7-mime; smime-type=${smimeType}; name="smime.p7m"
 Content-Transfer-Encoding: base64
 
 ${cms}
-`.replace(/\n/g, "\r\n"));
-  await email.parseMIME();
-  return { email, errors };
+`;
 }
+
+const kPlain = `From: Alice <alice@example.com>
+To: Bob <bob@example.com>
+Subject: Plain
+Date: Tue, 14 Jul 2026 10:00:00 +0000
+Message-ID: <plain@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Hello Bob
+`;
+
+/** Clear-signed, but the signature is not CMS */
+const kBrokenSignature = `From: Alice <alice@example.com>
+To: Bob <bob@example.com>
+Subject: Signed
+Date: Tue, 14 Jul 2026 10:00:00 +0000
+Message-ID: <broken-signature@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg="sha-256"; boundary="boundary"
+
+--boundary
+Content-Type: text/plain; charset=utf-8
+
+Hello, this is signed.
+
+--boundary
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+AAAAAAAA
+
+--boundary--
+`;
 
 /** `openssl smime -sign | openssl smime -encrypt`, to a certificate that is not ours */
 const kEncrypted = `From: Alice <alice@example.com>

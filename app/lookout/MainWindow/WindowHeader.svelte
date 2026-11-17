@@ -8,13 +8,17 @@
     <RibbonTabRow ribbon={$currentRibbon} />
   {/if}
   <hbox class="search-area" class:mail={isMail}>
-    <hbox class="search-box" class:has-search={!!$globalSearchTerm}>
-      {#if isMail}
-        <MailSearchBox />
-      {:else}
-        <SearchField bind:searchTerm={$globalSearchTerm} placeholder={$t`Search`} bind:this={searchField} />
-      {/if}
-    </hbox>
+    {#if appWindow.isMainWindow}
+      <hbox class="search-box" class:has-search={!!$globalSearchTerm}>
+        {#if isMail}
+          <MailSearchBox />
+        {:else}
+          <SearchField bind:searchTerm={$globalSearchTerm} placeholder={$t`Search`} bind:this={searchField} />
+        {/if}
+      </hbox>
+    {:else}
+      <div class="window-title">{title}</div>
+    {/if}
     {#if $tabsInTitleBar.value && $currentRibbon}
       <TellMe ribbon={$currentRibbon} />
     {/if}
@@ -32,7 +36,7 @@
         <svelte:component this={canMaximize ? MaximizeIcon : UnmaximizeIcon} size="13" />
       </button>
       <button class="window-button close" title={$t`Close`} aria-label={$t`Close`}
-        on:click={() => catchErrors(onCloseApp)}>
+        on:click={() => catchErrors(onClose)}>
         <XIcon size="17" />
       </button>
     {/if}
@@ -43,12 +47,12 @@
   import { globalSearchTerm } from "../../frontend/AppsBar/selectedApp";
   import type { MustangApp } from "../../frontend/AppsBar/MustangApp";
   import { mailMustangApp } from "../../frontend/Mail/MailMustangApp";
-  import { appGlobal } from "../../logic/app";
   import { appName, webMail } from "../../logic/build";
   import SearchField from "../../frontend/Shared/SearchField.svelte";
-  import MailSearchBox, { mailSearchInput } from "../Mail/Search/MailSearchBox.svelte";
-  import QuickAccessToolbar, { quickAccessCommands } from "./QuickAccessToolbar.svelte";
-  import { tabsInTitleBar, currentRibbon } from "../Shared/Ribbon/Ribbon.svelte";
+  import MailSearchBox from "../Mail/Search/MailSearchBox.svelte";
+  import { quickAccessCommands, currentRibbon } from "./Selected";
+  import QuickAccessToolbar from "./QuickAccessToolbar.svelte";
+  import { tabsInTitleBar } from "../Shared/Ribbon/Ribbon.svelte";
   import RibbonTabRow from "../Shared/Ribbon/RibbonTabRow.svelte";
   import TellMe from "../Shared/Ribbon/TellMe.svelte";
   import type { QuickAccessCommand } from "../Shared/QuickAccess/QuickAccess";
@@ -61,7 +65,7 @@
   import ForwardIcon from "lucide-svelte/icons/forward";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import PrintIcon from "lucide-svelte/icons/printer";
-  import { printMessage } from "../Mail/Message/MessagePrint.svelte";
+  import { printMessage, mailSearchInput } from "../Mail/Selected";
   import { derived, get, writable } from "svelte/store";
   import AppIcon from "../../frontend/AppsBar/AppIcon.svelte";
   import logo from "../../frontend/asset/icon/general/logo.svg?raw";
@@ -71,10 +75,15 @@
   import XIcon from "lucide-svelte/icons/x";
   import { getOSName } from "../../frontend/Util/util";
   import { catchErrors } from "../../frontend/Util/error";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
   import { rtlLocales } from "../../l10n/list";
   import { t } from "../../l10n/l10n";
 
-  export let selectedApp: MustangApp;
+  export let selectedApp: MustangApp = null;
+  /** For windows that show only one thing, e.g. the composer */
+  export let title: string | null = null;
+
+  const appWindow = AppWindow.current();
 
   $: isMail = !!selectedApp && (selectedApp == mailMustangApp || mailMustangApp.subApps.includes(selectedApp));
 
@@ -119,22 +128,22 @@
   const mac = (!webMail && getOSName() == "macintosh") ? true : false;
   const osRTL = (rtlLocales.includes(navigator.language) && mac) ? true : false;
 
-  function onMinimize() {
-    appGlobal.remoteApp.minimizeMainWindow();
+  async function onMinimize() {
+    await appWindow.minimize();
   }
 
   let canMaximize = true;
-  function onMaximizeOrRestore() {
+  async function onMaximizeOrRestore() {
     if (canMaximize) {
-      appGlobal.remoteApp.maximizeMainWindow();
+      await appWindow.maximize();
     } else {
-      appGlobal.remoteApp.unminimizeMainWindow();
+      await appWindow.restore();
     }
     canMaximize = !canMaximize;
   }
 
-  function onCloseApp() {
-    window.close();
+  function onClose() {
+    appWindow.close();
   }
   /* </copied> */
 </script>
@@ -186,6 +195,15 @@
   .search-box {
     flex: 0 1 680px;
     min-width: 0;
+  }
+  .window-title {
+    min-width: 0;
+    padding: 0 8px;
+    font-size: 13px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   /* Tell me replaces the search field while it's open, with the same width */
   .search-area:has(:global(.tell-me.expanded)) .search-box {
@@ -276,11 +294,20 @@
   .mac .window-buttons {
     display: none;
   }
-  .mac .app-logo {
+  .mac .app-logo,
+  :global([dir="rtl"]) .mac.os-rtl .app-logo {
     padding-inline-start: 80px;
   }
   :global([dir="rtl"]) .mac:not(.os-rtl) .app-logo,
   .mac.os-rtl .app-logo {
     padding-inline-start: 14px;
+  }
+  /* UI and macOS writing directions differ: The traffic lights are at the end, after the search */
+  :global([dir="rtl"]) .mac:not(.os-rtl) .search-area,
+  .mac.os-rtl .search-area {
+    padding-inline-end: 80px;
+  }
+  :global([dir="rtl"]) .mac .search-area {
+    padding-inline-end: 8px;
   }
 </style>
