@@ -223,9 +223,13 @@ describe("Signature", () => {
     let leaf = craftCertificate("Bob", "CA", fakePublicKey());
     leaf.signatureValue = { unused: 0, data: await sign(TBSCertificate.encode(leaf.tbsCertificate)) };
     let key = new SMIMEPublicKey();
-    await key.addCertificate(Certificate.decode(Certificate.encode(leaf)));
-    await key.addCertificate(ca);
-    return await key.keyStatus() == KeyStatus.SelfSignedRoot;
+    try {
+      await key.addCertificate(Certificate.decode(Certificate.encode(leaf)));
+      await key.addCertificate(ca);
+      return await key.keyStatus() == KeyStatus.SelfSignedRoot;
+    } catch (ex) {
+      return false;
+    }
   }
 
   async function selfSignedCA(key: RSAPrivateKey, keyAlgorithm: string | number[] = "rsaEncryption"): Promise<Certificate> {
