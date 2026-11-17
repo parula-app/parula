@@ -145,7 +145,8 @@
   }
 
   function onListKey(event: KeyboardEvent, rowSelector: string) {
-    if (event.key != "ArrowDown" && event.key != "ArrowUp" && event.key != "Home" && event.key != "End" || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+    if (![ "ArrowDown", "ArrowUp", "Home", "End" ].includes(event.key) ||
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
       return;
     }
     event.preventDefault();
