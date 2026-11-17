@@ -1,4 +1,4 @@
-import { EMailProcessor, ProcessingStartOn } from "../../EMailProcessor";
+import { EMailProcessor, ProcessingStartOn, CannotReadMail } from "../../EMailProcessor";
 import { EMail } from "../../EMail";
 import { PGPPrivateKey } from "./PGPPrivateKey";
 import { PGPPublicKey, type OpenPGPModule } from "./PGPPublicKey";
@@ -9,7 +9,7 @@ import { MailIdentity, findIdentityForEMailAddress } from "../../MailIdentity";
 import type { PersonUID } from "../../../Abstract/PersonUID";
 import type { Attachment } from "../../../Abstract/Attachment";
 import { k1HourMS } from "../../../util/date";
-import { UserError, assert } from "../../../util/util";
+import { assert } from "../../../util/util";
 import { gt } from "../../../../l10n/l10n";
 import { ArrayColl, Collection } from "svelte-collections";
 import type { Email as MIME } from "postal-mime";
@@ -50,17 +50,22 @@ export class PGPReadProcessor extends EMailProcessor {
         privateKeys.addAll(await this.getPrivateKeysForIdentity(identity));
       }
       if (privateKeys.isEmpty) {
-        throw new UserError(gt`This message is encrypted, and the key is not available`);
+        throw new CannotReadMail(null, gt`This message is encrypted, and the key is not available`);
       }
       let armored = await encrypted.text();
-      let encryptedMessage = await openPGP.readMessage({ armoredMessage: armored });
-      let decryptedResult = await openPGP.decrypt({
-        message: encryptedMessage,
-        decryptionKeys: privateKeys.contents,
-        format: "binary",
-        verificationKeys: senderOpenPGPKeys,
-        date: email.sent,
-      });
+      let decryptedResult;
+      try {
+        let encryptedMessage = await openPGP.readMessage({ armoredMessage: armored });
+        decryptedResult = await openPGP.decrypt({
+          message: encryptedMessage,
+          decryptionKeys: privateKeys.contents,
+          format: "binary",
+          verificationKeys: senderOpenPGPKeys,
+          date: email.sent,
+        });
+      } catch (ex) { // e.g. not encrypted to our key
+        throw new CannotReadMail(ex, ex.message);
+      }
       email.wasEncrypted = true;
       let signer: PGPPublicKey | null = null;
       if (decryptedResult.signatures?.length) {
