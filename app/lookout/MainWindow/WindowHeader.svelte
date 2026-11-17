@@ -46,8 +46,9 @@
   import { appGlobal } from "../../logic/app";
   import { appName, webMail } from "../../logic/build";
   import SearchField from "../../frontend/Shared/SearchField.svelte";
-  import MailSearchBox, { mailSearchInput } from "../Mail/Search/MailSearchBox.svelte";
-  import QuickAccessToolbar, { quickAccessCommands } from "./QuickAccessToolbar.svelte";
+  import MailSearchBox from "../Mail/Search/MailSearchBox.svelte";
+  import { quickAccessCommands } from "./Selected";
+  import QuickAccessToolbar from "./QuickAccessToolbar.svelte";
   import { tabsInTitleBar, currentRibbon } from "../Shared/Ribbon/Ribbon.svelte";
   import RibbonTabRow from "../Shared/Ribbon/RibbonTabRow.svelte";
   import TellMe from "../Shared/Ribbon/TellMe.svelte";
@@ -61,7 +62,7 @@
   import ForwardIcon from "lucide-svelte/icons/forward";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import PrintIcon from "lucide-svelte/icons/printer";
-  import { printMessage } from "../Mail/Message/MessagePrint.svelte";
+  import { printMessage, mailSearchInput } from "../Mail/Selected";
   import { derived, get, writable } from "svelte/store";
   import AppIcon from "../../frontend/AppsBar/AppIcon.svelte";
   import logo from "../../frontend/asset/icon/general/logo.svg?raw";
@@ -276,11 +277,20 @@
   .mac .window-buttons {
     display: none;
   }
-  .mac .app-logo {
+  .mac .app-logo,
+  :global([dir="rtl"]) .mac.os-rtl .app-logo {
     padding-inline-start: 80px;
   }
   :global([dir="rtl"]) .mac:not(.os-rtl) .app-logo,
   .mac.os-rtl .app-logo {
     padding-inline-start: 14px;
+  }
+  /* UI and macOS writing directions differ: The traffic lights are at the end, after the search */
+  :global([dir="rtl"]) .mac:not(.os-rtl) .search-area,
+  .mac.os-rtl .search-area {
+    padding-inline-end: 80px;
+  }
+  :global([dir="rtl"]) .mac .search-area {
+    padding-inline-end: 8px;
   }
 </style>

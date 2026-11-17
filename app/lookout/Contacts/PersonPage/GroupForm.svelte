@@ -1,5 +1,5 @@
 <vbox flex class="group-form-page" bind:this={pageEl}>
-  <Ribbon>
+  <Ribbon id="contacts">
     <RibbonTab label={$t`Contact Group`}>
       <RibbonGroup label={$t`Actions`}>
         <RibbonButton label={$t`Save & Close`} icon={SaveCloseIcon}

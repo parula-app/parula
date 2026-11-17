@@ -29,12 +29,6 @@
     on:ok={onPicked} on:close={onPickClosed} />
 {/if}
 
-<script lang="ts" context="module">
-  import { writable } from "svelte/store";
-
-  export const openSharedCalendar = writable<{ fromAddressBook: boolean } | null>(null);
-</script>
-
 <script lang="ts">
   import type { MailAccount } from "../../logic/Mail/MailAccount";
   import type { PersonUID } from "../../logic/Abstract/PersonUID";

@@ -4,14 +4,9 @@
   </hbox>
 {/if}
 
-<script lang="ts" context="module">
-  import type { EMail } from "../../../logic/Mail/EMail";
-  import { writable } from "svelte/store";
-
-  export const printMessage = writable<EMail | null>(null);
-</script>
-
 <script lang="ts">
+  import type { EMail } from "../../../logic/Mail/EMail";
+  import { printMessage } from "../Selected";
   import MessagePrint from "../../../frontend/Mail/Message/MessagePrint.svelte";
   import { catchErrors } from "../../../frontend/Util/error";
   import { onDestroy, tick } from "svelte";

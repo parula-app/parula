@@ -4,6 +4,8 @@ import { askYesNo } from "../../Shared/Dialog/MessageBox";
 import { inlineReplies, inlineRibbon } from "../Selected";
 import { get } from "svelte/store";
 import { gt } from "../../../l10n/l10n";
+import type { RecipientField } from "./SelectNamesDialog.svelte";
+import type { EditorTool } from "../../Shared/Editor/EditorTool";
 import type { Editor } from "@tiptap/core";
 
 export class InlineReply {
@@ -20,6 +22,9 @@ export class InlineReply {
 export interface InlineRibbon {
   draft: EMail;
   editor: Editor | null;
+  onSelectNames: (field: RecipientField) => void;
+  onCheckNames: () => Promise<void>;
+  onOpenTool: (tool: EditorTool) => void;
 }
 
 export async function startInlineReply(original: EMail, draft: EMail) {

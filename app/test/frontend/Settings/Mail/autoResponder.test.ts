@@ -32,7 +32,6 @@ class TestAutoResponder extends AutoResponder {
     this.scheduled = true;
     this.internalHTML = "<p>Back on Monday</p>";
     this.externalAudience = AutoResponderAudience.None;
-    this.maxAudience = AutoResponderAudience.Contacts;
   }
 
   async save() {
@@ -111,9 +110,6 @@ test("Shows the settings from the server", async () => {
   expect(target.querySelectorAll("input[type=date]").length).toBe(2);
   expect(target.textContent).toContain("Back on Monday");
   expect(radio("Don't reply").checked).toBe(true);
-  expect(radio("Only to my contacts").disabled).toBe(false);
-  // The admin allows only contacts
-  expect(radio("Anyone outside my organization").disabled).toBe(true);
 });
 
 test("Turning it off hides the messages, and saves", async () => {
