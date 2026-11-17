@@ -22,7 +22,7 @@ export class PGPSend {
    * @returns a new email that is encrypted and/or signed.
    *   The original email is untouched.
    */
-  static async encryptAndSign(mail: EMail): Promise<EMail> {
+  static async encryptAndSign(mail: EMail, recipients = mail.allRecipients()): Promise<EMail> {
     let privateKey = getMyPrivateKey(mail.identity, PGPPrivateKey);
     assert(privateKey, gt`Please first set up PGP encryption for yourself, in Settings | Mail | Identity | Encryption`);
     let result = SendEncrypted.cloneEMail(mail);
@@ -34,7 +34,7 @@ export class PGPSend {
     let privateOpenPGPKey = await privateKey.openPGPPrivateKey();
     if (mail.shouldEncrypt) {
       let message = await openPGP.createMessage({ text: await PGPSend.protectHeaders(originalMIMEStr) });
-      let recipientKeys = mail.allRecipients().contents.flatMap(puid =>
+      let recipientKeys = recipients.contents.flatMap(puid =>
         getPublicKeyForPersonUID(puid, PGPPublicKey));
       let recipientOpenPGPKeys: OpenPGP.PublicKey[] = [];
       for (let recipientKey of recipientKeys) {

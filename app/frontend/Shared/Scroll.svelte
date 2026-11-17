@@ -1,6 +1,7 @@
 <vbox class="scroll"
   bind:this={containerE}
   on:mousewheel={onScrollWheel}
+  on:scroll
   class:hideHorizontalScrollbar>
   <vbox class="inside">
     <slot />

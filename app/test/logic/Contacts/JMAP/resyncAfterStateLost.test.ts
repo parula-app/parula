@@ -41,7 +41,7 @@ function setup(failWith: Error) {
   let addressbook = new JMAPAddressbook();
   addressbook.initFromMainAccount(account);
   addressbook.jmapID = "addressbookID";
-  addressbook.storage = { savePerson: async () => {} } as any;
+  addressbook.storage = { savePerson: async () => {}, saveAddressbook: async () => {} } as any;
   addressbook.errorCallback = ex => { throw ex };
 
   let methodsCalled: string[] = [];

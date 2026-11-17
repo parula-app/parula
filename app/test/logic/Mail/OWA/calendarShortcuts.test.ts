@@ -69,11 +69,14 @@ class TestOWAAccount extends OWAAccount {
       case "GetCalendarFolders":
         return { CalendarGroups: kCalendarGroups, CalendarFolders: [] };
       case "ResolveNames": {
-        let person = kPersons[request.Body.UnresolvedEntry];
+        // Exchange finds the owner by `smtp:` + email address, and returns the plain email address.
+        // Accept the plain email address as well.
+        let emailAddress = request.Body.UnresolvedEntry.replace(/^smtp:/i, "");
+        let person = kPersons[emailAddress];
         if (!person) {
           throw new OWAError({ status: 200, json: { ResponseMessages: { Items: [{ ResponseClass: "Error", ResponseCode: "ErrorNameResolutionNoResults", MessageText: "No results" }] } } });
         }
-        return { ResolutionSet: [{ Mailbox: { Name: person, EmailAddress: request.Body.UnresolvedEntry } }] };
+        return { ResolutionSet: [{ Mailbox: { Name: person, EmailAddress: emailAddress, RoutingType: "SMTP" } }] };
       }
       case "GetFolder": {
         let folderID = request.Body.FolderIds[0];

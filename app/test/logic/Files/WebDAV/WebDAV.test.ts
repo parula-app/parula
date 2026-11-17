@@ -86,6 +86,13 @@ beforeAll(async () => {
     },
     readFile: (filepath: string) => fs.readFile(filepath),
     deleteFile: (filepath: string) => fs.unlink(filepath),
+    async statFile(filepath: string) {
+      let s = await fs.stat(filepath);
+      let stat = {} as any;
+      stat.size = s.size;
+      stat.lastMod = s.mtime;
+      return stat;
+    },
     fs,
     // </copied>
     async openFileInNativeApp(filepath: string) {
@@ -257,4 +264,36 @@ test("Open in app checks the new contents of a file changed on the server", asyn
 
   await expect(file.openOSApp()).rejects.toThrow(/script/);
   expect(openedFiles.length).toBe(0);
+});
+
+test("Refresh doesn't upload a file that was only downloaded", async () => {
+  let root = account.rootDirs.first;
+  await verify.putFileContents("/downloaded.txt", "From the server\n");
+  // Older than the download, as files on a server usually are
+  let lastModOnServer = new Date("2025-01-02T03:04:05Z");
+  await fs.utimes(path.join(storageDir, "downloaded.txt"), lastModOnServer, lastModOnServer);
+  await root.listContents();
+  let file = root.files.find(f => f.name == "downloaded.txt");
+  await file.download();
+
+  await root.uploadChangedFiles();
+
+  let stat = await verify.stat("/downloaded.txt") as webdavClient.FileStat;
+  expect(new Date(stat.lastmod).getTime()).toBe(lastModOnServer.getTime());
+});
+
+test("Refresh uploads a downloaded file that was changed on disk", async () => {
+  let root = account.rootDirs.first;
+  await verify.putFileContents("/edited.txt", "From the server\n");
+  let lastModOnServer = new Date("2025-01-02T03:04:05Z");
+  await fs.utimes(path.join(storageDir, "edited.txt"), lastModOnServer, lastModOnServer);
+  await root.listContents();
+  let file = root.files.find(f => f.name == "edited.txt");
+  await file.download();
+
+  // E.g. edited in a desktop app
+  await fs.writeFile(file.filepathLocal, "Changed on disk\n");
+  await root.uploadChangedFiles();
+
+  expect(await verify.getFileContents("/edited.txt", { format: "text" })).toBe("Changed on disk\n");
 });

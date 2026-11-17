@@ -433,7 +433,7 @@ class DERNode extends Node {
       hour = +str.slice(6, 8) | 0;
       min = +str.slice(8, 10) | 0;
       sec = +str.slice(10, 12) | 0;
-      if (year < 70) {
+      if (year < 50) {
         year = 2000 + year;
       } else {
         year = 1900 + year;
@@ -463,6 +463,11 @@ class DERNode extends Node {
     const raw = buffer.raw();
     if (raw.length === 0) {
       return buffer.error('Decoding of integer: zero-length body');
+    }
+    // Decoding takes quadratic time. RSA keys have at most 16384 bits.
+    const kMaxLength = 4096;
+    if (raw.length > kMaxLength) {
+      return buffer.error('Decoding of integer: too long');
     }
     // Pass byteOffset/byteLength explicitly: raw() copies today, but a future
     // switch to a shared-buffer view would otherwise read the wrong bytes.
@@ -554,12 +559,11 @@ function derDecodeLen(buf: DecoderBuffer, primitive: boolean, fail: string): num
   }
   len = 0;
   for (let i = 0; i < num; i++) {
-    len <<= 8;
     const j = buf.readUInt8(fail);
     if (buf.isError(j)) {
       return j;
     }
-    len |= j;
+    len = len * 0x100 + j;
   }
 
   return len;

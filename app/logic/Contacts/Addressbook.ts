@@ -3,8 +3,10 @@ import { Person } from "../Abstract/Person";
 import type { PersonUID } from "../Abstract/PersonUID";
 import { Group } from "../Abstract/Group";
 import type { Contact } from "../Abstract/Contact";
+import type { PublicKey } from "../Mail/Encryption/PublicKey";
 import { SQLGroup } from "./SQL/SQLGroup";
 import { SQLPerson } from "./SQL/SQLPerson";
+import { CollectionIndex } from "../util/collections";
 import { appGlobal } from "../app";
 import { RunOnce } from "../util/flow/RunOnce";
 import { AbstractFunction, NotReached } from "../util/util";
@@ -21,6 +23,12 @@ export class Addressbook extends Account {
   syncState: string | null = null;
   readDBRunOnce = new RunOnce();
   readDBPersonsRunOnce = new RunOnce();
+  /** Lowercase email address -> `{ emailAddress, person }`. For `findPerson()`.
+   * When the user edits an email address, the `ContactEntry` stays the same object,
+   * but `emailAddressesLowercase` replaces its `{ emailAddress, person }` object with a new one,
+   * so the key of such an object never changes. */
+  readonly personsByEMailAddress = new CollectionIndex(this.persons,
+    person => person.emailAddressesLowercase, address => address.emailAddress);
 
   newPerson(): Person {
     return new Person(this);
@@ -165,6 +173,14 @@ export class SearchOnlyAddressbook extends Addressbook {
 
   async quickSearchAsync(searchTerm: string, results: ArrayColl<Person>) {
     throw new AbstractFunction();
+  }
+
+  /** The encryption keys, e.g. the S/MIME certificate, that this directory
+   * has for a person, who may be in another address book, or in none.
+   * Reports errors, does not throw.
+   * @param emailAddresses of the person */
+  async fetchEncryptionKeys(emailAddresses: Collection<string>): Promise<Collection<PublicKey>> {
+    return new ArrayColl<PublicKey>();
   }
 }
 

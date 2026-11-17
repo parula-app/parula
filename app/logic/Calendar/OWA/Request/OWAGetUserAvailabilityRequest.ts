@@ -22,7 +22,7 @@ export class OWAGetUserAvailabilityRequest {
         TimeWindow: {
           __type: "Duration:#Exchange",
         },
-        RequestedView: "FreeBusy",
+        RequestedView: "Detailed",
       },
     },
   };
