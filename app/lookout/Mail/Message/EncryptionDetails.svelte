@@ -70,12 +70,13 @@
 
   let signingKey: PublicKey = null;
   /* <copied from="../../../frontend/Mail/Message/EncryptionButtons.svelte"> */
-  $: getPublicKeyByKeyID($message.signedByKeyID, message)
+  $: keyID = $message.signedByKeyID ?? $message.signedOnBehalfKeyID;
+  $: getPublicKeyByKeyID(keyID, message)
     .then(key => signingKey = key)
     .catch(showError);
   /* </copied> */
   /* <copied from="EncryptionButtons.svelte"> */
-  $: isSigned = $message && !!message.signedByKeyID && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
+  $: isSigned = !!keyID && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
   /* </copied> */
   $: isEncrypted = !!$message.wasEncrypted;
   // <copied from="../../../frontend/Mail/Message/EncryptionDetails.svelte">

@@ -111,12 +111,16 @@ export class EMail extends Message {
   @notifyChangedProperty
   wasEncrypted = false;
   /** This email was correctly signed with this public key.
-   * The signature was valid and the public key matches `From:` or `Sender:`, see `rememberSigner()`.
+   * The signature was valid and the public key matches `From:`.
    * This gives you the specific public key that was used to sign.
    * Format: `PublicKey.id` */
   @notifyChangedProperty
   signedByKeyID: string | null = null;
-  /** As `signed` but giving you the actual PublicKey object.
+  /** `Sender:` signed it with this key on behalf of `From:`, but `From:` did not sign, see `rememberSigner()`.
+   * Format: `PublicKey.id` */
+  @notifyChangedProperty
+  signedOnBehalfKeyID: string | null = null;
+  /** The PublicKey object of `signedByKeyID` or `signedOnBehalfKeyID`.
    * Set this using @see rememberSigner() */
   signedKey: PublicKey | null = null;
   /** As `signedKey`, but not parsed yet.
@@ -185,8 +189,8 @@ export class EMail extends Message {
    * in the AutoCrypt header for PGP - so this is the only place where we
    * have it for senders who are not in the addressbook.
    * Only keys that were issued for the `From:` address describe the sender,
-   * or for the `Sender:` address, who sent it on behalf of `From:` (RFC 8550 section 3),
-   * otherwise the message is not signed.
+   * otherwise the message is not signed. A key for the `Sender:` address,
+   * who sent it on behalf of `From:` (RFC 8550 section 3), is `signedOnBehalfKeyID`.
    * @param signer null, if the signature did not verify
    * @param sender `Sender:` address. S/MIME only: PGP verifies only with the keys of `From:`. */
   rememberSigner(signer: PublicKey | null, sender?: string) {
@@ -195,7 +199,8 @@ export class EMail extends Message {
       signer = null;
     }
     this.signedKey = signer;
-    this.signedByKeyID = signer?.id ?? null;
+    this.signedByKeyID = isFrom ? signer.id : null;
+    this.signedOnBehalfKeyID = isFrom ? null : signer?.id ?? null;
     if (!isFrom) { // a delegate's key is not a key of `From:`
       return;
     }
@@ -772,6 +777,7 @@ export class EMail extends Message {
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
     other.signedByKeyID = this.signedByKeyID;
+    other.signedOnBehalfKeyID = this.signedOnBehalfKeyID;
     other.system = this.system;
   }
 

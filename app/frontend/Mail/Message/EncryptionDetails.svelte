@@ -52,10 +52,11 @@
   export let isExpanded = false;
 
   let signingKey: PublicKey;
-  $: getPublicKeyByKeyID($message.signedByKeyID, message)
+  $: keyID = $message.signedByKeyID ?? $message.signedOnBehalfKeyID;
+  $: getPublicKeyByKeyID(keyID, message)
     .then(key => signingKey = key)
     .catch(showError);
-  $: signed = $message.signedByKeyID && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
+  $: signed = keyID && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
   $: received = $message.received ?? new Date();
   $: expired = signed && signingKey instanceof SMIMEPublicKey && !signingKey.isValidAt(received);
   $: encrypted = $message.wasEncrypted;

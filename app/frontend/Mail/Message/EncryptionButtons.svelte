@@ -1,8 +1,11 @@
+{#if onBehalf}
+  <value class="on-behalf font-small">{$t`Signed by: ${signer.name}`}</value>
+{/if}
 {#if signed || encrypted}
   <hbox class="signed key-{trustLevel} plain">
     <RoundButton
       label={msg}
-      icon={encrypted && signed ? EncryptedIcon : signed ? SignedIcon : EncryptedUnsignedIcon}
+      icon={onBehalf ? OnBehalfIcon : encrypted && signed ? EncryptedIcon : signed ? SignedIcon : EncryptedUnsignedIcon}
       onClick={openSigningKey}
       iconSize="12px"
       padding="2px"
@@ -19,6 +22,7 @@
   import { SMIMEPublicKey } from "../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
   import RoundButton from "../../Shared/RoundButton.svelte";
   import SignedIcon from "lucide-svelte/icons/signature";
+  import OnBehalfIcon from "lucide-svelte/icons/user-pen";
   import EncryptedIcon from "lucide-svelte/icons/lock";
   import EncryptedUnsignedIcon from "lucide-svelte/icons/shield-question-mark";
   import { showError } from "../../Util/error";
@@ -29,14 +33,16 @@
   export let isExpanded = false;
 
   let signingKey: PublicKey;
-  $: getPublicKeyByKeyID($message.signedByKeyID, message)
+  $: keyID = $message.signedByKeyID ?? $message.signedOnBehalfKeyID;
+  $: getPublicKeyByKeyID(keyID, message)
     .then(key => signingKey = key)
     .catch(showError);
-  $: signed = $message.signedByKeyID && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
+  $: signed = keyID && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
+  $: onBehalf = signed && !$message.signedByKeyID;
   $: expired = signed && signingKey instanceof SMIMEPublicKey && !signingKey.isValidAt($message.received ?? new Date());
   $: encrypted = $message.wasEncrypted;
   $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : expired ? TrustLevel.Sender : $signingKey?.trustLevel ?? "none";
-  $: keyName = $signingKey?.name ?? $message.signedByKeyID?.substring(2, 6);
+  $: keyName = $signingKey?.name ?? keyID?.substring(2, 6);
   $: signer = signingKey && $message.signedBy(signingKey);
   $: msg = signed && encrypted
       ? $t`This message was end-to-end-encrypted to you, and signed by ${signer?.name ?? $t`somebody`} with ${signingKey?.system} key ${keyName}`
@@ -57,6 +63,10 @@
   }
   .signed :global(.button) {
     border-radius: var(--border-radius);
+  }
+  .on-behalf {
+    margin-inline-start: 8px;
+    font-weight: normal;
   }
   .signed.key-none :global(.button) {
     display: none;

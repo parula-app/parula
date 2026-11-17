@@ -34,11 +34,21 @@ async function readMessage(mime: string, from?: PersonUID): Promise<EMail> {
 function expectSigned(email: EMail) {
   expect(email.signedByKeyID).toBeTruthy();
   expect(email.signedByKeyID).toBe(email.signedKey?.id);
+  expect(email.signedOnBehalfKeyID).toBe(null);
 }
 
 function expectNotSigned(email: EMail) {
   expect(email.signedByKeyID).toBe(null);
+  expect(email.signedOnBehalfKeyID).toBe(null);
   expect(email.signedKey).toBe(null);
+}
+
+/** Code that knows only `signedByKeyID` sees it as unsigned */
+function expectSignedOnBehalf(email: EMail) {
+  expect(email.signedByKeyID).toBe(null);
+  expect(email.signedOnBehalfKeyID).toBeTruthy();
+  expect(email.signedOnBehalfKeyID).toBe(email.signedKey?.id);
+  expect(email.signedBy(email.signedKey).emailAddress).toBe("alice@example.com");
 }
 
 /** The outer headers are not signed, so anybody can change `From:`
@@ -65,16 +75,14 @@ const kClearSignedForCEO = kClearSigned.replace("From: Alice <alice@example.com>
 const kOpaqueSignedForCEO = kOpaqueSigned.replace("From: Alice <alice@example.com>", kOnBehalfOfCEO);
 
 describe("S/MIME signature with a certificate for the Sender: address", () => {
-  test("is signed by the sender", async () => {
+  test("is signed on behalf by the sender, not signed by From:", async () => {
     let email = await readMessage(kClearSignedForCEO);
-    expectSigned(email);
-    expect(email.signedBy(email.signedKey).emailAddress).toBe("alice@example.com");
+    expectSignedOnBehalf(email);
   });
 
-  test("opaque-signed, as by Outlook, is signed by the sender", async () => {
+  test("opaque-signed, as by Outlook, is signed on behalf by the sender", async () => {
     let email = await readMessage(kOpaqueSignedForCEO);
-    expectSigned(email);
-    expect(email.signedBy(email.signedKey).emailAddress).toBe("alice@example.com");
+    expectSignedOnBehalf(email);
   });
 
   test("is not stored as the key of From:", async () => {

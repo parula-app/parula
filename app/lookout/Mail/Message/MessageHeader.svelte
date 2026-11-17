@@ -12,6 +12,12 @@
             <RecipientsList recipients={new ArrayColl([$message.from])} withAddress />
           {/if}
         </hbox>
+        {#if onBehalfSigner}
+          <hbox class="signed-on-behalf">
+            <span>{$t`Signed by: ${onBehalfSigner.name}`}</span>
+            <OnBehalfIcon size={14} />
+          </hbox>
+        {/if}
       </hbox>
       {#if $to.hasItems}
         <hbox class="recipients">
@@ -82,7 +88,7 @@
     {/await}
     <!-- </copied> -->
   {/if}
-  <EncryptionButtons {message} bind:isExpanded={isEncryptionExpanded} />
+  <EncryptionButtons {message} bind:isExpanded={isEncryptionExpanded} bind:onBehalfSigner />
 </vbox>
 <EncryptionDetails {message} bind:isExpanded={isEncryptionExpanded} />
 <Menu bind:isMenuOpen={isMoreOpen} anchor={moreEl} placement="bottom-end">
@@ -127,7 +133,7 @@
 
 <script lang="ts">
   import type { EMail } from "../../../logic/Mail/EMail";
-  import { kDummyPerson, personDisplayName } from "../../../logic/Abstract/PersonUID";
+  import { kDummyPerson, personDisplayName, type PersonUID } from "../../../logic/Abstract/PersonUID";
   import { MessageActions } from "../MessageActions";
   import MessagePropertiesDialog from "./MessagePropertiesDialog.svelte";
   import { getFullDateString } from "../3pane/MessageDates";
@@ -164,6 +170,7 @@
   import PropertiesIcon from "lucide-svelte/icons/file-cog";
   import RemoveIcon from "lucide-svelte/icons/x";
   import ErrorIcon from "lucide-svelte/icons/circle-x";
+  import OnBehalfIcon from "lucide-svelte/icons/user-pen";
   import { catchErrors } from "../../../frontend/Util/error";
   import { ArrayColl } from "svelte-collections";
   import { t } from "../../../l10n/l10n";
@@ -182,6 +189,7 @@
   let isMoreOpen = false;
   let isPropertiesOpen = false;
   let isEncryptionExpanded = false;
+  let onBehalfSigner: PersonUID = null;
 </script>
 
 <style>
@@ -209,6 +217,7 @@
     gap: 2px;
   }
   .from {
+    flex-wrap: wrap; /* the signer on behalf of `From:` goes to the next line, before the name gets cut off */
     align-items: center;
     gap: 6px;
     min-width: 0;
@@ -230,6 +239,20 @@
   }
   .sender-name :global(.address) {
     font-weight: normal;
+  }
+  .signed-on-behalf {
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .signed-on-behalf span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .signed-on-behalf :global(svg) {
+    flex-shrink: 0;
+    color: var(--lo-accent-text);
   }
   .recipients {
     align-items: baseline;
