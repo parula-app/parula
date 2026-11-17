@@ -48,9 +48,11 @@
 {#if $openReadingPaneOptions}
   <ReadingPaneOptionsDialog on:close={() => $openReadingPaneOptions = false} />
 {/if}
+<!-- <copied to="Message/MessageWindow.svelte"> -->
 {#if $openColorCategories}
   <ColorCategoriesDialog items={$openColorCategories} on:close={() => $openColorCategories = null} />
 {/if}
+<!-- </copied> -->
 {#if $openSaveSearch}
   <SavedSearchUI search={$openSaveSearch} on:close={() => $openSaveSearch = null} />
 {/if}
@@ -92,7 +94,7 @@
 {/if}
 <MessageKeys messages={$selectedArray} {pageEl} />
 <MessagePrint />
-<svelte:window on:keydown={(event) => catchErrors(() => onKeyOnMail(event))} />
+<AppWindowEvents on:keydown={(event) => catchErrors(() => onKeyOnMail(event))} />
 
 <script lang="ts">
   import type { EMail } from "../../logic/Mail/EMail";
@@ -104,6 +106,7 @@
   import { selectedAccount, selectedFolder, selectedMessage, selectedMessages, quickSearch } from "../../frontend/Mail/Selected";
   import { getParams, globalSearchTerm, openApp } from "../../frontend/AppsBar/selectedApp";
   import { catchErrors } from "../../frontend/Util/error";
+  import AppWindowEvents from "../../frontend/MainWindow/AppWindowEvents.svelte";
   import { statusBarContent, type StatusBarContent, type StatusBarView } from "../MainWindow/Selected";
   import { FolderPaneMode } from "./LeftPane/LeftPane.svelte";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
@@ -156,7 +159,9 @@
   import { t } from "../../l10n/l10n";
   import { contactsMustangApp } from "../../frontend/Contacts/ContactsMustangApp";
   import { mailMustangApp } from "../../frontend/Mail/MailMustangApp";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
 
+  const appWindow = AppWindow.current();
   const folderPane = getLocalStorage<FolderPaneMode>("lookout.mail.folderPane", FolderPaneMode.Normal);
   const accounts = appGlobal.emailAccounts;
 
@@ -276,7 +281,7 @@
     // </copied>
     currentSearch = search;
     searchResults = new ArrayColl<EMail>();
-    $selectedMessage = null;
+    appWindow.uiState(selectedMessage).set(null);
     isAutoSelectPending = true;
     isSearching = true;
     try {
@@ -417,8 +422,9 @@
   // <copied to="../Calendar/CalendarApp.svelte, ../Contacts/ContactsAppD.svelte">
   $: $statusBarContent = status;
   onDestroy(() => {
-    if (get(statusBarContent) == status) {
-      statusBarContent.set(null);
+    let store = appWindow.uiState(statusBarContent);
+    if (get(store) == status) {
+      store.set(null);
     }
   });
   // </copied>
@@ -440,32 +446,33 @@
   }
 
   onDestroy(() => {
-    $openMoveMessages = null;
-    $openNewFolder = null;
-    $openMoveFolder = null;
-    $openFolderProperties = null;
-    $openReadingPaneOptions = false;
-    $openColorCategories = null;
-    $openSaveSearch = null;
-    $openRulesFromSearch = null;
-    $openAlwaysMove = null;
-    $openSearchPerson = null;
-    $openSharedFolder = null;
-    $openNewSearchFolder = null;
-    $openCustomizeSearchFolder = null;
-    $openViewSettings = null;
-    $openShowColumns = null;
-    $openApplyView = null;
-    $askedScope?.onChoice(null);
-    $askedScope = null;
+    appWindow.uiState(openMoveMessages).set(null);
+    appWindow.uiState(openNewFolder).set(null);
+    appWindow.uiState(openMoveFolder).set(null);
+    appWindow.uiState(openFolderProperties).set(null);
+    appWindow.uiState(openReadingPaneOptions).set(false);
+    appWindow.uiState(openColorCategories).set(null);
+    appWindow.uiState(openSaveSearch).set(null);
+    appWindow.uiState(openRulesFromSearch).set(null);
+    appWindow.uiState(openAlwaysMove).set(null);
+    appWindow.uiState(openSearchPerson).set(null);
+    appWindow.uiState(openSharedFolder).set(null);
+    appWindow.uiState(openNewSearchFolder).set(null);
+    appWindow.uiState(openCustomizeSearchFolder).set(null);
+    appWindow.uiState(openViewSettings).set(null);
+    appWindow.uiState(openShowColumns).set(null);
+    appWindow.uiState(openApplyView).set(null);
+    let scope = appWindow.uiState(askedScope);
+    get(scope)?.onChoice(null);
+    scope.set(null);
   });
 
   async function onKeyOnMail(event: KeyboardEvent) {
     // <copied to="Message/MessageKeys.svelte">
     let target = event.target as HTMLElement;
     let isInSearchBox = target == $mailSearchInput;
-    if (event.defaultPrevented || document.querySelector("dialog:modal") ||
-        !pageEl?.contains(target) && target != document.body && !isInSearchBox) {
+    if (event.defaultPrevented || pageEl?.ownerDocument.querySelector("dialog:modal") ||
+        !pageEl?.contains(target) && target != pageEl?.ownerDocument.body && !isInSearchBox) {
       return;
     }
     let isCtrl = event.ctrlKey || event.metaKey;

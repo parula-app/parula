@@ -89,6 +89,7 @@
   import { openEvent } from "../../../frontend/Calendar/open";
   import { selectedDate, selectedEvent, startDate } from "../../../frontend/Calendar/selected";
   import { openApp } from "../../../frontend/AppsBar/selectedApp";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import { eventWhenText, eventConflict, myResponseText } from "../EditEvent/EventFormInfo";
   import EventInDayView from "../DisplayEvent/EventInDayView.svelte";
   import ResponseButton from "./ResponseButton.svelte";
@@ -219,9 +220,10 @@
       return;
     }
     let day = new Date(event.startTime);
-    $selectedEvent = null;
-    $selectedDate = day;
-    $startDate = day;
+    let appWindow = AppWindow.current().mainWindow;
+    appWindow.uiState(selectedEvent).set(null);
+    appWindow.uiState(selectedDate).set(day);
+    appWindow.uiState(startDate).set(day);
     openApp(calendarMustangApp, {});
   }
 
