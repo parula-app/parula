@@ -79,6 +79,7 @@ export class JSONEMail {
       let e = json.encryption = {} as any;
       e.system = email.system;
       e.signedPublicKeyID = email.signedByKeyID;
+      e.signedPublicKeyFingerprint = email.signedKeyFingerprint;
       e.signedPublicKey = this.saveSigner(email);
       e.wasEncrypted = email.wasEncrypted;
       e.mustEncrypt = email.mustEncrypt;
@@ -239,6 +240,7 @@ export class JSONEMail {
     if (e) {
       email.system = sanitize.enum<EncryptionSystem>(e.system, Object.values(EncryptionSystem), null);
       email.signedByKeyID = sanitize.alphanumdash(e.signedPublicKeyID, null);
+      email.signedKeyFingerprint = sanitize.alphanumdash(e.signedPublicKeyFingerprint, null);
       // Parsed on demand, @see `getPublicKeyByKeyID()`
       email.signedKeyJSON = e.signedPublicKey ?? null;
       email.wasEncrypted = sanitize.boolean(e.wasEncrypted, false);

@@ -29,12 +29,17 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
       signedKey = key;
     }
   }
+  // The very key or certificate that signed: Another PGP key can have the
+  // same 64-bit key ID, and an S/MIME key pair can have several certificates.
+  let fingerprint = signedKey?.fingerprint ?? email?.signedKeyFingerprint;
+  function isSigner(key: PublicKey): boolean {
+    return key.id == id && (!fingerprint || key.fingerprint == fingerprint);
+  }
   if (email?.from) {
     let person = email.from.findPerson();
     if (person) {
       for (let key of person.encryptionPublicKeys.each) {
-        // The very certificate that signed, not another one for the same key pair
-        if (key.id == id && (!signedKey || key.fingerprint == signedKey.fingerprint)) {
+        if (isSigner(key)) {
           return key;
         }
       }
@@ -42,7 +47,7 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   } else {
     for (let person of appGlobal.persons.each) {
       for (let key of person.encryptionPublicKeys.each) {
-        if (key.id == id) {
+        if (isSigner(key)) {
           return key;
         }
       }
@@ -50,7 +55,7 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   }
   for (let identity of findAllIdentities()) {
     for (let key of identity.encryptionPrivateKeys.each) {
-      if (key.id == id) {
+      if (isSigner(key)) {
         return key;
       }
     }
@@ -60,7 +65,7 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   }
   if (email && email.system != EncryptionSystem.SMIME) {
     let key = await readAutoCryptKeys(email);
-    if (key?.id == id) {
+    if (key && isSigner(key)) {
       return key;
     }
   }

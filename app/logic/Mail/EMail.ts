@@ -116,6 +116,9 @@ export class EMail extends Message {
    * Format: `PublicKey.id` */
   @notifyChangedProperty
   signedByKeyID: string | null = null;
+  /** `PublicKey.fingerprint` of the key that signed.
+   * Unlike the key ID, it tells apart keys with the same key ID. */
+  signedKeyFingerprint: string | null = null;
   /** As `signed` but giving you the actual PublicKey object.
    * Set this using @see rememberSigner() */
   signedKey: PublicKey | null = null;
@@ -193,6 +196,7 @@ export class EMail extends Message {
     }
     this.signedKey = signer;
     this.signedByKeyID = signer?.id ?? null;
+    this.signedKeyFingerprint = signer?.fingerprint ?? null;
     if (!signer) {
       return;
     }
@@ -764,6 +768,7 @@ export class EMail extends Message {
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
     other.signedByKeyID = this.signedByKeyID;
+    other.signedKeyFingerprint = this.signedKeyFingerprint;
     other.system = this.system;
   }
 

@@ -123,6 +123,23 @@ describe("The key that the mail viewer shows", () => {
       expect(signingKey.isValidAt(message.received)).toBe(true);
     }
   });
+
+  test("is the certificate that signed the message, also when the contact has both certificates for the key", async () => {
+    let { folder } = await setupTestFolder({ getCACertificates: async () => [] });
+    let addressbook = new Addressbook();
+    appGlobal.addressbooks.add(addressbook);
+    let email = await readAndSaveSignedMessage(folder, new Date("2026-09-15T12:00:00Z"));
+
+    let alice = email.from.createPerson(addressbook);
+    alice.encryptionPublicKeys.replaceAll([await SMIMEPublicKey.importPublicKey(kAliceRenewedCertificate)]);
+    alice.addEncryptionPublicKey(email.signedKey);
+    expect(alice.encryptionPublicKeys.length).toBe(2);
+    await SQLEMail.save(email);
+
+    let fromDB = await reread(email);
+    expect(fromDB.signedKeyJSON).toBe(null); // the contact has it
+    expect(await getPublicKeyByKeyID(fromDB.signedByKeyID, fromDB)).toBe(alice.encryptionPublicKeys.last);
+  });
 });
 
 /** Alice's key from `kClearSigned`, in a second certificate from another CA:
