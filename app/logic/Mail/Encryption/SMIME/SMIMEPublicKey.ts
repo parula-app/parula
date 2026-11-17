@@ -54,7 +54,7 @@ export class SMIMEPublicKey extends PublicKey {
   async setCertificate(cert: Certificate) {
     let publicKey = cert.tbsCertificate.publicKey;
     if (!this.id) {
-      let { algorithm } = publicKey.algorithmIdentifier;
+      let algorithm = publicKey.algorithmIdentifier.algorithm;
       switch (algorithm) {
       case "ecPublicKey":
         this.cipher = "EC";
