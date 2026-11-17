@@ -3,12 +3,18 @@
     <OptionsRow icon={UserInterfaceIcon}>
       <hbox class="field-row">
         <label for="options-frontend" class="field-label">{$t`User interface`}</label>
-        <ComboBox options={[ { value: "classic", label: appName }, { value: "lookout", label: "Lookout" } ]}
+        <ComboBox options={[ { value: "classic", label: appName == "Lookout" ? "Parula" : appName }, { value: "lookout", label: "Lookout" } ]}
           bind:value={frontend} label={$t`User interface`} width="200px" />
         {#if frontend != $frontendSetting.value}
           <DialogButton label={$t`Switch`} icon={SwitchIcon} onClick={onSaveFrontend} />
         {/if}
       </hbox>
+    </OptionsRow>
+      <vbox class="titlebar">
+        <Checkbox label={$t`Show the title bar`} checked={!$tabsInTitleBar.value}
+          on:change={event => { $tabsInTitleBar.value = !event.detail; }} />
+      </vbox>
+    <OptionsRow>
     </OptionsRow>
     <OptionsRow icon={ThemeIcon}>
       <hbox class="field-row">
@@ -40,13 +46,15 @@
   import { openApp } from "../../../frontend/AppsBar/selectedApp";
   import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
   import { appGlobal } from "../../../logic/app";
-  import { appName } from "../../../logic/build";
+  import { appName, defaultFrontend } from "../../../logic/build";
   import { catchErrors } from "../../../frontend/Util/error";
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
+  import Checkbox from "../../Shared/Form/Checkbox.svelte";
   import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
   import OptionsPage from "../Shared/OptionsPage.svelte";
   import OptionsSection from "../Shared/OptionsSection.svelte";
   import OptionsRow from "../Shared/OptionsRow.svelte";
+  import { tabsInTitleBar } from "../../Shared/Ribbon/Ribbon.svelte";
   import GeneralIcon from "lucide-svelte/icons/settings";
   import ThemeIcon from "lucide-svelte/icons/sun-moon";
   import UserInterfaceIcon from "lucide-svelte/icons/panels-top-left";
@@ -56,7 +64,7 @@
   import { t } from "../../../l10n/l10n";
 
   // <copied from="../../../frontend/Settings/Global/Appearance.svelte">
-  let frontendSetting = getLocalStorage("appearance.frontend", "classic");
+  let frontendSetting = getLocalStorage("appearance.frontend", defaultFrontend);
   let frontend = frontendSetting.value;
   function onSaveFrontend() {
     openApp(mailMustangApp, {});
@@ -92,5 +100,10 @@
   }
   .default-app :global(svg) {
     color: var(--lo-success);
+  }
+  .titlebar {
+    margin-inline-start: 20px;
+    margin-block-start: 0px;
+    margin-block-end: -12px;
   }
 </style>

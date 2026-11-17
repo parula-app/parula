@@ -1,10 +1,16 @@
 <RibbonGroup label={$t`Polls *=> Ribbon group to insert polls and bookings into the email`}>
-  {#each types as type}
-    <RibbonButton label={label(type)} icon={icon(type)}
-      tooltip={tooltip(type)}
-      disabled={$mail.sml ? $t`The message already has a poll. Remove it first.` : !identity}
-      onClick={() => insert(type)} />
-  {/each}
+  {#if account}
+    {#each types as type}
+      <RibbonButton label={label(type)} icon={icon(type)}
+        tooltip={tooltip(type)}
+        disabled={$mail.sml ? $t`The message already has a poll. Remove it first.` : !identity}
+        onClick={() => insert(type)} />
+    {/each}
+  {:else}
+    <RibbonButton label={$t`Create SML account`} icon={PollIcon}
+      disabled={!identity}
+      onClick={onRegister} />
+  {/if}
 </RibbonGroup>
 
 <script lang="ts">
@@ -13,20 +19,20 @@
   import type { MailIdentity } from "../../../logic/Mail/MailIdentity";
   import { createPoll, createMeetingTimePoll, createBookMe } from "../../../logic/Mail/SML/SMLCreateKind";
   import { SMLHTTPAccount } from "../../../logic/Mail/SML/SMLHTTPAccount";
-  import { showMessageBox } from "../../Shared/Dialog/MessageBox";
   import { showError } from "../../../frontend/Util/error";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
   import RibbonButton from "../../Shared/Ribbon/RibbonButton.svelte";
   import PollIcon from "lucide-svelte/icons/list-checks";
   import SchedulingPollIcon from "lucide-svelte/icons/calendar-clock";
   import BookingsIcon from "lucide-svelte/icons/calendar-check";
-  import { appName } from "../../../logic/build";
+  import { assert } from "../../../logic/util/util";
   import { t } from "../../../l10n/l10n";
 
   export let mail: EMail;
 
   const types = ["SimplePoll", "MeetingTimePoll", "BookMe"];
   $: identity = mail.identity;
+  $: account = $identity?.smlAccount;
 
   function tooltip(type: string): string {
     switch (type) {
@@ -37,10 +43,7 @@
     }
   }
 
-  async function insert(type: string) {
-    if (!await ensureAccount(identity)) {
-      return;
-    }
+  function insert(type: string) {
     mail.sml = create(type, identity);
   }
 
@@ -53,24 +56,20 @@
     }
   }
 
-  async function ensureAccount(identity: MailIdentity): Promise<boolean> {
-    if (identity.smlAccount) {
-      return true;
-    }
-    let create = await showMessageBox($t`Polls *=> Polls and bookings in emails`,
-      $t`Polls and bookings need a free SML account for ${identity.emailAddress}. The SML server sends a confirmation message to this address, which ${appName} processes automatically.` + "\n\n" +
-      $t`Do you want to create the account now?`,
-      $t`Create Account`);
-    if (!create) {
-      return false;
-    }
-    let account = await SMLHTTPAccount.getOrCreateAccount(identity);
-    if (!account.isLoggedIn) {
-      account.login()
-        .catch(showError);
-    }
-    return true;
+  // <copied from="../../../frontend/Mail/SML/SMLAddKinds.svelte" onRegister() registerSMLHTTP()>
+  function onRegister() {
+    registerSMLHTTP()
+      .catch(showError);
   }
+
+  async function registerSMLHTTP() {
+    assert(!account, "Already have an account");
+    account = await SMLHTTPAccount.getOrCreateAccount(identity);
+    if (!account.isLoggedIn) {
+      await account.login(); // waits for email, so often takes minutes or hangs entirely
+    }
+  }
+  // </copied>
 
   /* <copied from="SMLComposer.svelte"> */
   function label(type: string): string {

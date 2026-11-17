@@ -17,9 +17,9 @@
 
 <style>
   .group {
-    border: 1px solid var(--border);
+    border: var(--group-box-border);
     border-radius: var(--group-box-radius);
-    margin-block-start: 24px;
+    margin-block-start: var(--group-box-margin-top);
   }
   .header {
     background-color: var(--group-box-header-bg);

@@ -1,4 +1,4 @@
-import { EncryptedPrivateKeyInfo, KeyDerivationAlgorithm, Null, OctetString, PBES2Params, PBKDF2Params } from "./SMIMEASN1";
+import { EncryptedPrivateKeyInfo, KeyDerivationAlgorithm, Null, OctetString, PBES2Params, PBKDF2Params, algorithmName } from "./SMIMEASN1";
 import { tripleDESDecrypt } from "./legacyCiphers";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../../util/util";
@@ -12,7 +12,7 @@ import { assert } from "../../../util/util";
 export async function decryptPBES2(data: Uint8Array, parameters: Uint8Array, passphrase: string): Promise<Uint8Array> {
   let pbes2 = PBES2Params.decode(parameters);
   if (pbes2.keyDerivationFunc.algorithm != "pkcs5PBKDF2") {
-    throw new Error("Unsupported private key derivation function");
+    throw new Error("Unsupported private key derivation function " + algorithmName(pbes2.keyDerivationFunc.algorithm));
   }
   let pbkdf2 = PBKDF2Params.decode(pbes2.keyDerivationFunc.parameters);
   if (pbkdf2.salt.type != "specified") {

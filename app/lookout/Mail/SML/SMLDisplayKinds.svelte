@@ -1,10 +1,22 @@
 {#if sml && isKnownType}
-  <ActionCard title={title} subtitle={subtitle} icon={icon(type)}>
+  <ActionCard title={title} subtitle={subtitle} icon={icon(type)} wide={useCalendar && type != "SimplePoll"}>
     <svelte:fragment slot="actions">
+      {#if type != "SimplePoll"}
+        <DialogButton label={$t`Use calendar`} icon={CalendarIcon} classes="plain" pressed={useCalendar}
+          onClick={() => { useCalendar = !useCalendar; }} />
+      {/if}
       <slot name="actions" />
     </svelte:fragment>
     {#if type == "SimplePoll"}
       <Poll {sml} {myReaction} />
+    {:else if useCalendar}
+      <SMLCalendar>
+        {#if type == "MeetingTimePoll"}
+          <CalendarMeetingTimePoll {sml} {myReaction} />
+        {:else if type == "BookMe"}
+          <CalendarBook {sml} {myReaction} />
+        {/if}
+      </SMLCalendar>
     {:else if type == "MeetingTimePoll"}
       <MeetingTimePoll {sml} {myReaction} />
     {:else if type == "BookMe"}
@@ -24,11 +36,17 @@
   import Poll from "./Poll.svelte";
   import MeetingTimePoll from "../../Calendar/SML/MeetingTimePoll/Poll.svelte";
   import Book from "../../Calendar/SML/BookMe/Book.svelte";
+  import SMLCalendar from "../../Calendar/SML/Shared/SMLCalendar.svelte";
+  import CalendarMeetingTimePoll from "../../../frontend/Calendar/SML/MeetingTimePoll/Poll.svelte";
+  import CalendarBook from "../../../frontend/Calendar/SML/BookMe/Book.svelte";
+  import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
+  import CalendarIcon from "lucide-svelte/icons/calendar";
   import { getDateTimeLocale, t } from "../../../l10n/l10n";
 
   export let sml: SMLData;
   export let message: EMail;
 
+  let useCalendar = false;
   $: type = sml?.type ?? sml?.sml?.["@type"];
   $: isKnownType = ["SimplePoll", "MeetingTimePoll", "BookMe"].includes(type);
   $: request = $sml?.sml as TSMLRequest & Partial<TSMLSimplePoll<TSMLThing>>;

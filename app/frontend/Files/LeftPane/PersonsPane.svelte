@@ -125,7 +125,22 @@
     margin-block-start: 8px;
   }
   .email {
-    display: var(--persons-pane-email-display, none);
+    display: none;
+  }
+  :global(.lookout-window) .persons-file-pane {
+    min-height: 0;
+    overflow: hidden;
+    background-color: var(--lo-pane-bg);
+    border-radius: var(--lo-radius);
+    box-shadow: var(--lo-shadow-card);
+  }
+  :global(.lookout-window) .email {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--lo-fg-secondary);
+    font-size: var(--lo-font-size-small);
   }
   .progress {
     align-self: center;

@@ -1,4 +1,5 @@
-<button type="button" class="dialog-button {classes}" class:primary class:running
+<button type="button" class="dialog-button {classes}" class:primary class:pressed class:running
+  aria-pressed={pressed}
   disabled={!!disabled || running}
   title={typeof disabled == "string" ? disabled : tooltip}
   on:click={onClicked}
@@ -22,6 +23,7 @@
   export let icon: ConstructorOfATypedSvelteComponent = null;
   export let onClick: (event: Event) => void | Promise<void> = null;
   export let primary = false;
+  export let pressed: boolean = null;
   export let disabled: boolean | string = false;
   export let tooltip: string = null;
   export let classes = "";
@@ -92,6 +94,13 @@
   .dialog-button.plain:disabled {
     background-color: transparent;
     border-color: transparent;
+  }
+  .dialog-button.pressed {
+    background-color: var(--lo-selected-bg);
+    border-color: var(--lo-selected-hover-bg);
+  }
+  .dialog-button.pressed:hover:not(:disabled) {
+    background-color: var(--lo-selected-hover-bg);
   }
   .dialog-button:disabled {
     color: var(--lo-fg-disabled);

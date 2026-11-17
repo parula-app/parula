@@ -166,6 +166,8 @@ export function eventInfoMessages(event: Event, events: Iterable<Event>, now = n
   if (event.isIncomingMeeting) {
     if (event.isCancelled) {
       messages.push({ kind: "cancelled", text: gt`This meeting has been cancelled by the organizer` });
+    } else if (event.isMoved) {
+      messages.push({ kind: "info", text: gt`The organizer changed the time or place of this meeting. Please respond again.` });
     } else {
       messages.push({ kind: "info", text: myResponseText(event.myParticipation) });
     }

@@ -1,5 +1,6 @@
 :root {
-  --lo-font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  /* Constr-Klingon before system-ui. Otherwise, Chromium on Linux sometimes shows pIqaD as boxes in the system-ui font. */
+  --lo-font: "Segoe UI Variable Text", "Segoe UI", Constr-Klingon, system-ui, sans-serif;
   --lo-font-size: 14px;
   --lo-font-size-small: 12px;
   --lo-font-size-large: 20px;
@@ -296,12 +297,14 @@ input[type="date"].lo-text-field::-webkit-calendar-picker-indicator {
   --button-filled-hover-fg: var(--lo-accent-fg);
   --search-field-radius: var(--lo-radius-small);
   --search-field-bg: var(--lo-input-bg);
-  --group-box-radius: var(--lo-radius-small);
+  --group-box-border: none;
+  --group-box-margin-top: 8px;
+  --group-box-radius: 0;
   --group-box-header-bg: transparent;
-  --group-box-header-border: none;
-  --group-box-header-padding: 8px 12px 0 12px;
+  --group-box-header-border: 1px solid var(--lo-divider);
+  --group-box-header-padding: 0 0 4px 0;
   --group-box-header-weight: 600;
-  --group-box-content-padding: 8px 12px 10px 12px;
+  --group-box-content-padding: 8px 0 8px 44px;
   --pane-margin: 0 4px 8px 4px;
   --pane-radius: var(--lo-radius);
   --pane-shadow: var(--lo-shadow-card);
