@@ -104,7 +104,7 @@ export class MessageActions {
       return;
     }
     // <copied from="../../frontend/Mail/Message/MessageToolbar.svelte" editDraft()>
-    await message.loadMIME();
+    await message.compose.editDraft();
     mailMustangApp.writeMail(message);
     // </copied>
   }
@@ -131,6 +131,12 @@ export class MessageActions {
   static isJunk(messages: EMail[]): boolean {
     return messages.length > 0 && messages.every(message =>
       message.isSpam || message.folder?.specialFolder == SpecialFolder.Spam);
+  }
+
+  /** If all messages are junk, marks them as not junk. Otherwise, marks them as junk. */
+  static async toggleJunk(messages: EMail[]) {
+    let isJunk = !MessageActions.isJunk(messages);
+    await Promise.all(messages.map(message => message.treatSpam(isJunk)));
   }
 
   static async toggleTag(messages: EMail[], tag: Tag) {

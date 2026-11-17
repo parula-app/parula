@@ -54,6 +54,19 @@ export class SendEncrypted {
     }
   }
 
+  /** Encrypts only to ourselves, because the recipients may not have keys yet */
+  static async encryptDraft(mail: EMail): Promise<EMail> {
+    let privateKey = getMyPrivateKey(mail.identity);
+    let noRecipients = new ArrayColl<PersonUID>();
+    if (privateKey instanceof PGPPrivateKey) {
+      return await PGPSend.encryptAndSign(mail, noRecipients);
+    } else if (privateKey instanceof SMIMEPrivateKey) {
+      return await SMIMESend.encryptAndSign(mail, noRecipients);
+    } else {
+      throw new UserError(gt`Please first set up encryption for yourself, in Settings | Mail | Identity | Encryption`);
+    }
+  }
+
   static cloneEMail(mail: EMail): EMail {
     let result = mail.folder.newEMail();
     // <copied from="EMail.copyFrom()">, because we want to copy only the delivery properties, not the content

@@ -86,16 +86,17 @@ export class JSONEMail {
     }
   }
 
-  /** Only for senders who are not in the addressbook,
+  /** Only if the contact does not have this very key or certificate,
    * because the addressbook has the better copy.
    * @returns {JSON} what we read, if we never parsed the key */
   protected static saveSigner(email: EMail): any {
+    let signer = email.signedKey?.toJSON() ?? email.signedKeyJSON;
     let onContact = email.from?.findPerson()?.encryptionPublicKeys
-      .find(key => key.id == email.signedByKeyID);
+      .find(key => key.fingerprint == signer?.fingerprint);
     if (onContact) {
       return null;
     }
-    return email.signedKey?.toJSON() ?? email.signedKeyJSON;
+    return signer;
   }
 
   protected static saveRecipients(email: EMail, json: any) {

@@ -3,7 +3,7 @@ import { ActiveSyncPerson } from "./ActiveSyncPerson";
 import type { ActiveSyncAccount } from "../../Mail/ActiveSync/ActiveSyncAccount";
 import { ActiveSyncError } from "../../Mail/ActiveSync/ActiveSyncError";
 import type { PublicKey } from "../../Mail/Encryption/PublicKey";
-import { readCertificates } from "../../Mail/Encryption/SMIME/SMIMEDirectory";
+import { SMIMEDirectory } from "../../Mail/Encryption/SMIME/SMIMEDirectory";
 import { ensureArray, NotReached } from "../../util/util";
 import { ArrayColl, type Collection } from "svelte-collections";
 
@@ -72,7 +72,7 @@ export class ActiveSyncGAL extends ExchangeGAL {
         candidate.EmailAddress?.toLowerCase() == emailAddress.toLowerCase());
       // Status 1 means that we got the certificates of this recipient
       if (recipient?.Certificates?.Status == "1") {
-        return await readCertificates(ensureArray(recipient.Certificates.Certificate), this.errorCallback);
+        return await new SMIMEDirectory(this.account.url).readCertificates(ensureArray(recipient.Certificates.Certificate), this.errorCallback);
       }
     } catch (ex) {
       this.errorCallback(ex);
