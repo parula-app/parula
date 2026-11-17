@@ -6,7 +6,7 @@ import { PersonUID } from "../../../../logic/Abstract/PersonUID";
 import { setUpAccount, type TestMailAccount } from "../TestMailAccount";
 import { SpecialFolder } from "../../../../logic/Mail/Folder";
 import { getEncryptionSystem, getPublicKeyByFingerprint, getPublicKeyForPerson, getPublicKeyForPersonUID } from "../../../../logic/Mail/Encryption/KeyUtils";
-import { EncryptionSystem } from "../../../../logic/Mail/Encryption/enums";
+import { EncryptionSystem, TrustLevel } from "../../../../logic/Mail/Encryption/enums";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { SMIMEPrivateKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { PGPPublicKey } from "../../../../logic/Mail/Encryption/PGP/PGPPublicKey";
@@ -139,6 +139,19 @@ describe("Certificate to which we encrypt", () => {
     person.addEncryptionPublicKey(await SMIMEPublicKey.importPublicKey(kVictorSigning));
     person.addEncryptionPublicKey(encryption);
     expect(getPublicKeyForPerson(person)).toBe(encryption);
+  });
+
+  test("of a contact with a key that the user confirmed and one from an AutoCrypt header: the confirmed one", async () => {
+    let person = new Addressbook().newPerson();
+    // Anybody can send a mail with this person's address and an AutoCrypt header with a key of their own
+    let autoCrypt = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Victor", emailAddress: "victor@example.com" })).publicKeyArmored);
+    autoCrypt.trustLevel = TrustLevel.Sender;
+    autoCrypt.encryptByDefault = true;
+    let confirmed = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Victor", emailAddress: "victor@example.com" })).publicKeyArmored);
+    confirmed.trustLevel = TrustLevel.Personal;
+    person.addEncryptionPublicKey(autoCrypt);
+    person.addEncryptionPublicKey(confirmed);
+    expect(getPublicKeyForPerson(person)).toBe(confirmed);
   });
 
   test("from a company directory that has one for signing and one for encrypting", async () => {
