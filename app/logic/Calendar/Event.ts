@@ -723,6 +723,32 @@ export class Event extends Observable {
   }
 
   /**
+   * Removes the exceptions and exclusions that the server no longer has,
+   * e.g. because another client undid them, or the organizer changed the series.
+   * Adding and updating the others is up to the caller.
+   * @param serverExceptions The recurrence start times of all exceptions of the series on the server
+   * @param serverExclusions All exclusions of the series on the server
+   */
+  protected removeExceptionsNotOnServer(serverExceptions: Date[], serverExclusions: Date[]) {
+    assert(this.recurrenceCase == RecurrenceCase.Master, "Only for master");
+    let exceptionTimes = new Set(serverExceptions.map(time => time.getTime()));
+    let exclusionTimes = new Set(serverExclusions.map(time => time.getTime()));
+    let undoneExclusions = this.exclusions.filterOnce(exclusion => !exclusionTimes.has(exclusion.getTime()));
+    let undoneExceptions = this.exceptions.filterOnce(exception => !exceptionTimes.has(exception.recurrenceStartTime.getTime()));
+    if (undoneExclusions.isEmpty && undoneExceptions.isEmpty) {
+      return;
+    }
+    this.exclusions.removeAll(undoneExclusions);
+    this.exceptions.removeAll(undoneExceptions);
+    this.calendar.events.removeAll(undoneExceptions);
+    for (let exception of undoneExceptions) {
+      // Not `deleteLocally()`, because that would add an exclusion
+      this.calendar.storage.deleteEvent(exception).catch(this.calendar.errorCallback);
+    }
+    this.generateRecurringInstances();
+  }
+
+  /**
    * Calculates the position of this instance in a recurring series.
    * "none" - event isn't an instance or exception
    * "only" - event is the only instance or exception remaining

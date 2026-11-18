@@ -89,10 +89,14 @@ export class EWSEvent extends ExchangeEvent {
     this.setAllDayTimeToLocalMidnight();
     if (xmljs.Recurrence) {
       this.recurrenceRule = this.newRecurrenceRuleFromXML(xmljs.Recurrence);
-      if (xmljs.DeletedOccurrences?.DeletedOccurrence) {
-        for (let deletion of ensureArray(xmljs.DeletedOccurrences.DeletedOccurrence)) {
-          this.makeExclusionLocally(this.toLocalMidnight(sanitize.date(deletion.Start)));
-        }
+      let deletions = ensureArray(xmljs.DeletedOccurrences?.DeletedOccurrence).map(deletion => this.toLocalMidnight(sanitize.date(deletion.Start)));
+      let modifications = ensureArray(xmljs.ModifiedOccurrences?.Occurrence)
+        .map(occurrence => sanitize.date(occurrence.OriginalStart, null))
+        .filter(originalStart => originalStart)
+        .map(originalStart => this.toLocalMidnight(originalStart));
+      this.removeExceptionsNotOnServer(modifications, deletions);
+      for (let deletion of deletions) {
+        this.makeExclusionLocally(deletion);
       }
     } else {
       this.recurrenceRule = null;

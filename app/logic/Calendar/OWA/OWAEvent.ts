@@ -88,10 +88,14 @@ export class OWAEvent extends ExchangeEvent {
     this.setAllDayTimeToLocalMidnight();
     if (json.Recurrence) {
       this.recurrenceRule = this.newRecurrenceRuleFromJSON(json.Recurrence);
-      if (json.DeletedOccurrences) {
-        for (let deletion of json.DeletedOccurrences) {
-          this.makeExclusionLocally(this.toLocalMidnight(sanitize.date(deletion.Start)));
-        }
+      let deletions = ensureArray(json.DeletedOccurrences).map(deletion => this.toLocalMidnight(sanitize.date(deletion.Start)));
+      let modifications = ensureArray(json.ModifiedOccurrences)
+        .map(occurrence => sanitize.date(occurrence.OriginalStart, null))
+        .filter(originalStart => originalStart)
+        .map(originalStart => this.toLocalMidnight(originalStart));
+      this.removeExceptionsNotOnServer(modifications, deletions);
+      for (let deletion of deletions) {
+        this.makeExclusionLocally(deletion);
       }
     } else {
       this.recurrenceRule = null;

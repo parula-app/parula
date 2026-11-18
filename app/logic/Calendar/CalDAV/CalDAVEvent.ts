@@ -51,6 +51,15 @@ export class CalDAVEvent extends Event {
     }
     let parsed = new ICalParser(this.originalICal);
     let vevents = ensureArray(parsed.containers.vcalendar?.[0].containers.vevent);
+    let master = vevents.find(v => !v.entries.recurrenceid);
+    let exclusionTimes = ensureArray(master?.entries.exdate).flatMap(entry =>
+      entry.value.split(",") // one EXDATE line can hold multiple dates
+        .map(value => parseDate({ value, properties: entry.properties }, master)[0]))
+      .filter(exclusionTime => exclusionTime);
+    let exceptionTimes = vevents.filter(vevent => vevent.entries.recurrenceid)
+      .map(vevent => parseDate(vevent.entries.recurrenceid[0], vevent)[0])
+      .filter(recurrenceStartTime => recurrenceStartTime);
+    this.removeExceptionsNotOnServer(exceptionTimes, exclusionTimes);
     for (let vevent of vevents) {
       let recurrenceID = vevent.entries.recurrenceid?.[0];
       if (!recurrenceID) {
@@ -71,14 +80,8 @@ export class CalDAVEvent extends Event {
         this.calendar.errorCallback(ex);
       }
     }
-    let master = vevents.find(v => !v.entries.recurrenceid);
-    for (let entry of ensureArray(master?.entries.exdate)) {
-      for (let value of entry.value.split(",")) { // one EXDATE line can hold multiple dates
-        let [exclusionTime] = parseDate({ value, properties: entry.properties }, master);
-        if (exclusionTime) {
-          this.makeExclusionLocally(exclusionTime);
-        }
-      }
+    for (let exclusionTime of exclusionTimes) {
+      this.makeExclusionLocally(exclusionTime);
     }
   }
 

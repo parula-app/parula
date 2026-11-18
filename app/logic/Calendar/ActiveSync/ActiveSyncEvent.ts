@@ -78,10 +78,12 @@ export class ActiveSyncEvent extends ExchangeEvent {
     this.setAllDayTimeToLocalMidnight();
     if (wbxmljs.Recurrence) {
       this.recurrenceRule = this.newRecurrenceRuleFromWBXML(wbxmljs.Recurrence);
-      for (let exception of ensureArray(wbxmljs.Exceptions?.Exception)) {
-        if (exception.Deleted == "1") {
-          this.makeExclusionLocally(this.toLocalMidnight(fromCompact(sanitize.nonemptystring(exception.ExceptionId || exception.ExceptionStartTime), this.allDay && this.calendar.account.protocolVersion == "16.1")));
-        }
+      let exceptions = ensureArray(wbxmljs.Exceptions?.Exception);
+      let deletions = exceptions.filter(exception => exception.Deleted == "1").map(exception => this.exceptionTimeFromWBXML(exception));
+      let modifications = exceptions.filter(exception => exception.Deleted != "1").map(exception => this.exceptionTimeFromWBXML(exception));
+      this.removeExceptionsNotOnServer(modifications, deletions);
+      for (let deletion of deletions) {
+        this.makeExclusionLocally(deletion);
       }
     } else {
       this.recurrenceRule = null;
@@ -120,6 +122,11 @@ export class ActiveSyncEvent extends ExchangeEvent {
     if (wbxmljs.Attachments != undefined) {
       this.attachmentsFromWBXML(wbxmljs.Attachments);
     }
+  }
+
+  /** @param exception as in `Exceptions` of an item in a `Sync` response */
+  protected exceptionTimeFromWBXML(exception: any): Date {
+    return this.toLocalMidnight(fromCompact(sanitize.nonemptystring(exception.ExceptionId || exception.ExceptionStartTime), this.allDay && this.calendar.account.protocolVersion == "16.1"));
   }
 
   /** Only the meta-data. The contents are fetched later,
