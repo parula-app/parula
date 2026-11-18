@@ -24,6 +24,20 @@
         : $t`Add and remove accounts or change existing connection settings`}
       onClick={() => account ? openAccountSettings(account) : openOptions("mail")} />
 
+    {#if $account?.autoResponder.supported}
+      <BackstageTile icon={AutomaticRepliesIcon} label={$t`Automatic Replies`}
+        title={$t`Automatic Replies (Out of Office)`}
+        description={$t`Use automatic replies to notify others that you are out of office, on vacation, or not available to respond to email messages`}
+        highlight={isReplyingNow($autoResponder)}
+        onClick={() => { isAutomaticRepliesOpen = true; }}>
+        <svelte:fragment slot="details">
+          {#if isReplyingNow($autoResponder)}
+            <hbox>{$t`Automatic replies are being sent for this account`}</hbox>
+          {/if}
+        </svelte:fragment>
+      </BackstageTile>
+    {/if}
+
     <BackstageTile icon={RulesIcon} label={$t`Manage Rules & Alerts`}
       title={$t`Rules and Alerts`}
       description={$t`Use Rules and Alerts to help organize your incoming email messages, and receive updates when items are added, changed, or removed`}
@@ -31,6 +45,9 @@
       onClick={() => goTo("/mail/rules", { account })} />
   </vbox>
 </vbox>
+{#if isAutomaticRepliesOpen}
+  <AutomaticRepliesDialog {account} on:close={() => { isAutomaticRepliesOpen = false; }} />
+{/if}
 
 <script lang="ts">
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
@@ -40,11 +57,14 @@
   import { goTo } from "../../../frontend/AppsBar/selectedApp";
   import { selectedAccount } from "../../../frontend/Mail/Selected";
   import { catchErrors } from "../../../frontend/Util/error";
+  import { loadAutomaticReplies, isReplyingNow } from "../../Mail/AutomaticReplies/AutomaticReplies";
   import BackstageTile from "./BackstageTile.svelte";
   import InfoAccountRow from "./InfoAccountRow.svelte";
+  import AutomaticRepliesDialog from "../../Mail/AutomaticReplies/AutomaticRepliesDialog.svelte";
   import AddIcon from "lucide-svelte/icons/plus";
   import AccountSettingsIcon from "lucide-svelte/icons/user-cog";
   import RulesIcon from "lucide-svelte/icons/list-filter";
+  import AutomaticRepliesIcon from "lucide-svelte/icons/message-square-reply";
   import { t } from "../../../l10n/l10n";
 
   const emailAccounts = appGlobal.emailAccounts;
@@ -55,6 +75,14 @@
     : $selectedAccount && $emailAccounts.contains($selectedAccount)
       ? $selectedAccount
       : $emailAccounts.first;
+
+  let isAutomaticRepliesOpen = false;
+  $: autoResponder = $account?.autoResponder;
+  $: isLoggedIn = $account?.isLoggedIn;
+  $: if (isLoggedIn) {
+    loadAutomaticReplies(account)
+      .catch(console.error);
+  }
 
   function onAddAccount() {
     $isBackstageOpen = false;

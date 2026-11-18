@@ -6,6 +6,7 @@ import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShar
 import { OWAFolder } from "./OWAFolder";
 import { OWASearchEMail } from "./OWASearchEMail";
 import { OWAAutoResponder } from "./OWAAutoResponder";
+import { OWATags } from "./OWATags";
 import { OWAError } from "./OWAError";
 import type { OWANotifications } from "./Notification/OWANotifications";
 import { OWAExchangeNotifications } from "./Notification/OWAExchangeNotifications";
@@ -84,6 +85,10 @@ export class OWAAccount extends ExchangeMailAccount {
 
   newAutoResponder(): OWAAutoResponder {
     return new OWAAutoResponder(this);
+  }
+
+  newTags(): OWATags {
+    return new OWATags(this);
   }
 
   /**
@@ -209,6 +214,8 @@ export class OWAAccount extends ExchangeMailAccount {
         if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new OWAGAL(this));
         }
+        this.tags.load()
+          .catch(logErrorToServer);
 
         await this.callOWA(new OWASubscribeToHierarchyNotificationRequest());
         this.listenForNotifications();
@@ -425,9 +432,14 @@ export class OWAAccount extends ExchangeMailAccount {
       let mainAccount = this.mainAccount as OWAAccount;
       return await mainAccount.callOWA(aRequest, this.username);
     }
+    let body = JSON.stringify(aRequest);
+    let headers = this.getRequestHeaders(aRequest.action, mailbox);
+    if (aRequest.inURLPostData) {
+      headers["x-owa-urlpostdata"] = encodeURIComponent(body);
+    }
     return await this.callOWAShared(this.url + "service.svc", {
-      body: JSON.stringify(aRequest),
-      headers: this.getRequestHeaders(aRequest.action, mailbox),
+      body,
+      headers,
       method: "POST",
     });
   }

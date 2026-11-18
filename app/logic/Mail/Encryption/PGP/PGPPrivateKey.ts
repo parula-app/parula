@@ -46,6 +46,7 @@ export class PGPPrivateKey extends PGPPublicKey implements PrivateKey {
     if (this.passphrase) {
       key = await openPGP.decryptKey({ privateKey: key, passphrase: this.passphrase });
     }
+    this._openPGPPrivateKey = key;
     return key;
   }
 
@@ -108,8 +109,8 @@ export class PGPPrivateKey extends PGPPublicKey implements PrivateKey {
     return key;
   }
 
-  toJSON() {
-    let json = super.toJSON();
+  toPrivateJSON() {
+    let json = this.toJSON();
     json.privateKeyArmored = this.privateKeyArmored;
     json.passphrase = this.passphrase;
     //json.revocationCertificate = this.revocationCertificate;
@@ -117,8 +118,8 @@ export class PGPPrivateKey extends PGPPublicKey implements PrivateKey {
     json.didBackup = this.didBackup;
     return json;
   }
-  fromJSON(json: any) {
-    super.fromJSON(json);
+  fromPrivateJSON(json: any) {
+    this.fromJSON(json);
     this.privateKeyArmored = sanitize.nonemptystring(json.privateKeyArmored, null);
     this.passphrase = sanitize.nonemptystring(json.passphrase, null);
     //this.revocationCertificate = sanitize.nonemptystring(json.revocationCertificate, null);

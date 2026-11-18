@@ -89,9 +89,10 @@ export class WhatsAppAccount extends ChatAccount {
   readonly appState = new WhatsAppAppState(this);
   /** Builds, encrypts and sends our outgoing messages (per-device Signal). */
   readonly sender = new WhatsAppSender(this);
-  /** Recently sent payloads, keyed by message id, so a `<receipt type="retry">`
-   * for one can be re-encrypted and re-sent. Bounded; old entries are evicted. */
-  protected recentSends = new Map<string, WAMessage>();
+  /** Recently sent payloads and the users we sent them to, keyed by chat and
+   * message id like whatsmeow, so a `<receipt type="retry">` from one of their
+   * devices can be re-encrypted and re-sent. Bounded; old entries are evicted. */
+  protected recentSends = new Map<string, { payload: WAMessage, recipients: string[] }>();
   /** The in-progress QR pairing, while {@link startPairing} runs (for cancel). */
   protected pairing: WhatsAppPairing | null = null;
   /** Resolves/rejects the in-flight login once `<success>`/`<failure>` arrives. */
@@ -421,7 +422,10 @@ export class WhatsAppAccount extends ChatAccount {
    * server stops repeating it. */
   protected async onReceipt(node: WANode): Promise<void> {
     if (node.attrs.type == "retry") {
-      await this.sender.handleRetryReceipt(node, this.recentSends.get(node.attrs.id ?? ""))
+      let from = node.jidAttr("from");
+      // Our own devices name the 1:1 chat in `recipient`
+      let chat = from && !from.isGroup && this.isOwnJID(from) ? node.jidAttr("recipient") : from;
+      await this.sender.handleRetryReceipt(node, this.recentSends.get(`${chat?.toNonDevice()}|${node.attrs.id}`))
         .catch(ex => console.error("WhatsApp: handling a retry receipt failed:", ex));
     }
     await this.sendAck(node);
@@ -458,10 +462,12 @@ export class WhatsAppAccount extends ChatAccount {
     }
   }
 
-  /** Remembers a payload we just sent so a later retry receipt for it can
-   * re-encrypt and re-send. Bounded — the oldest entry is dropped past the cap. */
-  rememberSent(messageID: string, payload: WAMessage): void {
-    this.recentSends.set(messageID, payload);
+  /** Remembers a payload we just sent to `recipients` in `chat`, so a later retry
+   * receipt for it can re-encrypt and re-send. Bounded — the oldest entry is
+   * dropped past the cap. */
+  rememberSent(chat: JID, messageID: string, payload: WAMessage, recipients: JID[]): void {
+    this.recentSends.set(`${chat.toNonDevice()}|${messageID}`,
+      { payload, recipients: recipients.map(recipient => recipient.toNonDevice().toString()) });
     if (this.recentSends.size > kRecentSendsMax) {
       this.recentSends.delete(this.recentSends.keys().next().value!);
     }
@@ -551,6 +557,13 @@ export class WhatsAppAccount extends ChatAccount {
     let payload = WhatsAppMessage.unwrap(rawPayload);
     // Any group sender-key distribution was already stored while decrypting (a
     // group message's pairwise enc carries it); decryptStanza handles that.
+    // Only our own devices send these. From anybody else, they would fake our chats, keys or messages.
+    if ((payload.protocolMessage?.historySyncNotification || payload.protocolMessage?.appStateSyncKeyShare ||
+        rawPayload.deviceSentMessage) && !this.isOwnJID(sender)) {
+      waLog("ignoring a sync message from", sender.toString(), "— only our own devices may send it");
+      await this.sendDeliveryReceipt(node);
+      return;
+    }
     let historyNotification = payload.protocolMessage?.historySyncNotification;
     if (historyNotification) {
       await this.historySync.handleNotification(historyNotification);

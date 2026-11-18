@@ -1,5 +1,6 @@
 <vbox flex class="page">
-  <PageHeader title={$t`Auto-Responder *=> Automatic replies to incoming mail, e.g. during vacation`} subtitle={$t`Automatically reply to incoming mail while you are away`} />
+  <PageHeader title={$t`Auto Replies *=> Automatic replies to incoming mail, e.g. during vacation`}
+    subtitle={$t`Automatically respond to incoming mail while you are away`} />
 
   {#if loading}
     <hbox class="loading">
@@ -51,19 +52,21 @@
     </HeaderGroupBox>
 
     {#if $autoResponder.isOn}
+      {#if autoResponder.supportsInternal}
+        <HeaderGroupBox>
+          <hbox slot="header">{$t`Inside my organization`}</hbox>
+          <vbox class="editor-box">
+            <HTMLEditorToolbar editor={internalEditor} />
+            <HTMLEditor bind:html={autoResponder.internalHTML} bind:editor={internalEditor} />
+          </vbox>
+        </HeaderGroupBox>
+      {/if}
+
       <HeaderGroupBox>
         <hbox slot="header">
-          {autoResponder.supportsExternal ? $t`Inside my organization` : $t`Automatic reply`}
+          {autoResponder.supportsInternal ? $t`Outside my organization` : $t`Automatic reply`}
         </hbox>
-        <vbox class="editor-box">
-          <HTMLEditorToolbar editor={internalEditor} />
-          <HTMLEditor bind:html={autoResponder.internalHTML} bind:editor={internalEditor} />
-        </vbox>
-      </HeaderGroupBox>
-
-      {#if autoResponder.supportsExternal}
-        <HeaderGroupBox>
-          <hbox slot="header">{$t`Outside my organization`}</hbox>
+        {#if autoResponder.supportsInternal}
           <vbox class="options">
             <label class="radio">
               <input type="radio" value={AutoResponderAudience.None} bind:group={autoResponder.externalAudience} />
@@ -80,14 +83,14 @@
               {$t`Anyone outside my organization`}
             </label>
           </vbox>
-          {#if $autoResponder.externalAudience != AutoResponderAudience.None}
-            <vbox class="editor-box external">
-              <HTMLEditorToolbar editor={externalEditor} />
-              <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor={externalEditor} />
-            </vbox>
-          {/if}
-        </HeaderGroupBox>
-      {/if}
+        {/if}
+        {#if $autoResponder.externalAudience != AutoResponderAudience.None}
+          <vbox class="editor-box external">
+            <HTMLEditorToolbar editor={externalEditor} />
+            <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor={externalEditor} />
+          </vbox>
+        {/if}
+      </HeaderGroupBox>
     {/if}
 
     <hbox class="buttons">
@@ -147,6 +150,7 @@
 
   async function onSave() {
     await autoResponder.save();
+    autoResponder.rememberTimes();
   }
 
   async function onAllow() {

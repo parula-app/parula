@@ -1,6 +1,6 @@
 import { SendEncrypted } from "../SendEncrypted";
 import type { EMail } from "../../EMail";
-import { getMyPrivateKey, getPublicKeyForPersonUID } from "../KeyUtils";
+import { getMySigningKey, getPublicKeyForPersonUID } from "../KeyUtils";
 import { CreateMIME } from "../../SMTP/CreateMIME";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
@@ -22,14 +22,15 @@ export class SMIMESend {
    *   The original email is untouched.
    */
   static async encryptAndSign(mail: EMail, recipients = mail.allRecipients()): Promise<EMail> {
-    let privateKey = getMyPrivateKey(mail.identity, SMIMEPrivateKey);
+    let privateKey = getMySigningKey(mail, SMIMEPrivateKey);
     assert(privateKey, gt`Please first set up S/MIME encryption for yourself, in Settings | Mail | Identity | Encryption`);
     assert(privateKey.certificate, gt`Your S/MIME key does not have a certificate yet. Please add it, in Settings | Mail | Identity | Encryption`);
     let rawKey = await privateKey.decryptKey();
     let result = SendEncrypted.cloneEMail(mail);
     let mime = await CreateMIME.getMIME(mail);
     let mimeAsText = new TextDecoder().decode(mime);
-    if (mail.signedByKeyID) {
+    if (mail.shouldSign) {
+      result.signedPublicKeyFingerprint = privateKey.fingerprint;
       // Only the body and the Content-* headers are signed, not the other headers.
       let { content, otherHeaders } = await SMIMESend.splitOffContent(mimeAsText);
       mimeAsText = content;

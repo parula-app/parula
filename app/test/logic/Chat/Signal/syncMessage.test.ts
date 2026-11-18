@@ -5,7 +5,8 @@
  *   - a Sent transcript to a 1:1 peer creates/updates THAT peer's room with an
  *     OUTGOING message (from our own contact), not a room for ourselves;
  *   - a Sent transcript with a groupV2 context routes to the group room;
- *   - a SyncMessage.Read marks our matching sent message as Seen.
+ *   - a SyncMessage.Read marks our matching sent message as Seen;
+ *   - a SyncMessage from another account is ignored.
  * This is the gap that previously dropped the transcript because Content.syncMessage
  * was an unparsed `bytes` placeholder. */
 // app first, to resolve the import cycle around Abstract/Account.ts
@@ -32,17 +33,20 @@ import { expect, test, beforeEach } from "vitest";
  * `Content` straight into the real `handleEnvelope` routing (no crypto needed). */
 class TestSignalAccount extends SignalAccount {
   protected nextContent: Content | null = null;
+  protected nextSender: ServiceId | null = null;
   protected override async decryptEnvelope(_envelope: Envelope): Promise<{ content: Content, sender: ServiceId, deviceID: number } | null> {
     let content = this.nextContent;
     this.nextContent = null;
-    return content ? { content, sender: this.aci!, deviceID: 2 } : null;
+    return content ? { content, sender: this.nextSender!, deviceID: 2 } : null;
   }
-  /** Feed a decrypted Content as if the websocket delivered + decrypted it. */
-  async receiveSync(content: Content): Promise<void> {
+  /** Feed a decrypted Content as if the websocket delivered + decrypted it.
+   * A sync is from our own account, unless the test passes another `sender`. */
+  async receiveSync(content: Content, sender = this.aci!): Promise<void> {
     this.nextContent = content;
+    this.nextSender = sender;
     let envelope: Envelope = {
       type: EnvelopeType.UnidentifiedSender,
-      sourceServiceId: this.aci!.toString(), // a sync is from our own account
+      sourceServiceId: sender.toString(),
       sourceDeviceId: 2,
       content: new Uint8Array([1]), // non-empty so decrypt is invoked
       serverTimestamp: Date.now(),
@@ -150,4 +154,22 @@ test("SyncMessage.Read marks our sent message as Seen", async () => {
 
   await me.receiveSync({ syncMessage: { read: [{ senderAci: peer.toString(), timestamp: ts }] } });
   expect(msg.deliveryStatus).toBe(DeliveryStatus.Seen);
+});
+
+test("A SyncMessage from another account is ignored", async () => {
+  let me = newAccount("Me");
+  let peer = ServiceId.aci(randomBytes(16));
+  let ts = Date.now();
+
+  await me.receiveSync({ syncMessage: { sent: { destinationServiceId: peer.toString(), timestamp: ts, message: { body: "hi", timestamp: ts } } } });
+  let room = (await me.getOrCreateRoom(peer)) as Signal1to1ChatRoom;
+  let msg = room.messages.contents.find(
+    (m): m is SignalChatMessage => m instanceof SignalChatMessage && m.text == "hi")!;
+
+  // The peer claims that we sent them another message, and that they read ours.
+  await me.receiveSync({ syncMessage: { sent: { destinationServiceId: peer.toString(), timestamp: ts + 1, message: { body: "not from me", timestamp: ts + 1 } } } }, peer);
+  await me.receiveSync({ syncMessage: { read: [{ senderAci: peer.toString(), timestamp: ts }] } }, peer);
+  expect(textsIn(room)).toContain("hi");
+  expect(textsIn(room)).not.toContain("not from me");
+  expect(msg.deliveryStatus).not.toBe(DeliveryStatus.Seen);
 });

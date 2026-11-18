@@ -104,7 +104,8 @@ export function isNetworkError(ex: any): boolean {
 export function isTransientError(ex: any): boolean {
   const kTransientHTTPCodes = [408, 429, 502, 503, 504];
   let httpCode = ex?.httpCode ?? ex?.status;
-  return isNetworkError(ex) ||
+  return ex?.isTransient === true || // set by a caller that knows it, e.g. `OAuth2.login()`
+    isNetworkError(ex) ||
     ex?.name == "TimeoutError" ||
     kTransientHTTPCodes.includes(httpCode);
 }

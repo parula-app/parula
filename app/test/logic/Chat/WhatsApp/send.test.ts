@@ -29,6 +29,7 @@ const kSelfJID = "491700000000:5@s.whatsapp.net"; // our device (device 5)
 const kBobJID = "491762222222@s.whatsapp.net";
 const kSelfLID = "99887766@lid"; // our hidden-user (LID) identity
 const kBobLID = "55667788@lid"; // a recipient addressed by LID
+const kMalloryJID = "491769999999@s.whatsapp.net"; // somebody we didn't send to
 /** Stand-in for the account-signed ADVSignedDeviceIdentity captured at pairing;
  * a pkmsg send attaches it (its bytes are opaque to the sender path under test). */
 const kDeviceIdentity = new Uint8Array([0x0a, 0x03, 0x01, 0x02, 0x03]);
@@ -463,6 +464,46 @@ test("an incoming retry receipt re-encrypts and re-sends to the failing device",
   expect(connection.sent.some(n => n.tag == "ack")).toBe(true);
 });
 
+test("a retry receipt from somebody we didn't send the message to gets nothing", async () => {
+  let connection = new FakeConnection();
+  let account = makeAccount(connection);
+  connection.deviceList.set("491762222222", [0]);
+  connection.deviceStores.set("491762222222:0@s.whatsapp.net", SignalStore.createNew());
+  let messageID = await account.sender.sendText(JID.parse(kBobJID), "secret for bob only");
+
+  // Mallory (or the server) asks for Bob's message, with keys of her own: from her
+  // account, and as a "participant" on a receipt from Bob.
+  let mallory = SignalStore.createNew();
+  let keys = new WANode("keys", {}, bundleUserNode(kMalloryJID, mallory, true).children());
+  await (account as any).onReceipt(new WANode("receipt", { id: messageID, type: "retry", from: kMalloryJID }, [keys]));
+  await (account as any).onReceipt(new WANode("receipt",
+    { id: messageID, type: "retry", from: kBobJID, participant: kMalloryJID }, [keys]));
+
+  expect(connection.sent.filter(n => n.tag == "message").length).toBe(1); // only the original send to Bob
+});
+
+test("a retry receipt from our own phone re-sends the message to it", async () => {
+  let connection = new FakeConnection();
+  let account = makeAccount(connection);
+  connection.deviceList.set("491762222222", [0]);
+  connection.deviceStores.set("491762222222:0@s.whatsapp.net", SignalStore.createNew());
+  connection.deviceList.set("491700000000", [0, 5]);
+  connection.deviceStores.set("491700000000:0@s.whatsapp.net", SignalStore.createNew());
+  let ourAddress = `${JID.parse(kSelfJID).user}.${JID.parse(kSelfJID).device}`;
+  let messageID = await account.sender.sendText(JID.parse(kBobJID), "sync me again");
+
+  // Our phone names the chat in `recipient`.
+  let phoneReplacement = SignalStore.createNew();
+  let keys = new WANode("keys", {}, bundleUserNode("491700000000@s.whatsapp.net", phoneReplacement, true).children());
+  await (account as any).onReceipt(new WANode("receipt",
+    { id: messageID, type: "retry", from: "491700000000@s.whatsapp.net", recipient: kBobJID }, [keys]));
+
+  let messages = connection.sent.filter(n => n.tag == "message");
+  expect(messages.length).toBe(2); // the original send, and the re-send
+  let toPhone = await decryptSentTo(messages[1], "491700000000@s.whatsapp.net", phoneReplacement, ourAddress);
+  expect(toPhone.deviceSentMessage?.message?.conversation).toBe("sync me again");
+});
+
 test("retry receipts are capped so a permanently-broken device cannot loop", async () => {
   let connection = new FakeConnection();
   let account = makeAccount(connection);
@@ -483,7 +524,7 @@ test("retry receipts are capped so a permanently-broken device cannot loop", asy
   };
   for (let i = 0; i < 8; i++) {
     let retry = new WANode("receipt", { id: messageID, type: "retry", from: kBobJID });
-    await account.sender.handleRetryReceipt(retry, { conversation: "loops" });
+    await account.sender.handleRetryReceipt(retry, { payload: { conversation: "loops" }, recipients: [kBobJID] });
   }
   // The retries couldn't re-establish, so no new message went out, and after the
   // cap (kMaxRetrySends=5) it stopped even trying to refetch — not eight times.
