@@ -28,7 +28,7 @@ import { KyberPreKeyBundle, signKyberPreKey } from "./Encryption/pqxdh";
 import { SignalSessions } from "./Encryption/SignalSession";
 import { padContent, unpadContent } from "./Proto/contentPadding";
 import { sealedSenderDecrypt, CiphertextType } from "./Encryption/SealedSender";
-import { kSignalTrustRoot } from "./Encryption/trustRoot";
+import { kSignalTrustRoots } from "./Encryption/trustRoot";
 import { deriveStorageKey, deriveMasterKeyFromAEP } from "./Encryption/StorageCipher";
 import { SignalStorageService } from "./Profile/StorageService";
 import { SignalProfile } from "./Profile/Profile";
@@ -792,7 +792,7 @@ export class SignalAccount extends ChatAccount {
       }
       let result;
       try {
-        result = sealedSenderDecrypt(envelope.content, this.aciStore.identityKeyPair, kSignalTrustRoot, BigInt(Date.now()));
+        result = sealedSenderDecrypt(envelope.content, this.aciStore.identityKeyPair, kSignalTrustRoots, BigInt(Date.now()));
       } catch (ex) {
         console.warn("Signal: sealed-sender unwrap FAILED:", (ex as any)?.message ?? ex);
         throw ex;

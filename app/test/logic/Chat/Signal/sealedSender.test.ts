@@ -16,7 +16,9 @@ import {
   sealedSenderDecrypt, sealedSenderDecryptToUSMC,
   type SenderCertificate, type V2Recipient,
 } from "../../../../logic/Chat/Signal/Encryption/SealedSender";
+import { kSignalTrustRoots } from "../../../../logic/Chat/Signal/Encryption/trustRoot";
 import { KeyPair } from "../../../../logic/Chat/Signal/Crypto/KeyPair";
+import { djbEncode } from "../../../../logic/Chat/Signal/Crypto/curve";
 import { encode } from "../../../../logic/Chat/Signal/Proto/codec";
 import * as proto from "../../../../logic/Chat/Signal/Proto/sealedSender";
 import { x25519 } from "@noble/curves/ed25519.js";
@@ -48,8 +50,8 @@ test("KAT: parses + validates libsignal's committed SenderCertificate (uuidStrin
   expect(cert.senderDeviceId).toBe(1);
   expect(cert.expiration).toBe(31337n);
   // Chain validates at t < expires, fails at t > expires.
-  expect(validateSenderCertificate(cert, trustRootPub, 31336n)).toBe(true);
-  expect(validateSenderCertificate(cert, trustRootPub, 31338n)).toBe(false);
+  expect(validateSenderCertificate(cert, [trustRootPub], 31336n)).toBe(true);
+  expect(validateSenderCertificate(cert, [trustRootPub], 31338n)).toBe(false);
 });
 
 test("KAT: parses + validates committed SenderCertificate (uuidBytes form)", () => {
@@ -61,13 +63,13 @@ test("KAT: parses + validates committed SenderCertificate (uuidBytes form)", () 
   expect(cert.senderUuid).toBe("aaaaaaaa-7000-11eb-b32a-33b8a8a487a6");
   expect(cert.senderDeviceId).toBe(1);
   expect(cert.expiration).toBe(31337n);
-  expect(validateSenderCertificate(cert, trustRootPub, 31336n)).toBe(true);
+  expect(validateSenderCertificate(cert, [trustRootPub], 31336n)).toBe(true);
 });
 
 test("KAT: parses + validates a by-id SenderCertificate (signer referenced by id, not embedded)", () => {
   // libsignal sealed_sender.rs test_known_server_cert: the signer is field 8 = the
   // 0x7357C357 KNOWN_SERVER_CERTIFICATES id (not an embedded ServerCertificate). That
-  // cert's paired trust root is the all-zero private key's public key (= trustRootPub).
+  // cert is signed by the all-zero private key's public key (= trustRootPub).
   let blob = wrapSenderCert(
     "100119697a000000000000222105d75b13e15c7700079dd226f51e5a790ba395e819e88a74d0cf5cedfad8b4334840d786df9a07322461616161616161612d373030302d313165622d623332612d333362386138613438376136",
     "e62667bce627caed56ca2ab309b6ae7bc890a30a7482c0e1fd77ec9c3b7528abfd45c8c42b240509a71d973ef5e0f1dbd2685fe01410f0fdbaa8fb247a67e08f",
@@ -76,7 +78,29 @@ test("KAT: parses + validates a by-id SenderCertificate (signer referenced by id
   expect(cert.senderUuid).toBe("aaaaaaaa-7000-11eb-b32a-33b8a8a487a6");
   expect(cert.senderDeviceId).toBe(1);
   expect(cert.signer.keyId).toBe(0x7357C357); // resolved from the known-cert table
-  expect(validateSenderCertificate(cert, trustRootPub, 31336n)).toBe(true);
+  expect(validateSenderCertificate(cert, [trustRootPub], 31336n)).toBe(true);
+});
+
+test("a by-id SenderCertificate signed with libsignal's test server certificate fails against Signal's trust roots", () => {
+  // The keys of the test certificate are public, so anybody could sign such a certificate for any sender.
+  let blob = wrapSenderCert(
+    "100119697a000000000000222105d75b13e15c7700079dd226f51e5a790ba395e819e88a74d0cf5cedfad8b4334840d786df9a07322461616161616161612d373030302d313165622d623332612d333362386138613438376136",
+    "e62667bce627caed56ca2ab309b6ae7bc890a30a7482c0e1fd77ec9c3b7528abfd45c8c42b240509a71d973ef5e0f1dbd2685fe01410f0fdbaa8fb247a67e08f",
+  );
+  let cert = deserializeSenderCertificate(blob);
+  expect(validateSenderCertificate(cert, kSignalTrustRoots, 31336n)).toBe(false);
+});
+
+test("Signal's production server certificate id 3 is signed by one of Signal's trust roots", () => {
+  let certificate = encode(proto.SenderCertificateInner, {
+    senderDevice: 1,
+    expires: 31337n,
+    identityKey: djbEncode(KeyPair.generate().publicKey),
+    uuidString: "aaaaaaaa-7000-11eb-b32a-33b8a8a487a6",
+    signerId: 3,
+  });
+  let cert = deserializeSenderCertificate(encode(proto.SenderCertificate, { certificate, signature: new Uint8Array(64) }));
+  expect(kSignalTrustRoots.some(trustRoot => validateServerCertificate(cert.signer, trustRoot))).toBe(true);
 });
 
 test("KAT: a SenderCertificate signed by the wrong trust root fails validation", () => {
@@ -86,7 +110,7 @@ test("KAT: a SenderCertificate signed by the wrong trust root fails validation",
   );
   let cert = deserializeSenderCertificate(blob);
   let wrongRoot = x25519.getPublicKey(new Uint8Array(32).fill(7));
-  expect(validateSenderCertificate(cert, wrongRoot, 31336n)).toBe(false);
+  expect(validateSenderCertificate(cert, [wrongRoot], 31336n)).toBe(false);
 });
 
 // --- a freshly-built cert chain ---
@@ -110,9 +134,9 @@ test("a freshly-built cert chain verifies, and the inner ServerCertificate verif
   let sender = KeyPair.generate();
   let { serverCert, senderCert } = makeCertChain(sender);
   expect(validateServerCertificate(serverCert, trustRootPub)).toBe(true);
-  expect(validateSenderCertificate(senderCert, trustRootPub, 1_699_999_999_000n)).toBe(true);
+  expect(validateSenderCertificate(senderCert, [trustRootPub], 1_699_999_999_000n)).toBe(true);
   // Expired
-  expect(validateSenderCertificate(senderCert, trustRootPub, 1_700_000_000_001n)).toBe(false);
+  expect(validateSenderCertificate(senderCert, [trustRootPub], 1_700_000_000_001n)).toBe(false);
 });
 
 test("a revoked server certificate id is rejected", () => {
@@ -159,7 +183,7 @@ test("Sealed Sender v1 round-trips: our encrypt → our decrypt recovers sender 
   let blob = sealedSenderEncryptV1(usmc, sender, recipient.publicKey);
   expect(blob[0]).toBe(0x11);
 
-  let result = sealedSenderDecrypt(blob, recipient, trustRootPub, 1_699_999_999_000n);
+  let result = sealedSenderDecrypt(blob, recipient, [trustRootPub], 1_699_999_999_000n);
   expect(result.sender.senderUuid).toBe(senderCert.senderUuid);
   expect(result.sender.senderDeviceId).toBe(3);
   expect(result.contentHint).toBe(ContentHint.Resendable);
@@ -211,7 +235,7 @@ test("Sealed Sender v2 round-trips for a single recipient (ReceivedMessage 0x22)
   let received = sealedSenderEncryptV2Single(usmc, sender, v2Recipient(recipient, senderCert.senderUuid));
   expect(received[0]).toBe(0x22);
 
-  let result = sealedSenderDecrypt(received, recipient, trustRootPub, 1_699_999_999_000n);
+  let result = sealedSenderDecrypt(received, recipient, [trustRootPub], 1_699_999_999_000n);
   expect(result.sender.senderUuid).toBe(senderCert.senderUuid);
   expect(result.contentHint).toBe(ContentHint.Implicit);
   expect(new TextDecoder().decode(result.content)).toBe("hello via sealed sender v2");
@@ -236,7 +260,7 @@ test("Sealed Sender v2 multi-recipient: SentMessage 0x23 fans out, each recipien
   let keys = [recip1, recip2, recip3];
   for (let i = 0; i < 3; i++) {
     let received = v2ReceivedMessageForRecipient(sent, i);
-    let result = sealedSenderDecrypt(received, keys[i], trustRootPub, 1_699_999_999_000n);
+    let result = sealedSenderDecrypt(received, keys[i], [trustRootPub], 1_699_999_999_000n);
     expect(new TextDecoder().decode(result.content)).toBe("one body, three recipients");
     expect(result.sender.senderUuid).toBe(senderCert.senderUuid);
   }
@@ -277,7 +301,7 @@ test("Sealed Sender: decrypt rejects a forged sender certificate (untrusted chai
   });
   let blob = sealedSenderEncryptV1(makeUSMC(senderCert, "forged"), sender, recipient.publicKey);
   // The blob decrypts (recipient holds the key) but the chain must not validate.
-  expect(() => sealedSenderDecrypt(blob, recipient, trustRootPub, 1_699_999_999_000n)).toThrow();
+  expect(() => sealedSenderDecrypt(blob, recipient, [trustRootPub], 1_699_999_999_000n)).toThrow();
   // To-USMC still works (no trust check there).
   expect(sealedSenderDecryptToUSMC(blob, recipient).sender.senderUuid).toBe("ffffffff-0000-0000-0000-000000000000");
 });
