@@ -70,6 +70,48 @@ function serve(account: JMAPAccount, responses: any[]): () => number {
   return () => attempts;
 }
 
+test("After a reconnect, what changed in the meantime is fetched", { timeout: kTimeoutSec * 1000 }, async () => {
+  let account = newAccount();
+  account.syncState.set("Email", "e1");
+  account.syncState.set("Identity", "i1");
+  let synced: string[] = [];
+  account.sync = async (type: string) => { synced.push(type) };
+  let attempts = serve(account, [closedConnection(), closedConnection(), closedConnection()]);
+
+  await account.startPushListener();
+
+  expect(attempts()).toBe(3);
+  expect(new Set(synced)).toEqual(new Set(["Email", "Identity"])); // After the second connection. The third logged out.
+});
+
+test("disconnect() during the catch-up ends it", { timeout: kTimeoutSec * 1000 }, async () => {
+  let account = newAccount();
+  account.syncState.set("Email", "e1");
+  account.syncState.set("Identity", "i1");
+  let synced: string[] = [];
+  account.sync = async (type: string) => {
+    synced.push(type);
+    await account.disconnect(); // e.g. the user removed the account
+  };
+  let attempts = 0;
+  globalThis.fetch = (async (url: string, options: any) => {
+    if (++attempts == 1) {
+      return closedConnection();
+    }
+    return { // stays open until it's aborted
+      ok: true,
+      body: new ReadableStream({
+        start: controller => options.signal.addEventListener("abort", () => controller.error(new DOMException("Aborted", "AbortError"))),
+      }),
+    };
+  }) as any;
+
+  await account.startPushListener();
+
+  expect(attempts).toBe(2);
+  expect(synced.length).toBe(1); // Nothing after the disconnect, which would log in again
+});
+
 test("A rate-limited push connection is opened again", { timeout: kTimeoutSec * 1000 }, async () => {
   let account = newAccount();
   let attempts = serve(account, [rejectedConnection(429, "Too Many Requests", 1), closedConnection()]);
