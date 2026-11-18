@@ -36,6 +36,10 @@ The `ios/build/xcode-embed-node-native.sh` script does:
 
 `console.log` are printed to the debug console in Xcode therefore you must you Xcode to see it. Even the frontend `console.log` are printed to the debug console in Xcode.
 
+#### Fetch
+
+`fetch()` requires WASM, which is not supported on iOS. That's why `backend/NodeHTTPDispatcher.ts` sends its requests over `node:http`.
+
 #### WASM
 
 > On iOS, WASM is unsupported because it requires Just-in-time (JIT) interpretation, which is forbidden by Apple's App Store guidelines.
