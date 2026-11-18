@@ -2,7 +2,7 @@
   <hbox class="auto-responder-bar" role="status">
     <AutoResponderIcon size={16} />
     <span class="title">{$t`Automatic Replies`}</span>
-    <hbox flex class="text">{$t`Automatic replies are being sent for this account`}</hbox>
+    <hbox flex class="text">{$t`Automatic replies are being sent`}</hbox>
     <Button label={$t`Turn off *=> Stop sending automatic replies`} onClick={onTurnOff} />
   </hbox>
 {/if}
