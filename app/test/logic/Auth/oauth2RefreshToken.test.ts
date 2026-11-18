@@ -125,3 +125,18 @@ test("OAuth2: The log doesn't show the refresh token or the client secret", asyn
   expect(logged).not.toContain("client-secret");
   oAuth2.stop();
 });
+
+test("OAuth2: The log doesn't show the auth code", async () => {
+  let oAuth2 = newOAuth2();
+  vi.stubGlobal("fetch", async () => tokenResponse());
+  let log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+  await oAuth2.getAuthURL();
+  let doneURL = oAuth2.authDoneURL + "?" + new URLSearchParams({ code: "auth-code", state: oAuth2.verificationToken });
+  expect(await oAuth2.isAuthDoneURL(doneURL)).toBeTruthy();
+  await oAuth2.getAccessTokenFromAuthCode(oAuth2.getAuthCodeFromDoneURL(doneURL));
+  let logged = JSON.stringify(log.mock.calls);
+  expect(logged).toContain("OAuth2 page change to");
+  expect(logged).not.toContain("auth-code");
+  oAuth2.stop();
+});
