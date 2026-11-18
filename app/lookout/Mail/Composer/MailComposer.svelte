@@ -12,6 +12,9 @@
           <DialogButton label={$t`Discard`} icon={DiscardIcon} classes="plain"
             tooltip={$t`Discard this response`}
             onClick={onDiscard} />
+          <DialogButton label={$t`Maximize`} icon={MaximizeIcon} classes="plain"
+            tooltip={$t`Open this response in its own message page`}
+            onClick={onMaximize} />
           <DialogButton label={$t`Pop Out *=> Open the message in its own window`} icon={PopOutIcon} classes="plain"
             tooltip={$t`Open in a separate window`}
             onClick={onPopOut} />
@@ -174,6 +177,7 @@
   import SaveIcon from "lucide-svelte/icons/save";
   import DiscardIcon from "lucide-svelte/icons/trash-2";
   import CloseIcon from "lucide-svelte/icons/x";
+  import MaximizeIcon from "lucide-svelte/icons/expand";
   import PopOutIcon from "lucide-svelte/icons/square-arrow-out-up-right";
   import LockIcon from "lucide-svelte/icons/lock";
   import SignIcon from "lucide-svelte/icons/signature";
@@ -350,6 +354,12 @@
     let me = mailMustangApp.subApps.find(app => app instanceof WriteMailMustangApp && app.windowParams.mail == mail);
     mailMustangApp.subApps.remove(me);
     goBack();
+  }
+
+  /** Moves the inline reply to the composer page */
+  function onMaximize() {
+    onClose();
+    mailMustangApp.writeMail(mail);
   }
 
   async function onPopOut() {
