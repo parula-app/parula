@@ -53,7 +53,7 @@ export class SMIMESend {
         attrType: "smimeCapabilities",
         attrValue: [SMIMECapabilities.encode(kOurCapabilities)],
       }];
-      let { signatureAlgorithm, signature } = await privateKey.sign(Attributes.encode(signedAttributes), digestAlgorithm);
+      let { signatureAlgorithm, signature } = await privateKey.sign(Attributes.encode(signedAttributes));
       let myCertificate = Certificate.decodePEM(privateKey.certificate, { label: "CERTIFICATE" });
       let signerInfo = {
         version: 1n,
