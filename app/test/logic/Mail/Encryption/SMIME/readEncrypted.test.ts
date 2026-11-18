@@ -4,7 +4,10 @@ import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { SQLMailStorage } from "../../../../../logic/Mail/SQL/SQLMailStorage";
+import { Certificate, RSAPublicKey, EnvelopedData, OctetString, Null } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { encrypt, padRandom } from "../../../../../logic/Mail/Encryption/SMIME/SMIMERSAES";
 import type { EMail } from "../../../../../logic/Mail/EMail";
+import { kClearSigned } from "./signedMessages";
 import { describe, expect, test, vi } from "vitest";
 
 // The browser has this, but Node does not.
@@ -118,6 +121,61 @@ describe("Opening the message", () => {
     expect(parse).toHaveBeenCalledTimes(1);
     expect(errors).toEqual([]);
   });
+});
+
+/** Anybody can encrypt to Bob. Alice's signed part and signature are where only
+ * our `multipart/signed` splitter finds them, other text where postal-mime finds it. */
+test("An encrypted message that shows as signed shows what was signed", async () => {
+  let body = kClearSigned.split("\n\n").slice(1).join("\n\n");
+  let oldBoundary = "----3120AE5FA6844B38B313D9FF5848BBF0";
+  let alicesParts = body.slice(body.indexOf("--" + oldBoundary));
+  let signaturePart = alicesParts.slice(alicesParts.lastIndexOf("--" + oldBoundary + "\nContent-Type: application/x-pkcs7-signature"));
+  signaturePart = signaturePart.slice(signaturePart.indexOf("\n") + 1, signaturePart.indexOf("\n--" + oldBoundary + "--"));
+  let inner = `Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"; boundary="EVIL;X"
+
+--EVIL;X
+Content-Type: text/plain; charset=utf-8
+
+OTHER TEXT
+--EVIL;X
+${signaturePart}
+--EVIL;X--
+${alicesParts.replaceAll(oldBoundary, '"EVIL')}`.replace(/\n/g, "\r\n");
+
+  let cert = Certificate.decodePEM(kBobCert.trim(), { label: "CERTIFICATE" });
+  let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
+  let symmetricKey = crypto.getRandomValues(new Uint8Array(32));
+  let iv = crypto.getRandomValues(new Uint8Array(16));
+  let key = await crypto.subtle.importKey("raw", symmetricKey, "AES-CBC", false, ["encrypt"]);
+  let der = EnvelopedData.encode({
+    contentType: "envelopedData",
+    content: {
+      version: 0n,
+      recipientInfos: [{
+        type: "ktri",
+        value: {
+          version: 0n,
+          rid: { type: "issuerAndSerialNumber", value: { issuer: cert.tbsCertificate.issuer, serialNumber: cert.tbsCertificate.serialNumber } },
+          keyEncryptionAlgorithm: { algorithm: "rsaEncryption", parameters: Null.encode() },
+          encryptedKey: encrypt(padRandom(symmetricKey, rsa), rsa),
+        },
+      }],
+      encryptedContentInfo: {
+        contentType: "data",
+        contentEncryptionAlgorithm: { algorithm: "aes256cbc", parameters: OctetString.encode(iv) },
+        encryptedContent: new Uint8Array(await crypto.subtle.encrypt({ name: "AES-CBC", iv }, key, new TextEncoder().encode(inner))),
+      },
+    },
+  });
+  let { email } = await newMailToBob(cmsMail("enveloped-data", Buffer.from(der).toString("base64")));
+  await email.parseMIME();
+
+  expect(email.wasEncrypted).toBe(true);
+  if (email.signedPublicKeyFingerprint) {
+    expect(email.text).toContain("Hello, this is signed.");
+    expect(email.text).not.toContain("OTHER TEXT");
+    expect(email.html).not.toContain("OTHER TEXT");
+  }
 });
 
 /** Reads the CMS blob as a message to Bob, whose private key we have.
