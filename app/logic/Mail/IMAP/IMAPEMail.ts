@@ -117,7 +117,7 @@ export class IMAPEMail extends EMail {
     // Not `=`: The sender's `Importance:` header is not on the server
     this.isImportant ||= flags.has("$Important"); // RFC 8457
     this.isDraft = flags.has("\\Draft");
-    this.isSpam = flags.has("$Junk");
+    this.isSpam = [...flags].some(flag => flag.toLowerCase() == "$junk"); // RFC 9051 section 9: keywords are case-insensitive
 
     for (let customTag of flags) {
       if (customTag.startsWith("\\") || customTag.startsWith("$") ||
@@ -169,8 +169,14 @@ export class IMAPEMail extends EMail {
   }
 
   async markSpam(spam = true) {
+    let wasSpam = this.isSpam;
     await super.markSpam(spam);
-    await this.setFlagServer("$Junk", spam);
+    if (spam || wasSpam) {
+      await this.setFlagServer("$Junk", spam);
+    }
+    if (!spam) {
+      await this.setFlagServer("$NotJunk", true); // tells the server's spam filter, RFC 5788 keyword registry
+    }
   }
 
   async markReplied() {
