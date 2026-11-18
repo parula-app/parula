@@ -1,4 +1,4 @@
-<Dialog title={$t`Automatic Replies - ${account.emailAddress || account.name}`} on:close width="640px" height="640px"
+<Dialog title={$t`Automatic Replies - ${account.emailAddress || account.name}`} on:close width="640px"
   okLabel={$t`OK`} okDisabled={isLoading || !!loadError} onOK={onOK}>
   {#if isLoading}
     <hbox class="lo-secondary">{$t`Loading…`}</hbox>
@@ -39,52 +39,39 @@
         </hbox>
       </FormGrid>
     </vbox>
-    <hbox class="caption" class:disabled={!$autoResponder.isOn}>
-      {autoResponder.supportsExternal
-        ? $t`Automatically reply with the following messages:`
-        : $t`Automatically reply with the following message:`}
-    </hbox>
+    <vbox class="message" class:disabled={!$autoResponder.isOn}>
+      <hbox class="header">{autoResponder.supportsExternal ? $t`Inside My Organization` : $t`Automatic reply`}</hbox>
+      <EditorToolbar editor={internalEditor} disabled={!$autoResponder.isOn} />
+      <vbox class="editor">
+        <HTMLEditor bind:html={autoResponder.internalHTML} bind:editor={internalEditor} />
+      </vbox>
+    </vbox>
     {#if autoResponder.supportsExternal}
-      <DialogTabs bind:selected={tab} tabs={[
-        { id: "inside", label: $t`Inside My Organization` },
-        { id: "outside", label: $autoResponder.externalAudience == AutoResponderAudience.None
-          ? $t`Outside My Organization`
-          : $t`Outside My Organization (On)` },
-      ]} />
-    {/if}
-    {#if tab == "outside"}
-      <vbox class="audience">
+      <vbox class="message" class:disabled={!isOutsideOn}>
+        <hbox class="header">{$t`Outside My Organization`}</hbox>
         <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.None} disabled={!$autoResponder.isOn}
           label={$t`Auto-reply to people outside my organization`}
           on:change={ev => { autoResponder.externalAudience = ev.detail ? AutoResponderAudience.All : AutoResponderAudience.None; }} />
         {#if autoResponder.supportsContacts}
           <hbox class="audience-choice">
-            <Radio name="audience" value={AutoResponderAudience.Contacts} group={shownAudience} disabled={!isEditable}
+            <Radio name="audience" value={AutoResponderAudience.Contacts} group={shownAudience} disabled={!isOutsideOn}
               label={$t`My Contacts only`}
               on:change={ev => { autoResponder.externalAudience = ev.detail; }} />
-            <Radio name="audience" value={AutoResponderAudience.All} group={shownAudience} disabled={!isEditable}
+            <Radio name="audience" value={AutoResponderAudience.All} group={shownAudience} disabled={!isOutsideOn}
               label={$t`Anyone outside my organization`}
               on:change={ev => { autoResponder.externalAudience = ev.detail; }} />
           </hbox>
         {/if}
+        <hbox class="toolbar-row">
+          <EditorToolbar editor={externalEditor} disabled={!isOutsideOn} />
+          <DialogButton label={$t`Copy from Inside My Organization`} icon={CopyIcon} classes="plain" disabled={!isOutsideOn}
+            onClick={() => { autoResponder.externalHTML = autoResponder.internalHTML; }} />
+        </hbox>
+        <vbox class="editor">
+          <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor={externalEditor} />
+        </vbox>
       </vbox>
     {/if}
-    <vbox flex class="message" class:disabled={!isEditable}>
-      <hbox class="toolbar-row">
-        <EditorToolbar {editor} disabled={!isEditable} />
-        {#if tab == "outside"}
-          <DialogButton label={$t`Copy from Inside My Organization`} icon={CopyIcon} classes="plain" disabled={!isEditable}
-            onClick={() => { autoResponder.externalHTML = autoResponder.internalHTML; }} />
-        {/if}
-      </hbox>
-      <vbox flex class="editor">
-        {#if tab == "outside"}
-          <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor />
-        {:else}
-          <HTMLEditor bind:html={autoResponder.internalHTML} bind:editor />
-        {/if}
-      </vbox>
-    </vbox>
   {/if}
 </Dialog>
 
@@ -96,7 +83,6 @@
   import { startTimeOptions } from "../../Calendar/EditEvent/TimeOptions";
   import Dialog from "../../Shared/Dialog/Dialog.svelte";
   import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
-  import DialogTabs from "../../Shared/Dialog/DialogTabs.svelte";
   import Radio from "../../Shared/Form/Radio.svelte";
   import Checkbox from "../../Shared/Form/Checkbox.svelte";
   import FormGrid from "../../Shared/Form/FormGrid.svelte";
@@ -116,16 +102,21 @@
   let autoResponder = account.newAutoResponder();
   let isLoading = true;
   let loadError: Error = null;
-  let tab = "inside";
-  let editor: Editor;
+  let internalEditor: Editor;
+  let externalEditor: Editor;
 
   $: state = !$autoResponder.isOn ? "off" : $autoResponder.scheduled ? "scheduled" : "always";
   $: isTimeRange = state == "scheduled";
-  $: isEditable = $autoResponder.isOn && (tab == "inside" || $autoResponder.externalAudience != AutoResponderAudience.None);
+  $: isOutsideOn = $autoResponder.isOn && $autoResponder.externalAudience != AutoResponderAudience.None;
   // Like Outlook, one of the 2 is checked, even while there are no replies outside
   $: shownAudience = $autoResponder.externalAudience == AutoResponderAudience.Contacts ? AutoResponderAudience.Contacts : AutoResponderAudience.All;
-  $: if (editor && editor.isEditable != isEditable) {
-    editor.setEditable(isEditable, false);
+  $: setEditable(internalEditor, $autoResponder.isOn);
+  $: setEditable(externalEditor, isOutsideOn);
+
+  function setEditable(editor: Editor, editable: boolean) {
+    if (editor && editor.isEditable != editable) {
+      editor.setEditable(editable, false);
+    }
   }
 
   onMount(() => {
@@ -178,18 +169,16 @@
   .date-time {
     gap: 8px;
   }
-  .lo-form-label.disabled,
-  .caption.disabled {
+  .lo-form-label.disabled {
     color: var(--lo-fg-disabled);
   }
-  .caption {
-    flex-shrink: 0;
-    margin-block: 16px 8px;
-  }
-  .audience {
+  .message {
     flex-shrink: 0;
     gap: 4px;
-    margin-block-start: 8px;
+    margin-block-start: 16px;
+  }
+  .header {
+    font-weight: 600;
   }
   .audience-choice {
     gap: 24px;
@@ -199,12 +188,8 @@
     align-items: center;
     justify-content: space-between;
   }
-  .message {
-    min-height: 120px;
-    margin-block-start: 8px;
-  }
   .editor {
-    min-height: 0;
+    height: 110px;
     overflow-y: auto;
     padding: 8px 12px;
     border: 1px solid var(--lo-input-border);

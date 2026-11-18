@@ -132,8 +132,13 @@ async function click(el: HTMLElement) {
   await settle();
 }
 
-function editor(): HTMLElement {
-  return target.querySelector(".ProseMirror");
+/** The editor for inside the organization, or with `outside` the one for outside */
+function editor(outside = false): HTMLElement {
+  return target.querySelectorAll<HTMLElement>(".ProseMirror")[outside ? 1 : 0];
+}
+
+function boldButton(outside = false): HTMLButtonElement {
+  return target.querySelectorAll<HTMLButtonElement>("button[aria-label=Bold]")[outside ? 1 : 0];
 }
 
 test("Shows the settings from the server, and OK saves them", async () => {
@@ -170,13 +175,13 @@ test("Only send during this time range, and without automatic replies, the time 
   expect(radio("Always send automatic replies").checked).toBe(false);
   expect(target.querySelector<HTMLInputElement>(".lo-datefield input").disabled).toBe(false);
   expect(editor().getAttribute("contenteditable")).toBe("true");
-  expect(target.querySelector<HTMLButtonElement>("button[aria-label=Bold]").disabled).toBe(false);
+  expect(boldButton().disabled).toBe(false);
 
   await click(radio("Do not send automatic replies"));
   expect(radio("Only send during this time range:").checked).toBe(false);
   expect(target.querySelector<HTMLInputElement>(".lo-datefield input").disabled).toBe(true);
   expect(editor().getAttribute("contenteditable")).toBe("false");
-  expect(target.querySelector<HTMLButtonElement>("button[aria-label=Bold]").disabled).toBe(true);
+  expect(boldButton().disabled).toBe(true);
 
   await click(radio("Only send during this time range:"));
   await click(button("OK"));
@@ -184,18 +189,22 @@ test("Only send during this time range, and without automatic replies, the time 
   expect(server.scheduled).toBe(true);
 });
 
-test("Outside the organization: on with the checkbox, the tab says so, and its own message", async () => {
+test("Outside the organization: on with the checkbox, with its own message below the one for inside", async () => {
   await show(AutomaticRepliesDialog);
 
-  await click(find(".dialog-tab", "Outside My Organization"));
-  expect(editor().textContent).toContain("Away");
-  expect(editor().getAttribute("contenteditable")).toBe("false");
+  expect(find(".header", "Inside My Organization")).toBeTruthy();
+  expect(find(".header", "Outside My Organization")).toBeTruthy();
+  expect(editor().textContent).toContain("Back on Monday");
+  expect(editor(true).textContent).toContain("Away");
+  expect(editor().getAttribute("contenteditable")).toBe("true");
+  expect(editor(true).getAttribute("contenteditable")).toBe("false");
+  expect(boldButton(true).disabled).toBe(true);
   expect(radio("Anyone outside my organization").disabled).toBe(true);
 
   await click(checkbox("Auto-reply to people outside my organization"));
-  expect(find(".dialog-tab", "Outside My Organization (On)")).toBeTruthy();
   expect(radio("Anyone outside my organization").checked).toBe(true);
-  expect(editor().getAttribute("contenteditable")).toBe("true");
+  expect(editor(true).getAttribute("contenteditable")).toBe("true");
+  expect(boldButton(true).disabled).toBe(false);
   await click(radio("My Contacts only"));
   await click(button("OK"));
   expect(server.externalAudience).toBe(AutoResponderAudience.Contacts);
@@ -203,12 +212,11 @@ test("Outside the organization: on with the checkbox, the tab says so, and its o
 
 test("Outside the organization: Copy the message from inside", async () => {
   await show(AutomaticRepliesDialog);
-  await click(find(".dialog-tab", "Outside My Organization"));
   expect(button("Copy from Inside My Organization").disabled).toBe(true);
 
   await click(checkbox("Auto-reply to people outside my organization"));
   await click(button("Copy from Inside My Organization"));
-  expect(editor().textContent).toContain("Back on Monday");
+  expect(editor(true).textContent).toContain("Back on Monday");
   await click(button("OK"));
   expect(server.externalHTML).toContain("Back on Monday");
 });
