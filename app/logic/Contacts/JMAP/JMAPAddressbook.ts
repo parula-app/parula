@@ -64,7 +64,7 @@ export class JMAPAddressbook extends Addressbook {
   /** Lists all persons in this addressbook. */
   protected async listAllPersons(): Promise<ArrayColl<JMAPPerson>> {
     const batchSize = 200;
-    let state: string;
+    let state = this.account.syncState.get("ContactCard"); // Account-wide: A newer state would skip the changes in the other address books
     let hasMore = true;
     let allNewPersons = new ArrayColl<JMAPPerson>();
     for (let i = 0; hasMore; i += batchSize) {
