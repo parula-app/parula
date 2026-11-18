@@ -1,12 +1,14 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SubjectPublicKeyInfo, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, algorithmName } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SubjectPublicKeyInfo, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, AlgorithmIdentifier, DigestAlgorithm, RSAESOAEPParams, algorithmName } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
 import { sameName } from "./SMIMEVerify";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
 import { assert } from "../../../util/util";
+import { CannotReadMail } from "../../EMailProcessor";
+import { gt } from "../../../../l10n/l10n";
 import { uint8ArrayToHex } from "../../../util/blob";
 import { sha256 } from "@noble/hashes/sha2.js";
 
@@ -66,21 +68,41 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
 
   /** Decrypts our private key with our passphrase */
   async decryptKey(): Promise<RSAPrivateKey> {
-    let pkcs8: Uint8Array;
+    let privateKeyInfo = PrivateKeyInfo.decode(await this.decryptKeyPKCS8());
+    if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
+      throw new Error("Unsupported private key algorithm " + algorithmName(privateKeyInfo.privateKeyAlgorithm.algorithm));
+    }
+    return RSAPrivateKey.decode(privateKeyInfo.privateKey);
+  }
+
+  /** Decrypts our private key with our passphrase, in the PKCS#8 form that `crypto.subtle.importKey()` reads */
+  protected async decryptKeyPKCS8(): Promise<Uint8Array<ArrayBuffer>> {
     if (this.passphrase) {
       let encryptedKey = EncryptedPrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "ENCRYPTED PRIVATE KEY" });
       if (encryptedKey.encryptionAlgorithm.algorithm != "pkcs5PBES2") {
         throw new Error("Unsupported private key encryption algorithm " + algorithmName(encryptedKey.encryptionAlgorithm.algorithm));
       }
-      pkcs8 = await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
+      return await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
     } else {
-      pkcs8 = Any.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
+      return Any.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
     }
-    let privateKeyInfo = PrivateKeyInfo.decode(pkcs8);
-    if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
-      throw new Error("Unsupported private key algorithm " + algorithmName(privateKeyInfo.privateKeyAlgorithm.algorithm));
+  }
+
+  /** @param parameters `RSAES-OAEP-params` of the `keyEncryptionAlgorithm`, RFC 4055 section 4.1 */
+  async decryptOAEP(encryptedKey: Uint8Array<ArrayBuffer>, parameters: Uint8Array | undefined): Promise<Uint8Array> {
+    let { hashFunc, maskGenFunc, pSourceFunc } = RSAESOAEPParams.decode(parameters ?? RSAESOAEPParams.encode({}));
+    let maskHashFunc = maskGenFunc.parameters ? AlgorithmIdentifier.decode(maskGenFunc.parameters) : { algorithm: "sha1" };
+    let hash = sanitize.translate(hashFunc.algorithm, DigestAlgorithm, null);
+    if (!hash || maskGenFunc.algorithm != "mgf1" || maskHashFunc.algorithm != hashFunc.algorithm) {
+      throw new CannotReadMail(null, gt`The key of this message is encrypted with RSA-OAEP using ${algorithmName(hashFunc.algorithm)} and ${algorithmName(maskGenFunc.algorithm)} using ${algorithmName(maskHashFunc.algorithm)}, which is not supported`);
     }
-    return RSAPrivateKey.decode(privateKeyInfo.privateKey);
+    let label = pSourceFunc.parameters ? OctetString.decode(pSourceFunc.parameters) : undefined;
+    let key = await crypto.subtle.importKey("pkcs8", await this.decryptKeyPKCS8(), { name: "RSA-OAEP", hash }, false, ["decrypt"]);
+    try {
+      return new Uint8Array(await crypto.subtle.decrypt({ name: "RSA-OAEP", label }, key, encryptedKey));
+    } catch (ex) {
+      throw new CannotReadMail(null, gt`Could not decrypt this message`);
+    }
   }
 
   /** With our certificate and its CAs, which the key needs to decrypt and sign after the user imports the file again */
