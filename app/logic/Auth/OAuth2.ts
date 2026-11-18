@@ -12,7 +12,7 @@ import { notifyChangedProperty } from "../util/Observable";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { RunOnce } from "../util/flow/RunOnce";
 import { assert, type URLString } from "../util/util";
-import { fetchJSON, HTTPError, isTransientError, markTransient } from "../util/netUtil";
+import { fetchJSON, HTTPError } from "../util/netUtil";
 import pkceChallenge from "pkce-challenge";
 
 /**
@@ -107,7 +107,8 @@ export class OAuth2 extends WebBasedAuth {
           return await this.getAccessTokenFromRefreshToken(this.refreshToken);
         } catch (ex) {
           if (isTemporaryTokenError(ex)) {
-            throw markTransient(ex); // e.g. the network or the VPN is down. The refresh token is still good.
+            ex.isTransient = true; // for `isTransientError()`, so that callers try again
+            throw ex; // e.g. the network or the VPN is down. The refresh token is still good.
           }
           console.error(ex);
           // Only these say that the refresh token is no longer valid. @see draft-ietf-mailmaint-oauth-public section 6.5
