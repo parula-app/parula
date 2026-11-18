@@ -42,7 +42,7 @@ export class ActiveSyncAutoResponder extends ExchangeAutoResponder {
     this.externalAudience =
       unknown?.Enabled == "1" ? AutoResponderAudience.All :
       known?.Enabled == "1" ? AutoResponderAudience.Contacts :
-      internal?.Enabled == "1" ? AutoResponderAudience.None :
+      internal?.Enabled == "1" ? AutoResponderAudience.Internal :
       AutoResponderAudience.All;
     let external = [unknown, known].find(message => message?.Enabled == "1") ?? unknown ?? known;
     this.internalHTML = sanitizeHTML(internal?.ReplyMessage);
@@ -59,7 +59,7 @@ export class ActiveSyncAutoResponder extends ExchangeAutoResponder {
       EndTime: this.scheduled ? this.endTime.toISOString() : [],
       OofMessage: [
         this.oofMessage("AppliesToInternal", true, this.stripEmptyParagraph(this.internalHTML)),
-        this.oofMessage("AppliesToExternalKnown", this.externalAudience != AutoResponderAudience.None, external),
+        this.oofMessage("AppliesToExternalKnown", this.externalAudience != AutoResponderAudience.Internal, external),
         this.oofMessage("AppliesToExternalUnknown", this.externalAudience == AutoResponderAudience.All, external),
       ],
     };

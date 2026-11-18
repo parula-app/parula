@@ -84,7 +84,7 @@ async function show(component: any, type = TestAutoResponder): Promise<{ account
     scheduled: false,
     internalHTML: "<p>Back on Monday</p>",
     externalHTML: "<p>Away</p>",
-    externalAudience: AutoResponderAudience.None,
+    externalAudience: AutoResponderAudience.Internal,
   };
   granted = false;
   responderClass = type;

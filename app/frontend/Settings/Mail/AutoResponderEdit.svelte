@@ -61,22 +61,24 @@
           <HTMLEditorToolbar editor={internalEditor} />
           <HTMLEditor bind:html={autoResponder.internalHTML} bind:editor={internalEditor} />
         </vbox>
-        <hbox class="copy-buttons">
-          <Button label={$t`Copy *=> Copy the message to the other text field`}
-            tooltip={$t`Copy to Outside My Organization`}
-            icon={CopyDownIcon}
-            plain
-            disabled={!isOutsideOn}
-            onClick={() => { autoResponder.externalHTML = autoResponder.internalHTML; }}
-            />
-          <Button label={$t`Copy from Outside My Organization`}
-            icon={CopyUpIcon}
-            iconOnly
-            plain
-            disabled={!$autoResponder.isOn}
-            onClick={() => { autoResponder.internalHTML = autoResponder.externalHTML; }}
-            />
-        </hbox>
+        {#if $autoResponder.maxAudience != AutoResponderAudience.Internal}
+          <hbox class="copy-buttons">
+            <Button label={$t`Copy *=> Copy the message to the other text field`}
+              tooltip={$t`Copy to Outside My Organization`}
+              icon={CopyDownIcon}
+              plain
+              disabled={!isOutsideOn}
+              onClick={() => { autoResponder.externalHTML = autoResponder.internalHTML; }}
+              />
+            <Button label={$t`Copy from Outside My Organization`}
+              icon={CopyUpIcon}
+              iconOnly
+              plain
+              disabled={!$autoResponder.isOn}
+              onClick={() => { autoResponder.internalHTML = autoResponder.externalHTML; }}
+              />
+          </hbox>
+        {/if}
       </HeaderGroupBox>
     {/if}
 
@@ -84,9 +86,10 @@
       <hbox slot="header">{autoResponder.supportsInternal ? $t`Outside My Organization` : $t`Automatic reply`}</hbox>
       {#if autoResponder.supportsInternal}
         <vbox class="options">
-          <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.None} disabled={!$autoResponder.isOn}
+          <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.Internal}
+            disabled={!$autoResponder.isOn || $autoResponder.maxAudience == AutoResponderAudience.Internal}
             label={$t`Auto-reply to people outside my organization`}
-            on:change={ev => { autoResponder.externalAudience = ev.detail ? AutoResponderAudience.All : AutoResponderAudience.None; }} />
+            on:change={ev => { autoResponder.externalAudience = ev.detail ? shownAudience : AutoResponderAudience.Internal; }} />
           {#if autoResponder.supportsContacts}
             <hbox class="audience">
               <label class="radio" class:disabled={!isOutsideOn}>
@@ -94,19 +97,25 @@
                   on:change={() => { autoResponder.externalAudience = AutoResponderAudience.Contacts; }} />
                 {$t`My Contacts only`}
               </label>
-              <label class="radio" class:disabled={!isOutsideOn}>
-                <input type="radio" name="audience" checked={shownAudience == AutoResponderAudience.All} disabled={!isOutsideOn}
+              <label class="radio" class:disabled={!isOutsideOn || $autoResponder.maxAudience != AutoResponderAudience.All}>
+                <input type="radio" name="audience" checked={shownAudience == AutoResponderAudience.All}
+                  disabled={!isOutsideOn || $autoResponder.maxAudience != AutoResponderAudience.All}
                   on:change={() => { autoResponder.externalAudience = AutoResponderAudience.All; }} />
                 {$t`Anyone outside my organization`}
               </label>
             </hbox>
           {/if}
+          {#if $autoResponder.maxAudience != AutoResponderAudience.All}
+            <hbox class="hint">{$t`Your administrator limits automatic replies outside your organization.`}</hbox>
+          {/if}
         </vbox>
       {/if}
-      <vbox class="editor-box" class:disabled={!isOutsideOn} inert={!isOutsideOn}>
-        <HTMLEditorToolbar editor={externalEditor} />
-        <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor={externalEditor} />
-      </vbox>
+      {#if $autoResponder.maxAudience != AutoResponderAudience.Internal}
+        <vbox class="editor-box" class:disabled={!isOutsideOn} inert={!isOutsideOn}>
+          <HTMLEditorToolbar editor={externalEditor} />
+          <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor={externalEditor} />
+        </vbox>
+      {/if}
     </HeaderGroupBox>
   </vbox>
 {/if}
@@ -148,9 +157,11 @@
   $: $autoResponder && (isChanged = true);
   $: state = !$autoResponder.isOn ? "off" : $autoResponder.scheduled ? "scheduled" : "always";
   $: isTimeRange = state == "scheduled";
-  $: isOutsideOn = $autoResponder.isOn && $autoResponder.externalAudience != AutoResponderAudience.None;
+  $: isOutsideOn = $autoResponder.isOn && $autoResponder.externalAudience != AutoResponderAudience.Internal;
   // Like Outlook, one of the 2 is checked, even while there are no replies outside
-  $: shownAudience = $autoResponder.externalAudience == AutoResponderAudience.Contacts ? AutoResponderAudience.Contacts : AutoResponderAudience.All;
+  $: shownAudience = $autoResponder.externalAudience == AutoResponderAudience.Contacts || $autoResponder.maxAudience == AutoResponderAudience.Contacts
+    ? AutoResponderAudience.Contacts
+    : AutoResponderAudience.All;
 
   async function load(forAccount: MailAccount) {
     autoResponder = forAccount.newAutoResponder();

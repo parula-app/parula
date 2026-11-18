@@ -98,7 +98,9 @@ test("Without external messages, there are no replies outside", async () => {
   await autoResponder.load();
 
   expect(autoResponder.isOn).toBe(false);
-  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Internal);
+  // Not the admin: Z-Push (Kopano, Zarafa) and Horde have one message for all senders
+  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.All);
 });
 
 test("While it's off, the audience is Exchange's default", async () => {
