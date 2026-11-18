@@ -10,7 +10,7 @@ import { PKCS12 } from "./SMIME/PKCS12";
 import { Any } from "./SMIME/SMIMEASN1";
 import { readAutoCryptKeys } from "./PGP/AutoCrypt";
 import { publicKeyFromJSON } from "./KeyFromJSON";
-import { EncryptionSystem, trustOrder } from "./enums";
+import { EncryptionSystem, TrustLevel, trustOrder } from "./enums";
 import type { EMail } from "../EMail";
 import { findAllIdentities, type MailIdentity } from "../MailIdentity";
 import { appGlobal } from "../../app";
@@ -80,7 +80,7 @@ export function getPublicKeyForPerson<T extends PublicKey>(person: Person, keyTy
   if (!person || person.encryptionPublicKeys.isEmpty) {
     return null;
   }
-  let keys = person.encryptionPublicKeys.filterOnce(key => isUsableKey(key, keyType));
+  let keys = person.encryptionPublicKeys.filterOnce(key => isUsableKey(key, keyType) && mayUseKeyOf(person, key));
   // The most trusted key, because anybody can send a key in the AutoCrypt header of a mail
   let mostTrusted = Math.max(...keys.contents.map(key => trustOrder(key.trustLevel)));
   keys = keys.filterOnce(key => trustOrder(key.trustLevel) == mostTrusted);
@@ -91,12 +91,26 @@ export function getPublicKeyForPerson<T extends PublicKey>(person: Person, keyTy
  * Also considers the key that we know only for this email address, e.g. the
  * certificate with which the recipient signed the email that we are replying to. */
 export function getPublicKeyForPersonUID<T extends PublicKey>(uid: PersonUID, keyType?: new () => T): T | null {
-  let saved = getPublicKeyForPerson(uid?.findPerson(), keyType);
+  let person = uid?.findPerson();
+  let saved = getPublicKeyForPerson(person, keyType);
   if (saved) {
     return saved;
   }
   let known = uid?.encryptionPublicKey;
-  return isUsableKey(known, keyType) ? known : null;
+  return isUsableKey(known, keyType) && (!person || mayUseKeyOf(person, known)) ? known : null;
+}
+
+/** Whether we may use this key of the contact, to encrypt to them, or to verify
+ * their signature. If the user or a CA confirmed a valid key of the contact, only
+ * the confirmed keys: Anybody can send a key in the AutoCrypt header of a mail
+ * with the contact's address, so the user has to confirm such a key first. */
+export function mayUseKeyOf(person: Person, key: PublicKey): boolean {
+  return isConfirmedKey(key) || !person.encryptionPublicKeys.some(other => isConfirmedKey(other) && !other.obsolete);
+}
+
+/** The user or a CA confirmed this key. It does not only come from a mail. */
+export function isConfirmedKey(key: PublicKey): boolean {
+  return trustOrder(key.trustLevel) > trustOrder(TrustLevel.Sender);
 }
 
 export function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {

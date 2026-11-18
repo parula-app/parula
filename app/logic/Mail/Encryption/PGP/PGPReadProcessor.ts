@@ -3,6 +3,7 @@ import { EMail } from "../../EMail";
 import { PGPPrivateKey } from "./PGPPrivateKey";
 import { PGPPublicKey, type OpenPGPModule } from "./PGPPublicKey";
 import { readAutoCryptKeys } from "./AutoCrypt";
+import { mayUseKeyOf } from "../KeyUtils";
 import { EncryptionSystem } from "../enums";
 import { parseMIMEDirectSubparts, parseHeaderParameters, toCRLF } from "../MIME";
 import { MailIdentity, findIdentityForEMailAddress } from "../../MailIdentity";
@@ -161,7 +162,7 @@ export class PGPReadProcessor extends EMailProcessor {
     let person = personUID.findPerson();
     if (person) {
       for (let publicKey of person.encryptionPublicKeys.each) {
-        if (!(publicKey instanceof PGPPublicKey && publicKey.publicKeyArmored)) {
+        if (!(publicKey instanceof PGPPublicKey && publicKey.publicKeyArmored && mayUseKeyOf(person, publicKey))) {
           continue;
         }
         keys.add(publicKey);

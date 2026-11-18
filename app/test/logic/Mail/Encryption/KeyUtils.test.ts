@@ -3,6 +3,7 @@
 // import cycle, which would otherwise leave the base classes undefined.
 import "../../../../logic/app";
 import { PersonUID } from "../../../../logic/Abstract/PersonUID";
+import { ContactEntry } from "../../../../logic/Abstract/Person";
 import { setUpAccount, type TestMailAccount } from "../TestMailAccount";
 import { SpecialFolder } from "../../../../logic/Mail/Folder";
 import { getEncryptionSystem, getPublicKeyForPerson, getPublicKeyForPersonUID } from "../../../../logic/Mail/Encryption/KeyUtils";
@@ -136,6 +137,28 @@ describe("Certificate to which we encrypt", () => {
     person.addEncryptionPublicKey(autoCrypt);
     person.addEncryptionPublicKey(confirmed);
     expect(getPublicKeyForPerson(person)).toBe(confirmed);
+  });
+
+  test("of a contact with a confirmed certificate: not a PGP key that nobody confirmed", async () => {
+    let addressbook = new Addressbook();
+    appGlobal.addressbooks.add(addressbook);
+    let person = addressbook.newPerson();
+    person.emailAddresses.add(new ContactEntry("victor@example.com"));
+    addressbook.persons.add(person);
+    let confirmed = await SMIMEPublicKey.importPublicKey(kVictorEncryption);
+    confirmed.trustLevel = TrustLevel.ThirdParty;
+    person.addEncryptionPublicKey(confirmed);
+    // e.g. from the AutoCrypt header of a mail that anybody could have sent
+    let unconfirmed = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Victor", emailAddress: "victor@example.com" })).publicKeyArmored);
+    person.addEncryptionPublicKey(unconfirmed);
+    let uid = new PersonUID("victor@example.com", "Victor");
+    uid.encryptionPublicKey = unconfirmed; // as a mail signed with it leaves it
+    try {
+      expect(getPublicKeyForPersonUID(uid, PGPPublicKey)).toBe(null);
+      expect(getPublicKeyForPersonUID(uid)).toBe(confirmed);
+    } finally {
+      appGlobal.addressbooks.remove(addressbook);
+    }
   });
 
   test("from a company directory that has one for signing and one for encrypting", async () => {
