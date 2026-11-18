@@ -220,8 +220,15 @@ export class Folder extends Observable {
       }
 
       this.countTotal += messages.length;
-
-      await this.moveOrCopyMessagesOnServer(action, messages);
+      try {
+        await this.moveOrCopyMessagesOnServer(action, messages);
+      } catch (ex) {
+        this.countTotal -= messages.length;
+        if (action == "move") {
+          sourceFolder.messages.addAll(messages);
+        }
+        throw ex;
+      }
 
       if (action == "move") {
         sourceFolder.countTotal -= messages.length;
