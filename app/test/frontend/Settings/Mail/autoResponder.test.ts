@@ -185,6 +185,44 @@ test("Outside the organization: on with the checkbox, with its own message below
   expect(server.externalAudience).toBe(AutoResponderAudience.Contacts);
 });
 
+/** E.g. EWS, when the admin allows only contacts outside the organization */
+class ContactsOnlyResponder extends TestAutoResponder {
+  async load() {
+    await super.load();
+    this.maxAudience = AutoResponderAudience.Contacts;
+  }
+}
+
+test("The admin allows only contacts outside the organization", async () => {
+  await showPage(ContactsOnlyResponder);
+
+  await click(checkbox("Auto-reply to people outside my organization"));
+  expect(radio("My Contacts only").checked).toBe(true);
+  expect(radio("Anyone outside my organization").disabled).toBe(true);
+  expect(target.textContent).toContain("administrator");
+  await click(button("Save"));
+  expect(server.externalAudience).toBe(AutoResponderAudience.Contacts);
+});
+
+/** E.g. EWS, when the admin allows automatic replies only inside the organization */
+class InternalOnlyResponder extends TestAutoResponder {
+  async load() {
+    await super.load();
+    this.maxAudience = AutoResponderAudience.None;
+  }
+}
+
+test("The admin allows no replies outside the organization: no message and no copy buttons for outside", async () => {
+  await showPage(InternalOnlyResponder);
+
+  expect(checkbox("Auto-reply to people outside my organization").disabled).toBe(true);
+  expect(target.textContent).toContain("administrator");
+  expect(target.querySelectorAll(".html-editor").length).toBe(1);
+  expect(editorBox().textContent).toContain("Back on Monday");
+  expect(copyUpButton()).toBeNull();
+  expect(target.textContent).not.toContain("Copy");
+});
+
 function copyUpButton(): HTMLButtonElement {
   return target.querySelector("button[title='Copy from Outside My Organization']");
 }
