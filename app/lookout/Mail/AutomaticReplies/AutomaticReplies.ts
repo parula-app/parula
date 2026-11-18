@@ -14,10 +14,3 @@ export function isReplyingNow(autoResponder: AutoResponder, now = new Date()): b
   return autoResponder.isOn && (!autoResponder.scheduled ||
     autoResponder.startTime.getTime() <= now.getTime() && now.getTime() < autoResponder.endTime.getTime());
 }
-
-/** The end time moves with the start time and keeps the length of the time range, as for events */
-export function setStartTime(autoResponder: AutoResponder, startTime: Date) {
-  let length = autoResponder.endTime.getTime() - autoResponder.startTime.getTime();
-  autoResponder.startTime = startTime;
-  autoResponder.endTime = new Date(startTime.getTime() + length);
-}

@@ -76,6 +76,13 @@ export class AutoResponder extends Observable {
     throw new AbstractFunction();
   }
 
+  /** The end time moves with the start time and keeps the length of the time range, as for events */
+  setStartTime(startTime: Date) {
+    let length = this.endTime.getTime() - this.startTime.getTime();
+    this.startTime = startTime;
+    this.endTime = new Date(startTime.getTime() + length);
+  }
+
   /** For the default time range of the next automatic replies. Call after `save()`. */
   rememberTimes() {
     if (this.isOn && this.scheduled) {

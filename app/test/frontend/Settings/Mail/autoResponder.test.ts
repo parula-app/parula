@@ -3,10 +3,9 @@
 import { appGlobal } from "../../../../logic/app";
 import { MailAccount } from "../../../../logic/Mail/MailAccount";
 import { AutoResponder, AutoResponderAudience } from "../../../../logic/Mail/AutoResponder";
+import { PermissionMissing } from "../../../../logic/Abstract/Account";
 import AutoResponderPage from "../../../../frontend/Settings/Mail/AutoResponder.svelte";
 import { flushSync, mount, tick, unmount } from "svelte";
-import { PermissionMissing } from "../../../../logic/Abstract/Account";
-import { Editor } from "@tiptap/core";
 import { afterEach, beforeAll, expect, test, vi } from "vitest";
 
 beforeAll(() => {
@@ -14,9 +13,9 @@ beforeAll(() => {
 });
 
 /** What the server has */
-class TestAutoResponder extends AutoResponder {
-  saved = 0;
+let server: Partial<AutoResponder>;
 
+class TestAutoResponder extends AutoResponder {
   get supported() {
     return true;
   }
@@ -28,23 +27,25 @@ class TestAutoResponder extends AutoResponder {
   }
 
   async load() {
-    this.isOn = true;
-    this.scheduled = true;
-    this.internalHTML = "<p>Back on Monday</p>";
-    this.externalAudience = AutoResponderAudience.None;
+    Object.assign(this, server);
   }
 
   async save() {
-    this.saved++;
+    server = {
+      isOn: this.isOn,
+      scheduled: this.scheduled,
+      internalHTML: this.internalHTML,
+      externalHTML: this.externalHTML,
+      externalAudience: this.externalAudience,
+    };
   }
 }
 
 /** Login from before we asked for the permission */
+let granted: boolean;
 class DeniedResponder extends TestAutoResponder {
-  granted = false;
-
   async load() {
-    if (!this.granted) {
+    if (!granted) {
       throw new PermissionMissing(null, "Please log in once more and allow access.");
     }
     await super.load();
@@ -59,7 +60,7 @@ class TestMailAccount extends MailAccount {
   }
 
   async upgradeScopes() {
-    (this.autoResponder as DeniedResponder).granted = true;
+    granted = true;
   }
 }
 
@@ -72,86 +73,141 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function showPage(type = TestAutoResponder): Promise<TestAutoResponder> {
+async function showPage(type = TestAutoResponder): Promise<TestMailAccount> {
+  server = {
+    isOn: true,
+    scheduled: false,
+    internalHTML: "<p>Back on Monday</p>",
+    externalHTML: "<p>Away</p>",
+    externalAudience: AutoResponderAudience.None,
+  };
+  granted = false;
   responderClass = type;
   let account = new TestMailAccount();
   target = document.createElement("div");
   document.body.append(target);
   app = mount(AutoResponderPage, { target, props: { account } });
+  await settle();
+  return account;
+}
+
+async function settle() {
   await tick(); // `load()`
+  await tick();
   flushSync();
-  return account.autoResponder as TestAutoResponder;
+}
+
+function find(selector: string, text: string): HTMLElement {
+  let found = [...target.querySelectorAll<HTMLElement>(selector)]
+    .filter(el => el.textContent.trim() == text);
+  expect(found.length, `${selector} ${text}`).toBe(1);
+  return found[0];
 }
 
 function radio(label: string): HTMLInputElement {
-  let found = [...target.querySelectorAll("label.radio")]
-    .filter(el => el.textContent.trim() == label);
-  expect(found.length, `radio ${label}`).toBe(1);
-  return found[0].querySelector("input");
+  return find("label.radio", label).querySelector("input");
 }
 
-/** The `<Checkbox toggle>` */
-function toggle(label: string): HTMLElement {
-  let found = [...target.querySelectorAll(".checkbox.toggle")]
-    .filter(el => el.textContent.trim() == label);
-  expect(found.length, `toggle ${label}`).toBe(1);
-  return found[0] as HTMLElement;
+function checkbox(label: string): HTMLInputElement {
+  return find(".checkbox", label).querySelector("input");
 }
 
-function click(el: HTMLElement) {
-  el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+function button(label: string): HTMLButtonElement {
+  return find("button", label) as HTMLButtonElement;
+}
+
+async function click(el: HTMLElement) {
+  el.click();
   flushSync();
+  await settle();
 }
 
-test("Shows the settings from the server", async () => {
+/** The editor for inside the organization, or with `outside` the one for outside */
+function editorBox(outside = false): HTMLElement {
+  return target.querySelectorAll<HTMLElement>(".editor-box")[outside ? 1 : 0];
+}
+
+function dateInput(): HTMLInputElement {
+  return target.querySelector("input[type=date]");
+}
+
+test("Shows the settings from the server, and Save saves them", async () => {
+  let account = await showPage();
+  await account.autoResponder.load();
+
+  expect(radio("Always send automatic replies").checked).toBe(true);
+  expect(radio("Only send during this time range:").checked).toBe(false);
+  expect(editorBox().textContent).toContain("Back on Monday");
+
+  await click(radio("Do not send automatic replies"));
+  expect(server.isOn).toBe(true);
+  expect(account.autoResponder.isOn).toBe(true);
+  await click(button("Save"));
+  expect(server.isOn).toBe(false);
+  expect(account.autoResponder.isOn).toBe(false);
+});
+
+test("Only send during this time range, and without automatic replies, the time range and the message are disabled", async () => {
+  await showPage();
+  expect(dateInput().disabled).toBe(true);
+  await click(radio("Only send during this time range:"));
+  expect(radio("Always send automatic replies").checked).toBe(false);
+  expect(dateInput().disabled).toBe(false);
+  expect(editorBox().inert).toBe(false);
+
+  await click(radio("Do not send automatic replies"));
+  expect(radio("Only send during this time range:").checked).toBe(false);
+  expect(dateInput().disabled).toBe(true);
+  expect(editorBox().inert).toBe(true);
+
+  await click(radio("Only send during this time range:"));
+  await click(button("Save"));
+  expect(server.isOn).toBe(true);
+  expect(server.scheduled).toBe(true);
+});
+
+test("Outside the organization: on with the checkbox, with its own message below the one for inside", async () => {
   await showPage();
 
-  expect(toggle("Send automatic replies").classList.contains("on")).toBe(true);
-  expect(target.querySelectorAll("input[type=date]").length).toBe(2);
-  expect(target.textContent).toContain("Back on Monday");
-  expect(radio("Don't reply").checked).toBe(true);
+  expect(target.textContent).toContain("Inside My Organization");
+  expect(target.textContent).toContain("Outside My Organization");
+  expect(editorBox().textContent).toContain("Back on Monday");
+  expect(editorBox(true).textContent).toContain("Away");
+  expect(editorBox().inert).toBe(false);
+  expect(editorBox(true).inert).toBe(true);
+  expect(radio("Anyone outside my organization").disabled).toBe(true);
+
+  await click(checkbox("Auto-reply to people outside my organization"));
+  expect(radio("Anyone outside my organization").checked).toBe(true);
+  expect(editorBox(true).inert).toBe(false);
+  await click(radio("My Contacts only"));
+  await click(button("Save"));
+  expect(server.externalAudience).toBe(AutoResponderAudience.Contacts);
 });
 
-test("Turning it off hides the messages, and saves", async () => {
-  let autoResponder = await showPage();
+function copyUpButton(): HTMLButtonElement {
+  return target.querySelector("button[title='Copy from Outside My Organization']");
+}
 
-  click(toggle("Send automatic replies"));
-  expect(autoResponder.isOn).toBe(false);
-  expect(toggle("Send automatic replies").classList.contains("off")).toBe(true);
-  expect(target.textContent).not.toContain("Back on Monday");
-  expect(target.textContent).not.toContain("Outside my organization");
-
-  click([...target.querySelectorAll("button")].find(el => el.textContent.includes("Save")));
-  await tick();
-  expect(autoResponder.saved).toBe(1);
-});
-
-test("Turning it off and on again gives the toolbar the new editor", async () => {
+test("Copy the message down to outside the organization", async () => {
   await showPage();
-  // The toolbar calls it. For a destroyed editor, tiptap 3.30 and older throw, which crashed the page.
-  let destroyedEditors = 0;
-  let can = Editor.prototype.can;
-  vi.spyOn(Editor.prototype, "can").mockImplementation(function (this: Editor) {
-    if (this.isDestroyed) {
-      destroyedEditors++;
-    }
-    return can.call(this);
-  });
+  expect(button("Copy").disabled).toBe(true);
 
-  click(toggle("Send automatic replies"));
-  click(toggle("Send automatic replies"));
-  expect(destroyedEditors).toBe(0);
-  expect(target.textContent).toContain("Back on Monday");
-  let bold = target.querySelector(".editor-box button[title*=Bold]") as HTMLButtonElement;
-  expect(bold.disabled).toBe(false);
+  await click(checkbox("Auto-reply to people outside my organization"));
+  await click(button("Copy"));
+  expect(editorBox(true).textContent).toContain("Back on Monday");
+  await click(button("Save"));
+  expect(server.externalHTML).toContain("Back on Monday");
 });
 
-test("Replying to contacts outside shows their message", async () => {
-  let autoResponder = await showPage();
+test("Copy the message up to inside the organization", async () => {
+  await showPage();
+  expect(copyUpButton().disabled).toBe(false);
 
-  click(radio("Only to my contacts"));
-  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Contacts);
-  expect(target.querySelectorAll(".html-editor").length).toBe(2);
+  await click(copyUpButton());
+  expect(editorBox().textContent).toContain("Away");
+  await click(button("Save"));
+  expect(server.internalHTML).toContain("Away");
 });
 
 /** E.g. JMAP */
@@ -164,8 +220,7 @@ class OneMessageResponder extends TestAutoResponder {
   }
 
   async load() {
-    this.isOn = true;
-    this.externalHTML = "<p>Away</p>";
+    await super.load();
     this.externalAudience = AutoResponderAudience.All;
   }
 }
@@ -174,21 +229,20 @@ test("Without inside and outside the organization, one message for all senders",
   await showPage(OneMessageResponder);
 
   expect(target.textContent).toContain("Automatic reply");
-  expect(target.textContent).not.toContain("organization");
+  expect(target.textContent).not.toContain("Organization");
   expect(target.querySelectorAll(".html-editor").length).toBe(1);
-  expect(target.textContent).toContain("Away");
+  expect(editorBox().textContent).toContain("Away");
+  expect(editorBox().inert).toBe(false);
+  await click(button("Save"));
+  expect(server.externalHTML).toContain("Away");
 });
 
-test("A login without the permission offers to allow it", async () => {
-  let autoResponder = await showPage(DeniedResponder);
-
+test("Missing permission: Allow access, then the settings", async () => {
+  await showPage(DeniedResponder);
   expect(target.textContent).toContain("allow access");
-  expect(target.textContent).not.toContain("Send automatic replies");
-  click([...target.querySelectorAll("button")].find(el => el.textContent.includes("Allow access")));
+  expect(target.querySelector("label.radio")).toBeNull();
+  expect(target.textContent).not.toContain("Save");
 
-  await vi.waitFor(() => {
-    flushSync();
-    expect(toggle("Send automatic replies").classList.contains("on")).toBe(true);
-  });
-  expect(autoResponder.granted).toBe(true);
+  await click(button("Allow access"));
+  expect(radio("Always send automatic replies").checked).toBe(true);
 });
