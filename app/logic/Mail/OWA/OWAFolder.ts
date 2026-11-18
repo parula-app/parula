@@ -4,7 +4,7 @@ import { SpecialFolder } from "../Folder";
 import type { EMail } from "../EMail";
 import { getSharedPersons, ExchangePermission } from "../EWS/ExchangePermission";
 import { OWAEMail } from "./OWAEMail";
-import { type OWAAccount, kMaxFetchCount } from "./OWAAccount";
+import { type OWAAccount, type OWARowNotification, type OWANotifyable, kMaxFetchCount } from "./OWAAccount";
 import { OWAError } from "./OWAError";
 import { OWACreateItemRequest } from "./Request/OWACreateItemRequest";
 import {
@@ -24,7 +24,7 @@ import { base64ToUint8Array, blobToBase64 } from "../../util/blob";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl, Collection } from "svelte-collections";
 
-export class OWAFolder extends ExchangeFolder {
+export class OWAFolder extends ExchangeFolder implements OWANotifyable {
   declare account: OWAAccount;
   declare readonly messages: EMailCollection<OWAEMail>;
   declare readonly subFolders: ArrayColl<OWAFolder>;
@@ -67,6 +67,44 @@ export class OWAFolder extends ExchangeFolder {
       break;
     //case "outbox":
     }
+  }
+
+  handleRowNotification(notification: OWARowNotification, newMessageIDs: string[]) {
+    switch (notification.EventType) {
+    case "RowAdded":
+      this.instanceMap.set(notification.Item.InstanceKey, notification.Item.ItemId.Id);
+      // Unfortunately the notification data is missing
+      // InternetMessageId, References, maybe InReplyTo
+      newMessageIDs.push(notification.Item.ItemId.Id);
+      break;
+    case "RowModified":
+      this.instanceMap.set(notification.Item.InstanceKey, notification.Item.ItemId.Id);
+      let email = this.getEmailByItemID(notification.Item.ItemId.Id);
+      email?.setFlags(notification.Item);
+      this.dirty ||= !email;
+      break;
+    case "RowDeleted":
+      let id = this.instanceMap.get(notification.Item.InstanceKey);
+      if (id) {
+        let email = this.getEmailByItemID(id);
+        email?.deleteMessageLocally().catch(this.account.errorCallback);
+      } else {
+        this.dirty = true;
+      }
+      break;
+    }
+  }
+
+  async processPendingItems(newMessageIDs: string[]) {
+    // A concurrent folder listing may have already picked up the message
+    newMessageIDs = newMessageIDs.filter((id, i, ids) => !this.getEmailByItemID(id) && ids.indexOf(id) == i);
+    let newMessages = await this.getNewMessageHeaders(newMessageIDs);
+    for (let msg of newMessages) {
+      msg.isNewArrived = true;
+    }
+    this.messages.addAll(newMessages);
+    this.downloadMessages(newMessages)
+      .catch(this.account.errorCallback);
   }
 
   /**

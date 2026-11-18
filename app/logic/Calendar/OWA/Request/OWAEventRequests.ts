@@ -118,6 +118,9 @@ export function owaFindEventsRequest(folderID: string, maxFetchCount: number): O
       AdditionalProperties: [{
         __type: "PropertyUri:#Exchange",
         FieldURI: "item:LastModifiedTime",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "item:InstanceKey",
       }],
     },
     ParentFolderIds: [{
