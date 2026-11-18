@@ -22,7 +22,7 @@ export abstract class ExchangeEMail extends EMail {
   async addTagOnServer(tag: Tag) {
     await this.updateTags();
     let account = this.folder.account;
-    account.addCategory(tag)
+    account.tags.add(tag)
       .catch(account.errorCallback);
   }
 

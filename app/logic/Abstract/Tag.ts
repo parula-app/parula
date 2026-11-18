@@ -45,24 +45,6 @@ export async function loadTagsList() {
   }
 }
 
-export async function addTagsFromServer(serverTags: { name: string, color: string | null }[]) {
-  let changed = false;
-  for (let { name, color } of serverTags) {
-    let tag = getTagByName(name, false);
-    if (!availableTags.contains(tag)) {
-      availableTags.add(tag);
-      changed = true;
-    }
-    if (color && tag.color != color) {
-      tag.color = color;
-      changed = true;
-    }
-  }
-  if (changed) {
-    await saveTagsList();
-  }
-}
-
 export async function saveTagsList() {
   let json = availableTags.contents.map(tag => ({
     name: tag.name,

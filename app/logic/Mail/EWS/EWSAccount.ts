@@ -5,13 +5,12 @@ import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShar
 import { EWSFolder, getEWSItem } from "./EWSFolder";
 import { EWSSearchEMail } from "./EWSSearchEMail";
 import { EWSAutoResponder } from "./EWSAutoResponder";
+import { EWSTags } from "./EWSTags";
 import { deleteExchangePermissions, setExchangePermissions } from "./ExchangePermission";
 import { EWSCreateItemRequest } from "./Request/EWSCreateItemRequest";
 import type { EWSDeleteItemRequest } from "./Request/EWSDeleteItemRequest";
 import type { EWSUpdateItemRequest } from "./Request/EWSUpdateItemRequest";
 import { EWSError, EWSItemError } from "./EWSError";
-import { addCategoryToXML, categoriesFromXML, categoryListXMLToBase64, parseCategoryListXML } from "./ExchangeCategories";
-import type { Tag } from "../../Abstract/Tag";
 import type { EWSAddressbook } from "../../Contacts/EWS/EWSAddressbook";
 import type { EWSCalendar } from "../../Calendar/EWS/EWSCalendar";
 import { EWSGAL } from "../../Contacts/EWS/EWSGAL";
@@ -88,6 +87,10 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     return new EWSAutoResponder(this);
   }
 
+  newTags(): EWSTags {
+    return new EWSTags(this);
+  }
+
   get folderID(): string {
     return this.inbox.id;
   }
@@ -162,7 +165,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         // `listFolders()` will subscribe to new user-added addressbooks and calendars
 
         await this.subscribeToNotifications();
-        this.readCategories()
+        this.tags.load()
           .catch(logErrorToServer);
       } finally { // Even when the mail folders failed, so that calendar and addressbook still work
         await this.startupDependentAccounts();
@@ -1034,56 +1037,6 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     return { [root.localName]: XML2JSON(root) };
   }
 
-  async readCategories(): Promise<void> {
-    let xml = await this.getCategoryListXML();
-    if (xml) {
-      await this.setCategories(categoriesFromXML(xml));
-    }
-  }
-
-  protected async addCategoryOnServer(tag: Tag): Promise<void> {
-    let xml = await this.getCategoryListXML();
-    let name = tag.name.toLowerCase();
-    if (xml && categoriesFromXML(xml).some(category => category.name.toLowerCase() == name)) {
-      return;
-    }
-    await this.saveCategoryListXML(addCategoryToXML(xml, tag));
-  }
-
-  protected async getCategoryListXML(): Promise<Document | null> {
-    let request = {
-      m$GetUserConfiguration: {
-        m$UserConfigurationName: kCategoryListName,
-        m$UserConfigurationProperties: "XmlData",
-      },
-    };
-    try {
-      let response = await this.callEWS(request);
-      let xmlData = response.UserConfiguration?.XmlData;
-      return xmlData ? parseCategoryListXML(sanitize.nonemptystring(xmlData)) : null;
-    } catch (ex) {
-      if (ex.type == "ErrorItemNotFound") {
-        return null;
-      }
-      throw ex;
-    }
-  }
-
-  protected async saveCategoryListXML(xml: Document): Promise<void> {
-    let userConfiguration = {
-      t$UserConfigurationName: kCategoryListName,
-      t$XmlData: categoryListXMLToBase64(xml),
-    };
-    try {
-      await this.callEWS({ m$UpdateUserConfiguration: { m$UserConfiguration: userConfiguration } });
-    } catch (ex) {
-      if (ex.type != "ErrorItemNotFound") {
-        throw ex;
-      }
-      await this.callEWS({ m$CreateUserConfiguration: { m$UserConfiguration: userConfiguration } });
-    }
-  }
-
   get mayHaveSubAccounts(): boolean {
     return true;
   }
@@ -1411,13 +1364,6 @@ export interface EWSSubscribable extends Account {
 export type JsonRequest = Json | EWSCreateItemRequest | EWSDeleteItemRequest | EWSUpdateItemRequest;
 
 const kXMLContentType = "text/xml; charset=utf-8";
-
-const kCategoryListName = {
-  Name: "CategoryList",
-  t$DistinguishedFolderId: {
-    Id: "calendar",
-  },
-};
 
 /** @see <https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/01b52d3c-d194-4a8c-83ee-4ac7506339da> */
 const HiddenPidTag = "0x10F4";

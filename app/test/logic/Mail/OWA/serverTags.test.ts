@@ -4,9 +4,10 @@ import { appGlobal } from "../../../../logic/app";
 import { OWAAccount } from "../../../../logic/Mail/OWA/OWAAccount";
 import type { OWAEMail } from "../../../../logic/Mail/OWA/OWAEMail";
 import { SpecialFolder } from "../../../../logic/Mail/Folder";
+import type { ExchangeMailAccount } from "../../../../logic/Mail/EWS/ExchangeMailAccount";
 import { DummyMailStorage } from "../../../../logic/Mail/Store/DummyMailStorage";
 import { availableTags, Tag } from "../../../../logic/Abstract/Tag";
-import { beforeEach, expect, test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 
 /** An OWA server with a master category list, and one message in the inbox */
 class TestOWAAccount extends OWAAccount {
@@ -18,16 +19,6 @@ class TestOWAAccount extends OWAAccount {
   ];
   readonly calls: { action: string, body: any, urlPostData?: any }[] = [];
   readonly reportedErrors: Error[] = [];
-  // <copied from="../EWS/categories.test.ts">
-  /** Tagging saves the category in the background */
-  readonly categorySaves: Promise<void>[] = [];
-
-  addCategory(tag: Tag): Promise<void> {
-    let save = super.addCategory(tag);
-    this.categorySaves.push(save);
-    return save;
-  }
-  // </copied>
 
   async callOWAShared(url: string, options: any): Promise<any> {
     let action = options.headers.Action;
@@ -65,6 +56,7 @@ function newTestAccount(): TestOWAAccount {
   account.storage = new DummyMailStorage();
   account.contentStorage.clear();
   account.errorCallback = ex => account.reportedErrors.push(ex);
+  vi.spyOn(account.tags, "add");
   let inbox = account.newFolder();
   inbox.name = "Inbox";
   inbox.id = "inbox-1";
@@ -85,6 +77,13 @@ function newTag(name: string, color: string): Tag {
   return tag;
 }
 
+// <copied from="../EWS/serverTags.test.ts">
+/** Tagging adds the tag to the server in the background */
+async function tagsSavedOnServer(account: ExchangeMailAccount) {
+  await Promise.allSettled(vi.mocked(account.tags.add).mock.results.map(result => result.value));
+}
+// </copied>
+
 beforeEach(() => {
   availableTags.clear();
   localStorage.clear();
@@ -93,7 +92,7 @@ beforeEach(() => {
 test("The master categories appear as tags, with their colors", async () => {
   let account = newTestAccount();
 
-  await account.readCategories();
+  await account.tags.load();
 
   expect(account.calls.map(call => call.action)).toEqual(["GetOwaUserConfiguration"]);
   expect(availableTags.contents.map(tag => [tag.name, tag.color])).toEqual([
@@ -107,19 +106,19 @@ test("A mailbox without master category list is not an error", async () => {
   let account = newTestAccount();
   account.masterList = undefined;
 
-  await account.readCategories();
+  await account.tags.load();
 
   expect(availableTags.contents).toEqual([]);
 });
 
 test("Tagging a message with a new tag adds it as master category", async () => {
   let account = newTestAccount();
-  await account.readCategories();
+  await account.tags.load();
   let email = account.inbox.messages.first as OWAEMail;
   account.calls.length = 0;
 
   await email.addTag(newTag("Project", "#4AB63F"));
-  await Promise.allSettled(account.categorySaves);
+  await tagsSavedOnServer(account);
 
   expect(account.calls.map(call => call.action)).toEqual(["UpdateItem", "UpdateMasterCategoryList"]);
   let update = account.calls[1];
@@ -134,12 +133,12 @@ test("Tagging a message with a new tag adds it as master category", async () => 
 
 test("Tagging a message with an existing category does not change the master list", async () => {
   let account = newTestAccount();
-  await account.readCategories();
+  await account.tags.load();
   let email = account.inbox.messages.first as OWAEMail;
   account.calls.length = 0;
 
   await email.addTag(newTag("customer", "#FF0000"));
-  await Promise.allSettled(account.categorySaves);
+  await tagsSavedOnServer(account);
 
   expect(account.calls.map(call => call.action)).toEqual(["UpdateItem"]);
 });
@@ -147,7 +146,7 @@ test("Tagging a message with an existing category does not change the master lis
 test("Other requests are not duplicated into the header", async () => {
   let account = newTestAccount();
 
-  await account.readCategories();
+  await account.tags.load();
 
   expect(account.calls[0].urlPostData).toBeUndefined();
 });

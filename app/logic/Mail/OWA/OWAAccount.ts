@@ -6,6 +6,7 @@ import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShar
 import { OWAFolder } from "./OWAFolder";
 import { OWASearchEMail } from "./OWASearchEMail";
 import { OWAAutoResponder } from "./OWAAutoResponder";
+import { OWATags } from "./OWATags";
 import { OWAError } from "./OWAError";
 import type { OWANotifications } from "./Notification/OWANotifications";
 import { OWAExchangeNotifications } from "./Notification/OWAExchangeNotifications";
@@ -25,8 +26,6 @@ import { OWACalendarShortcut } from "../../Calendar/OWA/OWACalendarShortcut";
 import { EWSCalendarShortcut } from "../../Calendar/EWS/EWSCalendarShortcut";
 import { OWALoginBackground } from "./Login/OWALoginBackground";
 import { deleteExchangePermissions, setExchangePermissions } from "../EWS/ExchangePermission";
-import { hexToCategoryColor, sanitizeCategoryColor, type ExchangeCategory } from "../EWS/ExchangeCategories";
-import type { Tag } from "../../Abstract/Tag";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { OWAAuth } from "../../Auth/OWAAuth";
 import { type Attachment, ContentDisposition } from "../../Abstract/Attachment";
@@ -86,6 +85,10 @@ export class OWAAccount extends ExchangeMailAccount {
 
   newAutoResponder(): OWAAutoResponder {
     return new OWAAutoResponder(this);
+  }
+
+  newTags(): OWATags {
+    return new OWATags(this);
   }
 
   /**
@@ -211,10 +214,8 @@ export class OWAAccount extends ExchangeMailAccount {
         if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new OWAGAL(this));
         }
-        if (!this.isDependentAccount) {
-          this.readCategories()
-            .catch(logErrorToServer);
-        }
+        this.tags.load()
+          .catch(logErrorToServer);
 
         await this.callOWA(new OWASubscribeToHierarchyNotificationRequest());
         this.listenForNotifications();
@@ -516,24 +517,6 @@ export class OWAAccount extends ExchangeMailAccount {
       }
     }
     return items;
-  }
-
-  async readCategories(): Promise<void> {
-    let configuration = await this.callOWA(new OWAGetOwaUserConfigurationRequest());
-    await this.setCategories(owaCategories(configuration.MasterCategoryList?.MasterList));
-  }
-
-  protected async addCategoryOnServer(tag: Tag): Promise<void> {
-    let response = await this.callOWA(new OWAUpdateMasterCategoryListRequest([{
-      __type: "CategoryType:#Exchange",
-      Id: crypto.randomUUID(),
-      Name: tag.name,
-      Color: hexToCategoryColor(tag.color),
-      LastTimeUsed: new Date().toISOString(),
-    }]));
-    if (response.WasSuccessful === false) {
-      throw new OWAError({ message: gt`Could not add the tag ${tag.name} as category to the server`, json: response });
-    }
   }
 
   async listFolders(): Promise<void> {
@@ -969,38 +952,6 @@ class OWAGetPeopleFiltersRequest {
   get action() {
     return "GetPeopleFilters";
   }
-}
-
-class OWAGetOwaUserConfigurationRequest {
-  get action() {
-    return "GetOwaUserConfiguration";
-  }
-}
-
-class OWAUpdateMasterCategoryListRequest {
-  readonly request: any;
-
-  constructor(addCategories: any[]) {
-    this.request = {
-      __type: "UpdateMasterCategoryListRequest:#Exchange",
-      AddCategoryList: addCategories,
-    };
-  }
-
-  get action() {
-    return "UpdateMasterCategoryList";
-  }
-
-  get inURLPostData() {
-    return true;
-  }
-}
-
-function owaCategories(masterList: any[] | undefined): ExchangeCategory[] {
-  return sanitize.array(masterList, []).map(category => ({
-    name: sanitize.nonemptylabel(category?.Name, null),
-    color: sanitizeCategoryColor(category?.Color),
-  })).filter(category => category.name);
 }
 
 export const kMaxFetchCount = 50;

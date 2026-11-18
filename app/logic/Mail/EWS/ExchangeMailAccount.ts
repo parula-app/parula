@@ -5,9 +5,7 @@ import { ExchangeCalendar } from "../../Calendar/EWS/ExchangeCalendar";
 import { PersonUID } from "../../Abstract/PersonUID";
 import { appGlobal } from "../../app";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { addTagsFromServer, type Tag } from "../../Abstract/Tag";
-import { categoryColorToHex, type ExchangeCategory } from "./ExchangeCategories";
-import { Lock } from "../../util/flow/Lock";
+import { ExchangeTags } from "./ExchangeTags";
 import { ArrayColl, Collection } from "svelte-collections";
 
 export class ExchangeMailAccount extends MailAccount {
@@ -15,8 +13,7 @@ export class ExchangeMailAccount extends MailAccount {
   readonly tls = TLSSocketType.TLS;
   readonly canSendOutgoingInvitations: boolean = false;
   deleteStrategy: DeleteStrategy = DeleteStrategy.MoveToTrash;
-  protected categoryNames = new Set<string>();
-  protected categoryLock = new Lock();
+  protected _tags: ExchangeTags;
 
   get calendarsAvailable(): Collection<Calendar> {
     let mailboxCalendars = this.calendarsOfMailbox(this.username);
@@ -69,39 +66,13 @@ export class ExchangeMailAccount extends MailAccount {
     return new PersonUID(address, sanitize.nonemptylabel(name, null) ?? undefined);
   }
 
-  async readCategories(): Promise<void> {
+  /** The tags that the server knows, with their colors */
+  get tags(): ExchangeTags {
+    return this._tags ??= this.newTags();
   }
 
-  protected async setCategories(categories: ExchangeCategory[]): Promise<void> {
-    this.categoryNames = new Set(categories.map(category => category.name.toLowerCase()));
-    await addTagsFromServer(categories.map(category => ({
-      name: category.name,
-      color: categoryColorToHex(category.color),
-    })));
-  }
-
-  async addCategory(tag: Tag): Promise<void> {
-    if (this.mainAccount) {
-      await (this.mainAccount as ExchangeMailAccount).addCategory(tag);
-      return;
-    }
-    let name = tag.name.toLowerCase();
-    if (name.includes(",")) {
-      return;
-    }
-    let lock = await this.categoryLock.lock();
-    try {
-      if (this.categoryNames.has(name)) {
-        return;
-      }
-      await this.addCategoryOnServer(tag);
-      this.categoryNames.add(name);
-    } finally {
-      lock.release();
-    }
-  }
-
-  protected async addCategoryOnServer(tag: Tag): Promise<void> {
+  newTags(): ExchangeTags {
+    return new ExchangeTags(this);
   }
 
   async deleteIt(): Promise<void> {

@@ -4,10 +4,8 @@ import { Provider } from "../../Auth/OAuth2URLs";
 import { GraphFolder } from "./GraphFolder";
 import { GraphSearchEMail } from "./GraphSearchEMail";
 import { GraphAutoResponder } from "./GraphAutoResponder";
-import type { TGraphCategory, TGraphFolder } from "./TGraphMail";
-import { hexToCategoryColor, sanitizeCategoryColor } from "../EWS/ExchangeCategories";
-import type { Tag } from "../../Abstract/Tag";
-import type { OAuth2 } from "../../Auth/OAuth2";
+import { GraphTags } from "./GraphTags";
+import type { TGraphFolder } from "./TGraphMail";
 import type { UUID } from "./TGraphGeneric";
 import type { EMail } from "../EMail";
 import { ConnectError, LoginError } from "../../Abstract/Account";
@@ -75,7 +73,7 @@ export class GraphAccount extends ExchangeMailAccount {
         let inbox = this.inbox as GraphFolder;
         assert(inbox, "Inbox not found");
         inbox.startPolling();
-        this.readCategories()
+        this.tags.load()
           .catch(logErrorToServer);
 
         await this.createDefaultDependentAccounts();
@@ -298,37 +296,6 @@ export class GraphAccount extends ExchangeMailAccount {
     throw ex;
   }
 
-  async readCategories(): Promise<void> {
-    if (!this.mayAccessCategories) {
-      return;
-    }
-    let categories = await this.graphGet<TGraphCategory>("outlook/masterCategories");
-    await this.setCategories(categories.map(category => ({
-      name: sanitize.nonemptylabel(category.displayName, null),
-      color: sanitizeCategoryColor(category.color?.replace("preset", "")),
-    })).filter(category => category.name));
-  }
-
-  protected async addCategoryOnServer(tag: Tag): Promise<void> {
-    if (!this.mayAccessCategories) {
-      return;
-    }
-    let name = tag.name.toLowerCase();
-    let categories = await this.graphGet<TGraphCategory>("outlook/masterCategories");
-    if (categories.some(category => category.displayName?.toLowerCase() == name)) {
-      return;
-    }
-    let color = hexToCategoryColor(tag.color);
-    await this.graphPost("outlook/masterCategories", {
-      displayName: tag.name,
-      color: color < 0 ? "none" : "preset" + color,
-    });
-  }
-
-  protected get mayAccessCategories(): boolean {
-    return !!(this.oAuth2 as OAuth2)?.scope?.includes("MailboxSettings.ReadWrite");
-  }
-
   async listFolders(): Promise<void> {
     await this.storage.readFolderHierarchy(this);
     let currentFolders = new Map<string, GraphFolder>();
@@ -485,6 +452,10 @@ export class GraphAccount extends ExchangeMailAccount {
 
   newAutoResponder(): GraphAutoResponder {
     return new GraphAutoResponder(this);
+  }
+
+  newTags(): GraphTags {
+    return new GraphTags(this);
   }
 }
 
