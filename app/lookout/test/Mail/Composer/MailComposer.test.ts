@@ -11,6 +11,8 @@ import { sleep } from "../../../../logic/util/util";
 import { openAccountSettings } from "../../../Settings/SettingsDialogs";
 import MailComposer from "../../../Mail/Composer/MailComposer.svelte";
 import LookoutComposerWindow from "../../../Mail/Composer/ComposerWindow.svelte";
+import { InlineReply } from "../../../Mail/Composer/InlineReplies";
+import { inlineReplies } from "../../../Mail/Selected";
 import { mailMustangApp } from "../../../../frontend/Mail/MailMustangApp";
 import { AppWindow } from "../../../../frontend/MainWindow/AppWindow";
 import { flushSync, mount, unmount } from "svelte";
@@ -268,6 +270,24 @@ test("Pop Out on the composer page opens Lookout's composer in its own window", 
   popOutButton().click();
   await sleep(0.01);
   expect(open).toHaveBeenCalledWith(LookoutComposerWindow, { mail }, 1000);
+});
+
+test("Maximize moves an inline reply to the composer page", async () => {
+  unmount(app);
+  document.body.innerHTML = "";
+  inlineReplies.add(new InlineReply(account.newEMailFrom(), mail));
+  let writeMail = vi.spyOn(mailMustangApp, "writeMail").mockImplementation(() => {});
+  let target = document.createElement("div");
+  document.body.append(target);
+  app = mount(MailComposer, { target, props: { mail, isInline: true, autofocus: false } });
+  flushSync();
+  await vi.waitFor(() => expect(document.querySelector(".composer [contenteditable]")).not.toBe(null));
+  [...document.querySelectorAll<HTMLButtonElement>(".inline-buttons button")]
+    .find(button => button.textContent.includes("Maximize"))
+    .click();
+  await sleep(0.01);
+  expect(writeMail).toHaveBeenCalledWith(mail);
+  expect(inlineReplies.isEmpty).toBe(true);
 });
 
 test("In its own window, the composer has no Pop Out, and Close closes the window", async () => {
