@@ -73,6 +73,9 @@ export class XMPPChat extends ChatRoom {
       }
       if (plaintext != null) {
         json.body = plaintext;
+        // OMEMO encrypts only the body, so the server could change the plaintext XHTML-IM body and OOB links
+        delete json.html;
+        delete json.links;
         encrypted = true;
       }
     }
