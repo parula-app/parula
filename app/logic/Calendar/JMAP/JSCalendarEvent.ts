@@ -32,7 +32,11 @@ export class JSCalendarEvent {
     event.startTime = this.toDate(jmap.start, jmap);
     event.timezone = jmap.timeZone ?? null;
     event.allDay = sanitize.boolean(jmap.showWithoutTime, false);
-    event.duration = toSeconds(sanitize.nonemptystring(jmap.duration, "PT0S"));
+    if (event.allDay) {
+      event.duration = toSeconds(sanitize.nonemptystring(jmap.duration, "PT0S"));
+    } else {
+      event.endTime = this.toEndTime(jmap);
+    }
 
     // Reminder. We support only one alarm per event, so take the first.
     event.alarm = this.toAlarm(Object.values(jmap.alerts ?? {})[0], event);
@@ -118,9 +122,13 @@ export class JSCalendarEvent {
 
     // Time
     jmap.start = this.fromDate(event.startTime, event);
-    jmap.duration = fromSeconds(event.duration);
     jmap.timeZone = event.timezone;
     jmap.showWithoutTime = event.allDay;
+    if (event.allDay) {
+      jmap.duration = fromSeconds(event.duration);
+    } else {
+      jmap.duration = this.fromEndTime(event, jmap);
+    }
 
     // Reminder. Keep an unchanged alert as it is: ours is an offset from the start
     // and fires before every occurrence, an absolute trigger only once.
@@ -387,6 +395,45 @@ export class JSCalendarEvent {
     return local;
   }
 
+  /**
+   * @returns The end of the event: the days of `duration` move the date of `jmap.start` and keep its time of day
+   * in the event's time zone, so a day may have 23 or 25 hours. Then the hours, minutes and seconds are added exactly.
+   * E.g. "2026-10-24T10:00:00" in Europe/Berlin + "P2DT1H" = Monday 2026-10-26 11:00 in Berlin, 50 hours later.
+   */
+  static toEndTime(jmap: TJMAPCalendarEvent, duration = jmap.duration): Date {
+    duration = sanitize.nonemptystring(duration, "PT0S");
+    let seconds = toSeconds(duration);
+    let calendarDays = this.calendarDays(duration);
+    let [startDate, startTime] = jmap.start.split("T"); // "2026-10-24" and "10:00:00", or "08:00:00Z" for a start in UTC
+    let [year, month, day] = startDate.split("-").map(Number);
+    let endDate = new Date(Date.UTC(year, month - 1, day + calendarDays)).toISOString().substring(0, 10);
+    let endOfDays = this.toDate(endDate + "T" + startTime, jmap);
+    return new Date(endOfDays.getTime() + (seconds - calendarDays * k1DayS) * 1000);
+  }
+
+  /** @returns The weeks and days of `duration`, which are before the "T": "P2DT3H" → "P2D" = 2 days, "PT25H" → "P" = 0 days, "P1W" = 7 days, "-P1D" = -1 day */
+  static calendarDays(duration: string): number {
+    return toSeconds(duration.split("T")[0]) / k1DayS;
+  }
+
+  /**
+   * @returns The JMAP duration to save:
+   * 1. the duration that the server has, if it still gives `event.endTime`, e.g. "P2D" from another client
+   * 2. else whole days, if `event.duration` is a multiple of 24 hours and the days give `event.endTime`,
+   *    e.g. "P1D" for 10:00 to 10:00 on the next day without a clock change
+   * 3. else exact hours, minutes or seconds, e.g. "PT49H" for Saturday 10:00 to Monday 10:00 over the clock change, or "PT90M"
+   */
+  static fromEndTime(event: Event, jmap: TJMAPCalendarEvent): string {
+    if (jmap.duration && this.toEndTime(jmap).getTime() == event.endTime.getTime()) {
+      return jmap.duration;
+    }
+    let withDays = fromSeconds(event.duration);
+    if (this.toEndTime(jmap, withDays).getTime() == event.endTime.getTime()) {
+      return withDays;
+    }
+    return fromSeconds(event.duration, false);
+  }
+
   static fromDate(date: Date, event: Event): string {
     // "lt" locale has date/time format YYYY-MM-DD HH:MM:SS.
     if (event.allDay) {
@@ -444,11 +491,14 @@ function toSeconds(duration: string): number {
   return sign ? -total : total;
 }
 
-/** @param seconds may be negative, for alarm offsets */
-function fromSeconds(seconds: number): string {
+/**
+ * @param seconds may be negative, for alarm offsets
+ * @param useDays false: The duration is exact, e.g. "PT24H", because a day "P1D" may have 23 or 25 hours
+ */
+function fromSeconds(seconds: number, useDays = true): string {
   let sign = seconds < 0 ? "-" : "";
   let abs = Math.abs(seconds);
-  if (abs % k1DayS == 0) {
+  if (useDays && abs % k1DayS == 0) {
     return sign + "P" + abs / k1DayS + "D";
   } else if (abs % k1HourS == 0) {
     return sign + "PT" + abs / k1HourS + "H";
