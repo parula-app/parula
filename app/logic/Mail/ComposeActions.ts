@@ -5,6 +5,8 @@ import { PersonUID, findOrCreatePersonUID } from "../Abstract/PersonUID";
 import { MailIdentity, findIdentityForEMailAddress } from "./MailIdentity";
 import { MailBody } from "./MailBody";
 import { SendEncrypted } from "./Encryption/SendEncrypted";
+import { SMIMESend } from "./Encryption/SMIME/SMIMESend";
+import { EncryptionSystem } from "./Encryption/enums";
 import { ExtraData } from "./ExtraData";
 import { appName, appVersion, siteRoot } from "../build";
 import { gLicense } from "../util/License";
@@ -229,9 +231,20 @@ export class ComposeActions {
 
   async editDraft(): Promise<void> {
     await this.email.loadMIME();
+    let signer = getMyKeyByFingerprint(this.email.signedPublicKeyFingerprint);
+    if (this.email.wasEncrypted && this.email.system == EncryptionSystem.SMIME) {
+      // AES-CBC has no integrity check, so we sign the drafts, see `SendEncrypted.encryptDraft()`.
+      // A changed draft is no longer signed by us, just like the unsigned drafts of older versions.
+      if (!signer) {
+        throw new UserError(gt`This draft is not signed by you, so it may have been changed after it was saved. It is not opened.`);
+      }
+      if (await SMIMESend.isUnsignedDraft(this.email)) {
+        signer = null;
+      }
+    }
     this.email.mustEncrypt = this.email.wasEncrypted;
     // The draft is signed by the key that the user (or the app) chose before saving
-    this.email.signPrivateKey ??= getMyKeyByFingerprint(this.email.signedPublicKeyFingerprint);
+    this.email.signPrivateKey ??= signer;
   }
 
   async convertInlineAttachmentsURLs() {

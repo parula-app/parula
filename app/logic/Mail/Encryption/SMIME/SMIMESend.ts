@@ -6,9 +6,10 @@ import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
 import { Oid, UTCTime, Attributes, DigestInfo, SignedData, Certificate, RSAPublicKey, Null, OctetString, EnvelopedData, SMIMECapabilities } from "./SMIMEASN1";
 import { decrypt, padFF, padRandom, encrypt } from "./SMIMERSAES";
-import { splitMIMEHeaders, kLineBreak, newBoundary } from "../MIME";
+import { splitMIMEHeaders, parseMIMEDirectSubparts, kLineBreak, newBoundary } from "../MIME";
 import { UserError, assert } from "../../../util/util";
 import { gt } from "../../../../l10n/l10n";
+import PostalMIME from "postal-mime";
 
 export class SMIMESend {
   /**
@@ -18,10 +19,11 @@ export class SMIMESend {
    * If encryption is requested, all recipients must have usable public keys,
    * otherwise mail throws. The caller is responsible to ensure that.
    *
+   * @param sign true for drafts, also if the user doesn't want to sign, see `SendEncrypted.encryptDraft()`
    * @returns a new email that is encrypted and/or signed.
    *   The original email is untouched.
    */
-  static async encryptAndSign(mail: EMail, recipients = mail.allRecipients()): Promise<EMail> {
+  static async encryptAndSign(mail: EMail, recipients = mail.allRecipients(), sign = mail.shouldSign): Promise<EMail> {
     let privateKey = getMySigningKey(mail, SMIMEPrivateKey);
     assert(privateKey, gt`Please first set up S/MIME encryption for yourself, in Settings | Mail | Identity | Encryption`);
     assert(privateKey.certificate, gt`Your S/MIME key does not have a certificate yet. Please add it, in Settings | Mail | Identity | Encryption`);
@@ -29,11 +31,12 @@ export class SMIMESend {
     let result = SendEncrypted.cloneEMail(mail);
     let mime = await CreateMIME.getMIME(mail);
     let mimeAsText = new TextDecoder().decode(mime);
-    if (mail.shouldSign) {
+    if (sign) {
       result.signedPublicKeyFingerprint = privateKey.fingerprint;
       // Only the body and the Content-* headers are signed, not the other headers.
       let { content, otherHeaders } = await SMIMESend.splitOffContent(mimeAsText);
-      mimeAsText = content;
+      // The header is in the signed part, so that the mail provider cannot add or remove it
+      mimeAsText = mail.shouldSign ? content : kUnsignedDraftHeader + kLineBreak + content;
       let messageDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(mimeAsText)));
       // DER SET OF requires the elements sorted by their encoding (X.690
       // section 11.6). With these fixed value sizes, that is the order below:
@@ -192,6 +195,14 @@ export class SMIMESend {
     return result;
   }
 
+  /** Whether the user chose not to sign this draft, which `encryptAndSign()` signed nevertheless.
+   * @param draft decrypted, and with our valid signature, so that we trust its signed part */
+  static async isUnsignedDraft(draft: EMail): Promise<boolean> {
+    let contentType = (await PostalMIME.parse(draft.mime)).headers.find(header => header.key == "content-type")?.value;
+    let [signedPart] = parseMIMEDirectSubparts(draft.mime, contentType);
+    return (await splitMIMEHeaders(signedPart)).headers.some(header => header.line == kUnsignedDraftHeader);
+  }
+
   static async splitOffContent(mime: string): Promise<{ content: string, otherHeaders: string[] }> {
     let { headers, body } = await splitMIMEHeaders(mime);
     let contentHeaders = headers.filter(header => header.key.startsWith("content-")).map(header => header.line);
@@ -209,6 +220,9 @@ export class SMIMESend {
     };
   }
 }
+
+/** In a draft that the user doesn't want to sign, which we sign only so that we notice changes */
+const kUnsignedDraftHeader = "X-Mustang-Draft-Sign: no";
 
 /** The algorithms that we can decrypt and verify. We tell our correspondents
  * about them, so that they write to us in a way that we actually support.

@@ -10,7 +10,10 @@ import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
 import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
+import { EnvelopedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { UserError } from "../../../../../logic/util/util";
 import { kP256Certificate } from "./ellipticCurves";
+import { ArrayColl } from "svelte-collections";
 import { expect, test, describe, beforeAll } from "vitest";
 
 // The browser has these, but Node does not.
@@ -114,11 +117,12 @@ describe("A draft", () => {
   });
 
   /** To a recipient whose certificate we don't have yet */
-  async function saveDraft(encrypt: boolean): Promise<Uint8Array> {
+  async function saveDraft(encrypt: boolean, sign = false): Promise<Uint8Array> {
     let mail = folder.newEMail();
     mail.identity = identity;
     mail.from = findOrCreatePersonUID("user@example.com", "User");
     mail.to.add(findOrCreatePersonUID("no-certificate@example.com", "No Certificate"));
+    mail.signPrivateKey = sign ? key : null;
     mail.shouldEncrypt = encrypt;
     await mail.compose.saveAsDraft();
     return savedMIME;
@@ -149,6 +153,39 @@ describe("A draft", () => {
     await draft.compose.editDraft();
     expect(draft.wasEncrypted).toBe(false);
     expect(draft.mustEncrypt).toBe(false);
+  });
+
+  // AES-CBC has no integrity check, so the signature shows changes
+  test.each([false, true])("that is encrypted is signed by us, and reopens with the choice of the user to sign: %s", async (sign) => {
+    let draft = drafts.newEMail();
+    draft.mime = await saveDraft(true, sign);
+    await draft.parseMIME();
+    expect(draft.signedPublicKeyFingerprint).toBe(key.fingerprint);
+    await draft.compose.editDraft();
+    expect(draft.signPrivateKey).toBe(sign ? key : null);
+  });
+
+  test("that is encrypted, and whose ciphertext was changed, doesn't open", async () => {
+    let mime = new TextDecoder().decode(await saveDraft(true));
+    let headerEnd = mime.indexOf("\r\n\r\n") + 4;
+    let envelopedData = EnvelopedData.decode(Uint8Array.from(atob(mime.slice(headerEnd).replaceAll("\r\n", "")), c => c.charCodeAt(0)));
+    // In the text. AES-CBC garbles its block, and flips the same bit in the next block.
+    envelopedData.content.encryptedContentInfo.encryptedContent[320] ^= 1;
+    let draft = drafts.newEMail();
+    draft.mime = new TextEncoder().encode(mime.slice(0, headerEnd) + btoa(String.fromCharCode(...EnvelopedData.encode(envelopedData))));
+    await draft.parseMIME();
+    await expect(draft.compose.editDraft()).rejects.toBeInstanceOf(UserError);
+  });
+
+  test("that is encrypted, but not signed, doesn't open, because a changed draft can look the same", async () => {
+    let mail = folder.newEMail();
+    mail.identity = identity;
+    mail.from = findOrCreatePersonUID("user@example.com", "User");
+    mail.shouldEncrypt = true;
+    let draft = drafts.newEMail();
+    draft.mime = new TextEncoder().encode((await SMIMESend.encryptAndSign(mail, new ArrayColl())).sendRawMIME); // as older versions saved drafts
+    await draft.parseMIME();
+    await expect(draft.compose.editDraft()).rejects.toBeInstanceOf(UserError);
   });
 });
 

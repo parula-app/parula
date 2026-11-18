@@ -61,7 +61,8 @@ export class SendEncrypted {
     if (privateKey instanceof PGPPrivateKey) {
       return await PGPSend.encryptAndSign(mail, noRecipients);
     } else if (privateKey instanceof SMIMEPrivateKey) {
-      return await SMIMESend.encryptAndSign(mail, noRecipients);
+      // AES-CBC has no integrity check, so we sign every draft, and `ComposeActions.editDraft()` refuses a changed one
+      return await SMIMESend.encryptAndSign(mail, noRecipients, true);
     } else {
       throw new UserError(gt`Please first set up encryption for yourself, in Settings | Mail | Identity | Encryption`);
     }
