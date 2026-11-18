@@ -235,7 +235,9 @@ grid[flex] {
 .no-title-bar .window-drag {
   app-region: drag;
 }
-.no-title-bar .window-drag :is(button, input, select, textarea, a, label, value, .value, .selectable, .clickable, .popup) {
+/* `app-region` works only on elements with a box.
+ *`display: contents` has no box, so its content needs it. */
+.no-title-bar .window-drag :is(button, input, select, textarea, a, label, value, .value, .selectable, .clickable *, .popup) {
   app-region: no-drag;
 }
 
