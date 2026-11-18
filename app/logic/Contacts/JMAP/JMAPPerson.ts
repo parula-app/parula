@@ -1,7 +1,7 @@
 import { Person } from '../../Abstract/Person';
 import { JSContact } from './JSContact';
 import type { TJMAPContact } from './TJSContact';
-import type { TID, TJMAPChangeResponse } from '../../Mail/JMAP/TJMAPGeneric';
+import type { TID, TJMAPChangeResponse, TJMAPGetResponse } from '../../Mail/JMAP/TJMAPGeneric';
 import type { JMAPAddressbook } from './JMAPAddressbook';
 import { checkChangeError } from '../../Mail/JMAP/JMAPError';
 import { sanitize } from '../../../../lib/util/sanitizeDatatypes';
@@ -54,14 +54,30 @@ export class JMAPPerson extends Person {
     }
   }
 
+  /** Destroying a card removes it from all address books, so destroy it only if it is in no other address book. */
   async deleteFromServer() {
     if (!this.jmapID) { // never saved to the server
       return;
     }
-    await this.account.makeSingleCall("ContactCard/set", {
+    let getResponse = await this.account.makeSingleCall("ContactCard/get", {
       accountId: this.account.accountID,
-      destroy: [this.jmapID],
-    });
+      ids: [this.jmapID],
+      properties: ["addressBookIds"],
+    }) as TJMAPGetResponse<TJMAPContact>;
+    let json = getResponse.list[0];
+    if (!json) {
+      return;
+    }
+    let addressbookID = this.addressbook.jmapID;
+    let isInOtherAddressbooks = Object.keys(json.addressBookIds ?? {}).some(id => id != addressbookID);
+    let change = isInOtherAddressbooks
+      ? { update: { [this.jmapID]: { [`addressBookIds/${addressbookID}`]: null } } }
+      : { destroy: [this.jmapID] };
+    let setResponse = await this.account.makeSingleCall("ContactCard/set", {
+      accountId: this.account.accountID,
+      ...change,
+    }) as TJMAPChangeResponse<TJMAPContact>;
+    checkChangeError(setResponse);
   }
 
   fromExtraJSON(json: any) {
