@@ -107,6 +107,7 @@ test("The class follows the server, which the login tells", () => {
   let stalwart = new Server(true);
   expect(stalwart.account.autoResponder).toBeInstanceOf(StalwartAutoResponder);
   expect(stalwart.account.autoResponder.supported).toBe(true);
+  expect(stalwart.account.newAutoResponder()).toBeInstanceOf(StalwartAutoResponder); // Lookout's dialog edits its own
 
   let other = new Server(false);
   expect(other.account.autoResponder).not.toBeInstanceOf(StalwartAutoResponder);

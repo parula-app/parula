@@ -1289,15 +1289,15 @@ export class JMAPAccount extends MailAccount {
     return new JMAPSearchEMail();
   }
 
-  /** The class depends on the server, which we know only after the login */
+  /** Its class depends on the server, which we know only after the login */
   get autoResponder(): JMAPAutoResponder {
     if (!(this._autoResponder instanceof StalwartAutoResponder) && this.isStalwart) {
-      this._autoResponder = new StalwartAutoResponder(this);
+      this._autoResponder = null;
     }
     return super.autoResponder as JMAPAutoResponder;
   }
 
   newAutoResponder(): JMAPAutoResponder {
-    return new JMAPAutoResponder(this);
+    return this.isStalwart ? new StalwartAutoResponder(this) : new JMAPAutoResponder(this);
   }
 }
