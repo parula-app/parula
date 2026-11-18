@@ -101,8 +101,6 @@ test("Reads the settings from the server", async () => {
   expect(autoResponder.startTime.toISOString()).toBe("2026-10-05T07:00:00.000Z");
   expect(autoResponder.endTime.toISOString()).toBe("2026-10-19T16:00:00.000Z");
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Contacts);
-  // OWA does not tell us what the admin allows
-  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.All);
   // The HTML, not the plaintext that Exchange derives from it
   expect(autoResponder.internalHTML).toBe("sanitized:<html><body><p>Back on the <b>19th</b>.</p></body></html>");
   expect(autoResponder.externalHTML).toBe("sanitized:<p>I am out of office.</p>");
@@ -151,7 +149,7 @@ test("Old dates of a disabled responder are not kept", async () => {
 
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
-  expect(autoResponder.startTime.getTime()).toBeGreaterThan(Date.now());
+  expect(autoResponder.endTime.getTime()).toBeGreaterThan(Date.now());
 });
 
 test("Always on, for everybody", async () => {

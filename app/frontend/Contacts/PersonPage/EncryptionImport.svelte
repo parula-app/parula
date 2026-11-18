@@ -83,7 +83,6 @@
     if (Math.random() < 0.2) {
       key.trustLevel = TrustLevel.Personal;
     }
-    console.log("mails", person.emailAddresses.contents)
     for (let contact of person.emailAddresses) {
       key.userIDs.add(contact.value);
     }

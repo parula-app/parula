@@ -1,4 +1,4 @@
-import { EncryptedPrivateKeyInfo, KeyDerivationAlgorithm, Null, OctetString, PBES2Params, PBKDF2Params } from "./SMIMEASN1";
+import { EncryptedPrivateKeyInfo, KeyDerivationAlgorithm, Null, OctetString, PBES2Params, PBKDF2Params, algorithmName } from "./SMIMEASN1";
 import { tripleDESDecrypt } from "./legacyCiphers";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../../util/util";
@@ -9,10 +9,10 @@ import { assert } from "../../../util/util";
  * key for AES or Triple DES in CBC mode.
  * @param parameters the parameters of the `pkcs5PBES2` algorithm identifier
  */
-export async function decryptPBES2(data: Uint8Array, parameters: Uint8Array, passphrase: string): Promise<Uint8Array> {
+export async function decryptPBES2(data: Uint8Array<ArrayBuffer>, parameters: Uint8Array, passphrase: string): Promise<Uint8Array<ArrayBuffer>> {
   let pbes2 = PBES2Params.decode(parameters);
   if (pbes2.keyDerivationFunc.algorithm != "pkcs5PBKDF2") {
-    throw new Error("Unsupported private key derivation function");
+    throw new Error("Unsupported private key derivation function " + algorithmName(pbes2.keyDerivationFunc.algorithm));
   }
   let pbkdf2 = PBKDF2Params.decode(pbes2.keyDerivationFunc.parameters);
   if (pbkdf2.salt.type != "specified") {
@@ -40,7 +40,7 @@ export async function decryptPBES2(data: Uint8Array, parameters: Uint8Array, pas
  * @param privateKey the key in PKCS#8 form
  * @returns the encrypted key, ASCII-armored
  */
-export async function encryptPrivateKey(privateKey: Uint8Array, passphrase: string): Promise<string> {
+export async function encryptPrivateKey(privateKey: Uint8Array<ArrayBuffer>, passphrase: string): Promise<string> {
   assert(passphrase, "Need a passphrase to protect the private key");
   let salt = crypto.getRandomValues(new Uint8Array(8));
   let iv = crypto.getRandomValues(new Uint8Array(16));

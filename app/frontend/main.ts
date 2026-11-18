@@ -16,7 +16,11 @@ if (production) {
     release: appName + "@" + appVersion,
     // An array here would *add* to the default integrations, not replace them.
     // `BrowserSession` sends a session to the server on every navigation.
-    integrations: defaults => defaults.filter(integration => integration.name != "BrowserSession"),
+    // The console breadcrumbs would send what we logged before the error,
+    // e.g. an account with its password, or an email.
+    integrations: defaults => defaults
+      .filter(integration => integration.name != "BrowserSession" && integration.name != "Breadcrumbs")
+      .concat(Sentry.breadcrumbsIntegration({ console: false })),
   });
 }
 

@@ -1,14 +1,14 @@
-import { EMailProcessor, ProcessingStartOn } from "../../EMailProcessor";
+import { EMailProcessor, ProcessingStartOn, CannotReadMail } from "../../EMailProcessor";
 import { EMail } from "../../EMail";
 import { findAllIdentities } from "../../MailIdentity";
 import { EncryptionSystem } from "../enums";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
-import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, SignedData } from "./SMIMEASN1";
+import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, SignedData, algorithmName } from "./SMIMEASN1";
 import { decryptAuthEnveloped } from "./SMIMEDecrypt";
 import { BlockType, unpadPKCS, decrypt } from "./SMIMERSAES";
 import { verifySignedData } from "./SMIMEVerify";
 import { parseMIMEDirectSubpartsBytes, parseHeaderParameters } from "../MIME";
-import { UserError, NotImplemented, assert } from "../../../util/util";
+import { assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../../l10n/l10n";
 import type { Email as PostalEmail } from "postal-mime";
@@ -83,8 +83,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
 
   protected checkCipher(algorithm: string | number[], supported: string[]) {
     if (!sanitize.enum(algorithm, supported, null)) {
-      let name = typeof algorithm == "string" ? algorithm : algorithm.join(".");
-      throw new NotImplemented(gt`This message is encrypted with ${name}, which is not supported`);
+      throw new CannotReadMail(null, gt`This message is encrypted with ${algorithmName(algorithm)}, which is not supported`);
     }
   }
 
@@ -107,7 +106,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
         }
       }
     }
-    throw new UserError(gt`This message is encrypted, and the key is not available`);
+    throw new CannotReadMail(null, gt`This message is encrypted, and the key is not available`);
   }
 
   /** Reads an opaque-signed message (used by Outlook), where the whole

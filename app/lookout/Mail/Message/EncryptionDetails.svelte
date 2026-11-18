@@ -51,7 +51,7 @@
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { PublicKey } from "../../../logic/Mail/Encryption/PublicKey";
   import { findIdentityForEMailAddress } from "../../../logic/Mail/MailIdentity";
-  import { getPublicKeyByKeyID } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { getPublicKeyByFingerprint } from "../../../logic/Mail/Encryption/KeyUtils";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
   import { catchErrors, showError } from "../../../frontend/Util/error";
   import Dialog from "../../Shared/Dialog/Dialog.svelte";
@@ -70,18 +70,18 @@
 
   let signingKey: PublicKey = null;
   /* <copied from="../../../frontend/Mail/Message/EncryptionButtons.svelte"> */
-  $: keyID = $message.signedByKeyID ?? $message.signedOnBehalfKeyID;
-  $: getPublicKeyByKeyID(keyID, message)
+  $: fingerprint = $message.signedPublicKeyFingerprint ?? $message.signedOnBehalfPublicKeyFingerprint;
+  $: getPublicKeyByFingerprint(fingerprint, message)
     .then(key => signingKey = key)
     .catch(showError);
   /* </copied> */
   /* <copied from="EncryptionButtons.svelte"> */
-  $: isSigned = !!keyID && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
+  $: isSigned = !!fingerprint && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
   /* </copied> */
   $: isEncrypted = !!$message.wasEncrypted;
   // <copied from="../../../frontend/Mail/Message/EncryptionDetails.svelte">
   $: identity = $message.outgoing ? findIdentityForEMailAddress($message.from?.emailAddress) : null;
-  $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.id == message.signedByKeyID);
+  $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.fingerprint == message.signedPublicKeyFingerprint);
   $: title = isSigned && isEncrypted
       ? $t`End-to-end encrypted and signed`
       : isSigned

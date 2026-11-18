@@ -7,16 +7,18 @@ import { DeleteStrategy, type MailAccountStorage } from "./MailAccount";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../Abstract/PersonUID";
 import type { MailIdentity } from "./MailIdentity";
 import { RawFilesAttachment } from "./Store/RawFilesAttachment";
-import { EMailProcessorList, ProcessingStartOn } from "./EMailProcessor";
+import { EMailProcessorList, ProcessingStartOn, CannotReadMail } from "./EMailProcessor";
 import type { ExtraData } from "./ExtraData";
 import type { SMLData } from "./SML/SMLData";
 import type { PublicKey } from "./Encryption/PublicKey";
+import type { PrivateKey } from "./Encryption/PrivateKey";
 import { Event } from "../Calendar/Event";
 import { InvitationMessage, type iCalMethod } from "../Calendar/Invitation/InvitationStatus";
 import { FilterMoment } from "./FilterRules/FilterMoments";
 import type { EncryptionSystem } from "./Encryption/enums";
 import { fileExtensionForMIMEType, assert, AbstractFunction, getUserPreference, setUserPreference } from "../util/util";
 import { blobToDataURL } from "../util/blob";
+import { convertTextToHTML } from "../util/convertHTML";
 import { isMobile, webMail } from "../build";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { PromiseAllDone } from "../util/flow/PromiseAllDone";
@@ -102,6 +104,12 @@ export class EMail extends Message {
   /** For composer/send only: This email should be end-to-end encrypted. */
   @notifyChangedProperty
   shouldEncrypt = false;
+  /** For composer/send only: Our key that will sign this email.
+   * Not `signedPublicKey`, which is the key that signed a received email, and which
+   * is saved with it: This one is our secret key, so it is only in memory.
+   * A draft saves only its fingerprint. */
+  @notifyChangedProperty
+  signPrivateKey: (PublicKey & PrivateKey) | null = null;
   /** For composer/send only: This email must be end-to-end encrypted, e.g.
    * because it quotes from an encrypted email. */
   @notifyChangedProperty
@@ -113,19 +121,19 @@ export class EMail extends Message {
   /** This email was correctly signed with this public key.
    * The signature was valid and the public key matches `From:`.
    * This gives you the specific public key that was used to sign.
-   * Format: `PublicKey.id` */
+   * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
-  signedByKeyID: string | null = null;
+  signedPublicKeyFingerprint: string | null = null;
   /** `Sender:` signed it with this key on behalf of `From:`, but `From:` did not sign, see `rememberSigner()`.
-   * Format: `PublicKey.id` */
+   * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
-  signedOnBehalfKeyID: string | null = null;
-  /** The PublicKey object of `signedByKeyID` or `signedOnBehalfKeyID`.
+  signedOnBehalfPublicKeyFingerprint: string | null = null;
+  /** The `PublicKey` object for `signedPublicKeyFingerprint` or `signedOnBehalfPublicKeyFingerprint`
    * Set this using @see rememberSigner() */
-  signedKey: PublicKey | null = null;
-  /** As `signedKey`, but not parsed yet.
-   * `getPublicKeyByKeyID()` parses it when the reader needs it. */
-  signedKeyJSON: any = null;
+  signedPublicKey: PublicKey | null = null;
+  /** As `signedPublicKey`, but not parsed yet.
+   * `getPublicKeyByFingerprint()` parses it when the reader needs it. */
+  signedPublicKeyJSON: any = null;
   /** Contains the complete MIME message for sending.
    * Used for encrypted messages. */
   sendRawMIME: string | null = null;
@@ -164,6 +172,17 @@ export class EMail extends Message {
     return this.folder.account.storage;
   }
 
+  /** For composer/send only: Sign this email, with our key `signPrivateKey` */
+  get shouldSign(): boolean {
+    return !!this.signPrivateKey;
+  }
+  /** false: Don't sign this email.
+   * To sign it, set `signPrivateKey` to the key that signs. */
+  set shouldSign(val: boolean) {
+    assert(!val, "To sign, set signPrivateKey");
+    this.signPrivateKey = null;
+  }
+
   get mustEncrypt(): boolean {
     return this._mustEncrypt;
   }
@@ -190,7 +209,7 @@ export class EMail extends Message {
    * have it for senders who are not in the addressbook.
    * Only keys that were issued for the `From:` address describe the sender,
    * otherwise the message is not signed. A key for the `Sender:` address,
-   * who sent it on behalf of `From:` (RFC 8550 section 3), is `signedOnBehalfKeyID`.
+   * who sent it on behalf of `From:` (RFC 8550 section 3), is `signedOnBehalfPublicKeyFingerprint`.
    * @param signer null, if the signature did not verify
    * @param sender `Sender:` address. S/MIME only: PGP verifies only with the keys of `From:`. */
   rememberSigner(signer: PublicKey | null, sender?: string) {
@@ -198,9 +217,9 @@ export class EMail extends Message {
     if (!isFrom && !signer?.isForEMailAddress(sender)) {
       signer = null;
     }
-    this.signedKey = signer;
-    this.signedByKeyID = isFrom ? signer.id : null;
-    this.signedOnBehalfKeyID = isFrom ? null : signer?.id ?? null;
+    this.signedPublicKey = signer;
+    this.signedPublicKeyFingerprint = isFrom ? signer.fingerprint : null;
+    this.signedOnBehalfPublicKeyFingerprint = isFrom ? null : signer?.fingerprint ?? null;
     if (!isFrom) { // a delegate's key is not a key of `From:`
       return;
     }
@@ -451,7 +470,7 @@ export class EMail extends Message {
     const kMaxLayers = 10;
     let isOutermost = !this.processorLoop;
     this.processorLoop ??= new LoopGuard(kMaxLayers, () => {
-      throw new Error("Too many nested encryption or signature layers");
+      throw new CannotReadMail(null, "Too many nested encryption or signature layers");
     });
     try {
       this.processorLoop.nextRound();
@@ -462,6 +481,9 @@ export class EMail extends Message {
         try {
           await processor.process(this, mail);
         } catch (ex) {
+          if (ex instanceof CannotReadMail && !this.html) {
+            this._sanitizedHTML = convertTextToHTML(ex.message); // Shows why, but isn't saved as body, so that opening it later tries again
+          }
           this.folder.account.errorCallback(ex);
         }
       }
@@ -776,8 +798,9 @@ export class EMail extends Message {
     other.mustEncrypt = this.mustEncrypt;
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
-    other.signedByKeyID = this.signedByKeyID;
-    other.signedOnBehalfKeyID = this.signedOnBehalfKeyID;
+    other.signPrivateKey = this.signPrivateKey;
+    other.signedPublicKeyFingerprint = this.signedPublicKeyFingerprint;
+    other.signedOnBehalfPublicKeyFingerprint = this.signedOnBehalfPublicKeyFingerprint;
     other.system = this.system;
   }
 
@@ -804,8 +827,10 @@ export class EMail extends Message {
       null;
   }
 
+  /** One per mail, because it keeps state for the composer */
+  protected _compose: ComposeActions | null = null;
   get compose(): ComposeActions {
-    return new ComposeActions(this);
+    return this._compose ??= new ComposeActions(this);
   }
 }
 

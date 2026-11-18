@@ -6,6 +6,7 @@ import { getFilesDir } from "../../../logic/util/backend-wrapper";
 import { EMailProcessorList } from "../EMailProcessor";
 import { SMLData } from "../SML/SMLData";
 import { EncryptionSystem } from "../Encryption/enums";
+import { getMyKeyByFingerprint } from "../Encryption/KeyUtils";
 import { assert, ensureArray } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { internalError } from "../../util/error";
@@ -75,11 +76,12 @@ export class JSONEMail {
       json.invitationMessage = email.invitationMessage;
     }
 
-    if (email.signedByKeyID || email.signedOnBehalfKeyID || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt) {
+    if (email.signedPublicKeyFingerprint || email.signedOnBehalfPublicKeyFingerprint || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt || email.shouldSign) {
       let e = json.encryption = {} as any;
       e.system = email.system;
-      e.signedPublicKeyID = email.signedByKeyID;
-      e.signedOnBehalfKeyID = email.signedOnBehalfKeyID;
+      e.signedPublicKeyFingerprint = email.signedPublicKeyFingerprint;
+      e.signedOnBehalfPublicKeyFingerprint = email.signedOnBehalfPublicKeyFingerprint;
+      e.signPrivateKeyFingerprint = email.signPrivateKey?.fingerprint;
       e.signedPublicKey = this.saveSigner(email);
       e.wasEncrypted = email.wasEncrypted;
       e.mustEncrypt = email.mustEncrypt;
@@ -91,7 +93,7 @@ export class JSONEMail {
    * because the addressbook has the better copy.
    * @returns {JSON} what we read, if we never parsed the key */
   protected static saveSigner(email: EMail): any {
-    let signer = email.signedKey?.toJSON() ?? email.signedKeyJSON;
+    let signer = email.signedPublicKey?.toJSON() ?? email.signedPublicKeyJSON;
     let onContact = email.from?.findPerson()?.encryptionPublicKeys
       .find(key => key.fingerprint == signer?.fingerprint);
     if (onContact) {
@@ -239,10 +241,12 @@ export class JSONEMail {
     let e = json.encryption;
     if (e) {
       email.system = sanitize.enum<EncryptionSystem>(e.system, Object.values(EncryptionSystem), null);
-      email.signedByKeyID = sanitize.alphanumdash(e.signedPublicKeyID, null);
-      email.signedOnBehalfKeyID = sanitize.alphanumdash(e.signedOnBehalfKeyID, null);
-      // Parsed on demand, @see `getPublicKeyByKeyID()`
-      email.signedKeyJSON = e.signedPublicKey ?? null;
+      email.signedPublicKeyFingerprint = sanitize.alphanumdash(e.signedPublicKeyFingerprint, null);
+      email.signedOnBehalfPublicKeyFingerprint = sanitize.alphanumdash(e.signedOnBehalfPublicKeyFingerprint, null);
+      // Accounts must be loaded first before calling this
+      email.signPrivateKey = getMyKeyByFingerprint(sanitize.alphanumdash(e.signPrivateKeyFingerprint, null));
+      // Parsed on demand, @see `getPublicKeyByFingerprint()`
+      email.signedPublicKeyJSON = e.signedPublicKey ?? null;
       email.wasEncrypted = sanitize.boolean(e.wasEncrypted, false);
       email.shouldEncrypt = sanitize.boolean(e.shouldEncrypt, false);
       email.mustEncrypt = sanitize.boolean(e.mustEncrypt, false);

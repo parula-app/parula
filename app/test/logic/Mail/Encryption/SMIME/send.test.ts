@@ -10,6 +10,7 @@ import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
 import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
+import { kP256Certificate } from "./ellipticCurves";
 import { expect, test, describe, beforeAll } from "vitest";
 
 // The browser has these, but Node does not.
@@ -55,7 +56,7 @@ async function sendAndReceive(sign: boolean, encrypt: boolean): Promise<EMail> {
   mail.identity = identity;
   mail.from = findOrCreatePersonUID("user@example.com", "User");
   mail.to.add(mail.from);
-  mail.signedByKeyID = sign ? key.id : null;
+  mail.signPrivateKey = sign ? key : null;
   mail.shouldEncrypt = encrypt;
   let sent = await SMIMESend.encryptAndSign(mail);
 
@@ -70,7 +71,7 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
   test("signed", async () => {
     let email = await sendAndReceive(true, false);
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
-    expect(email.signedByKeyID).toBe(key.id);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
   });
 
   test("encrypted", async () => {
@@ -83,8 +84,19 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
     let email = await sendAndReceive(true, true);
     expect(email.wasEncrypted).toBe(true);
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
-    expect(email.signedByKeyID).toBe(key.id);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
   });
+});
+
+test("Encrypting to a recipient with an EC certificate says that we can't", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  let recipient = findOrCreatePersonUID("ec256@example.com", "EC 256");
+  recipient.encryptionPublicKey = await SMIMEPublicKey.importPublicKey(kP256Certificate);
+  mail.to.add(recipient);
+  mail.shouldEncrypt = true;
+  await expect(SMIMESend.encryptAndSign(mail)).rejects.toThrow("ec256@example.com");
 });
 
 describe("A draft", () => {
@@ -138,6 +150,15 @@ describe("A draft", () => {
     expect(draft.wasEncrypted).toBe(false);
     expect(draft.mustEncrypt).toBe(false);
   });
+});
+
+test("Encrypting to a recipient whose certificate we don't have says so", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  mail.to.add(findOrCreatePersonUID("no-certificate@example.com", "No Certificate"));
+  mail.shouldEncrypt = true;
+  await expect(SMIMESend.encryptAndSign(mail)).rejects.toThrow("recipients");
 });
 
 const kText = "Grüße aus Köln!\nEine sehr lange Zeile, eine sehr lange Zeile, eine sehr lange Zeile, eine sehr lange Zeile.";

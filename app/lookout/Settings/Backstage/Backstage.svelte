@@ -71,7 +71,7 @@
 {#if isSavingAttachments}
   <SaveAllAttachmentsDialog {attachments} on:close={() => isSavingAttachments = false} />
 {/if}
-<svelte:window on:keydown={onKeyDown} />
+<AppWindowEvents on:keydown={onKeyDown} />
 
 <script lang="ts">
   import { backstagePage, isBackstageOpen } from "./selected";
@@ -97,6 +97,8 @@
   import { selectedCalendar } from "../../../frontend/Calendar/selected";
   import { selectedApp } from "../../../frontend/AppsBar/selectedApp";
   import { showError } from "../../../frontend/Util/error";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import SaveAsIcon from "lucide-svelte/icons/save";
   import SaveAttachmentsIcon from "lucide-svelte/icons/paperclip";
   import PrintIcon from "lucide-svelte/icons/printer";
@@ -109,6 +111,7 @@
   import ExitIcon from "lucide-svelte/icons/log-out";
   import { t } from "../../../l10n/l10n";
 
+  const appWindow = AppWindow.current();
   let isSavingAttachments = false;
 
   $: area = areaOf($selectedApp);
@@ -148,7 +151,7 @@
   }
 
   function onExit() {
-    window.close();
+    appWindow.close();
   }
 
   function onKeyDown(event: KeyboardEvent) {

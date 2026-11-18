@@ -4,7 +4,7 @@ import "../../../logic/app";
 import { MailAccount } from "../../../logic/Mail/MailAccount";
 import { SettingsCategory } from "../../../frontend/Settings/SettingsCategory";
 import CategoriesPane from "../../Settings/Window/CategoriesPane.svelte";
-import { selectedAccount, selectedCategory } from "../../Settings/Window/selected";
+import { selectedAccount, selectedCategory } from "../../../frontend/Settings/Window/selected";
 import { openSetup } from "../../Settings/SettingsDialogs";
 import { ArrayColl } from "svelte-collections";
 import { flushSync, mount, unmount } from "svelte";

@@ -16,7 +16,7 @@
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { PublicKey } from "../../../logic/Mail/Encryption/PublicKey";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
-  import { getPublicKeyByKeyID } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { getPublicKeyByFingerprint } from "../../../logic/Mail/Encryption/KeyUtils";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
   import SignedIcon from "lucide-svelte/icons/signature";
   import OnBehalfIcon from "lucide-svelte/icons/user-pen";
@@ -27,22 +27,22 @@
 
   export let message: EMail;
   export let isExpanded = false;
-  /** out: who signed on behalf of `From:`, see `EMail.signedOnBehalfKeyID`. null, if `From:` signed or nobody. */
+  /** out: who signed on behalf of `From:`, see `EMail.signedOnBehalfPublicKeyFingerprint`. null, if `From:` signed or nobody. */
   export let onBehalfSigner: PersonUID = null;
 
   let signingKey: PublicKey = null;
   // <copied from="../../../frontend/Mail/Message/EncryptionButtons.svelte">
-  $: keyID = $message.signedByKeyID ?? $message.signedOnBehalfKeyID;
-  $: getPublicKeyByKeyID(keyID, message)
+  $: fingerprint = $message.signedPublicKeyFingerprint ?? $message.signedOnBehalfPublicKeyFingerprint;
+  $: getPublicKeyByFingerprint(fingerprint, message)
     .then(key => signingKey = key)
     .catch(showError);
   // </copied>
   /* <copied to="EncryptionDetails.svelte"> */
-  $: isSigned = !!keyID && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
+  $: isSigned = !!fingerprint && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
   /* </copied> */
   $: isEncrypted = !!$message.wasEncrypted;
   $: signer = signingKey && $message.signedBy(signingKey);
-  $: onBehalfSigner = isSigned && !$message.signedByKeyID ? signer : null;
+  $: onBehalfSigner = isSigned && !$message.signedPublicKeyFingerprint ? signer : null;
 </script>
 
 <style>

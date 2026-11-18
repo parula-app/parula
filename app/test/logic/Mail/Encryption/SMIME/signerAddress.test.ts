@@ -32,23 +32,23 @@ async function readMessage(mime: string, from?: PersonUID): Promise<EMail> {
 }
 
 function expectSigned(email: EMail) {
-  expect(email.signedByKeyID).toBeTruthy();
-  expect(email.signedByKeyID).toBe(email.signedKey?.id);
-  expect(email.signedOnBehalfKeyID).toBe(null);
+  expect(email.signedPublicKeyFingerprint).toBeTruthy();
+  expect(email.signedPublicKeyFingerprint).toBe(email.signedPublicKey?.fingerprint);
+  expect(email.signedOnBehalfPublicKeyFingerprint).toBe(null);
 }
 
 function expectNotSigned(email: EMail) {
-  expect(email.signedByKeyID).toBe(null);
-  expect(email.signedOnBehalfKeyID).toBe(null);
-  expect(email.signedKey).toBe(null);
+  expect(email.signedPublicKeyFingerprint).toBe(null);
+  expect(email.signedOnBehalfPublicKeyFingerprint).toBe(null);
+  expect(email.signedPublicKey).toBe(null);
 }
 
-/** Code that knows only `signedByKeyID` sees it as unsigned */
+/** Code that knows only `signedPublicKeyFingerprint` sees it as unsigned */
 function expectSignedOnBehalf(email: EMail) {
-  expect(email.signedByKeyID).toBe(null);
-  expect(email.signedOnBehalfKeyID).toBeTruthy();
-  expect(email.signedOnBehalfKeyID).toBe(email.signedKey?.id);
-  expect(email.signedBy(email.signedKey).emailAddress).toBe("alice@example.com");
+  expect(email.signedPublicKeyFingerprint).toBe(null);
+  expect(email.signedOnBehalfPublicKeyFingerprint).toBeTruthy();
+  expect(email.signedOnBehalfPublicKeyFingerprint).toBe(email.signedPublicKey?.fingerprint);
+  expect(email.signedBy(email.signedPublicKey).emailAddress).toBe("alice@example.com");
 }
 
 /** The outer headers are not signed, so anybody can change `From:`
@@ -100,8 +100,8 @@ describe("S/MIME signature with a certificate for the From: address", () => {
   test("in another case is signed", async () => {
     let email = await readMessage(kClearSigned, findOrCreatePersonUID("Alice@Example.COM", "Alice"));
     expectSigned(email);
-    expect(email.from.encryptionPublicKey).toBe(email.signedKey);
-    expect(email.signedBy(email.signedKey)).toBe(email.from);
+    expect(email.from.encryptionPublicKey).toBe(email.signedPublicKey);
+    expect(email.signedBy(email.signedPublicKey)).toBe(email.from);
   });
 
   test("only in the subject E= is signed", async () => {
