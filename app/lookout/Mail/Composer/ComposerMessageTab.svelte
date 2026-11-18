@@ -58,7 +58,7 @@
     <RibbonButton label={$t`Link *=> Insert or edit a link in the text`} icon={LinkIcon} size="small" shortCutInfo={$t`Ctrl+K *=> Keyboard shortcut`}
       disabled={!editor} onClick={() => onOpenTool(EditorTool.Link)} />
     <RibbonMenuButton label={$t`Signature`} icon={SignatureIcon} size="small">
-      <SignatureMenuItems {identity} {editor} on:editSignatures={onEditSignatures} />
+      <SignatureMenuItems {identity} {editor} {mail} />
     </RibbonMenuButton>
   </RibbonGroup>
   {#if isInline}
@@ -105,7 +105,7 @@
   import AttachIcon from "lucide-svelte/icons/paperclip";
   import LinkIcon from "lucide-svelte/icons/link";
   import SpellingIcon from "lucide-svelte/icons/spell-check";
-  import SignatureIcon from "lucide-svelte/icons/pen-line";
+  import SignatureIcon from "lucide-svelte/icons/stamp";
   import PasteIcon from "lucide-svelte/icons/clipboard-paste";
   import PasteTextIcon from "lucide-svelte/icons/clipboard-type";
   import CutIcon from "lucide-svelte/icons/scissors";
@@ -122,7 +122,6 @@
   export let onSelectNames: (field: RecipientField) => void;
   export let onCheckNames: () => Promise<void>;
   export let onOpenTool: (tool: EditorTool) => void;
-  export let onEditSignatures: () => void;
 
   const spellcheck = getLocalStorage<boolean>("mail.send.spellcheck.enabled", false);
   $: identity = mail.identity;

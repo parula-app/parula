@@ -8,6 +8,7 @@ import { Addressbook } from "../../../../../logic/Contacts/Addressbook";
 import { PGPSend } from "../../../../../logic/Mail/Encryption/PGP/PGPSend";
 import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
 import { PGPPublicKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPublicKey";
+import { JSONEMail } from "../../../../../logic/Mail/JSON/JSONEMail";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import type { Folder } from "../../../../../logic/Mail/Folder";
 import { expect, test, describe, beforeAll, beforeEach } from "vitest";
@@ -158,6 +159,19 @@ describe("PGP message that was signed, then encrypted without signing again", ()
     let email = await receive(kEncryptedHeaders + encrypted + "\r\n--encrypted--\r\n");
     expect(email.wasEncrypted).toBe(true);
     expectSigned(email);
+  });
+});
+
+describe("PGP message that we signed", () => {
+  test("is saved without our secret key", async () => {
+    let user = folder.account.identities.find(identity => identity.emailAddress == "user@example.com");
+    let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "User <user@example.com>"), false, user, "User <user@example.com>");
+    expectSigned(email);
+    email.received = new Date();
+    let saved = JSON.stringify(JSONEMail.save(email));
+    expect(saved).toContain(email.signedByKeyID);
+    expect(saved).not.toContain("PRIVATE KEY");
+    expect(saved).not.toContain((user.encryptionPrivateKeys.first as PGPPrivateKey).passphrase);
   });
 });
 

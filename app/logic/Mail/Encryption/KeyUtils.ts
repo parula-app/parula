@@ -10,7 +10,7 @@ import { PKCS12 } from "./SMIME/PKCS12";
 import { Any } from "./SMIME/SMIMEASN1";
 import { readAutoCryptKeys } from "./PGP/AutoCrypt";
 import { publicKeyFromJSON } from "./KeyFromJSON";
-import { EncryptionSystem } from "./enums";
+import { EncryptionSystem, trustOrder } from "./enums";
 import type { EMail } from "../EMail";
 import { findAllIdentities, type MailIdentity } from "../MailIdentity";
 import { appGlobal } from "../../app";
@@ -81,6 +81,9 @@ export function getPublicKeyForPerson<T extends PublicKey>(person: Person, keyTy
     return null;
   }
   let keys = person.encryptionPublicKeys.filterOnce(key => isUsableKey(key, keyType));
+  // The most trusted key, because anybody can send a key in the AutoCrypt header of a mail
+  let mostTrusted = Math.max(...keys.contents.map(key => trustOrder(key.trustLevel)));
+  keys = keys.filterOnce(key => trustOrder(key.trustLevel) == mostTrusted);
   return (keys.find(key => key.encryptByDefault) ?? keys.first) as T;
 }
 
