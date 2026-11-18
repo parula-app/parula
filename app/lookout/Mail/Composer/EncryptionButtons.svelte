@@ -47,7 +47,7 @@
     if (mail.shouldSign && mail.shouldEncrypt) {
       mail.shouldEncrypt = false;
     } else if (mail.shouldSign) {
-      mail.signedKeyFingerprint = null;
+      mail.signWithKeyFingerprint = null;
       mail.shouldEncrypt = false;
     } else {
       doSign();
@@ -58,7 +58,7 @@
       openTrustCenter(identity);
       return;
     }
-    mail.signedKeyFingerprint = getMyPrivateKey(identity)?.fingerprint;
+    mail.signWithKeyFingerprint = getMyPrivateKey(identity)?.fingerprint;
     assert(mail.shouldSign, "No signing key found");
   }
   function toggleEncrypted() {

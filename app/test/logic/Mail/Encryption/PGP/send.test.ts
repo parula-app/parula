@@ -8,6 +8,7 @@ import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPriva
 import { PGPPublicKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPublicKey";
 import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
 import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
+import { JSONEMail } from "../../../../../logic/Mail/JSON/JSONEMail";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
 import { expect, test, describe, beforeAll } from "vitest";
@@ -40,7 +41,7 @@ async function send(encrypt: boolean): Promise<string> {
   mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
   mail.to.add(mail.from);
   mail.subject = kSubject;
-  mail.signedKeyFingerprint = key.fingerprint;
+  mail.signWithKeyFingerprint = key.fingerprint;
   mail.shouldEncrypt = encrypt;
   return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
 }
@@ -122,6 +123,18 @@ describe("A draft", () => {
     return savedMIME;
   }
 
+  test("that we sign is saved with which key signs, but without our secret key", async () => {
+    let mail = folder.newEMail();
+    mail.identity = identity;
+    mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
+    mail.sent = mail.received = new Date();
+    mail.signWithKeyFingerprint = key.fingerprint; // as the composer does
+    let saved = JSON.stringify(JSONEMail.save(mail));
+    expect(saved).toContain(key.fingerprint);
+    expect(saved).not.toContain("PRIVATE KEY");
+    expect(saved).not.toContain(key.passphrase);
+  });
+
   test("that is encrypted is saved without the text in clear", async () => {
     let mime = new TextDecoder().decode(await saveDraft(true));
     expect(mime).not.toContain("K=C3=B6ln");
@@ -138,7 +151,7 @@ describe("A draft", () => {
     expect(draft.text.trim()).toBe("Grüße aus Köln!");
     expect(draft.shouldEncrypt).toBe(true);
     expect(draft.mustEncrypt).toBe(true);
-    expect(draft.signedKeyFingerprint).toBe(key.fingerprint);
+    expect(draft.signWithKeyFingerprint).toBe(key.fingerprint);
   });
 
   test("that is not encrypted reopens with encryption optional", async () => {

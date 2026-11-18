@@ -103,6 +103,13 @@ export class EMail extends Message {
   /** For composer/send only: This email should be end-to-end encrypted. */
   @notifyChangedProperty
   shouldEncrypt = false;
+  /** For composer/send only: Our key that will sign this email.
+   * Not `signedKeyFingerprint` and `signedKey`, which are for the key that
+   * signed a received email, and are saved with it: Here, that would be our
+   * secret key.
+   * Format: `PublicKey.fingerprint` */
+  @notifyChangedProperty
+  signWithKeyFingerprint: string | null = null;
   /** For composer/send only: This email must be end-to-end encrypted, e.g.
    * because it quotes from an encrypted email. */
   @notifyChangedProperty
@@ -115,7 +122,6 @@ export class EMail extends Message {
    * The signature was valid and the public key matches `From:`.
    * This gives you the specific public key that was used to sign.
    * Not the key ID, because another key can have the same key ID.
-   * For composer/send: Our key that will sign this email.
    * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
   signedKeyFingerprint: string | null = null;
@@ -163,9 +169,9 @@ export class EMail extends Message {
     return this.folder.account.storage;
   }
 
-  /** For composer/send only: Sign this email, with our key `signedKeyFingerprint` */
+  /** For composer/send only: Sign this email, with our key `signWithKeyFingerprint` */
   get shouldSign(): boolean {
-    return !!this.signedKeyFingerprint;
+    return !!this.signWithKeyFingerprint;
   }
 
   get mustEncrypt(): boolean {
@@ -774,6 +780,7 @@ export class EMail extends Message {
     other.mustEncrypt = this.mustEncrypt;
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
+    other.signWithKeyFingerprint = this.signWithKeyFingerprint;
     other.signedKeyFingerprint = this.signedKeyFingerprint;
     other.system = this.system;
   }

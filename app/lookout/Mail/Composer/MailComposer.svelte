@@ -380,7 +380,7 @@
     let extra = mail as any;
     if (privateKey) {
       if (!mail.shouldSign && privateKey.useToSign) {
-        mail.signedKeyFingerprint = privateKey.fingerprint;
+        mail.signWithKeyFingerprint = privateKey.fingerprint;
         extra.signOnlyByDefault = true;
       }
       if (!mail.shouldEncrypt && privateKey.encryptByDefault) {
@@ -388,7 +388,7 @@
         extra.encryptOnlyByDefault = true;
       }
       if (mail.shouldSign && extra.signOnlyByDefault && !privateKey.useToSign) {
-        mail.signedKeyFingerprint = null;
+        mail.signWithKeyFingerprint = null;
         extra.signOnlyByDefault = false;
       }
       if (mail.shouldEncrypt && extra.encryptOnlyByDefault && !privateKey.encryptByDefault) {
@@ -398,7 +398,7 @@
     } else {
       assert(!mail.mustEncrypt, $t`This email must be encrypted`);
       mail.shouldEncrypt = false;
-      mail.signedKeyFingerprint = null;
+      mail.signWithKeyFingerprint = null;
     }
   }
   // </copied>

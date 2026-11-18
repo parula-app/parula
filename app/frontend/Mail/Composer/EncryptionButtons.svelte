@@ -94,7 +94,7 @@
   function changedIdentity() {
     if (privateKey) {
       if (!mail.shouldSign && privateKey.useToSign) {
-        mail.signedKeyFingerprint = privateKey.fingerprint;
+        mail.signWithKeyFingerprint = privateKey.fingerprint;
         extra.signOnlyByDefault = true;
       }
       if (!mail.shouldEncrypt && privateKey.encryptByDefault) {
@@ -102,7 +102,7 @@
         extra.encryptOnlyByDefault = true;
       }
       if (mail.shouldSign && extra.signOnlyByDefault && !privateKey.useToSign) {
-        mail.signedKeyFingerprint = null;
+        mail.signWithKeyFingerprint = null;
         extra.signOnlyByDefault = false;
       }
       if (mail.shouldEncrypt && extra.encryptOnlyByDefault && !privateKey.encryptByDefault) {
@@ -112,7 +112,7 @@
     } else {
       assert(!mail.mustEncrypt, gt`This email must be encrypted.`);
       mail.shouldEncrypt = false;
-      mail.signedKeyFingerprint = null;
+      mail.signWithKeyFingerprint = null;
     }
   }
 
@@ -123,7 +123,7 @@
     if (mail.shouldSign && mail.shouldEncrypt) {
       mail.shouldEncrypt = false;
     } else if (mail.shouldSign) {
-      mail.signedKeyFingerprint = null;
+      mail.signWithKeyFingerprint = null;
       mail.shouldEncrypt = false;
     } else {
       doSign();
@@ -134,7 +134,7 @@
       openSettingsCategoryForAccount(identity.account, "mail-identity");
       return;
     }
-    mail.signedKeyFingerprint = getMyPrivateKey(identity)?.fingerprint;
+    mail.signWithKeyFingerprint = getMyPrivateKey(identity)?.fingerprint;
     assert(mail.shouldSign, "No signing key found");
   }
   function toggleEncrypted() {
@@ -155,7 +155,7 @@
     if (mail.mustEncrypt) {
       return;
     }
-    mail.signedKeyFingerprint = null;
+    mail.signWithKeyFingerprint = null;
     mail.shouldEncrypt = false;
   }
 

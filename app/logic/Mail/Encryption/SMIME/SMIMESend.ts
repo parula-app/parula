@@ -30,6 +30,7 @@ export class SMIMESend {
     let mime = await CreateMIME.getMIME(mail);
     let mimeAsText = new TextDecoder().decode(mime);
     if (mail.shouldSign) {
+      result.signedKeyFingerprint = privateKey.fingerprint;
       // Only the body and the Content-* headers are signed, not the other headers.
       let { content, otherHeaders } = await SMIMESend.splitOffContent(mimeAsText);
       mimeAsText = content;
