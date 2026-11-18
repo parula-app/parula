@@ -136,6 +136,8 @@
   export let account: MailAccount;
   /** out */
   export let isLoaded = false;
+  /** out: The user changed something since `load()` or `save()` */
+  export let isChanged = false;
 
   /** What the user edits. `save()` writes it to the server. */
   let autoResponder: AutoResponder;
@@ -146,6 +148,7 @@
 
   $: load(account); // first, because it sets `autoResponder`
   $: isLoaded = !isLoading && !loadError;
+  $: $autoResponder && (isChanged = true);
   $: state = !$autoResponder.isOn ? "off" : $autoResponder.scheduled ? "scheduled" : "always";
   $: isTimeRange = state == "scheduled";
   $: isOutsideOn = $autoResponder.isOn && $autoResponder.externalAudience != AutoResponderAudience.None;
@@ -158,6 +161,7 @@
     loadError = null;
     try {
       await autoResponder.load();
+      isChanged = false;
     } catch (ex) {
       if (forAccount == account) {
         loadError = ex;
@@ -176,6 +180,7 @@
 
   export async function save() {
     await autoResponder.save();
+    isChanged = false;
     autoResponder.rememberTimes();
     await account.autoResponder.load(); // for Lookout's info bar and File > Info
   }
