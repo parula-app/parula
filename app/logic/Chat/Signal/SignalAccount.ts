@@ -736,11 +736,24 @@ export class SignalAccount extends ChatAccount {
     if (!this.aciStore || !this.kyberLastResort) {
       throw new Error("Signal account not set up (no store / kyber prekey)");
     }
+    // All sessions are set up through here, so this is where we watch identity keys
+    this.aciStore.identityPerAccount = true;
+    this.aciStore.onIdentityChange = serviceId => {
+      this.identityChanged(serviceId)
+        .catch(this.errorCallback);
+    };
     this.sessions = this.sessionsJSON
       ? SignalSessions.fromJSON(this.sessionsJSON, this.aciStore, this.kyberLastResort.keyPair)
       : new SignalSessions(this.aciStore, this.kyberLastResort.keyPair);
     this.sessionsJSON = null;
     return this.sessions;
+  }
+
+  /** A contact has a new identity key (see `SignalStore.saveIdentity`): tell the user
+   * in their chat, like Signal's "safety number changed". */
+  protected async identityChanged(serviceId: string): Promise<void> {
+    let room = await this.getOrCreateRoom(ServiceId.parse(serviceId));
+    await room.addIdentityChange();
   }
 
   /** The peer-device address the store/session layer key on: `"<serviceId>.<deviceId>"`. */
