@@ -1,6 +1,5 @@
 import { File } from "../File";
 import type { WebDAVDirectory } from "./WebDAVDirectory";
-import { appGlobal } from "../../app";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { Buffer } from "buffer";
 import type { URLString } from "../../util/util";
@@ -33,7 +32,7 @@ export class WebDAVFile extends File {
     if (this.lastModOnServer?.getTime() == this.lastMod.getTime() &&
         (this.size != size || this.etag != etag ||
          this.lastModOnServer?.getTime() != lastMod.getTime())) {
-      this.deleteLocalCache()
+      this.deleteStaleLocalCache()
         .catch(this.account.errorCallback);
     }
     this.size = size;
@@ -63,7 +62,6 @@ export class WebDAVFile extends File {
       let buffer = await this.account.client.getFileContents(this.path, { format: "binary" }) as ArrayBuffer;
       let blob = new Blob([buffer], this.mimetype ? { type: this.mimetype } : undefined);
       await this.saveContentsLocally(blob);
-      await appGlobal.remoteApp.fs.utimes(this.filepathLocal, new Date(), this.lastModOnServer);
     });
   }
 

@@ -15,7 +15,7 @@ import * as webdavClient from "webdav";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 
 const v2 = (webdavServer as any).v2;
 const USERNAME = "testuser";
@@ -249,6 +249,44 @@ test("Open in app, after the file changed on the server, opens the new version",
   expect(opened.path).toBeTruthy();
   expect(opened.path).toBe(file.filepathLocal);
   expect(opened.contents).toBe("Version 2, edited elsewhere\n");
+  // Not edited locally, so no conflicted copy
+  let localFiles = await fs.readdir(path.dirname(opened.path));
+  expect(localFiles.filter(name => name.startsWith("open"))).toEqual(["open.txt"]);
+});
+
+test("Local edits are kept and uploaded as conflicted copy, when the file changed on the server", async () => {
+  let root = account.rootDirs.first;
+  await verify.putFileContents("/kept.txt", "Version 1\n");
+  await root.listContents();
+  let file = root.files.find(f => f.name == "kept.txt");
+  await file.openOSApp();
+  let localPath = openedFiles.pop().path;
+
+  // The user edits the file in the desktop app
+  await fs.writeFile(localPath, "Edited locally\n");
+  let editTime = new Date(file.lastMod.getTime() + 60 * 1000);
+  await fs.utimes(localPath, editTime, editTime);
+
+  await verify.putFileContents("/kept.txt", "Version 2, edited elsewhere\n");
+  await root.listContents();
+
+  await file.openOSApp();
+  expect(openedFiles.pop()).toEqual({ path: localPath, contents: "Version 2, edited elsewhere\n" });
+
+  // The upload runs in the background
+  let copy = await vi.waitFor(() => {
+    let copy = root.files.find(f => f.path.startsWith("/kept ("));
+    expect(copy).toBeDefined();
+    return copy;
+  });
+  expect(copy.path).toMatch(/^\/kept \(conflicted copy \d{4}-\d\d-\d\d \d\d-\d\d-\d\d\)\.txt$/);
+  let onServer = await verify.getFileContents(copy.path, { format: "text" });
+  expect(onServer).toBe("Edited locally\n");
+  // The renamed local file is the local copy of the uploaded conflicted copy
+  expect(path.dirname(copy.filepathLocal)).toBe(path.dirname(localPath));
+  expect(await fs.readFile(copy.filepathLocal, "utf8")).toBe("Edited locally\n");
+  let localFiles = await fs.readdir(path.dirname(localPath));
+  expect(localFiles.filter(name => name.startsWith("kept")).length).toBe(2);
 });
 
 test("Open in app checks the new contents of a file changed on the server", async () => {
