@@ -13,4 +13,8 @@ export interface PrivateKey {
   encryptByDefault: boolean;
 
   privateKeyAsFile(): File;
+
+  /** With the secret key and passphrase, only for our identity config. `toJSON()` has only the public key, so it can't leak into mails or contacts. */
+  toPrivateJSON(): any;
+  fromPrivateJSON(json: any): void;
 }

@@ -23,6 +23,8 @@ let myKey: PGPPrivateKey;
 beforeAll(async () => {
   ({ folder } = await setupTestFolder());
   myKey = await PGPPrivateKey.createNewPrivateKey({ realname: "User", emailAddress: "user@example.com" });
+  let oldJSON = myKey.toPrivateJSON();
+  myKey.toJSON = () => oldJSON; // as before: `toJSON()` had the secret key
 });
 
 test("A mail that we signed, saved before #1916, no longer has our secret key", async () => {
