@@ -2,6 +2,10 @@ import { SignalStore } from "../../../../logic/Chat/Signal/Crypto/Store";
 import { PreKeyBundle } from "../../../../logic/Chat/Signal/Crypto/Identity";
 import { initiateSession, encrypt, decryptPreKeyMessage, decryptSignalMessage }
   from "../../../../logic/Chat/Signal/Crypto/SessionCipher";
+import { serializeSignalMessage, parseSignalMessage } from "../../../../logic/Chat/Signal/Crypto/messages";
+import { KeyPair } from "../../../../logic/Chat/Signal/Crypto/KeyPair";
+import { djbEncode } from "../../../../logic/Chat/Signal/Crypto/curve";
+import { randomBytes, hmacSHA256 } from "../../../../logic/Chat/Signal/Crypto/primitives";
 import {
   createSenderKey, createDistributionMessage, processDistributionMessage, groupEncrypt, groupDecrypt,
 } from "../../../../logic/Chat/Signal/Crypto/GroupCipher";
@@ -81,6 +85,71 @@ test("Out-of-order delivery uses skipped message keys", async () => {
   expect(str(await decryptSignalMessage(bob, "alice", msgs[1]))).toBe("msg1");
   expect(str(await decryptSignalMessage(bob, "alice", msgs[0]))).toBe("msg0");
   expect(str(await decryptSignalMessage(bob, "alice", msgs[2]))).toBe("msg2");
+});
+
+test("A forged message doesn't change the session, and the next real messages still decrypt", async () => {
+  let alice = SignalStore.createNew();
+  let bob = SignalStore.createNew();
+  initiateSession(alice, "bob", bundleFrom(bob, true));
+  await decryptPreKeyMessage(bob, "alice", (await encrypt(alice, "bob", utf8("establish"))).body);
+  await decryptSignalMessage(alice, "bob", (await encrypt(bob, "alice", utf8("ack"))).body);
+  let late = await encrypt(alice, "bob", utf8("late"));
+  expect(str(await decryptSignalMessage(bob, "alice", (await encrypt(alice, "bob", utf8("first"))).body))).toBe("first");
+  let real = await encrypt(alice, "bob", utf8("real"));
+  let before = bob.sessions.get("alice")!.toJSON();
+
+  // Without the session keys, the MAC can only be guessed: with a new ratchet key, the saved key of the late message, and the next counter
+  let ratchetKey = parseSignalMessage(real.body).ratchetKey;
+  for (let [key, counter] of [[djbEncode(KeyPair.generate().publicKey), 0], [ratchetKey, 0], [ratchetKey, 2]] as const) {
+    let forged = serializeSignalMessage({ ratchetKey: key, counter, previousCounter: 0, ciphertext: randomBytes(32) },
+      randomBytes(32), randomBytes(33), randomBytes(33));
+    await expect(decryptSignalMessage(bob, "alice", forged)).rejects.toThrow();
+  }
+  expect(bob.sessions.get("alice")!.toJSON()).toEqual(before);
+
+  expect(str(await decryptSignalMessage(bob, "alice", real.body))).toBe("real");
+  expect(str(await decryptSignalMessage(bob, "alice", late.body))).toBe("late");
+  expect(str(await decryptSignalMessage(bob, "alice", (await encrypt(alice, "bob", utf8("next"))).body))).toBe("next");
+  expect(str(await decryptSignalMessage(alice, "bob", (await encrypt(bob, "alice", utf8("reply"))).body))).toBe("reply");
+});
+
+test("A late message from their previous chain doesn't break the session", async () => {
+  let alice = SignalStore.createNew();
+  let bob = SignalStore.createNew();
+  initiateSession(alice, "bob", bundleFrom(bob, true));
+  await decryptPreKeyMessage(bob, "alice", (await encrypt(alice, "bob", utf8("establish"))).body);
+  await decryptSignalMessage(alice, "bob", (await encrypt(bob, "alice", utf8("ack"))).body);
+  let late = await encrypt(alice, "bob", utf8("late"));
+  expect(str(await decryptSignalMessage(bob, "alice", (await encrypt(alice, "bob", utf8("first"))).body))).toBe("first");
+  // Bob's reply makes Alice start a new chain
+  expect(str(await decryptSignalMessage(alice, "bob", (await encrypt(bob, "alice", utf8("reply"))).body))).toBe("reply");
+  expect(str(await decryptSignalMessage(bob, "alice", (await encrypt(alice, "bob", utf8("new chain"))).body))).toBe("new chain");
+
+  expect(str(await decryptSignalMessage(bob, "alice", late.body))).toBe("late");
+  expect(str(await decryptSignalMessage(bob, "alice", (await encrypt(alice, "bob", utf8("after"))).body))).toBe("after");
+  expect(str(await decryptSignalMessage(alice, "bob", (await encrypt(bob, "alice", utf8("reply 2"))).body))).toBe("reply 2");
+});
+
+test("The peer can't grow the saved session without bound", async () => {
+  let alice = SignalStore.createNew();
+  let bob = SignalStore.createNew();
+  initiateSession(alice, "bob", bundleFrom(bob, true));
+  await decryptPreKeyMessage(bob, "alice", (await encrypt(alice, "bob", utf8("establish"))).body);
+  for (let round = 0; round < 6; round++) {
+    // Bob's reply makes Alice start a new chain
+    await decryptSignalMessage(alice, "bob", (await encrypt(bob, "alice", utf8("reply"))).body);
+    // As if Alice had sent 2000 messages that never arrived
+    let state = alice.sessions.get("bob")!;
+    for (let i = 0; i < 2000; i++) {
+      state.senderChainKey = hmacSHA256(state.senderChainKey, new Uint8Array([2]));
+    }
+    state.senderChainIndex += 2000;
+    expect(str(await decryptSignalMessage(bob, "alice", (await encrypt(alice, "bob", utf8("after 2000 lost"))).body)))
+      .toBe("after 2000 lost");
+  }
+  let session = bob.sessions.get("alice")!;
+  expect(session.receiverChains.size).toBeLessThanOrEqual(5);
+  expect(session.skippedKeys.size).toBeLessThanOrEqual(5 * 2000);
 });
 
 test("Bundle without a one-time prekey still works", async () => {
