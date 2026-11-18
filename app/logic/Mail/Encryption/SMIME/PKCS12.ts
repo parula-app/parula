@@ -1,5 +1,5 @@
-import { Any, AuthenticatedSafe, CertBag, Certificate, ECPrivateKey, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SafeContents, type AlgorithmIdentifier, type SubjectPublicKeyInfo } from "./SMIMEASN1";
-import { sameName } from "./SMIMEVerify";
+import { Any, AuthenticatedSafe, CertBag, Certificate, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, PrivateKeyInfo, SafeContents, type AlgorithmIdentifier } from "./SMIMEASN1";
+import { sameName, isOfKey } from "./SMIMEVerify";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { rc2Decrypt, rc4Decrypt, tripleDESDecrypt } from "./legacyCiphers";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
@@ -74,7 +74,7 @@ export class PKCS12 {
     let unsorted = this.certificates.map(der => Certificate.decode(der));
     let privateKeyInfo = PrivateKeyInfo.decode(this.keys[0]);
     let sorted: Certificate[] = [];
-    let next = unsorted.find(cert => PKCS12.isOfKey(cert.tbsCertificate.publicKey, privateKeyInfo));
+    let next = unsorted.find(cert => isOfKey(cert.tbsCertificate.publicKey, privateKeyInfo));
     while (next) {
       sorted.push(next);
       unsorted.splice(unsorted.indexOf(next), 1);
@@ -82,24 +82,6 @@ export class PKCS12 {
       next = unsorted.find(cert => sameName(cert.tbsCertificate.subject, issuer));
     }
     return sorted.concat(unsorted);
-  }
-
-  /** Whether the public key of a certificate belongs to the private key: the same RSA modulus, or the same EC point */
-  protected static isOfKey(publicKey: SubjectPublicKeyInfo, privateKeyInfo: PrivateKeyInfo): boolean {
-    let algorithm = privateKeyInfo.privateKeyAlgorithm.algorithm;
-    if (publicKey.algorithmIdentifier.algorithm != algorithm) {
-      return false;
-    }
-    switch (algorithm) {
-    case "ecPublicKey": {
-      let point = ECPrivateKey.decode(privateKeyInfo.privateKey).publicKey?.data;
-      return !!point && !indexedDB.cmp(point, publicKey.subjectPublicKey.data);
-    }
-    case "rsaEncryption":
-      return RSAPublicKey.decode(publicKey.subjectPublicKey.data).n == RSAPrivateKey.decode(privateKeyInfo.privateKey).n;
-    default:
-      return false;
-    }
   }
 
   /** Checks that the file was not modified, using the MAC over its contents.

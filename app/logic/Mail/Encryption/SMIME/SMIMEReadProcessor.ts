@@ -107,7 +107,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
                 !privateKey.isRecipient(recipientInfo.value.rid)) {
               continue;
             }
-            let rawKey = await privateKey.decryptKey();
+            let rawKey = await privateKey.decryptRSAKey();
             return unpadPKCS(decrypt(recipientInfo.value.encryptedKey, rawKey), BlockType.Encrypted);
           }
         }

@@ -122,7 +122,7 @@ describe("PKCS#12 import", () => {
     // The CA certificate, for the chain
     expect(key.chain.length).toBe(1);
     // The key must still work after we encrypted it with the passphrase again
-    let rawKey = await key.decryptKey();
+    let rawKey = await key.decryptRSAKey();
     expect(rawKey.n).toBe(RSAPrivateKey.decode(PrivateKeyInfo.decode(p12.keys[0]).privateKey).n);
   });
 

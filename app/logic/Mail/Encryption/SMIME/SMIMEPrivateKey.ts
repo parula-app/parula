@@ -3,7 +3,7 @@ import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
 import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, ECPrivateKey, ECDSASigValue, SubjectPublicKeyInfo, CertificationRequestInfo, DigestInfo, DigestAlgorithm, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, AlgorithmIdentifier, KeyAgreementAlgorithm, KeyWrapAlgorithm, algorithmName } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
-import { sameName } from "./SMIMEVerify";
+import { sameName, isOfKey } from "./SMIMEVerify";
 import { uint8ArrayToHex } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
@@ -39,21 +39,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
   }
 
   async matches(publicKey: SubjectPublicKeyInfo): Promise<boolean> {
-    let privateKeyInfo = PrivateKeyInfo.decode(await this.decryptKeyPKCS8());
-    switch (privateKeyInfo.privateKeyAlgorithm.algorithm) {
-    case "ecPublicKey":
-      return !indexedDB.cmp(SubjectPublicKeyInfo.encode(publicKey), SubjectPublicKeyInfo.encode(this.ecPublicKey(privateKeyInfo)));
-    case "rsaEncryption": {
-      if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
-        return false;
-      }
-      let key = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-      let rawKey = RSAPrivateKey.decode(privateKeyInfo.privateKey);
-      return key.n == rawKey.n && key.e == rawKey.e;
-    }
-    default:
-      return false;
-    }
+    return isOfKey(publicKey, PrivateKeyInfo.decode(await this.decryptKeyPKCS8()));
   }
 
   /** Our public key, as our certificate has it, from our EC private key */
@@ -110,28 +96,26 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     }
   }
 
-  /** Decrypts our private key with our passphrase */
-  async decryptKey(): Promise<RSAPrivateKey> {
+  /** Decrypts our RSA private key with our passphrase */
+  async decryptRSAKey(): Promise<RSAPrivateKey> {
     let privateKeyInfo = PrivateKeyInfo.decode(await this.decryptKeyPKCS8());
     if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
-      throw new Error("Unsupported private key algorithm " + algorithmName(privateKeyInfo.privateKeyAlgorithm.algorithm));
+      throw new Error("Unexpected private key algorithm " + algorithmName(privateKeyInfo.privateKeyAlgorithm.algorithm));
     }
     return RSAPrivateKey.decode(privateKeyInfo.privateKey);
   }
 
   /** Decrypts our private key with our passphrase, in the PKCS#8 form that `crypto.subtle.importKey()` reads */
   protected async decryptKeyPKCS8(): Promise<Uint8Array> {
-    let pkcs8: Uint8Array;
     if (this.passphrase) {
       let encryptedKey = EncryptedPrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "ENCRYPTED PRIVATE KEY" });
       if (encryptedKey.encryptionAlgorithm.algorithm != "pkcs5PBES2") {
         throw new Error("Unsupported private key encryption algorithm " + algorithmName(encryptedKey.encryptionAlgorithm.algorithm));
       }
-      pkcs8 = await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
+      return await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
     } else {
-      pkcs8 = Any.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
+      return Any.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
     }
-    return pkcs8;
   }
 
   privateKeyAsFile(): File {
@@ -148,8 +132,9 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     return "sha256";
   }
 
-  /** Signs the signed attributes of a `SignerInfo`, with RSA PKCS#1 v1.5 or, for EC keys, ECDSA */
-  async sign(content: Uint8Array, digestAlgorithm: string): Promise<{ signatureAlgorithm: AlgorithmIdentifier, signature: Uint8Array }> {
+  /** Signs the signed attributes of a `SignerInfo` using `digestAlgorithm`, with RSA PKCS#1 v1.5 or, for EC keys, ECDSA */
+  async sign(content: Uint8Array): Promise<{ signatureAlgorithm: AlgorithmIdentifier, signature: Uint8Array }> {
+    let digestAlgorithm = this.digestAlgorithm;
     let hash = DigestAlgorithm[digestAlgorithm];
     let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
     if (publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
@@ -166,7 +151,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
         }),
       };
     }
-    let rawKey = await this.decryptKey();
+    let rawKey = await this.decryptRSAKey();
     let digestInfo = {
       digestAlgorithm: {
         algorithm: digestAlgorithm,
@@ -184,7 +169,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
   }
 
   async generateCSRFile(subject: Record<string, string>): Promise<File> {
-    let key = await this.decryptKey();
+    let key = await this.decryptRSAKey();
     let subjectSequence = [];
     for (let attr in attributeTypes) {
       if (subject[attr]) {
