@@ -16,6 +16,7 @@ import { SignalStore } from "../../../../logic/Chat/Signal/Crypto/Store";
 import { createSenderKey, createDistributionMessage, groupEncrypt } from "../../../../logic/Chat/Signal/Crypto/GroupCipher";
 import { initiateSession, encrypt } from "../../../../logic/Chat/Signal/Crypto/SessionCipher";
 import { PreKeyBundle } from "../../../../logic/Chat/Signal/Crypto/Identity";
+import { IdentityChange } from "../../../../logic/Chat/RoomEvent";
 import { expect, test } from "vitest";
 
 /** A prekey bundle from a store, to establish a session to it (test helper). */
@@ -266,3 +267,38 @@ test("decrypts a group message's skmsg content, not just the rides-along sender 
   // ...and the rides-along sender key was stored on the way through.
   expect(account.signalStore.senderKeys.has(`${kGroupJID}|${bob.user}.${bob.device}`)).toBe(true);
 });
+
+test("a contact's new identity key shows a notice in the chat, the first key doesn't", async () => {
+  let account = setup();
+  account.signalStore = SignalStore.createNew();
+  account.connection = {
+    async sendIQ() {
+      return new WANode("iq", { type: "result" });
+    },
+    async sendNode() {},
+  } as any;
+  await (account as any).afterLogin();
+  (account as any).stopKeepAlive();
+
+  let bob = SignalStore.createNew();
+  initiateSession(bob, "us", bundleFrom(account.signalStore));
+  await receiveFromBob(account, bob, "M1", "hello");
+  let room = await account.getOrCreateRoom(JID.parse(kBobJID));
+  expect(room.messages.contents.filter(msg => msg instanceof IdentityChange)).toHaveLength(0);
+
+  // Bob reinstalled WhatsApp, or the server put in its own keys
+  let newBob = SignalStore.createNew();
+  initiateSession(newBob, "us", bundleFrom(account.signalStore));
+  await receiveFromBob(account, newBob, "M2", "new phone");
+
+  expect(room.messages.contents.map(msg => msg.text)).toContain("new phone"); // not blocked
+  expect(room.messages.contents.filter(msg => msg instanceof IdentityChange)).toHaveLength(1);
+});
+
+/** Delivers a 1:1 message from Bob's phone, encrypted with his `store`. */
+async function receiveFromBob(account: WhatsAppAccount, store: SignalStore, id: string, text: string): Promise<void> {
+  let enc = await encrypt(store, "us", encodeWAMessage({ conversation: text }));
+  await (account as any).receiveMessageStanza(new WANode("message", { from: kBobJID, id, type: "text", t: "1700000000" }, [
+    new WANode("enc", { v: "2", type: enc.type }, enc.body),
+  ]));
+}

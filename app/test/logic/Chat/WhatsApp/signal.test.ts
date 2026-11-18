@@ -165,6 +165,39 @@ test("an unrelated newer pkmsg replaces a stale responder session", async () => 
   expect(str(await decryptPreKeyMessage(bob, "alice", fromNew.body))).toBe("reinstalled");
 });
 
+test("a peer's new identity key is reported, but not its first key, nor a forged pkmsg", async () => {
+  let bob = SignalStore.createNew();
+  let changed: string[] = [];
+  bob.onIdentityChange = name => changed.push(name);
+
+  // First contact: there is no known key to compare with
+  let alice = SignalStore.createNew();
+  initiateSession(alice, "bob", bundleFrom(bob, false));
+  await decryptPreKeyMessage(bob, "alice", (await encrypt(alice, "bob", utf8("hi"))).body);
+  initiateSession(bob, "carol", bundleFrom(SignalStore.createNew(), false));
+  expect(changed).toEqual([]);
+
+  // A pkmsg with another key that fails the MAC must not replace Alice's key
+  let mallory = SignalStore.createNew();
+  initiateSession(mallory, "bob", bundleFrom(bob, false));
+  let forged = await encrypt(mallory, "bob", utf8("forged"));
+  forged.body[forged.body.length - 12] ^= 0xFF;
+  await expect(decryptPreKeyMessage(bob, "alice", forged.body)).rejects.toThrow();
+  expect(changed).toEqual([]);
+  expect([...bob.identities.get("alice")!]).toEqual([...alice.identityKeyPair.publicKey]);
+
+  // Alice reinstalled: her pkmsg with a new key still decrypts, and is reported
+  let alice2 = SignalStore.createNew();
+  initiateSession(alice2, "bob", bundleFrom(bob, false));
+  expect(str(await decryptPreKeyMessage(bob, "alice", (await encrypt(alice2, "bob", utf8("new phone"))).body)))
+    .toBe("new phone");
+  expect(changed).toEqual(["alice"]);
+
+  // A fetched bundle with a new key for a known peer is reported, too
+  initiateSession(bob, "carol", bundleFrom(SignalStore.createNew(), false));
+  expect(changed).toEqual(["alice", "carol"]);
+});
+
 test("a pairwise session survives a store serialize/restore round-trip", async () => {
   let alice = SignalStore.createNew();
   let bob = SignalStore.createNew();

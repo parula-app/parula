@@ -16,7 +16,7 @@ import { kDjbType } from "../Signal/Crypto/curve";
 import { getLoginPayload } from "./clientInfo";
 import { decodeWAMessage, type WAMessage } from "./Proto/schema";
 import { WANode } from "./Binary/WANode";
-import { JID, kServerUser } from "./Binary/JID";
+import { JID, kServerUser, kServerLid } from "./Binary/JID";
 import { WhatsAppContact } from "./WhatsAppContact";
 import { WhatsApp1to1ChatRoom } from "./WhatsApp1to1ChatRoom";
 import { WhatsAppGroupChatRoom } from "./WhatsAppGroupChatRoom";
@@ -294,8 +294,13 @@ export class WhatsAppAccount extends ChatAccount {
   /** After `<success>`: publish our prekeys so the phone (and contacts) can
    * start Signal sessions to encrypt to us — without this the phone can't send
    * us anything, so no history and no messages arrive — and announce presence
-   * so the phone delivers its history sync and live messages. */
+   * so the phone delivers its history sync and live messages. Before any session
+   * is set up, we start watching the contacts' identity keys. */
   protected async afterLogin(): Promise<void> {
+    this.signalStore!.onIdentityChange = address => {
+      this.identityChanged(address)
+        .catch(ex => this.errorCallback(ex));
+    };
     this.startKeepAlive();
     await this.uploadPreKeys();
     await this.sendActive();
@@ -681,6 +686,15 @@ export class WhatsAppAccount extends ChatAccount {
       }
     }
     return pairwiseContent;
+  }
+
+  /** A contact's device has a new identity key (see `SignalStore.saveIdentity`):
+   * tell the user in their chat, like WhatsApp's "security code changed". */
+  protected async identityChanged(address: string): Promise<void> {
+    let user = address.substring(0, address.lastIndexOf("."));
+    // The address has no server, so it may be the phone number or the LID
+    let room = this.roomForChat(new JID(user, kServerUser)) ?? this.roomForChat(new JID(user, kServerLid));
+    await room?.addIdentityChange();
   }
 
   protected roomForChat(jid: JID): WhatsAppChatRoom | undefined {

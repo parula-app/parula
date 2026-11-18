@@ -216,7 +216,7 @@ export function initiateSession(store: SignalStore, address: string, bundle: Pre
   state.remoteRegistrationID = bundle.registrationID;
   state.pendingPreKey = { preKeyID: bundle.preKeyID, signedPreKeyID: bundle.signedPreKeyID, baseKey: djbEncode(baseKey.publicKey) };
   store.sessions.set(address, state);
-  store.identities.set(address, bundle.identityKey);
+  store.saveIdentity(address, bundle.identityKey);
   return state;
 }
 
@@ -247,10 +247,9 @@ function createSessionFromPreKey(store: SignalStore, address: string, data: Uint
   state.localIdentityKey = djbEncode(store.identityKeyPair.publicKey);
   state.establishingBaseKey = pkmsg.baseKey;
   store.sessions.set(address, state);
-  store.identities.set(address, theirIdentity);
-  // The one-time prekey is consumed by the caller only after the inner
-  // SignalMessage MAC verifies — otherwise a failed/duplicate pkmsg would burn
-  // the prekey and no retry could ever establish the session.
+  // The one-time prekey is consumed, and the identity key saved, by the caller
+  // only after the inner SignalMessage MAC verifies — otherwise a failed/duplicate
+  // pkmsg would burn the prekey and no retry could ever establish the session.
   return state;
 }
 
@@ -313,6 +312,9 @@ export async function decryptPreKeyMessage(store: SignalStore, address: string, 
   }
   try {
     let plaintext = await decryptSignalMessage(store, address, pkmsg.message, pad, pqr);
+    if (!sameSession) {
+      store.saveIdentity(address, djbDecode(pkmsg.identityKey)); // after the MAC: a forged pkmsg must not replace the known key
+    }
     if (!sameSession && pkmsg.preKeyID != null) {
       store.preKeys.delete(pkmsg.preKeyID); // confirmed: consume the one-time prekey
     }
