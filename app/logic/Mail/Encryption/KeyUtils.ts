@@ -17,24 +17,26 @@ import { appGlobal } from "../../app";
 import { UserError, assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
-export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Promise<PublicKey | null> {
-  if (!id) {
+/** The key that signed the email, by fingerprint, because another PGP key can
+ * have the same 64-bit key ID, and an S/MIME key pair can have several certificates.
+ * The contact's or our own copy of the key, if we have it, else the one from the email. */
+export async function getPublicKeyByFingerprint(fingerprint: string | null, email?: EMail): Promise<PublicKey | null> {
+  if (!fingerprint) {
     return null;
   }
-  let signedKey = email?.signedKey?.id == id ? email.signedKey : null;
-  if (!signedKey && email?.signedKeyJSON) {
-    let key = publicKeyFromJSON(email.signedKeyJSON);
-    if (key.id == id) {
-      email.signedKey = key;
-      signedKey = key;
+  let signedPublicKey = email?.signedPublicKey?.fingerprint == fingerprint ? email.signedPublicKey : null;
+  if (!signedPublicKey && email?.signedPublicKeyJSON) {
+    let key = publicKeyFromJSON(email.signedPublicKeyJSON);
+    if (key.fingerprint == fingerprint) {
+      email.signedPublicKey = key;
+      signedPublicKey = key;
     }
   }
   if (email?.from) {
     let person = email.from.findPerson();
     if (person) {
       for (let key of person.encryptionPublicKeys.each) {
-        // The very certificate that signed, not another one for the same key pair
-        if (key.id == id && (!signedKey || key.fingerprint == signedKey.fingerprint)) {
+        if (key.fingerprint == fingerprint) {
           return key;
         }
       }
@@ -42,7 +44,7 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   } else {
     for (let person of appGlobal.persons.each) {
       for (let key of person.encryptionPublicKeys.each) {
-        if (key.id == id) {
+        if (key.fingerprint == fingerprint) {
           return key;
         }
       }
@@ -50,26 +52,26 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   }
   for (let identity of findAllIdentities()) {
     for (let key of identity.encryptionPrivateKeys.each) {
-      if (key.id == id) {
+      if (key.fingerprint == fingerprint) {
         return key;
       }
     }
   }
-  if (signedKey) {
-    return signedKey;
+  if (signedPublicKey) {
+    return signedPublicKey;
   }
   if (email && email.system != EncryptionSystem.SMIME) {
     let key = await readAutoCryptKeys(email);
-    if (key?.id == id) {
+    if (key?.fingerprint == fingerprint) {
       return key;
     }
   }
   if (email) {
-    // Last resort, for messages that we stored before we kept the key
+    // Last resort, when the contact had the key as we saved the message, but no longer has it
     await email.loadMIME(); // calls `rememberSigner()` via processors
-    if (email.signedKey?.id == id) {
+    if (email.signedPublicKey?.fingerprint == fingerprint) {
       await email.saveWritablePropsLocally();
-      return email.signedKey;
+      return email.signedPublicKey;
     }
   }
   return null;
@@ -119,6 +121,30 @@ export function getMyPrivateKey<T extends PublicKey & PrivateKey>(identity: Mail
   return (keys.find(key => key.encryptByDefault && key.useToSign) ??
     keys.find(key => key.useToSign) ??
     keys.first) as T | null;
+}
+
+/** For sending, which own key signs the outgoing email: the one that the
+ * composer chose, `mail.signPrivateKey`, if it is of this type */
+export function getMySigningKey<T extends PublicKey & PrivateKey>(mail: EMail, keyType: new () => T): T | null {
+  if (mail.signPrivateKey instanceof keyType) {
+    return mail.signPrivateKey;
+  }
+  return getMyPrivateKey(mail.identity, keyType);
+}
+
+/** Our own key with this fingerprint, of any identity,
+ * e.g. to restore `EMail.signPrivateKey` of a draft */
+export function getMyKeyByFingerprint(fingerprint: string | null): (PublicKey & PrivateKey) | null {
+  if (!fingerprint) {
+    return null;
+  }
+  for (let identity of findAllIdentities()) {
+    let key = identity.encryptionPrivateKeys.find(key => key.fingerprint == fingerprint);
+    if (key) {
+      return key;
+    }
+  }
+  return null;
 }
 
 /** Whether we have an own key for this identity, e.g. an S/MIME certificate */

@@ -11,6 +11,7 @@ import { EMailProcessorList, ProcessingStartOn, CannotReadMail } from "./EMailPr
 import type { ExtraData } from "./ExtraData";
 import type { SMLData } from "./SML/SMLData";
 import type { PublicKey } from "./Encryption/PublicKey";
+import type { PrivateKey } from "./Encryption/PrivateKey";
 import { Event } from "../Calendar/Event";
 import { InvitationMessage, type iCalMethod } from "../Calendar/Invitation/InvitationStatus";
 import { FilterMoment } from "./FilterRules/FilterMoments";
@@ -103,6 +104,12 @@ export class EMail extends Message {
   /** For composer/send only: This email should be end-to-end encrypted. */
   @notifyChangedProperty
   shouldEncrypt = false;
+  /** For composer/send only: Our key that will sign this email.
+   * Not `signedPublicKey`, which is the key that signed a received email, and which
+   * is saved with it: This one is our secret key, so it is only in memory.
+   * A draft saves only its fingerprint. */
+  @notifyChangedProperty
+  signPrivateKey: (PublicKey & PrivateKey) | null = null;
   /** For composer/send only: This email must be end-to-end encrypted, e.g.
    * because it quotes from an encrypted email. */
   @notifyChangedProperty
@@ -114,15 +121,15 @@ export class EMail extends Message {
   /** This email was correctly signed with this public key.
    * The signature was valid and the public key matches `From:`.
    * This gives you the specific public key that was used to sign.
-   * Format: `PublicKey.id` */
+   * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
-  signedByKeyID: string | null = null;
-  /** As `signed` but giving you the actual PublicKey object.
+  signedPublicKeyFingerprint: string | null = null;
+  /** The `PublicKey` object for `signedPublicKeyFingerprint`
    * Set this using @see rememberSigner() */
-  signedKey: PublicKey | null = null;
-  /** As `signedKey`, but not parsed yet.
-   * `getPublicKeyByKeyID()` parses it when the reader needs it. */
-  signedKeyJSON: any = null;
+  signedPublicKey: PublicKey | null = null;
+  /** As `signedPublicKey`, but not parsed yet.
+   * `getPublicKeyByFingerprint()` parses it when the reader needs it. */
+  signedPublicKeyJSON: any = null;
   /** Contains the complete MIME message for sending.
    * Used for encrypted messages. */
   sendRawMIME: string | null = null;
@@ -161,6 +168,17 @@ export class EMail extends Message {
     return this.folder.account.storage;
   }
 
+  /** For composer/send only: Sign this email, with our key `signPrivateKey` */
+  get shouldSign(): boolean {
+    return !!this.signPrivateKey;
+  }
+  /** false: Don't sign this email.
+   * To sign it, set `signPrivateKey` to the key that signs. */
+  set shouldSign(val: boolean) {
+    assert(!val, "To sign, set signPrivateKey");
+    this.signPrivateKey = null;
+  }
+
   get mustEncrypt(): boolean {
     return this._mustEncrypt;
   }
@@ -192,8 +210,8 @@ export class EMail extends Message {
     if (!signer?.isForEMailAddress(this.from?.emailAddress)) {
       signer = null;
     }
-    this.signedKey = signer;
-    this.signedByKeyID = signer?.id ?? null;
+    this.signedPublicKey = signer;
+    this.signedPublicKeyFingerprint = signer?.fingerprint ?? null;
     if (!signer) {
       return;
     }
@@ -767,7 +785,8 @@ export class EMail extends Message {
     other.mustEncrypt = this.mustEncrypt;
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
-    other.signedByKeyID = this.signedByKeyID;
+    other.signPrivateKey = this.signPrivateKey;
+    other.signedPublicKeyFingerprint = this.signedPublicKeyFingerprint;
     other.system = this.system;
   }
 

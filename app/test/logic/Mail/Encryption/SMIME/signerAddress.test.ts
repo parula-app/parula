@@ -32,13 +32,13 @@ async function readMessage(mime: string, from?: PersonUID): Promise<EMail> {
 }
 
 function expectSigned(email: EMail) {
-  expect(email.signedByKeyID).toBeTruthy();
-  expect(email.signedByKeyID).toBe(email.signedKey?.id);
+  expect(email.signedPublicKeyFingerprint).toBeTruthy();
+  expect(email.signedPublicKeyFingerprint).toBe(email.signedPublicKey?.fingerprint);
 }
 
 function expectNotSigned(email: EMail) {
-  expect(email.signedByKeyID).toBe(null);
-  expect(email.signedKey).toBe(null);
+  expect(email.signedPublicKeyFingerprint).toBe(null);
+  expect(email.signedPublicKey).toBe(null);
 }
 
 /** The outer headers are not signed, so anybody can change `From:`
@@ -63,7 +63,7 @@ describe("S/MIME signature with a certificate for the From: address", () => {
   test("in another case is signed", async () => {
     let email = await readMessage(kClearSigned, findOrCreatePersonUID("Alice@Example.COM", "Alice"));
     expectSigned(email);
-    expect(email.from.encryptionPublicKey).toBe(email.signedKey);
+    expect(email.from.encryptionPublicKey).toBe(email.signedPublicKey);
   });
 
   test("only in the subject E= is signed", async () => {

@@ -56,7 +56,7 @@ async function sendAndReceive(sign: boolean, encrypt: boolean): Promise<EMail> {
   mail.identity = identity;
   mail.from = findOrCreatePersonUID("user@example.com", "User");
   mail.to.add(mail.from);
-  mail.signedByKeyID = sign ? key.id : null;
+  mail.signPrivateKey = sign ? key : null;
   mail.shouldEncrypt = encrypt;
   let sent = await SMIMESend.encryptAndSign(mail);
 
@@ -71,7 +71,7 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
   test("signed", async () => {
     let email = await sendAndReceive(true, false);
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
-    expect(email.signedByKeyID).toBe(key.id);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
   });
 
   test("encrypted", async () => {
@@ -84,7 +84,7 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
     let email = await sendAndReceive(true, true);
     expect(email.wasEncrypted).toBe(true);
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
-    expect(email.signedByKeyID).toBe(key.id);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
   });
 });
 

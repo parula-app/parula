@@ -1,6 +1,8 @@
 import { WebBasedAuth } from "./WebBasedAuth";
 import { newOAuth2UI, OAuth2UIMethod, mapBackOAuth2UIMethod } from "./UI/OAuth2UIMethod";
 import { OAuth2Error, OAuth2LoginNeeded, OAuth2ServerError } from "./OAuth2Error";
+import { getProvider } from "./OAuth2Util";
+import { Provider } from "./OAuth2URLs";
 import type { OAuth2UI } from "./UI/OAuth2UI";
 import { basicAuth } from "./httpAuth";
 import type { Account } from "../Abstract/Account";
@@ -10,7 +12,7 @@ import { notifyChangedProperty } from "../util/Observable";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { RunOnce } from "../util/flow/RunOnce";
 import { assert, type URLString } from "../util/util";
-import { fetchJSON, HTTPError, isTransientError } from "../util/netUtil";
+import { fetchJSON, HTTPError } from "../util/netUtil";
 import pkceChallenge from "pkce-challenge";
 
 /**
@@ -104,12 +106,18 @@ export class OAuth2 extends WebBasedAuth {
         try {
           return await this.getAccessTokenFromRefreshToken(this.refreshToken);
         } catch (ex) {
-          if (isTransientError(ex)) {
-            throw ex; // e.g. the network or the VPN is down. The refresh token is still good.
+          // Anything but an OAuth2 error response, e.g. network down, timeout, HTTP 5xx, or the login page of a hotel Wi-Fi.
+          // The refresh token is still good. @see draft-ietf-mailmaint-oauth-public section 6.4
+          if (!(ex instanceof OAuth2ServerError) || ["server_error", "temporarily_unavailable"].includes(ex.code)) {
+            ex.isTransient = true; // for `isTransientError()`, so that callers try again
+            throw ex;
           }
           console.error(ex);
-          this.refreshToken = null;
-          await this.deleteRefreshTokenFromStorage();
+          // Only these say that the refresh token is no longer valid. @see draft-ietf-mailmaint-oauth-public section 6.5
+          if (ex instanceof OAuth2ServerError && ["invalid_grant", "invalid_client"].includes(ex.code)) {
+            this.refreshToken = null;
+            await this.deleteRefreshTokenFromStorage();
+          }
         }
       }
       if (this.account.password && this.tokenURLPasswordAuth) {
@@ -211,7 +219,13 @@ export class OAuth2 extends WebBasedAuth {
    */
   protected async getAccessTokenFromParams(params: any, additionalHeaders?: any, tokenURL: string = this.tokenURL): Promise<string> {
     await this.accessTokenRunOnce.runOnce(async () => {
-      params.scope = this.scope;
+      if (params.grant_type == "refresh_token" && getProvider(this.account) == Provider.Google) {
+      } else {
+        // Without `scope`, a refresh gets the scopes that the user granted (RFC 6749 section 6).
+        // Google lets the user untick scopes on its consent page, and may refuse a refresh that asks for them.
+        // Microsoft needs the `scope` to pick the resource, e.g. EWS or Graph.
+        params.scope = this.scope;
+      }
       params.client_id = this.clientID;
       if (this.clientSecret) {
         params.client_secret = this.clientSecret;
@@ -220,7 +234,7 @@ export class OAuth2 extends WebBasedAuth {
         assert(!!this.codeVerifierPKCE, "Missing code verifier");
         params.code_verifier = this.codeVerifierPKCE;
       }
-      console.log("OAuth2", this.account.name, "get new access token", tokenURL, params);
+      console.log("OAuth2", this.account.name, "get new access token", tokenURL, withoutSecrets(params));
 
       let data: any;
       try {
@@ -236,7 +250,7 @@ export class OAuth2 extends WebBasedAuth {
         });
       } catch (ex) {
         // OAuth2 servers report errors as HTTP 400/401 with the details in the JSON body.
-        if (ex instanceof HTTPError) {
+        if (ex instanceof HTTPError && [400, 401].includes(ex.httpCode)) {
           let errorData = await ex.json();
           if (errorData?.error) {
             throw new OAuth2ServerError(this.account.name, errorData);
@@ -397,4 +411,11 @@ export class OAuth2 extends WebBasedAuth {
     let username = this.account.username.replace(/@/, "-").replaceAll(".", "-");
     return `oauth2refresh.${host}.${username}.${this.account.id}`;
   }
+}
+
+/** For logging: Hides the tokens, the password and the client secret */
+function withoutSecrets(params: Record<string, string>): Record<string, string> {
+  const kSecretParams = ["refresh_token", "code", "code_verifier", "client_secret", "password"];
+  return Object.fromEntries(Object.entries(params).map(([name, value]) =>
+    [name, kSecretParams.includes(name) && value ? "(hidden)" : value]));
 }
