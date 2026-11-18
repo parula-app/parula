@@ -12,7 +12,7 @@ import { ImapFlow } from 'imapflow';
 import { Database, type Query } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
 import Zip from "adm-zip";
 import ky from 'ky';
-import { shell, nativeTheme, Notification, Tray, nativeImage, app, BrowserWindow, webContents, Menu, MenuItemConstructorOptions, clipboard, NativeImage, session, desktopCapturer, type DesktopCapturerSource, autoUpdater, systemPreferences, powerMonitor } from "electron";
+import { shell, nativeTheme, Notification, Tray, nativeImage, app, BrowserWindow, webContents, Menu, MenuItemConstructorOptions, clipboard, NativeImage, session, desktopCapturer, type DesktopCapturerSource, autoUpdater, systemPreferences, powerMonitor, safeStorage } from "electron";
 import electronUpdater, { type UpdateCheckResult } from 'electron-updater';
 import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer';
@@ -72,6 +72,8 @@ async function createSharedAppObject() {
     addEventListenerWebContents,
     getWebContents,
     writeTextToClipboard,
+    encryptWithOS,
+    decryptWithOS,
     openExternalURL,
     openFileInNativeApp,
     showFileInFolder,
@@ -756,6 +758,25 @@ function getWebContents(webContentsID: number) {
  */
 function writeTextToClipboard(text: string) {
   clipboard.writeText(text);
+}
+
+/**
+ * Encrypts with a key that the OS keeps for our user:
+ * Keychain on macOS, DPAPI on Windows, Secret Service or KWallet on Linux.
+ * @returns base64, or null, if the OS has no key store for us,
+ *   e.g. Linux without a keyring. Then Electron would only have a hard-coded key.
+ */
+function encryptWithOS(plainText: string): string | null {
+  if (!safeStorage.isEncryptionAvailable()) {
+    return null;
+  }
+  return safeStorage.encryptString(plainText).toString("base64");
+}
+
+/** @param encrypted from `encryptWithOS()`
+ * @throws when the OS lost the key, e.g. on another computer */
+function decryptWithOS(encrypted: string): string {
+  return safeStorage.decryptString(Buffer.from(encrypted, "base64"));
 }
 
 function setBadgeCount(count: number) {

@@ -1,9 +1,15 @@
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
-import { passwordEncrypt, passwordDecrypt } from "./passwordEncrypt";
+import { passwordEncrypt, passwordDecrypt, passwordEncryptAgain } from "./passwordEncrypt";
 
 export async function getPassword(account: string): Promise<string | null> {
   let encrypted = sanitize.string(localStorage.getItem(getKey(account)), null);
-  return await passwordDecrypt(encrypted);
+  let password = await passwordDecrypt(encrypted);
+  // Older versions only obfuscated the password
+  let encryptedAgain = await passwordEncryptAgain(encrypted, password);
+  if (encryptedAgain) {
+    localStorage.setItem(getKey(account), encryptedAgain);
+  }
+  return password;
 }
 
 export async function setPassword(account: string, password: string | null): Promise<void> {

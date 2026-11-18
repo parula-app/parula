@@ -1,6 +1,6 @@
 import type { Account } from "../../../Abstract/Account";
 import { getDatabase } from "./SQLDatabase";
-import { passwordDecrypt, passwordEncrypt } from "../../../Auth/passwordEncrypt";
+import { passwordDecrypt, passwordEncrypt, passwordEncryptAgain } from "../../../Auth/passwordEncrypt";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../../util/util";
 import sql from "../../../../../lib/rs-sqlite";
@@ -55,6 +55,15 @@ export class SQLAccount {
     json.id = row.idStr;
     acc.fromConfigJSON(json);
     acc.password = await passwordDecrypt(json.passwordEncrypted);
+    // Older versions only obfuscated the password
+    let encryptedAgain = await passwordEncryptAgain(json.passwordEncrypted, acc.password);
+    if (encryptedAgain) {
+      await (await getDatabase()).run(sql`
+        UPDATE account SET
+          json = json_set(json, '$.passwordEncrypted', ${encryptedAgain})
+        WHERE idStr = ${row.idStr}
+        `);
+    }
     acc._mainAccountID = sanitize.alphanumdash(row.mainAccountIDStr, null);
     return acc;
   }
