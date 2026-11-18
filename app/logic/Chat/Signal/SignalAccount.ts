@@ -28,7 +28,7 @@ import { KyberPreKeyBundle, signKyberPreKey } from "./Encryption/pqxdh";
 import { SignalSessions } from "./Encryption/SignalSession";
 import { padContent, unpadContent } from "./Proto/contentPadding";
 import { sealedSenderDecrypt, CiphertextType } from "./Encryption/SealedSender";
-import { kSignalTrustRoot } from "./Encryption/trustRoot";
+import { kSignalTrustRoots } from "./Encryption/trustRoot";
 import { deriveStorageKey, deriveMasterKeyFromAEP } from "./Encryption/StorageCipher";
 import { SignalStorageService } from "./Profile/StorageService";
 import { SignalProfile } from "./Profile/Profile";
@@ -533,7 +533,12 @@ export class SignalAccount extends ChatAccount {
     // A SyncMessage is sent BY our own account from another device (the sender is us);
     // route on the sync payload — a Sent transcript goes to the DESTINATION's room.
     if (content.syncMessage) {
-      await this.handleSyncMessage(content.syncMessage);
+      // Like the Signal apps, only from our own account. Otherwise, anybody could add messages in our name to any chat.
+      if (senderId.equals(this.aci)) {
+        await this.handleSyncMessage(content.syncMessage);
+      } else {
+        console.warn(`Signal: ignored a sync message from ${senderId.toString()}, which is not our own account`);
+      }
       await this.save(); // decrypting advanced the ratchet
       return;
     }
@@ -731,11 +736,24 @@ export class SignalAccount extends ChatAccount {
     if (!this.aciStore || !this.kyberLastResort) {
       throw new Error("Signal account not set up (no store / kyber prekey)");
     }
+    // All sessions are set up through here, so this is where we watch identity keys
+    this.aciStore.identityPerAccount = true;
+    this.aciStore.onIdentityChange = serviceId => {
+      this.identityChanged(serviceId)
+        .catch(this.errorCallback);
+    };
     this.sessions = this.sessionsJSON
       ? SignalSessions.fromJSON(this.sessionsJSON, this.aciStore, this.kyberLastResort.keyPair)
       : new SignalSessions(this.aciStore, this.kyberLastResort.keyPair);
     this.sessionsJSON = null;
     return this.sessions;
+  }
+
+  /** A contact has a new identity key (see `SignalStore.saveIdentity`): tell the user
+   * in their chat, like Signal's "safety number changed". */
+  protected async identityChanged(serviceId: string): Promise<void> {
+    let room = await this.getOrCreateRoom(ServiceId.parse(serviceId));
+    await room.addIdentityChange();
   }
 
   /** The peer-device address the store/session layer key on: `"<serviceId>.<deviceId>"`. */
@@ -792,7 +810,7 @@ export class SignalAccount extends ChatAccount {
       }
       let result;
       try {
-        result = sealedSenderDecrypt(envelope.content, this.aciStore.identityKeyPair, kSignalTrustRoot, BigInt(Date.now()));
+        result = sealedSenderDecrypt(envelope.content, this.aciStore.identityKeyPair, kSignalTrustRoots, BigInt(Date.now()));
       } catch (ex) {
         console.warn("Signal: sealed-sender unwrap FAILED:", (ex as any)?.message ?? ex);
         throw ex;

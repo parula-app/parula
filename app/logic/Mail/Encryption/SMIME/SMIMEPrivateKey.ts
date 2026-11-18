@@ -290,16 +290,16 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     return key;
   }
 
-  toJSON() {
-    let json = super.toJSON();
+  toPrivateJSON() {
+    let json = this.toJSON();
     json.privateKeyArmored = this.privateKeyArmored;
     json.useToSign = this.useToSign;
     json.didBackup = this.didBackup;
     json.passphrase = this.passphrase;
     return json;
   }
-  fromJSON(json: any) {
-    super.fromJSON(json);
+  fromPrivateJSON(json: any) {
+    this.fromJSON(json);
     this.privateKeyArmored = sanitize.nonemptystring(json.privateKeyArmored, null);
     this.useToSign = sanitize.boolean(json.useToSign, null);
     this.didBackup = sanitize.boolean(json.didBackup, null);

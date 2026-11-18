@@ -30,6 +30,20 @@ export function base64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
+/** Encodes as base64. */
+export function uint8ArrayToBase64(bytes: Uint8Array): string {
+  if (bytes.toBase64) {
+    return bytes.toBase64();
+  }
+  // Fallback: node doesn't have it yet, unlike Electron
+  // Chunks, because spreading a large array into `String.fromCharCode()` overflows the call stack
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
 export function uint8ArrayToHex(bytes: Uint8Array): string {
   return bytes.toHex?.() ?? Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
 }

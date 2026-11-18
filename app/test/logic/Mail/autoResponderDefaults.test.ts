@@ -47,3 +47,13 @@ test("The next default time range has the times of day of the last saved one", (
   expect(timeOfDay(next.endTime)).toBe("8:00");
   expect(dayOffset(next.endTime)).toBe(1);
 });
+
+test("A new start time moves the end time, so that the time range keeps its length", () => {
+  let autoResponder = new AutoResponder(new MailAccount());
+  autoResponder.startTime = new Date(2026, 6, 1, 17, 0);
+  autoResponder.endTime = new Date(2026, 6, 15, 8, 0);
+  let length = autoResponder.endTime.getTime() - autoResponder.startTime.getTime();
+  autoResponder.setStartTime(new Date(2026, 7, 3, 9, 30));
+  expect(autoResponder.startTime.getTime()).toBe(new Date(2026, 7, 3, 9, 30).getTime());
+  expect(autoResponder.endTime.getTime() - autoResponder.startTime.getTime()).toBe(length);
+});

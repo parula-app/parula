@@ -661,9 +661,10 @@ export class EMail extends Message {
   }
 
   /** The user allowed images from the Internet in all mails from the sender.
-   * Not for junk, because spammers forge the sender address. */
+   * Not for junk, because spammers forge the sender address.
+   * Not for encrypted mails, which an attacker can change to load an image with the decrypted text in its URL (EFAIL). */
   loadExternalImagesFromSender(): boolean {
-    if (this.isSpam || this.folder?.specialFolder == SpecialFolder.Spam) {
+    if (this.isSpam || this.folder?.specialFolder == SpecialFolder.Spam || this.wasEncrypted) {
       return false;
     }
     return sanitize.array(getUserPreference("mail.externalImages.senders", []), []).includes(this.from.emailAddress?.toLowerCase());
@@ -676,10 +677,11 @@ export class EMail extends Message {
     if (!emailAddress || emailAddress == kDummyPerson.emailAddress) {
       return;
     }
-    if (allow == this.loadExternalImagesFromSender()) {
+    let senders = sanitize.array(getUserPreference("mail.externalImages.senders", []), []);
+    if (allow == senders.includes(emailAddress)) { // not `loadExternalImagesFromSender()`, which is false for junk and encrypted mails
       return;
     }
-    let otherSenders = sanitize.array(getUserPreference("mail.externalImages.senders", []), []).filter(sender => sender != emailAddress);
+    let otherSenders = senders.filter(sender => sender != emailAddress);
     setUserPreference("mail.externalImages.senders", allow ? [...otherSenders, emailAddress] : otherSenders);
   }
 
