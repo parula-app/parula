@@ -31,14 +31,6 @@ export class ActiveSyncEMail extends ExchangeEMail {
     this.pID = val;
   }
 
-  async download() {
-    await this.downloadRunOnce.runOnce(async () => {
-      this.mime = await this.downloadMIME();
-      await this.parseMIME();
-      await this.saveCompleteMessage();
-    });
-  }
-
   async downloadMIME(): Promise<Uint8Array> {
     let request = {
       Fetch: {

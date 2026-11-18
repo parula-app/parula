@@ -27,14 +27,6 @@ export class OWAEMail extends ExchangeEMail {
     this.pID = val;
   }
 
-  async download() {
-    await this.downloadRunOnce.runOnce(async () => {
-      this.mime = await this.downloadMIME();
-      await this.parseMIME();
-      await this.saveCompleteMessage();
-    });
-  }
-
   async downloadMIME(): Promise<Uint8Array> {
     let result = await this.folder.account.callOWA(owaDownloadMsgsRequest([ this ]));
     let mimeBase64 = sanitize.nonemptystring(result.Items[0].MimeContent.Value);

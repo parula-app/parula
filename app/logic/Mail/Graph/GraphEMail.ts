@@ -157,14 +157,6 @@ export class GraphEMail extends EMail {
     return e;
   }
 
-  async download() {
-    await this.downloadRunOnce.runOnce(async () => {
-      this.mime = await this.downloadMIME();
-      await this.parseMIME();
-      await this.saveCompleteMessage();
-    });
-  }
-
   async downloadMIME(): Promise<Uint8Array> {
     let account = this.folder.account;
     let mime = await account.graphCall(`${this.path}/$value`, { method: "get", result: "text" }) as string;

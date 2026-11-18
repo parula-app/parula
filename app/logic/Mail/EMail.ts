@@ -685,8 +685,11 @@ export class EMail extends Message {
 
   readonly downloadRunOnce = new RunOnce<void>();
   async download() {
-    throw new AbstractFunction();
-    //this.mime = await SMTPAccount.getMIME(this);
+    await this.downloadRunOnce.runOnce(async () => {
+      this.mime = await this.downloadMIME();
+      await this.parseMIME();
+      await this.saveCompleteMessage();
+    });
   }
 
   /** @returns The MIME source as it is on the server, i.e. still encrypted, without parsing or saving it */
