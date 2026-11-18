@@ -3,9 +3,9 @@ import { minorError } from "../util/error";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { encrypt, decrypt } from 'password-salt';
 
-// Only obfuscates: the lib derives the key from this and the salt, which it stores with the password.
 // Only for passwords from older versions, and where the OS has no key store for us.
-const secret = 'anything';
+const secret = 'anything'; // Lib adds a 32-byte salt, which acts as password
+// 32^256 values should be sufficient against rainbow tables
 const kOSPrefix = "os:"; // encrypted by the OS key store, @see `encryptWithOS()` in the backend
 
 export async function passwordDecrypt(encrypted: string | null | undefined): Promise<string | null> {
