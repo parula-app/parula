@@ -28,10 +28,10 @@
       <BackstageTile icon={AutomaticRepliesIcon} label={$t`Automatic Replies`}
         title={$t`Automatic Replies (Out of Office)`}
         description={$t`Use automatic replies to notify others that you are out of office, on vacation, or not available to respond to email messages`}
-        highlight={isReplyingNow($autoResponder)}
+        highlight={$autoResponder.isReplyingNow()}
         onClick={() => { isAutomaticRepliesOpen = true; }}>
         <svelte:fragment slot="details">
-          {#if isReplyingNow($autoResponder)}
+          {#if $autoResponder.isReplyingNow()}
             <hbox>{$t`Automatic replies are being sent for this account`}</hbox>
           {/if}
         </svelte:fragment>
@@ -57,7 +57,6 @@
   import { goTo } from "../../../frontend/AppsBar/selectedApp";
   import { selectedAccount } from "../../../frontend/Mail/Selected";
   import { catchErrors } from "../../../frontend/Util/error";
-  import { loadAutomaticReplies, isReplyingNow } from "../../Mail/AutomaticReplies/AutomaticReplies";
   import BackstageTile from "./BackstageTile.svelte";
   import InfoAccountRow from "./InfoAccountRow.svelte";
   import AutomaticRepliesDialog from "../../Mail/AutomaticReplies/AutomaticRepliesDialog.svelte";
@@ -80,7 +79,7 @@
   $: autoResponder = $account?.autoResponder;
   $: isLoggedIn = $account?.isLoggedIn;
   $: if (isLoggedIn) {
-    loadAutomaticReplies(account)
+    autoResponder.loadForStatus()
       .catch(console.error);
   }
 

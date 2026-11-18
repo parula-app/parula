@@ -44,6 +44,8 @@ export class AutoResponder extends Observable {
    * Only EWS reports it. OWA, Graph and ActiveSync don't. */
   @notifyChangedProperty
   maxAudience = AutoResponderAudience.All;
+  /** `loadForStatus()` loaded it or is loading it */
+  protected isLoaded = false;
 
   constructor(account: MailAccount) {
     super();
@@ -78,6 +80,27 @@ export class AutoResponder extends Observable {
   /** Writes these settings to the server */
   async save(): Promise<void> {
     throw new AbstractFunction();
+  }
+
+  /** For showing whether the replies are on, e.g. in the mail window.
+   * Only once, not on every account switch, and only when logged in, so that it doesn't ask for a login. */
+  async loadForStatus(): Promise<void> {
+    if (this.isLoaded || !this.account.isLoggedIn || !this.supported) {
+      return;
+    }
+    this.isLoaded = true; // also while it loads
+    try {
+      await this.load();
+    } catch (ex) {
+      this.isLoaded = false;
+      throw ex;
+    }
+  }
+
+  /** The server replies to mail that arrives now */
+  isReplyingNow(now = new Date()): boolean {
+    return this.isOn && (!this.scheduled ||
+      this.startTime.getTime() <= now.getTime() && now.getTime() < this.endTime.getTime());
   }
 
   /** For the default time range of the next automatic replies. Call after `save()`. */

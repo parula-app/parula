@@ -190,7 +190,7 @@
     await autoResponder.save();
     isChanged = false;
     autoResponder.rememberTimes();
-    await account.autoResponder.load(); // for Lookout's info bar and File > Info
+    await account.autoResponder.load(); // for the bar in the mail window and Lookout's File > Info
   }
 </script>
 
