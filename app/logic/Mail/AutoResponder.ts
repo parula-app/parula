@@ -1,6 +1,6 @@
 import type { MailAccount } from "./MailAccount";
 import { notifyChangedProperty, Observable } from "../util/Observable";
-import { AbstractFunction, assert } from "../util/util";
+import { AbstractFunction, assert, getUserPreference, setUserPreference } from "../util/util";
 import { gt } from "../../l10n/l10n";
 
 /** Automatic replies to incoming mail, e.g. during vacation.
@@ -44,11 +44,12 @@ export class AutoResponder extends Observable {
   constructor(account: MailAccount) {
     super();
     this.account = account;
-    // Default start value. Like Outlook: From the next full hour, for 1 day
+    // Default: From today until tomorrow, at the times of day of the last saved time range, else 0:00 to 23:00
     this.startTime = new Date();
-    this.startTime.setHours(this.startTime.getHours() + 1, 0, 0, 0);
-    this.endTime = new Date(this.startTime);
+    this.startTime.setHours(0, getUserPreference("mail.autoResponder.startMinutes", 0), 0, 0);
+    this.endTime = new Date();
     this.endTime.setDate(this.endTime.getDate() + 1);
+    this.endTime.setHours(0, getUserPreference("mail.autoResponder.endMinutes", 23 * 60), 0, 0);
   }
 
   get supported(): boolean {
@@ -73,6 +74,14 @@ export class AutoResponder extends Observable {
   /** Writes these settings to the server */
   async save(): Promise<void> {
     throw new AbstractFunction();
+  }
+
+  /** For the default time range of the next automatic replies. Call after `save()`. */
+  rememberTimes() {
+    if (this.isOn && this.scheduled) {
+      setUserPreference("mail.autoResponder.startMinutes", this.startTime.getHours() * 60 + this.startTime.getMinutes());
+      setUserPreference("mail.autoResponder.endMinutes", this.endTime.getHours() * 60 + this.endTime.getMinutes());
+    }
   }
 
   protected validate() {
