@@ -6,6 +6,7 @@ import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPriva
 import { MailAccount } from "../../../../../logic/Mail/MailAccount";
 import { Folder } from "../../../../../logic/Mail/Folder";
 import type { EMail } from "../../../../../logic/Mail/EMail";
+import type { Collection } from "svelte-collections";
 import { expect, test } from "vitest";
 
 test("An encrypted message that is not for us tells the user why it stays empty", async () => {
@@ -44,8 +45,8 @@ test("Opening an encrypted message for another key than ours shows the error ins
   expect(email.html).toMatch(/decrypt/i);
 });
 
-test("Copying an encrypted message to another account uploads it still encrypted, and keeps our decrypted copy", async () => {
-  let { folder } = await setupTestFolder();
+/** A PGP mail encrypted to us, decrypted, with its original source on the server */
+async function decryptedMail(folder: Folder): Promise<{ email: EMail, original: Uint8Array }> {
   let identity = new MailIdentity(folder.account);
   identity.emailAddress = "user@example.com";
   identity.realname = "User";
@@ -76,18 +77,45 @@ test("Copying an encrypted message to another account uploads it still encrypted
   email.downloadMIME = async () => original; // the server
   await email.parseMIME();
   expect(email.text.trim()).toBe("The secret body");
+  return { email, original };
+}
 
-  let uploaded: Uint8Array;
+test("Copying an encrypted message to another account uploads it still encrypted, and keeps our decrypted copy", async () => {
+  let { folder } = await setupTestFolder();
+  let { email } = await decryptedMail(folder);
+
+  let uploaded: EMail;
   let otherAccount = new Folder(new MailAccount());
   otherAccount.addMessage = async (message: EMail) => {
-    uploaded = message.mime;
+    uploaded = message;
   };
   await otherAccount.copyMessageHere(email);
 
-  let uploadedText = new TextDecoder().decode(uploaded);
+  let uploadedText = new TextDecoder().decode(uploaded.mime);
   expect(uploadedText).toContain("BEGIN PGP MESSAGE");
   expect(uploadedText).not.toContain("secret body");
+  expect(uploaded.text).not.toContain("secret body"); // e.g. for a protocol that uploads the properties
   expect(new TextDecoder().decode(email.mime)).toContain("secret body");
+  expect(email.text).toContain("secret body");
+});
+
+test("Copying an encrypted message on the same server gives the server only the encrypted original", async () => {
+  let { folder } = await setupTestFolder();
+  let { email, original } = await decryptedMail(folder);
+  email.pID = 1234;
+
+  let onServer: EMail;
+  let sameAccount = new Folder(folder.account);
+  // As a protocol that uploads the message for a copy on the server
+  (sameAccount as any).moveOrCopyMessagesOnServer = async (action: string, messages: Collection<EMail>) => {
+    onServer = messages.first;
+  };
+  await sameAccount.copyMessageHere(email);
+
+  expect(onServer.pID).toBe(email.pID);
+  expect(onServer.mime).toEqual(original);
+  expect(onServer.text).not.toContain("secret body");
+  expect(onServer.attachments.isEmpty).toBe(true);
   expect(email.text).toContain("secret body");
 });
 

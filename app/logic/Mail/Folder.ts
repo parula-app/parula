@@ -208,18 +208,27 @@ export class Folder extends Observable {
       if (action == "move") {
         sourceFolder.messages.removeAll(messages);
       }
-      if (!sameServer) {
-        for (let message of messages) {
-          let upload = message;
-          if (message.wasEncrypted) {
-            // Our local copy is decrypted. Upload the original from the server, which is still encrypted.
-            // As a clone, so that the source keeps the decrypted mail, e.g. in case the user loses the key.
-            upload = message.folder.newEMail();
-            upload.copyFrom(message);
-            upload.mime = await message.downloadMIME();
+      let uploads = messages.contents;
+      if (messages.some(message => message.wasEncrypted)) {
+        // Our decrypted copy must never go to a server, also not if a protocol uploads for a move or copy on the same server.
+        // So the server gets only clones with the encrypted original. The source keeps the decrypted mail, e.g. in case the user loses the key.
+        uploads = await Promise.all(messages.contents.map(async message => {
+          if (!message.wasEncrypted) {
+            return message;
           }
-          await upload.loadMIME();
-          await this.addMessage(upload);
+          let upload = message.folder.newEMail();
+          upload.copyFrom(message);
+          upload.pID = message.pID; // for the protocols, e.g. the IMAP UID
+          upload.text = ""; // without the decrypted text, HTML and attachments
+          upload.attachments.clear();
+          upload.mime = await message.downloadMIME();
+          return upload;
+        }));
+      }
+      if (!sameServer) {
+        for (let [i, message] of messages.contents.entries()) {
+          await uploads[i].loadMIME();
+          await this.addMessage(uploads[i]);
           if (action == "move") {
             await message.deleteMessage();
           }
@@ -229,7 +238,7 @@ export class Folder extends Observable {
 
       this.countTotal += messages.length;
 
-      await this.moveOrCopyMessagesOnServer(action, messages);
+      await this.moveOrCopyMessagesOnServer(action, new ArrayColl(uploads));
 
       if (action == "move") {
         sourceFolder.countTotal -= messages.length;
