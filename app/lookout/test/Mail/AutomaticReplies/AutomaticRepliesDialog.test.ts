@@ -20,7 +20,7 @@ class TestAutoResponder extends AutoResponder {
   get supported() {
     return true;
   }
-  get supportsExternal() {
+  get supportsInternal() {
     return true;
   }
   get supportsContacts() {
@@ -237,7 +237,7 @@ test("Copy the message up to inside the organization", async () => {
 
 /** E.g. JMAP */
 class OneMessageResponder extends TestAutoResponder {
-  get supportsExternal() {
+  get supportsInternal() {
     return false;
   }
   get supportsContacts() {

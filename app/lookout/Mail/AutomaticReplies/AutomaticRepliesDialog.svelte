@@ -39,7 +39,7 @@
         </hbox>
       </FormGrid>
     </vbox>
-    {#if autoResponder.supportsExternal}
+    {#if autoResponder.supportsInternal}
       <vbox class="message" class:disabled={!$autoResponder.isOn}>
         <hbox class="header">{$t`Inside My Organization`}</hbox>
         <EditorToolbar editor={internalEditor} disabled={!$autoResponder.isOn} />
@@ -57,8 +57,8 @@
       </vbox>
     {/if}
     <vbox class="message" class:disabled={!isOutsideOn}>
-      <hbox class="header">{autoResponder.supportsExternal ? $t`Outside My Organization` : $t`Automatic reply`}</hbox>
-      {#if autoResponder.supportsExternal}
+      <hbox class="header">{autoResponder.supportsInternal ? $t`Outside My Organization` : $t`Automatic reply`}</hbox>
+      {#if autoResponder.supportsInternal}
         <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.None} disabled={!$autoResponder.isOn}
           label={$t`Auto-reply to people outside my organization`}
           on:change={ev => { autoResponder.externalAudience = ev.detail ? AutoResponderAudience.All : AutoResponderAudience.None; }} />
