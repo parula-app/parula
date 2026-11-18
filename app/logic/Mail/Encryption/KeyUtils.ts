@@ -80,10 +80,7 @@ export function getPublicKeyForPerson<T extends PublicKey>(person: Person, keyTy
   if (!person || person.encryptionPublicKeys.isEmpty) {
     return null;
   }
-  let keys = person.encryptionPublicKeys.filterOnce(key => isUsableKey(key, keyType));
-  // The most trusted key, because anybody can send a key in the AutoCrypt header of a mail
-  let mostTrusted = Math.max(...keys.contents.map(key => trustOrder(key.trustLevel)));
-  keys = keys.filterOnce(key => trustOrder(key.trustLevel) == mostTrusted);
+  let keys = person.encryptionPublicKeys.filterOnce(key => isUsableKey(key, keyType) && mayUseKeyOf(person, key));
   return (keys.find(key => key.encryptByDefault) ?? keys.first) as T;
 }
 
@@ -91,12 +88,22 @@ export function getPublicKeyForPerson<T extends PublicKey>(person: Person, keyTy
  * Also considers the key that we know only for this email address, e.g. the
  * certificate with which the recipient signed the email that we are replying to. */
 export function getPublicKeyForPersonUID<T extends PublicKey>(uid: PersonUID, keyType?: new () => T): T | null {
-  let saved = getPublicKeyForPerson(uid?.findPerson(), keyType);
+  let person = uid?.findPerson();
+  let saved = getPublicKeyForPerson(person, keyType);
   if (saved) {
     return saved;
   }
   let known = uid?.encryptionPublicKey;
-  return isUsableKey(known, keyType) ? known : null;
+  return isUsableKey(known, keyType) && (!person || mayUseKeyOf(person, known)) ? known : null;
+}
+
+/** Whether we may use this key of the contact, to encrypt to them, or to verify
+ * their signature: only if no valid key of the contact is trusted more, also not
+ * one of the other encryption system. Anybody can send a key in the AutoCrypt
+ * header of a mail with the contact's address, and a key that the user confirmed
+ * is better than one that a CA confirmed. */
+export function mayUseKeyOf(person: Person, key: PublicKey): boolean {
+  return !person.encryptionPublicKeys.some(other => !other.obsolete && trustOrder(other.trustLevel) > trustOrder(key.trustLevel));
 }
 
 export function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {
