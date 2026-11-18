@@ -133,6 +133,8 @@
   export let account: MailAccount;
   /** out */
   export let isLoaded = false;
+  /** out: The user changed something since `load()` or `save()` */
+  export let isChanged = false;
 
   /** What the user edits. `save()` writes it to the server. */
   let autoResponder: AutoResponder;
@@ -155,6 +157,8 @@
     loadError = null;
     try {
       await autoResponder.load();
+      autoResponder.subscribe(() => { isChanged = true; });
+      isChanged = false; // `subscribe()` calls at once
     } catch (ex) {
       if (forAccount == account) {
         loadError = ex;
@@ -173,6 +177,7 @@
 
   export async function save() {
     await autoResponder.save();
+    isChanged = false;
     autoResponder.rememberTimes();
     await account.autoResponder.load(); // for Lookout's info bar and File > Info
   }

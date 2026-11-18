@@ -100,3 +100,36 @@ test("Save drops the alternative signatures that the user left empty", async () 
   expect(identity.altSignatures.contents).toEqual(["<p>Fred, CTO</p>", "<p>Fred, Treasurer</p>"]);
   expect(identity.toConfigJSON().altSignatures).not.toContain("<p></p>");
 });
+
+async function mountPage() {
+  let target = document.createElement("div");
+  document.body.append(target);
+  app = mount(Identity, { target, props: { account: identity.account } });
+  flushSync();
+  await vi.waitFor(() => expect(document.querySelectorAll(".signature [contenteditable]").length).toBeGreaterThan(0));
+}
+
+test("Leaving the page saves the changes, also without Save", async () => {
+  await mountPage();
+  let save = vi.spyOn(identity.account, "save");
+  let realname = document.querySelector<HTMLInputElement>("input[name=realname]");
+  realname.value = "Fred Flintstone";
+  realname.dispatchEvent(new Event("input"));
+  flushSync();
+
+  unmount(app);
+  app = null;
+  await vi.waitFor(() => expect(save).toHaveBeenCalled());
+  expect(identity.realname).toBe("Fred Flintstone");
+  expect(identity.account.realname).toBe("Fred Flintstone");
+});
+
+test("Leaving the page without changes doesn't save", async () => {
+  await mountPage();
+  let save = vi.spyOn(identity.account, "save");
+
+  unmount(app);
+  app = null;
+  await sleep(0);
+  expect(save).not.toHaveBeenCalled();
+});

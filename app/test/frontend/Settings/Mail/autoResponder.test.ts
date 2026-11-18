@@ -210,6 +210,26 @@ test("Copy the message up to inside the organization", async () => {
   expect(server.internalHTML).toContain("Away");
 });
 
+test("Leaving the page saves the changes, also without Save", async () => {
+  let account = await showPage();
+  await account.autoResponder.load();
+
+  await click(radio("Do not send automatic replies"));
+  unmount(app);
+  await settle();
+  expect(server.isOn).toBe(false);
+  expect(account.autoResponder.isOn).toBe(false);
+});
+
+test("Leaving the page without changes doesn't save", async () => {
+  await showPage();
+  let save = vi.spyOn(TestAutoResponder.prototype, "save");
+
+  unmount(app);
+  await settle();
+  expect(save).not.toHaveBeenCalled();
+});
+
 /** E.g. JMAP */
 class OneMessageResponder extends TestAutoResponder {
   get supportsInternal() {
