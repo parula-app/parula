@@ -24,7 +24,7 @@
         : $t`Add and remove accounts or change existing connection settings`}
       onClick={() => account ? openAccountSettings(account) : openOptions("mail")} />
 
-    {#if $account?.autoResponder.supported}
+    {#if account?.autoResponder.supported}
       <BackstageTile icon={AutomaticRepliesIcon} label={$t`Automatic Replies`}
         title={$t`Automatic Replies (Out of Office)`}
         description={$t`Use automatic replies to notify others that you are out of office, on vacation, or not available to respond to email messages`}
@@ -77,7 +77,7 @@
       : $emailAccounts.first;
 
   let isAutomaticRepliesOpen = false;
-  $: autoResponder = $account?.autoResponder;
+  $: autoResponder = account?.autoResponder;
   $: isLoggedIn = $account?.isLoggedIn;
   $: if (isLoggedIn) {
     loadAutomaticReplies(account)
