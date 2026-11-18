@@ -1298,6 +1298,8 @@ export class JMAPAccount extends MailAccount {
   }
 
   newAutoResponder(): JMAPAutoResponder {
-    return this.isStalwart ? new StalwartAutoResponder(this) : new JMAPAutoResponder(this);
+    return this.isStalwart
+      ? new StalwartAutoResponder(this)
+      : new JMAPAutoResponder(this);
   }
 }
