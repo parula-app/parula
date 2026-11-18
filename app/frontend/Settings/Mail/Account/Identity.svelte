@@ -31,6 +31,7 @@
 
 <script lang="ts">
   import type { MailAccount } from "../../../../logic/Mail/MailAccount";
+  import { MailBody } from "../../../../logic/Mail/MailBody";
   import IdentityBlock from "./IdentityBlock.svelte";
   import PageHeader from "../../Shared/PageHeader.svelte";
   import RoundButton from "../../../Shared/RoundButton.svelte";
@@ -60,6 +61,8 @@
     assert(identities.hasItems, $t`Need at least 1 identity`);
     for (let identity of identities) {
       sanitize.emailAddress(identity.emailAddress.replace("*", "any"));
+      // Alternative signatures that the user added, but left empty
+      identity.altSignatures.removeAll(identity.altSignatures.contents.filter(signatureHTML => new MailBody(signatureHTML).isEmpty));
     }
     account.emailAddress = identities.first.emailAddress;
     account.realname = identities.first.realname;

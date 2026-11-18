@@ -16,6 +16,7 @@ export class PGPPrivateKey extends PGPPublicKey implements PrivateKey {
   passphrase: string;
   //revocationCertificate: string;
   protected _openPGPPrivateKey: OpenPGP.PrivateKey | null = null; // cache only
+  protected _publicKey: PGPPublicKey | null = null; // cache only
 
   /** User wishes to sign all outgoing emails */
   @notifyChangedProperty
@@ -46,6 +47,11 @@ export class PGPPrivateKey extends PGPPublicKey implements PrivateKey {
       key = await openPGP.decryptKey({ privateKey: key, passphrase: this.passphrase });
     }
     return key;
+  }
+
+  /** The public key of this key pair, without the secret key */
+  async publicKey(): Promise<PGPPublicKey> {
+    return this._publicKey ??= await PGPPublicKey.importPublicKey(this.publicKeyArmored);
   }
 
   privateKeyAsFile(): File {

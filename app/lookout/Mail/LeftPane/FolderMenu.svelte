@@ -52,10 +52,7 @@
   import { SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
   import { FolderTreeActions } from "./FolderTreeActions";
   import { MessageActions } from "../MessageActions";
-  import { openFolderProperties } from "../FolderProperties.svelte";
-  import { openNewFolder } from "./NewFolderDialog.svelte";
-  import { openMoveFolder } from "./MoveFolderDialog.svelte";
-  import { openCustomizeSearchFolder } from "../Search/CustomizeSearchFolderDialog.svelte";
+  import { openFolderProperties, openNewFolder, openMoveFolder, openCustomizeSearchFolder, renamingFolder } from "../Selected";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
   import NewFolderIcon from "lucide-svelte/icons/folder-plus";
@@ -69,7 +66,6 @@
   import PropertiesIcon from "lucide-svelte/icons/folder-cog";
   import CustomizeIcon from "lucide-svelte/icons/folder-search";
   import ConnectIcon from "lucide-svelte/icons/plug";
-  import { renamingFolder } from "./FolderLine.svelte";
   import { t } from "../../../l10n/l10n";
 
   export let folder: Folder;

@@ -5,6 +5,7 @@ import type { EMail } from "../EMail";
 import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShareIndividualPermissions } from "../Folder";
 import { OWAFolder } from "./OWAFolder";
 import { OWASearchEMail } from "./OWASearchEMail";
+import { OWAAutoResponder } from "./OWAAutoResponder";
 import { OWAError } from "./OWAError";
 import type { OWANotifications } from "./Notification/OWANotifications";
 import { OWAExchangeNotifications } from "./Notification/OWAExchangeNotifications";
@@ -21,6 +22,7 @@ import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
 import { OWASubscribeToHierarchyNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
 import { owaCreateNewTopLevelFolderRequest, owaFindFoldersRequest, owaSharedFolderRequest } from "./Request/OWAFolderRequests";
 import { OWACalendarShortcut } from "../../Calendar/OWA/OWACalendarShortcut";
+import { EWSCalendarShortcut } from "../../Calendar/EWS/EWSCalendarShortcut";
 import { OWALoginBackground } from "./Login/OWALoginBackground";
 import { deleteExchangePermissions, setExchangePermissions } from "../EWS/ExchangePermission";
 import type { PersonUID } from "../../Abstract/PersonUID";
@@ -78,6 +80,10 @@ export class OWAAccount extends ExchangeMailAccount {
 
   newSearch(): OWASearchEMail {
     return new OWASearchEMail();
+  }
+
+  newAutoResponder(): OWAAutoResponder {
+    return new OWAAutoResponder(this);
   }
 
   /**
@@ -478,7 +484,7 @@ export class OWAAccount extends ExchangeMailAccount {
     if (this.isThrottleError(result)) {
       return await this.callOWAShared(url, options);
     }
-    if (result.MessageText) {
+    if (result.MessageText || result.WasSuccessful === false) {
       this.throttle.waitForSecond(1);
       throw new OWAError(response);
     }
@@ -781,8 +787,16 @@ export class OWAAccount extends ExchangeMailAccount {
     if (this.mainAccount) {
       throw new NotReached();
     }
-    let result = await this.callOWA(owaSharedFolderRequest(distinguishedIDs, person.emailAddress));
-    return result.ResponseMessages.Items.filter(folder => folder.ResponseClass == "Success").map(folder => folder.Folders[0].DistinguishedFolderId);
+    try {
+      let result = await this.callOWA(owaSharedFolderRequest(distinguishedIDs, person.emailAddress));
+      let responses = result.ResponseMessages ? result.ResponseMessages.Items : [result];
+      return responses.filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(folder.Folders[0].DistinguishedFolderId));
+    } catch (ex) {
+      if (EWSCalendarShortcut.isStaleError(ex)) { // `callOWA()` throws the error of a single folder
+        return [];
+      }
+      throw ex;
+    }
   }
 
   /**

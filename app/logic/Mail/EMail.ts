@@ -7,7 +7,7 @@ import { DeleteStrategy, type MailAccountStorage } from "./MailAccount";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../Abstract/PersonUID";
 import type { MailIdentity } from "./MailIdentity";
 import { RawFilesAttachment } from "./Store/RawFilesAttachment";
-import { EMailProcessorList, ProcessingStartOn } from "./EMailProcessor";
+import { EMailProcessorList, ProcessingStartOn, CannotReadMail } from "./EMailProcessor";
 import type { ExtraData } from "./ExtraData";
 import type { SMLData } from "./SML/SMLData";
 import type { PublicKey } from "./Encryption/PublicKey";
@@ -17,6 +17,7 @@ import { FilterMoment } from "./FilterRules/FilterMoments";
 import type { EncryptionSystem } from "./Encryption/enums";
 import { fileExtensionForMIMEType, assert, AbstractFunction, getUserPreference, setUserPreference } from "../util/util";
 import { blobToDataURL } from "../util/blob";
+import { convertTextToHTML } from "../util/convertHTML";
 import { isMobile, webMail } from "../build";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { PromiseAllDone } from "../util/flow/PromiseAllDone";
@@ -448,7 +449,7 @@ export class EMail extends Message {
     const kMaxLayers = 10;
     let isOutermost = !this.processorLoop;
     this.processorLoop ??= new LoopGuard(kMaxLayers, () => {
-      throw new Error("Too many nested encryption or signature layers");
+      throw new CannotReadMail(null, "Too many nested encryption or signature layers");
     });
     try {
       this.processorLoop.nextRound();
@@ -459,6 +460,9 @@ export class EMail extends Message {
         try {
           await processor.process(this, mail);
         } catch (ex) {
+          if (ex instanceof CannotReadMail && !this.html) {
+            this._sanitizedHTML = convertTextToHTML(ex.message); // Shows why, but isn't saved as body, so that opening it later tries again
+          }
           this.folder.account.errorCallback(ex);
         }
       }
@@ -801,8 +805,10 @@ export class EMail extends Message {
       null;
   }
 
+  /** One per mail, because it keeps state for the composer */
+  protected _compose: ComposeActions | null = null;
   get compose(): ComposeActions {
-    return new ComposeActions(this);
+    return this._compose ??= new ComposeActions(this);
   }
 }
 

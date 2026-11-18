@@ -85,7 +85,7 @@
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import ArchiveIcon from "lucide-svelte/icons/archive";
   import PrintIcon from "lucide-svelte/icons/printer";
-  import { printMessage } from "./MessagePrint.svelte";
+  import { printMessage } from "../Selected";
   import SaveIcon from "lucide-svelte/icons/save";
   import SourceIcon from "lucide-svelte/icons/code-xml";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";

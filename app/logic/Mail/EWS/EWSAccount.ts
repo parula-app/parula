@@ -4,6 +4,7 @@ import type { EMail } from "../EMail";
 import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShareIndividualPermissions } from "../Folder";
 import { EWSFolder, getEWSItem } from "./EWSFolder";
 import { EWSSearchEMail } from "./EWSSearchEMail";
+import { EWSAutoResponder } from "./EWSAutoResponder";
 import { deleteExchangePermissions, setExchangePermissions } from "./ExchangePermission";
 import { EWSCreateItemRequest } from "./Request/EWSCreateItemRequest";
 import type { EWSDeleteItemRequest } from "./Request/EWSDeleteItemRequest";
@@ -79,6 +80,10 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
 
   newSearch(): EWSSearchEMail {
     return new EWSSearchEMail();
+  }
+
+  newAutoResponder(): EWSAutoResponder {
+    return new EWSAutoResponder(this);
   }
 
   get folderID(): string {
@@ -280,6 +285,15 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     let delegate = responseXML.querySelector("GetDelegateResponse");
     if (delegate?.getAttribute("ResponseClass") == "Success") {
       return [...responseXML.querySelectorAll("DelegateUser")].map(user => XML2JSON(user));
+    }
+    // OOF has a single `ResponseMessage` without `ResponseMessages`
+    let oof = responseXML.querySelector("GetUserOofSettingsResponse, SetUserOofSettingsResponse");
+    if (oof) {
+      let response = XML2JSON(oof) as Record<string, any>;
+      if (response.ResponseMessage?.ResponseClass == "Error") {
+        throw new EWSItemError(response.ResponseMessage, aRequest);
+      }
+      return response;
     }
     let messages = responseXML.querySelector("ResponseMessages");
     if (!messages) {
@@ -1186,7 +1200,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     };
     try {
       let result = await this.callEWS(request);
-      return result.filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
+      return ensureArray(result).filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
     } catch (ex) {
       return [];
     }

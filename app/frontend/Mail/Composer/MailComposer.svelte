@@ -123,6 +123,7 @@
         />
       <hbox slot="end" bind:this={smlAddAnchor}>
         <AddonButtons place="composer-toolbar" {mail} />
+        <SignatureButton {editor} identity={fromIdentity} />
         <Button
           label={$t`Actions`}
           icon={SMLIcon}
@@ -197,6 +198,7 @@
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
   import { insertImage } from "../../Shared/Editor/InsertImage";
   import { MailIdentity } from "../../../logic/Mail/MailIdentity";
+  import { MailBody } from "../../../logic/Mail/MailBody";
   import { WriteMailMustangApp, mailMustangApp } from "../MailMustangApp";
   import { SpecialFolder } from "../../../logic/Mail/Folder";
   import { getLocalStorage } from "../../Util/LocalStorage";
@@ -204,7 +206,7 @@
   import { appGlobal } from "../../../logic/app";
   import { UserError, assert } from "../../../logic/util/util";
   import { minorError, catchErrors, showError, showUserError } from "../../Util/error";
-  import CloseButton, { hasOwnText } from "./CloseButton.svelte";
+  import CloseButton from "./CloseButton.svelte";
   import MailAutocomplete from "./MailAutocomplete.svelte";
   import AttachmentsPane from "./Attachments/AttachmentsPane.svelte";
   import FileSelector from "./Attachments/FileSelector.svelte";
@@ -215,6 +217,7 @@
   import IdentitySelector from "./IdentitySelector.svelte";
   import EncryptionButtons from "./EncryptionButtons.svelte";
   import EncryptionDetails from "./EncryptionDetails.svelte";
+  import SignatureButton from "./SignatureButton.svelte";
   import GraphicSelector from "../../Chat/Emoji/GraphicSelector.svelte";
   import SMLComposer from "./SMLComposer.svelte";
   import SMLAddKinds from "../SML/SMLAddKinds.svelte";
@@ -276,16 +279,19 @@
 
   let loading = false;
   async function loadText() {
-    if (!mail.hasHTML) {
-      return;
+    let hasHTML = mail.hasHTML;
+    if (hasHTML) {
+      loading = true;
+      await mail.loadBody();
+      loading = false;
     }
-    loading = true;
-    await mail.loadBody();
-    loading = false;
     if (!editor) {
       await tick();
     }
-    editor.commands.setContent(mail.html);
+    if (hasHTML) {
+      editor.commands.setContent(mail.html);
+    }
+    editor.commands.editSignature(body => mail.compose.addSignature(fromIdentity, body));
     setCursorDefault();
   }
 
@@ -295,12 +301,18 @@
     }
     let quoteSetting = getLocalStorage("mail.send.quote", "below").value;
     let below = quoteSetting == "below";
-    editor.commands.focus(below ? 'start' : 'end');
+    if (below || !editor.commands.focusBeforeSignature()) {
+      editor.commands.focus(below ? 'start' : 'end');
+    }
   }
 
   $: fromIdentity && setAuthor()
   function setAuthor() {
+    let previousIdentity = mail.identity;
     mail.identity = fromIdentity;
+    if (previousIdentity && previousIdentity != fromIdentity && editor) {
+      editor.commands.editSignature(body => mail.compose.changeSignature(previousIdentity, fromIdentity, body));
+    }
     mail.folder ??= fromIdentity.account.getSpecialFolder(SpecialFolder.Sent)
       ?? fromIdentity.account.inbox;
     if (fromIdentity == mail.identity) {
@@ -410,7 +422,7 @@
   }
 
   onDestroy(() => {
-    if (closing || appWindow.isMainWindow || !hasOwnText(mail)) {
+    if (closing || appWindow.isMainWindow || !new MailBody(mail.html).hasUserText) {
       return;
     }
     // The user closed the separate window of the composer
