@@ -66,6 +66,15 @@ describe("XMPP message features — receiving", () => {
     expect(chat.messages.length).toBe(1); // no extra message added
   });
 
+  test("a message without XHTML-IM shows its Message Styling, also after an edit", async () => {
+    let msg = await incoming({ id: "s1", body: "*hi* <script>alert(1)</script>" });
+    expect(msg!.rawHTMLDangerous).toContain("<strong>");
+    expect(msg!.rawHTMLDangerous).not.toContain("<script");
+    await incoming({ id: "s2", body: "_hello_ <img src=x onerror=alert(1)>", replace: "s1" });
+    expect(msg!.rawHTMLDangerous).toContain("<em>");
+    expect(msg!.rawHTMLDangerous).not.toContain("<img");
+  });
+
   test("a retraction marks the message as deleted", async () => {
     await incoming({ id: "m3", body: "oops secret" });
     await incoming({ retract: { id: "m3" } });

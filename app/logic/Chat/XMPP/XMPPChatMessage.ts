@@ -6,6 +6,7 @@ import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import { NS_RETRACT } from "./XMPPStanzaExtensions";
+import { messageStylingToHTML } from "./XMPPMessageStyling";
 import type { Message, Forward } from "stanza/protocol";
 import type { JSONElement } from "stanza/jxt";
 
@@ -52,10 +53,7 @@ export class XMPPChatMessage extends ChatMessage {
     if (json.hasSubject && subject) {
       this.subject = subject;
     }
-    this.text = sanitize.string(json.body, "");
-    if (json.html?.body) {
-      this.fromHTML(json.html.body as JSONElement);
-    }
+    this.fromBody(json);
     if (json.reply?.id) {
       this.inReplyTo = json.reply.id; // XEP-0461
     }
@@ -146,8 +144,9 @@ export class XMPPChatMessage extends ChatMessage {
     room.account.client.sendMessage(stanza);
     // Update our own view in place. The bubble renders `.html`, so refresh both
     // `text` and `html`; setting only `text` leaves the stale rendered HTML.
+    // The edit has only the body, so show it as the others see it.
     original.text = this.text;
-    original.html = this.html;
+    original.html = messageStylingToHTML(this.text);
     original.edited = true;
     await original.save();
   }
@@ -214,6 +213,18 @@ export class XMPPChatMessage extends ChatMessage {
         await attachment.save();
       })
       .catch(ex => this.chatRoom.account.errorCallback(ex));
+  }
+
+  /** Sets our text from the `<body>`, and our HTML from the XHTML-IM body (XEP-0071),
+   * or else from the Message Styling (XEP-0393) of the body, e.g. `*bold*`,
+   * which Conversations, Dino and Gajim send, also in OMEMO messages. */
+  fromBody(json: Message): void {
+    this.text = sanitize.string(json.body, "");
+    if (json.html?.body) {
+      this.fromHTML(json.html.body as JSONElement);
+    } else if (this.text) {
+      this.html = messageStylingToHTML(this.text);
+    }
   }
 
   /** Sets our HTML from a XEP-0071 XHTML body. stanza gives us a parsed
