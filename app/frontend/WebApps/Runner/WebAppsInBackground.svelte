@@ -29,7 +29,7 @@
     top: 0px;
   }
   .webapps.no-title-bar {
-    left: max(64px, env(titlebar-area-x, 0px) - 1px); /* app bar width, see `AppBar.svelte` */
+    left: var(--appbar-width-no-title-bar);
   }
   .webapps:not(.running) {
     height: 0px;

@@ -105,9 +105,7 @@
     contain: size;
   }
   .app-bar.no-title-bar {
-    /* macOS 26: 68px for the traffic lights. Electron gives their width + 4px space on both sides = 69px.
-     * 64px on macOS 15, in fullscreen, in a web browser and on other OSes. */
-    width: max(64px, env(titlebar-area-x, 0px) - 1px);
+    width: var(--appbar-width-no-title-bar);
   }
   .app-bar :global(.app-button),
   .middle {

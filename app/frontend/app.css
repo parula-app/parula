@@ -57,6 +57,9 @@ License: SIL OPEN FONT LICENSE 1.1 @see asset/font/Constr-Klingon-OFL.txt
   /* #142862, #213547 */
   --appbar-bg: #494558;
   --appbar-fg: white;
+  /* App bar without title bar: 68px on macOS 26 for its wider traffic lights, else 64px.
+   * `env(titlebar-area-x)` is over 64px only on macOS 26, see `trafficLightPosition`. `* 100` makes it a switch. */
+  --appbar-width-no-title-bar: clamp(64px, (env(titlebar-area-x, 0px) - 64px) * 100, 68px);
   --border: #E1E2E5; /* #3A3A3B */
   --outstanding-bg: #888888;
   --outstanding-fg: white;

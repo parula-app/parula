@@ -13,7 +13,7 @@ const windowFrame: BrowserWindowConstructorOptions = {
   titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
   // macOS: Parula has the traffic lights on top of its app bar, which is 64px wide.
   // macOS 15: 54px wide, so x 5 centers them. `hiddenInset` alone puts them at x 12, y 11.
-  // macOS 26 (Darwin 25): 61px wide, so x 4, and the app bar widens to 68px, see `AppBar.svelte`.
+  // macOS 26 (Darwin 25): 61px wide, so x 4, and the app bar widens, see `--appbar-width-no-title-bar` in app/frontend/app.css.
   trafficLightPosition: { x: parseInt(release()) >= 25 ? 4 : 5, y: 11 },
   titleBarOverlay: true,
   frame: false,
