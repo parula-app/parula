@@ -3,7 +3,7 @@ import { WhatsAppMessage } from "./WhatsAppMessage";
 import { WhatsAppRoomEvent } from "./WhatsAppRoomEvent";
 import { type ChatRoomEvent, RoomEventKind } from "../RoomEvent";
 import { WhatsAppContact } from "./WhatsAppContact";
-import { DeliveryStatus } from "../ChatMessage";
+import { DeliveryStatus, type RoomMessage } from "../ChatMessage";
 import type { Group } from "../../Abstract/Group";
 import { SQLChatMessage } from "../SQL/SQLChatMessage";
 import type { WhatsAppAccount } from "./WhatsAppAccount";
@@ -52,9 +52,9 @@ export class WhatsAppChatRoom extends ChatRoom {
       let type = protocol.type ?? ProtocolMessageType.Revoke;
       waLog("recv protocolMessage: type", type, "key.id", protocol.key?.id, "edited", !!protocol.editedMessage);
       if (type == ProtocolMessageType.MessageEdit && protocol.editedMessage) {
-        await this.editMessage(protocol.key?.id, protocol.editedMessage);
+        await this.editMessage(protocol.key?.id, protocol.editedMessage, sender);
       } else if (type == ProtocolMessageType.Revoke) {
-        await this.deleteMessageByID(protocol.key?.id);
+        await this.deleteMessageByID(protocol.key?.id, sender);
       }
     } else {
       await this.addMessage(stanza, payload, sender, outgoing);
@@ -141,9 +141,9 @@ export class WhatsAppChatRoom extends ChatRoom {
     await target.save();
   }
 
-  protected async editMessage(targetID: string | undefined, edited: WAMessage): Promise<void> {
+  protected async editMessage(targetID: string | undefined, edited: WAMessage, sender: JID): Promise<void> {
     let target = this.messages.find(msg => msg.id == targetID) as WhatsAppMessage;
-    if (!target) {
+    if (!target || !this.isAuthor(target, sender)) {
       return;
     }
     target.text = "";
@@ -152,14 +152,26 @@ export class WhatsAppChatRoom extends ChatRoom {
     await target.save();
   }
 
-  protected async deleteMessageByID(targetID: string | undefined): Promise<void> {
+  protected async deleteMessageByID(targetID: string | undefined, sender: JID): Promise<void> {
     let target = this.messages.find(msg => msg.id == targetID);
     waLog("revoke incoming: target id", targetID, "found", !!target);
-    if (!target) {
+    if (!target || !(this.isAuthor(target, sender) || await this.isAdminJID(sender))) {
       return;
     }
     target.text = gt`This message was deleted`;
     await target.save();
+  }
+
+  /** Whether `sender` wrote this message, by the message that we have, because the sender chooses the `key` of the edit */
+  protected isAuthor(message: RoomMessage, sender: JID): boolean {
+    return message.outgoing
+      ? this.account.isOwnJID(sender)
+      : (message.contact as WhatsAppContact).chatID == sender.toNonDevice().toString();
+  }
+
+  /** Whether `sender` may delete others' messages for everyone. {@link WhatsAppGroupChatRoom} overrides for the group admins. */
+  protected async isAdminJID(sender: JID): Promise<boolean> {
+    return false;
   }
 
   /** Who an incoming message is from: in a 1:1 it's the chat partner;

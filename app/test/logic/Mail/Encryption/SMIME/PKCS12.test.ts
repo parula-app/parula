@@ -2,7 +2,7 @@ import { expect, test, describe } from "vitest";
 import { PKCS12 } from "../../../../../logic/Mail/Encryption/SMIME/PKCS12";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { readPrivateKeyFile } from "../../../../../logic/Mail/Encryption/KeyUtils";
-import { Certificate, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { Certificate, PFX, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { base64ToBytes } from "../../../../../../lib/asn1/decoders/pem";
 
 // The browser has these, but Node does not.
@@ -79,9 +79,17 @@ describe("PKCS#12 import", () => {
     expectKeyOfCertificate(p12);
   });
 
-  test("Contents that are not encrypted, in a file without a MAC", async () => {
-    let p12 = await readFixture(kPlainFixture);
+  test("Contents that are not encrypted, in a file without a MAC and without a passphrase", async () => {
+    let p12 = await readFixture(kPlainFixture, "");
     expectKeyOfCertificate(p12);
+  });
+
+  test("A file with a passphrase needs a MAC, else somebody could have changed it", async () => {
+    // E.g. replaced the certificate, or added their own key in the clear
+    await expect(readFixture(kPlainFixture)).rejects.toThrow(/MAC/);
+    let pfx = PFX.decode(base64ToBytes(kAESFixture.replace(/\s/g, "")), { berToDER: true });
+    delete pfx.macData;
+    await expect(new PKCS12(kPassphrase).read(PFX.encode(pfx))).rejects.toThrow(/MAC/);
   });
 
   test("Passphrase with non-ASCII characters", async () => {

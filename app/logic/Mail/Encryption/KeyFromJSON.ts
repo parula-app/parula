@@ -23,6 +23,6 @@ export function privateKeyFromJSON(json: any): PublicKey & PrivateKey {
     [EncryptionSystem.SMIME]: SMIMEPrivateKey,
   });
   let privateKey = new PrivateKeyClass();
-  privateKey.fromJSON(json);
+  privateKey.fromPrivateJSON(json);
   return privateKey;
 }

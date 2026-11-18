@@ -98,6 +98,14 @@ export class SessionState {
     state.establishingBaseKey = json.establishingBaseKey ? base64Decode(json.establishingBaseKey) : undefined;
     return state;
   }
+
+  /** A copy to decrypt a message on. The key arrays are never changed in place, only replaced. */
+  clone(): SessionState {
+    let copy = Object.assign(new SessionState(), this);
+    copy.receiverChains = new Map([...this.receiverChains].map(([ratchet, chain]) => [ratchet, { ...chain }]));
+    copy.skippedKeys = new Map(this.skippedKeys);
+    return copy;
+  }
 }
 
 export interface EncryptedSignalMessage {
@@ -216,7 +224,7 @@ export function initiateSession(store: SignalStore, address: string, bundle: Pre
   state.remoteRegistrationID = bundle.registrationID;
   state.pendingPreKey = { preKeyID: bundle.preKeyID, signedPreKeyID: bundle.signedPreKeyID, baseKey: djbEncode(baseKey.publicKey) };
   store.sessions.set(address, state);
-  store.identities.set(address, bundle.identityKey);
+  store.saveIdentity(address, bundle.identityKey);
   return state;
 }
 
@@ -247,10 +255,9 @@ function createSessionFromPreKey(store: SignalStore, address: string, data: Uint
   state.localIdentityKey = djbEncode(store.identityKeyPair.publicKey);
   state.establishingBaseKey = pkmsg.baseKey;
   store.sessions.set(address, state);
-  store.identities.set(address, theirIdentity);
-  // The one-time prekey is consumed by the caller only after the inner
-  // SignalMessage MAC verifies — otherwise a failed/duplicate pkmsg would burn
-  // the prekey and no retry could ever establish the session.
+  // The one-time prekey is consumed, and the identity key saved, by the caller
+  // only after the inner SignalMessage MAC verifies — otherwise a failed/duplicate
+  // pkmsg would burn the prekey and no retry could ever establish the session.
   return state;
 }
 
@@ -313,6 +320,9 @@ export async function decryptPreKeyMessage(store: SignalStore, address: string, 
   }
   try {
     let plaintext = await decryptSignalMessage(store, address, pkmsg.message, pad, pqr);
+    if (!sameSession) {
+      store.saveIdentity(address, djbDecode(pkmsg.identityKey)); // after the MAC: a forged pkmsg must not replace the known key
+    }
     if (!sameSession && pkmsg.preKeyID != null) {
       store.preKeys.delete(pkmsg.preKeyID); // confirmed: consume the one-time prekey
     }
@@ -333,13 +343,17 @@ export async function decryptPreKeyMessage(store: SignalStore, address: string, 
 
 /** Decrypts a `msg` (SignalMessage) on an existing session. */
 export async function decryptSignalMessage(store: SignalStore, address: string, data: Uint8Array, pad = true, pqr?: DecryptPqr): Promise<Uint8Array> {
-  let state = store.sessions.get(address);
-  if (!state) {
+  let session = store.sessions.get(address);
+  if (!session) {
     throw new Error(`No session for ${address}`);
   }
+  // Like libsignal, ratchet on a copy and keep it only when the MAC is right, so that a forged message can't break the session
+  let state = session.clone();
   let parsed = parseSignalMessage(data);
   let theirRatchet = djbDecode(parsed.ratchetKey);
-  if (!state.theirRatchetKey || !bytesEqual(state.theirRatchetKey, theirRatchet)) {
+  let ratchetHex = bytesToHex(theirRatchet);
+  // A late message from an older chain of theirs must not start a new chain, also when we kept only its skipped key
+  if (!state.receiverChains.has(ratchetHex) && !state.skippedKeys.has(`${ratchetHex}:${parsed.counter}`)) {
     if (state.theirRatchetKey) {
       skipReceiverKeys(state, bytesToHex(state.theirRatchetKey), parsed.previousCounter);
     }
@@ -351,11 +365,26 @@ export async function decryptSignalMessage(store: SignalStore, address: string, 
   if (!verifySignalMessageMAC(parsed, keys.macKey, state.remoteIdentityKey, state.localIdentityKey)) {
     throw new Error("Bad MAC on SignalMessage");
   }
-  let decrypted = await aesCBCDecrypt(keys.cipherKey, keys.iv, parsed.ciphertext);
-  let plaintext = pad ? unpadPlaintext(decrypted) : decrypted;
   state.pendingPreKey = undefined; // the session is now confirmed by the peer
   state.pendingKyber = undefined;
-  return plaintext;
+  // Keep at most as much as libsignal (5 receiver chains with 2000 skipped keys each), so that the peer can't grow the saved session without bound
+  const kMaxReceiverChains = 5;
+  for (let oldest of state.receiverChains.keys()) {
+    if (state.receiverChains.size <= kMaxReceiverChains) {
+      break;
+    }
+    state.receiverChains.delete(oldest);
+  }
+  for (let oldest of state.skippedKeys.keys()) {
+    if (state.skippedKeys.size <= kMaxReceiverChains * kMaxSkip) {
+      break;
+    }
+    state.skippedKeys.delete(oldest);
+  }
+  // Before the await, so that a message that we send or receive meanwhile continues from this state. The MAC already proves that it's from the peer.
+  store.sessions.set(address, state);
+  let decrypted = await aesCBCDecrypt(keys.cipherKey, keys.iv, parsed.ciphertext);
+  return pad ? unpadPlaintext(decrypted) : decrypted;
 }
 
 function dhRatchet(state: SessionState, theirRatchet: Uint8Array) {

@@ -1,3 +1,5 @@
+import type { PublicKey } from "./PublicKey";
+
 /** Added to `PublicKey` */
 export interface PrivateKey {
   /** User wishes to sign all outgoing emails */
@@ -13,4 +15,11 @@ export interface PrivateKey {
   encryptByDefault: boolean;
 
   privateKeyAsFile(): File;
+
+  /** A copy without the secret key, with our name and trust, e.g. for where a public key is shown or saved. See #1916 */
+  publicKey(): PublicKey;
+
+  /** With the secret key and passphrase, only for our identity config. `toJSON()` has only the public key, so it can't leak into mails or contacts. */
+  toPrivateJSON(): any;
+  fromPrivateJSON(json: any): void;
 }

@@ -72,7 +72,7 @@ export class ActiveSyncGAL extends ExchangeGAL {
         candidate.EmailAddress?.toLowerCase() == emailAddress.toLowerCase());
       // Status 1 means that we got the certificates of this recipient
       if (recipient?.Certificates?.Status == "1") {
-        return await new SMIMEDirectory(this.account.url).readCertificates(ensureArray(recipient.Certificates.Certificate), this.errorCallback);
+        return await new SMIMEDirectory(this.account.url).readCertificates(emailAddress, ensureArray(recipient.Certificates.Certificate), this.errorCallback);
       }
     } catch (ex) {
       this.errorCallback(ex);

@@ -1,6 +1,6 @@
 import type { MailAccount } from "./MailAccount";
 import { notifyChangedProperty, Observable } from "../util/Observable";
-import { AbstractFunction, assert } from "../util/util";
+import { AbstractFunction, assert, getUserPreference, setUserPreference } from "../util/util";
 import { gt } from "../../l10n/l10n";
 
 /** Automatic replies to incoming mail, e.g. during vacation.
@@ -30,11 +30,11 @@ export class AutoResponder extends Observable {
   startTime: Date;
   @notifyChangedProperty
   endTime: Date;
-  /** For senders inside the organization.
-   * For all senders, if `!supportsExternal`. */
+  /** For senders inside the organization. Only if `supportsInternal`. */
   @notifyChangedProperty
   internalHTML = "";
-  /** For senders outside the organization */
+  /** For senders outside the organization.
+   * For all senders, if `!supportsInternal`. */
   @notifyChangedProperty
   externalHTML = "";
   /** Which senders outside the organization get `externalHTML` */
@@ -44,19 +44,20 @@ export class AutoResponder extends Observable {
   constructor(account: MailAccount) {
     super();
     this.account = account;
-    // Default start value. Like Outlook: From the next full hour, for 1 day
+    // Default: From today until tomorrow, at the times of day of the last saved time range, else 0:00 to 23:00
     this.startTime = new Date();
-    this.startTime.setHours(this.startTime.getHours() + 1, 0, 0, 0);
-    this.endTime = new Date(this.startTime);
+    this.startTime.setHours(0, getUserPreference("mail.autoResponder.startMinutes", 0), 0, 0);
+    this.endTime = new Date();
     this.endTime.setDate(this.endTime.getDate() + 1);
+    this.endTime.setHours(0, getUserPreference("mail.autoResponder.endMinutes", 23 * 60), 0, 0);
   }
 
   get supported(): boolean {
     return false;
   }
 
-  /** A separate message and audience for senders outside the organization */
-  get supportsExternal(): boolean {
+  /** A separate message for senders inside the organization, and the audience outside */
+  get supportsInternal(): boolean {
     return false;
   }
 
@@ -73,6 +74,21 @@ export class AutoResponder extends Observable {
   /** Writes these settings to the server */
   async save(): Promise<void> {
     throw new AbstractFunction();
+  }
+
+  /** The end time moves with the start time and keeps the length of the time range, as for events */
+  setStartTime(startTime: Date) {
+    let length = this.endTime.getTime() - this.startTime.getTime();
+    this.startTime = startTime;
+    this.endTime = new Date(startTime.getTime() + length);
+  }
+
+  /** For the default time range of the next automatic replies. Call after `save()`. */
+  rememberTimes() {
+    if (this.isOn && this.scheduled) {
+      setUserPreference("mail.autoResponder.startMinutes", this.startTime.getHours() * 60 + this.startTime.getMinutes());
+      setUserPreference("mail.autoResponder.endMinutes", this.endTime.getHours() * 60 + this.endTime.getMinutes());
+    }
   }
 
   protected validate() {
@@ -104,8 +120,9 @@ export class AutoResponder extends Observable {
  * for colleagues and contacts, but the user may not want to tell spammers and strangers.
  * Exchange stores it as `ExternalAudience`, and the server enforces the admin's limit.
  *
- * It matters only if `supportsExternal`, i.e. for Exchange.
- * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders.
+ * It matters only if `supportsInternal`, i.e. for Exchange.
+ * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders
+ * with `externalHTML`, so their audience is `All`.
  *
  * The values are Graph's `externalAudience`. */
 export enum AutoResponderAudience {

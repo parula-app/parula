@@ -52,12 +52,13 @@ test("All capabilities that we use, from Stalwart's session", async () => {
   const kServer = [
     "urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:calendars", "urn:ietf:params:jmap:contacts",
     "urn:ietf:params:jmap:principals", "urn:ietf:params:jmap:submission", "urn:ietf:params:jmap:vacationresponse",
-    "urn:ietf:params:jmap:blob", "urn:ietf:params:jmap:quota", "urn:ietf:params:jmap:websocket",
+    "urn:ietf:params:jmap:sieve", "urn:ietf:params:jmap:blob", "urn:ietf:params:jmap:quota", "urn:ietf:params:jmap:websocket",
   ];
   let using = await usingFor(kServer);
 
   expectUsing(using, kServer, [
     "urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:submission",
     "urn:ietf:params:jmap:contacts", "urn:ietf:params:jmap:calendars", "urn:ietf:params:jmap:principals",
+    "urn:ietf:params:jmap:vacationresponse", "urn:ietf:params:jmap:sieve", "urn:ietf:params:jmap:blob",
   ]);
 });

@@ -105,8 +105,17 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     }
   }
 
+  /** With our certificate and its CAs, which the key needs to decrypt and sign after the user imports the file again */
   privateKeyAsFile(): File {
-    return this.keyAsFile(this.privateKeyArmored, "application/pkcs8", "SecretKey", "key");
+    let cas = this.chain.contents.map(ca => ca.certificate);
+    let chain = [this.privateKeyArmored, this.certificate, ...cas].filter(Boolean);
+    return this.keyAsFile(chain.join("\n"), "application/pkcs8", "SecretKey", "key");
+  }
+
+  publicKey(): SMIMEPublicKey {
+    let publicKey = new SMIMEPublicKey();
+    publicKey.fromJSON(this.toJSON());
+    return publicKey;
   }
 
   async generateCSRFile(subject: Record<string, string>): Promise<File> {
@@ -227,16 +236,16 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     return key;
   }
 
-  toJSON() {
-    let json = super.toJSON();
+  toPrivateJSON() {
+    let json = this.toJSON();
     json.privateKeyArmored = this.privateKeyArmored;
     json.useToSign = this.useToSign;
     json.didBackup = this.didBackup;
     json.passphrase = this.passphrase;
     return json;
   }
-  fromJSON(json: any) {
-    super.fromJSON(json);
+  fromPrivateJSON(json: any) {
+    this.fromJSON(json);
     this.privateKeyArmored = sanitize.nonemptystring(json.privateKeyArmored, null);
     this.useToSign = sanitize.boolean(json.useToSign, null);
     this.didBackup = sanitize.boolean(json.didBackup, null);

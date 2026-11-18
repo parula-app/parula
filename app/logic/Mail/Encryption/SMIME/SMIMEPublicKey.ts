@@ -5,7 +5,7 @@ import { BlockType, unpadPKCS, decrypt, encrypt, padFF, Uint8ArrayFromHex } from
 import { sameName } from "./SMIMEVerify";
 import { appGlobal } from "../../../app";
 import { uint8ArrayToHex, base64ToUint8Array } from "../../../util/blob";
-import { assert, NotImplemented } from "../../../util/util";
+import { assert, NotImplemented, UserError } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -92,6 +92,10 @@ export class SMIMEPublicKey extends PublicKey {
   async addCertificate(cert: Certificate): Promise<boolean> {
     let publicKey = cert.tbsCertificate.publicKey;
     if (!this.publicKeyArmored) {
+      // Our own key has its ID from the secret key. With another key's certificate, we would encrypt our drafts to that key.
+      if (this.id && !await this.matches(publicKey)) {
+        throw new UserError(gt`This certificate is not for this secret key`);
+      }
       await this.setCertificate(cert);
       return true;
     }

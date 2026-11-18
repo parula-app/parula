@@ -1,3 +1,5 @@
+import type { TUTCDateTime } from "./TJMAPGeneric";
+
 /** <https://www.rfc-editor.org/rfc/rfc8621.html#section-2.6> */
 export interface TJMAPFolder {
   id: string,
@@ -102,4 +104,28 @@ export interface TJMAPEmailHeader {
 export interface TJMAPEmailAddress {
   name: string | null,
   email: string,
+}
+
+/** <https://www.rfc-editor.org/rfc/rfc8621.html#section-8> */
+export interface TJMAPVacationResponse {
+  /** Always "singleton" */
+  id?: string,
+  isEnabled: boolean,
+  /** Reply only to mail that arrives after this */
+  fromDate: TUTCDateTime | null,
+  /** Reply only to mail that arrives before this */
+  toDate: TUTCDateTime | null,
+  /** null = the server chooses one */
+  subject?: string | null,
+  textBody: string | null,
+  htmlBody: string | null,
+}
+
+/** <https://www.rfc-editor.org/rfc/rfc9661.html#section-2.1> */
+export interface TJMAPSieveScript {
+  id: string,
+  name: string | null,
+  /** The server runs only the active script, i.e. at most one */
+  isActive: boolean,
+  blobId?: string,
 }
