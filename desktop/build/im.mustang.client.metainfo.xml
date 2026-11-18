@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>im.mustang.client</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>EUPL-1.2 AND LicenseRef-proprietary</project_license>
+
+  <name>Mustang</name>
+  <summary>Email, chat, video conference, calendar, contacts and files</summary>
+  <developer id="im.mustang">
+    <name>Mustang GmbH</name>
+  </developer>
+
+  <description>
+    <p>
+      Mustang is a full-featured email, chat, video conference, calendar, contacts and files app.
+      Data is stored and processed locally, and does not pass through a server or cloud service, apart from the mail servers and other servers that you select.
+    </p>
+    <ul>
+      <li>Mail with JMAP, IMAP and SMTP, with encryption through S/MIME and PGP</li>
+      <li>Calendar with CalDAV and JMAP</li>
+      <li>Contacts with CardDAV and JMAP</li>
+      <li>Video conference based on WebRTC, and phone calls with SIP</li>
+      <li>Chat with XMPP and Matrix, with end-to-end encryption</li>
+      <li>File sharing</li>
+      <li>Automatic configuration of accounts for common providers</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">mustang.desktop</launchable>
+  <provides>
+    <mediatype>message/rfc822</mediatype>
+  </provides>
+
+  <categories>
+    <category>Network</category>
+    <category>Email</category>
+    <category>Chat</category>
+    <category>VideoConference</category>
+    <category>Calendar</category>
+    <category>ContactManagement</category>
+  </categories>
+  <keywords>
+    <keyword>mail</keyword>
+    <keyword>IMAP</keyword>
+    <keyword>JMAP</keyword>
+    <keyword>CalDAV</keyword>
+    <keyword>CardDAV</keyword>
+    <keyword>XMPP</keyword>
+    <keyword>Matrix</keyword>
+  </keywords>
+
+  <url type="homepage">https://mustang.im</url>
+  <url type="bugtracker">https://github.com/mustang-im/mustang/issues</url>
+  <url type="vcs-browser">https://github.com/mustang-im/mustang</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Mail</caption>
+      <image>https://www.mustang.im/assets/images/screenshots/mail.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>File sharing</caption>
+      <image>https://www.mustang.im/assets/images/screenshots/fileShare.png</image>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="social-audio">intense</content_attribute>
+  </content_rating>
+
+</component>

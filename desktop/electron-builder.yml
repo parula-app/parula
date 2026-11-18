@@ -61,7 +61,14 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 deb:
   packageName: mustang-mail
+  fpm:
+    - build/im.mustang.client.metainfo.xml=/usr/share/metainfo/im.mustang.client.metainfo.xml
+rpm:
+  fpm:
+    - build/im.mustang.client.metainfo.xml=/usr/share/metainfo/im.mustang.client.metainfo.xml
 pacman:
+  fpm:
+    - build/im.mustang.client.metainfo.xml=/usr/share/metainfo/im.mustang.client.metainfo.xml
   depends:
     # Only way to remove http-parser (unnecessary and non-existing). electron-builder bug <https://github.com/electron-userland/electron-builder/issues/9429>
     - c-ares
