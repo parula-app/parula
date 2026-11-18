@@ -23,14 +23,14 @@
       <Radio name="state" value="scheduled" group={state} label={$t`Only send during this time range:`}
         on:change={() => { autoResponder.isOn = true; autoResponder.scheduled = true; }} />
       <FormGrid classes="times">
-        <span class="lo-form-label" class:disabled={!isTimeRange}>{$t`Start time:`}</span>
+        <span class="lo-form-label" class:disabled={!isTimeRange}>{$t`Start: *=> Start of the time range for automatic replies`}</span>
         <hbox class="date-time">
           <DateField required date={$autoResponder.startTime} label={$t`Start date`} disabled={!isTimeRange}
             on:change={ev => setStartTime(autoResponder, ev.detail)} />
           <TimeInput time={$autoResponder.startTime} options={startTimeOptions($autoResponder.startTime)} label={$t`Start time`} disabled={!isTimeRange}
             on:change={ev => setStartTime(autoResponder, ev.detail)} />
         </hbox>
-        <span class="lo-form-label" class:disabled={!isTimeRange}>{$t`End time:`}</span>
+        <span class="lo-form-label" class:disabled={!isTimeRange}>{$t`End: *=> End of the time range for automatic replies`}</span>
         <hbox class="date-time">
           <DateField required date={$autoResponder.endTime} min={$autoResponder.startTime} label={$t`End date`} disabled={!isTimeRange}
             on:change={ev => { autoResponder.endTime = ev.detail; }} />
@@ -149,6 +149,7 @@
 
   async function onOK() {
     await autoResponder.save();
+    autoResponder.rememberTimes();
     await account.autoResponder.load(); // for the info bar and File > Info
   }
 </script>
@@ -182,7 +183,9 @@
   .message {
     flex-shrink: 0;
     gap: 4px;
-    margin-block-start: 16px;
+  }
+  .state + .message {
+    margin-block-start: 24px;
   }
   .header {
     font-weight: 600;
