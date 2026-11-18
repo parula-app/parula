@@ -28,6 +28,9 @@
   .webapps.running.no-title-bar {
     top: 0px;
   }
+  .webapps.no-title-bar {
+    left: max(64px, env(titlebar-area-x, 0px) - 1px); /* app bar width, see `AppBar.svelte` */
+  }
   .webapps:not(.running) {
     height: 0px;
   }
@@ -39,5 +42,8 @@
   }
   .webapp:not(.running) {
     visibility: collapse;
+  }
+  :global(.lookout-window) .webapps.no-title-bar {
+    left: var(--lo-nav-rail-width);
   }
 </style>
