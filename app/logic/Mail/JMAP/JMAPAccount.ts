@@ -2,6 +2,8 @@ import { MailAccount, DeleteStrategy } from "../MailAccount";
 import { JMAPFolder } from "./JMAPFolder";
 import { JMAPIdentity } from "./JMAPIdentity";
 import { JMAPSearchEMail } from "./JMAPSearchEMail";
+import { JMAPAutoResponder } from "./JMAPAutoResponder";
+import { StalwartAutoResponder } from "./StalwartAutoResponder";
 import type { EMail } from "../EMail";
 import { newAccountForProtocol } from "../AccountsList/MailAccounts";
 import { PersonUID } from "../../Abstract/PersonUID";
@@ -229,6 +231,12 @@ export class JMAPAccount extends MailAccount {
     return this.hasCapability("https://cyrusimap.org/ns/jmap/core");
   }
   // </compat>
+  // <compat for="Stalwart">
+  // Stalwart names itself only as the Sieve implementation, e.g. "Stalwart v1.0.0"
+  get isStalwart(): boolean {
+    return sanitize.string(this.getCapability("urn:ietf:params:jmap:sieve")?.implementation, "").startsWith("Stalwart");
+  }
+  // </compat>
 
   /** A single API call, with a single result */
   async makeSingleCall(method: string, argumentsJSON: Record<string, any>): Promise<Record<string, any>> {
@@ -289,7 +297,8 @@ export class JMAPAccount extends MailAccount {
   async makeCalls(calls: [string, Record<string, any>, string?][]): Promise<TJMAPMethodResponse[]> {
     await this.ensureLoggedIn();
     const kOurCapabilities = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:submission",
-      "urn:ietf:params:jmap:contacts", "urn:ietf:params:jmap:calendars", "urn:ietf:params:jmap:principals"];
+      "urn:ietf:params:jmap:contacts", "urn:ietf:params:jmap:calendars", "urn:ietf:params:jmap:principals",
+      "urn:ietf:params:jmap:vacationresponse", "urn:ietf:params:jmap:sieve", "urn:ietf:params:jmap:blob"];
     let using = kOurCapabilities.filter(capability => this.hasCapability(capability));
     let requestJSON: TJMAPAPIRequest = {
       using: using,
@@ -1278,5 +1287,17 @@ export class JMAPAccount extends MailAccount {
 
   newSearch(): JMAPSearchEMail {
     return new JMAPSearchEMail();
+  }
+
+  /** The class depends on the server, which we know only after the login */
+  get autoResponder(): JMAPAutoResponder {
+    if (!(this._autoResponder instanceof StalwartAutoResponder) && this.isStalwart) {
+      this._autoResponder = new StalwartAutoResponder(this);
+    }
+    return super.autoResponder as JMAPAutoResponder;
+  }
+
+  newAutoResponder(): JMAPAutoResponder {
+    return new JMAPAutoResponder(this);
   }
 }
