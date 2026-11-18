@@ -12,12 +12,12 @@
           <DialogButton label={$t`Discard`} icon={DiscardIcon} classes="plain"
             tooltip={$t`Discard this response`}
             onClick={onDiscard} />
-          <DialogButton label={$t`Maximize`} icon={MaximizeIcon} classes="plain"
-            tooltip={$t`Open this response in its own message page`}
-            onClick={onMaximize} />
           <DialogButton label={$t`Pop Out *=> Open the message in its own window`} icon={PopOutIcon} classes="plain"
             tooltip={$t`Open in a separate window`}
             onClick={onPopOut} />
+          <DialogButton label={$t`Maximize`} icon={MaximizeIcon} classes="plain"
+            tooltip={$t`Open this response in its own message page`}
+            onClick={onMaximize} />
         </hbox>
       {:else}
         <hbox class="title-row">
