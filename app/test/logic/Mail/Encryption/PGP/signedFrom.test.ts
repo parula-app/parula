@@ -132,20 +132,6 @@ describe("PGP signed message", () => {
   });
 });
 
-describe("PGP signed message of a contact with a confirmed key", () => {
-  test("signed with a key of the contact that nobody confirmed is not signed", async () => {
-    let mallory = await newIdentity("erin@example.com", "Erin");
-    // Mallory's key, as the AutoCrypt header of a mail from her, with Erin's address, added it
-    let erin = await newContact(mallory, "erin@example.com");
-    let confirmed = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Erin", emailAddress: "erin@example.com" })).publicKeyArmored);
-    confirmed.trustLevel = TrustLevel.Personal;
-    erin.addEncryptionPublicKey(confirmed);
-
-    let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Erin <erin@example.com>"), false, mallory, "Erin <erin@example.com>");
-    expectNotSigned(email);
-  });
-});
-
 describe("PGP encrypted and signed message", () => {
   test("whose signed From: is the outer From: is signed", async () => {
     let email = await sendAndReceive(kHeaders, true);
@@ -174,6 +160,20 @@ describe("PGP message that was signed, then encrypted without signing again", ()
     let email = await receive(kEncryptedHeaders + encrypted + "\r\n--encrypted--\r\n");
     expect(email.wasEncrypted).toBe(true);
     expectSigned(email);
+  });
+});
+
+describe("PGP signed message of a contact with a confirmed key", () => {
+  test("signed with a key of the contact that nobody confirmed is not signed", async () => {
+    let mallory = await newIdentity("erin@example.com", "Erin");
+    // Mallory's key, as the AutoCrypt header of a mail from her, with Erin's address, added it
+    let erin = await newContact(mallory, "erin@example.com");
+    let confirmed = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Erin", emailAddress: "erin@example.com" })).publicKeyArmored);
+    confirmed.trustLevel = TrustLevel.Personal;
+    erin.addEncryptionPublicKey(confirmed);
+
+    let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Erin <erin@example.com>"), false, mallory, "Erin <erin@example.com>");
+    expectNotSigned(email);
   });
 });
 
