@@ -281,6 +281,15 @@ export class RecurrenceRule implements Readonly<Omit<RecurrenceInit, "seriesStar
       rule.count == this.count;
   }
 
+  /** Whether `rule` repeats like this one, apart from the start and the end of the series */
+  isSameRepetition(rule: RecurrenceRule): boolean {
+    return this.frequency == rule.frequency &&
+      this.interval == rule.interval &&
+      this.week == rule.week &&
+      this.first == rule.first &&
+      [...this.weekdays ?? []].sort().join() == [...rule.weekdays ?? []].sort().join();
+  }
+
   countIs(count: number): boolean {
     if (!this.seriesEndTime) {
       return count == this.count;

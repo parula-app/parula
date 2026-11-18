@@ -3,6 +3,7 @@ import type { CalDAVCalendar } from "./CalDAVCalendar";
 import { convertICalToEvent, convertICalContainerToEvent, parseDate } from "../ICal/ICalToEvent";
 import { ICalParser } from "../ICal/ICalParser";
 import { getICal } from "../ICal/ICalGenerator";
+import { RecurrenceRule } from "../RecurrenceRule";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assertHTTPResponseOK } from "../../util/netUtil";
 import { ensureArray, type URLString } from "../../util/util";
@@ -82,6 +83,23 @@ export class CalDAVEvent extends Event {
     }
   }
 
+  /** The `RRULE` of the server with our end of the series, unless the user changed how the event repeats.
+   * It may have parts that `RecurrenceRule` doesn't support, e.g. `BYMONTHDAY` or `BYSETPOS`. */
+  protected getServerRecurrenceRule(): string | null {
+    if (!this.recurrenceRule || !this.originalICal) {
+      return null;
+    }
+    let vevents = ensureArray(new ICalParser(this.originalICal).containers.vcalendar?.[0].containers.vevent);
+    let serverRule = vevents.find(vevent => !vevent.entries.recurrenceid)?.entries.rrule?.[0].line;
+    if (!serverRule || !RecurrenceRule.fromCalString(this.duration, this.timezone, this.startTime, serverRule).isSameRepetition(this.recurrenceRule)) {
+      return null;
+    }
+    const kEndOfSeries = /^(UNTIL|COUNT)=/i;
+    let repetition = serverRule.slice("RRULE:".length).split(";").filter(part => !kEndOfSeries.test(part));
+    let end = this.recurrenceRule.getCalString(this.allDay).slice("RRULE:".length).split(";").filter(part => kEndOfSeries.test(part));
+    return "RRULE:" + [...repetition, ...end].join(";");
+  }
+
   getDAVObject(iCal?: string): DAVObject {
     return {
       url: this.url,
@@ -100,7 +118,7 @@ export class CalDAVEvent extends Event {
     }
     await this.calendar.login(false);
     this.calUID ??= crypto.randomUUID();
-    let iCal = await getICal(this);
+    let iCal = await getICal(this, undefined, this.getServerRecurrenceRule());
     if (this.url) {
       // TODO take `originalICal` and update only the properties we know about
       console.log("updating", this, this.url, "with ICS", iCal);
