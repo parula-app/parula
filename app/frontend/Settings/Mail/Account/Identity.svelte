@@ -51,11 +51,7 @@
   let savedStr = identitiesStr();
 
   // Also without Save, e.g. when the user closes Lookout's settings dialog
-  onDestroy(() => {
-    if (identitiesStr() != savedStr) {
-      catchErrors(onSave);
-    }
-  });
+  onDestroy(() => catchErrors(onClose));
 
   function identitiesStr(): string {
     return JSON.stringify(account.identities.contents.map(identity => identity.toConfigJSON()));
@@ -85,6 +81,11 @@
     }
     await account.save();
     savedStr = identitiesStr();
+  }
+  async function onClose() {
+    if (identitiesStr() != savedStr) {
+      await onSave();
+    }
   }
 </script>
 

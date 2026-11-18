@@ -32,11 +32,12 @@
   let autoResponderEdit: AutoResponderEdit;
 
   // Also without Save, e.g. when the user closes Lookout's settings dialog
-  onDestroy(() => {
+  onDestroy(() => catchErrors(onClose));
+  async function onClose() {
     if (isChanged) {
-      catchErrors(() => autoResponderEdit.save());
+      await autoResponderEdit.save();
     }
-  });
+  }
 </script>
 
 <style>
