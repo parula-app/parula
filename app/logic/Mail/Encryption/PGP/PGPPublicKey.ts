@@ -19,7 +19,8 @@ export class PGPPublicKey extends PublicKey {
     }
     openPGP ??= await import("openpgp");
     assert(this.publicKeyArmored, `Have no public key stored for ${this.userIDs.first} ${this.name}`);
-    return await openPGP.readKey({ armoredKey: this.publicKeyArmored });
+    this._openPGPPublicKey = await openPGP.readKey({ armoredKey: this.publicKeyArmored });
+    return this._openPGPPublicKey;
   }
 
   publicKeyAsFile(): File {

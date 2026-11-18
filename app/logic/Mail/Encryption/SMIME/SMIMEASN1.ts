@@ -34,6 +34,12 @@ import { define } from "../../../../../lib/asn1/api";
 
 /** Object identifiers */
 const oids = {
+  "1.2.840.10045.2.1": "ecPublicKey",
+  "1.2.840.10045.3.1.7": "secp256r1",
+  "1.2.840.10045.4.1": "ecdsaWithSHA1",
+  "1.2.840.10045.4.3.2": "ecdsaWithSHA256",
+  "1.2.840.10045.4.3.3": "ecdsaWithSHA384",
+  "1.2.840.10045.4.3.4": "ecdsaWithSHA512",
   "1.2.840.113549.1.1.1": "rsaEncryption",
   "1.2.840.113549.1.1.5": "sha1WithRSAEncryption",
   "1.2.840.113549.1.1.7": "rsaESOAEP",
@@ -52,6 +58,7 @@ const oids = {
   "1.2.840.113549.1.9.3": "contentType",
   "1.2.840.113549.1.9.4": "messageDigest",
   "1.2.840.113549.1.9.5": "signingTime",
+  "1.2.840.113549.1.9.14": "extensionRequest",
   "1.2.840.113549.1.9.15": "smimeCapabilities",
   "1.2.840.113549.1.9.16.1.23": "authEnvelopedData",
   "1.2.840.113549.1.9.22.1": "x509Certificate",
@@ -72,9 +79,13 @@ const oids = {
   "1.2.840.113549.2.10": "hmacWithSHA384",
   "1.2.840.113549.2.11": "hmacWithSHA512",
   "1.2.840.113549.3.7": "desEDE3CBC",
+  "1.3.6.1.5.5.7.1.1": "authorityInfoAccess",
   "1.3.6.1.5.5.7.3.4": "emailProtection",
+  "1.3.6.1.5.5.7.48.2": "caIssuers",
   //"1.3.6.1.5.5.8.1.2": "hmacWithSHA1",
   "1.3.14.3.2.26": "sha1",
+  "1.3.132.0.34": "secp384r1",
+  "1.3.132.0.35": "secp521r1",
   "2.1.0.1.1": "printstr",
   "2.5.4.3": "CN", // commonName
   "2.5.4.6": "C", // country
@@ -86,8 +97,10 @@ const oids = {
   "2.5.29.15": "keyUsage",
   "2.5.29.17": "subjectAlternativeName",
   "2.5.29.19": "basicConstraints",
+  "2.5.29.30": "nameConstraints",
   "2.5.29.35": "authorityKeyIdentifier",
   "2.5.29.37": "extKeyUsage",
+  "2.5.29.37.0": "anyExtendedKeyUsage",
   "2.16.840.1.101.3.4.1.2": "aes128cbc",
   "2.16.840.1.101.3.4.1.6": "aes128gcm",
   "2.16.840.1.101.3.4.1.22": "aes192cbc",
@@ -99,7 +112,7 @@ const oids = {
   "2.16.840.1.101.3.4.2.3": "sha512",
 };
 
-type WebCryptoAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
+export type WebCryptoAlgorithm = "SHA-1" | "SHA-256" | "SHA-384" | "SHA-512";
 
 /** Converts a digest (hashing) algorithm name to WebCrypto. */
 export const DigestAlgorithm: Record<string, WebCryptoAlgorithm> = {
@@ -115,6 +128,21 @@ export const SignatureAlgorithm: Record<string, WebCryptoAlgorithm> = {
   sha256WithRSAEncryption: "SHA-256",
   sha384WithRSAEncryption: "SHA-384",
   sha512WithRSAEncryption: "SHA-512",
+}
+
+/** As `SignatureAlgorithm`, for EC keys */
+export const ECDSASignatureAlgorithm: Record<string, WebCryptoAlgorithm> = {
+  ecdsaWithSHA1: "SHA-1",
+  ecdsaWithSHA256: "SHA-256",
+  ecdsaWithSHA384: "SHA-384",
+  ecdsaWithSHA512: "SHA-512",
+}
+
+/** The elliptic curves that WebCrypto has, by their size in bits. WebCrypto calls them "P-" and the size. */
+export const NamedCurve: Record<string, number> = {
+  secp256r1: 256,
+  secp384r1: 384,
+  secp521r1: 521,
 }
 
 /** Extracts the WebCrypto hash algorithm used by a key derivation algorithm. */
@@ -134,13 +162,18 @@ export const Null = define<void>("Null", function() {
   this.null();
 });
 
-export const OctetString = define<Uint8Array>("OctetString", function() {
+export const OctetString = define<Uint8Array<ArrayBuffer>>("OctetString", function() {
   this.octstr();
 });
 
 export const Oid = define<string>("Oid", function() {
   this.objid(oids);
 });
+
+/** Our name for the algorithm, or its OID for those that we don't know */
+export function algorithmName(algorithm: string | number[]): string {
+  return typeof algorithm == "string" ? algorithm : algorithm.join(".");
+}
 
 export const GeneralTime = define<number>("GeneralTime", function() {
   this.gentime();
@@ -190,7 +223,7 @@ export const RDNSequence = define<AttributeValue[]>("RDNSequence", function() {
 });
 
 export interface SubjectPublicKeyInfo {
-  algorithmIdenfitier: AlgorithmIdentifier;
+  algorithmIdentifier: AlgorithmIdentifier;
   subjectPublicKey: BitString;
 }
 export const SubjectPublicKeyInfo = define<SubjectPublicKeyInfo>("SubjectPublicKeyInfo", function() {
@@ -216,6 +249,18 @@ export const RSAPublicKey = define<RSAPublicKey>("RSAPublicKey", function() {
   );
 });
 
+/** An ECDSA signature, as X.509 and CMS have it. RFC 3279 section 2.2.3 */
+export interface ECDSASigValue {
+  r: bigint;
+  s: bigint;
+}
+export const ECDSASigValue = define<ECDSASigValue>("ECDSASigValue", function() {
+  this.seq().obj(
+    this.key("r").int(),
+    this.key("s").int(),
+  );
+});
+
 /** A certificate extension */
 interface Extension {
   extnID: string | number[],
@@ -230,19 +275,82 @@ const Extension = define<Extension>("Extension", function() {
   );
 });
 
+export const Extensions = define<Extension[]>("Extensions", function() {
+  this.seqof(Extension);
+});
+
 const GeneralName = define("GeneralName", function() {
   this.choice({
     otherName: this.seq().obj(this.key("typeid").objid(oids), this.key("value").any().explicit(0)).implicit(0),
     rfc822Name: this.ia5str().implicit(1),
     DNSName: this.ia5str().implicit(2),
+    directoryName: this.seqof(AttributeValue).explicit(4),
     uri: this.ia5str().implicit(6),
     ipAddress: this.octstr().implicit(7),
     id: this.objid(oids).implicit(8),
   });
 });
 
+const AccessDescription = define("AccessDescription", function() {
+  this.seq().obj(
+    this.key("accessMethod").objid(oids),
+    this.key("accessLocation").use(GeneralName),
+  );
+});
+
+/** Where to get the certificate of the CA that issued a certificate, RFC 5280 4.2.2.1 */
+export const AuthorityInfoAccess = define("AuthorityInfoAccess", function() {
+  this.seqof(AccessDescription);
+});
+
 export const SubjectAlternativeName = define("SubjectAlternativeName", function() {
   this.seqof(GeneralName);
+});
+
+export interface BasicConstraints {
+  cA: boolean;
+  pathLenConstraint?: bigint;
+}
+export const BasicConstraints = define<BasicConstraints>("BasicConstraints", function() {
+  this.seq().obj(
+    this.key("cA").def(false).bool(),
+    this.key("pathLenConstraint").optional().int(),
+  );
+});
+
+export enum KeyUsageBit {
+  digitalSignature,
+  nonRepudiation,
+  keyEncipherment,
+  dataEncipherment,
+  keyAgreement,
+  keyCertSign,
+  cRLSign,
+  encipherOnly,
+  decipherOnly,
+}
+export const KeyUsage = define<BitString>("KeyUsage", function() {
+  this.bitstr();
+});
+
+export const ExtKeyUsage = define<string[]>("ExtKeyUsage", function() {
+  this.seqof(Oid);
+});
+
+const GeneralSubtree = define("GeneralSubtree", function() {
+  this.seq().obj(
+    this.key("base").use(GeneralName),
+    this.key("minimum").optional().implicit(0).int(),
+    this.key("maximum").optional().implicit(1).int(),
+  );
+});
+
+/** The names that a CA may issue certificates for, RFC 5280 section 4.2.1.10 */
+export const NameConstraints = define("NameConstraints", function() {
+  this.seq().obj(
+    this.key("permittedSubtrees").optional().implicit(0).seqof(GeneralSubtree),
+    this.key("excludedSubtrees").optional().implicit(1).seqof(GeneralSubtree),
+  );
 });
 
 /** The part of a certificate that is (to be) signed */
@@ -324,7 +432,7 @@ export const PrivateKeyInfo = define("PrivateKeyInfo", function() {
 
 export interface EncryptedPrivateKeyInfo {
   encryptionAlgorithm: AlgorithmIdentifier;
-  encryptedData: Uint8Array;
+  encryptedData: Uint8Array<ArrayBuffer>;
 }
 export const EncryptedPrivateKeyInfo = define<EncryptedPrivateKeyInfo>("EncryptedPrivateKeyInfo", function() {
   this.seq().obj(
@@ -377,7 +485,7 @@ const RecipientInfo = define("RecipientInfo", function() {
           this.key("issuer").seqof(AttributeValue),
           this.key("serialNumber").int(),
         ),
-        subjectKeyIdentifier: this.implicit(0).octstr(), // TODO
+        subjectKeyIdentifier: this.implicit(0).octstr(),
       }),
       this.key("keyEncryptionAlgorithm").use(AlgorithmIdentifier),
       this.key("encryptedKey").octstr(),
@@ -390,7 +498,7 @@ const RecipientInfo = define("RecipientInfo", function() {
 });
 
 /** Raw DER, e.g. to keep bytes that we do not need to look into */
-export const Any = define<Uint8Array>("Any", function() {
+export const Any = define<Uint8Array<ArrayBuffer>>("Any", function() {
   this.any();
 });
 
@@ -530,7 +638,7 @@ export const CertificationRequestInfo = define("CertificationRequestInfo", funct
     this.key("version").int(),
     this.key("subject").seqof(AttributeValue),
     this.key("subjectPublicKeyInfo").use(SubjectPublicKeyInfo),
-    this.key("attributes").implicit(0).setof(Any),
+    this.key("attributes").implicit(0).use(Attributes),
   );
 });
 

@@ -15,6 +15,15 @@
       <EncryptionButtons {mail} identity={fromIdentity} />
       <hbox flex class="spacer" />
       <hbox class="close buttons">
+        {#if !appGlobal.isMobile && appWindow.isMainWindow}
+          <RoundButton
+            label={$t`Open in a separate window`}
+            icon={PopOutIcon}
+            classes="plain"
+            filled={false}
+            onClick={onPopOut}
+            />
+        {/if}
         {#if !appGlobal.isMobile}
           <CloseButton {mail} on:close={onClose} />
         {/if}
@@ -113,6 +122,7 @@
         slot="before-undo"
         />
       <hbox slot="end" bind:this={smlAddAnchor}>
+        <SignatureButton {editor} identity={fromIdentity} />
         <Button
           label={$t`Actions`}
           icon={SMLIcon}
@@ -187,13 +197,14 @@
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
   import { insertImage } from "../../Shared/Editor/InsertImage";
   import { MailIdentity } from "../../../logic/Mail/MailIdentity";
+  import { MailBody } from "../../../logic/Mail/MailBody";
   import { WriteMailMustangApp, mailMustangApp } from "../MailMustangApp";
   import { SpecialFolder } from "../../../logic/Mail/Folder";
   import { getLocalStorage } from "../../Util/LocalStorage";
   import { goBack } from "../../AppsBar/selectedApp";
   import { appGlobal } from "../../../logic/app";
   import { UserError, assert } from "../../../logic/util/util";
-  import { minorError, catchErrors, showUserError } from "../../Util/error";
+  import { minorError, catchErrors, showError, showUserError } from "../../Util/error";
   import CloseButton from "./CloseButton.svelte";
   import MailAutocomplete from "./MailAutocomplete.svelte";
   import AttachmentsPane from "./Attachments/AttachmentsPane.svelte";
@@ -204,6 +215,7 @@
   import IdentitySelector from "./IdentitySelector.svelte";
   import EncryptionButtons from "./EncryptionButtons.svelte";
   import EncryptionDetails from "./EncryptionDetails.svelte";
+  import SignatureButton from "./SignatureButton.svelte";
   import GraphicSelector from "../../Chat/Emoji/GraphicSelector.svelte";
   import SMLComposer from "./SMLComposer.svelte";
   import SMLAddKinds from "../SML/SMLAddKinds.svelte";
@@ -219,9 +231,13 @@
   import EmojiIcon from "lucide-svelte/icons/smile";
   import SMLIcon from "lucide-svelte/icons/list-checks";
   import SpellCheckIcon from "lucide-svelte/icons/square-check-big";
+  import PopOutIcon from "lucide-svelte/icons/square-arrow-out-up-right";
   import { t, gt } from "../../../l10n/l10n";
-  import { tick } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import type { Editor } from '@tiptap/core';
+  import { AppWindow } from "../../MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let mail: EMail;
 
@@ -261,16 +277,19 @@
 
   let loading = false;
   async function loadText() {
-    if (!mail.hasHTML) {
-      return;
+    let hasHTML = mail.hasHTML;
+    if (hasHTML) {
+      loading = true;
+      await mail.loadBody();
+      loading = false;
     }
-    loading = true;
-    await mail.loadBody();
-    loading = false;
     if (!editor) {
       await tick();
     }
-    editor.commands.setContent(mail.html);
+    if (hasHTML) {
+      editor.commands.setContent(mail.html);
+    }
+    editor.commands.editSignature(body => mail.compose.addSignature(fromIdentity, body));
     setCursorDefault();
   }
 
@@ -280,12 +299,18 @@
     }
     let quoteSetting = getLocalStorage("mail.send.quote", "below").value;
     let below = quoteSetting == "below";
-    editor.commands.focus(below ? 'start' : 'end');
+    if (below || !editor.commands.focusBeforeSignature()) {
+      editor.commands.focus(below ? 'start' : 'end');
+    }
   }
 
   $: fromIdentity && setAuthor()
   function setAuthor() {
+    let previousIdentity = mail.identity;
     mail.identity = fromIdentity;
+    if (previousIdentity && previousIdentity != fromIdentity && editor) {
+      editor.commands.editSignature(body => mail.compose.changeSignature(previousIdentity, fromIdentity, body));
+    }
     mail.folder ??= fromIdentity.account.getSpecialFolder(SpecialFolder.Sent)
       ?? fromIdentity.account.inbox;
     if (fromIdentity == mail.identity) {
@@ -351,7 +376,7 @@
 
   function onEmojiBackspace() {
     editor.view.focus();
-    document.execCommand("delete");
+    appWindow.window.document.execCommand("delete");
   }
 
   $: sendDisabledTooltip =
@@ -380,10 +405,31 @@
     }
     doOnClose = [];
 
+    if (!appWindow.isMainWindow) {
+      appWindow.close();
+      return;
+    }
     let me = mailMustangApp.subApps.find(app => app instanceof WriteMailMustangApp && app.windowParams.mail == mail);
     mailMustangApp.subApps.remove(me);
     goBack();
   }
+
+  async function onPopOut() {
+    onClose();
+    await mailMustangApp.writeMailInNewWindow(mail);
+  }
+
+  onDestroy(() => {
+    if (closing || appWindow.isMainWindow || !new MailBody(mail.html).hasUserText) {
+      return;
+    }
+    // The user closed the separate window of the composer
+    mail.compose.saveAsDraft()
+      .catch(ex => {
+        showError(ex);
+        mailMustangApp.writeMail(mail);
+      });
+  });
 
   let showSMLAdd = false;
   let testSML = false;

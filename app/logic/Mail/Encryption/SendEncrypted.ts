@@ -41,7 +41,7 @@ export class SendEncrypted {
       } else {
         throw new UserError(gt`Cannot encrypt to all recipients using PGP or S/MIME`);
       }
-    } else if (mail.signedByKeyID) {
+    } else if (mail.shouldSign) {
       if (privateKey instanceof PGPPrivateKey) {
         return await PGPSend.encryptAndSign(mail);
       } else if (privateKey instanceof SMIMEPrivateKey) {
@@ -51,6 +51,19 @@ export class SendEncrypted {
       }
     } else {
       return mail;
+    }
+  }
+
+  /** Encrypts only to ourselves, because the recipients may not have keys yet */
+  static async encryptDraft(mail: EMail): Promise<EMail> {
+    let privateKey = getMyPrivateKey(mail.identity);
+    let noRecipients = new ArrayColl<PersonUID>();
+    if (privateKey instanceof PGPPrivateKey) {
+      return await PGPSend.encryptAndSign(mail, noRecipients);
+    } else if (privateKey instanceof SMIMEPrivateKey) {
+      return await SMIMESend.encryptAndSign(mail, noRecipients);
+    } else {
+      throw new UserError(gt`Please first set up encryption for yourself, in Settings | Mail | Identity | Encryption`);
     }
   }
 
@@ -70,7 +83,7 @@ export class SendEncrypted {
     // </copied>
 
     result.wasEncrypted = mail.wasEncrypted;
-    result.signedByKeyID = mail.signedByKeyID;
+    result.signPrivateKey = mail.signPrivateKey;
     return result;
   }
 }

@@ -14,9 +14,10 @@ import { type Account, getAllAccounts, setMainAccounts } from './Abstract/Accoun
 import { getComputerOn } from './util/backend-wrapper';
 import JPCWebSocket from '../../lib/jpc-ws';
 import { production, webMail } from './build';
-import { retryOnTransientError } from './util/netUtil';
+import { isTransientError, retryOnTransientError } from './util/netUtil';
 import { catchErrors, logErrorToServer, showError } from './util/error';
 import { assert, sleep } from './util/util';
+import { k1MinuteMS } from './util/date';
 
 // Set before anything reads it. Not in `app.ts` to break import cycle.
 appGlobal.me = new Person();
@@ -31,6 +32,8 @@ if (jpcSecretFromURL) {
   } catch (ex) {
     console.error(ex);
   }
+  // The dev server reloads the page, e.g. after it bundled new dependencies
+  import.meta.hot?.on("vite:beforeFullReload", () => history.replaceState(null, "", "#jpcSecret=" + jpcSecretFromURL));
 }
 
 /**
@@ -124,6 +127,18 @@ export function checkWakeUp(): void {
     wasSleeping = computerOn.isSleeping;
   }));
   window.addEventListener("online", checkAccounts); // network is back up
+  setInterval(loginUnreachableAccounts, 5 * k1MinuteMS);
+}
+
+/** There is no `online` event when the network was up, but DNS, VPN or the server were not yet */
+function loginUnreachableAccounts(): void {
+  for (let account of getAllAccounts()) {
+    if (!account.isLoggedIn && account.loginOnStartup && !account.isDependentAccount &&
+        isTransientError(account.errors.last)) { // not e.g. a wrong password
+      account.loginAndStartup(false)
+        .catch(account.errorCallback);
+    }
+  }
 }
 
 /** On wake up */

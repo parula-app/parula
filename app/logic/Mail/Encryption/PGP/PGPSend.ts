@@ -1,6 +1,6 @@
 import { SendEncrypted } from "../SendEncrypted";
 import type { EMail } from "../../EMail";
-import { getMyPrivateKey, getPublicKeyForPersonUID } from "../KeyUtils";
+import { getMySigningKey, getPublicKeyForPersonUID } from "../KeyUtils";
 import { CreateMIME } from "../../SMTP/CreateMIME";
 import { PGPPublicKey } from "./PGPPublicKey";
 import { PGPPrivateKey } from "./PGPPrivateKey";
@@ -22,8 +22,8 @@ export class PGPSend {
    * @returns a new email that is encrypted and/or signed.
    *   The original email is untouched.
    */
-  static async encryptAndSign(mail: EMail): Promise<EMail> {
-    let privateKey = getMyPrivateKey(mail.identity, PGPPrivateKey);
+  static async encryptAndSign(mail: EMail, recipients = mail.allRecipients()): Promise<EMail> {
+    let privateKey = getMySigningKey(mail, PGPPrivateKey);
     assert(privateKey, gt`Please first set up PGP encryption for yourself, in Settings | Mail | Identity | Encryption`);
     let result = SendEncrypted.cloneEMail(mail);
     let originalMIME = await CreateMIME.getMIME(mail);
@@ -34,7 +34,7 @@ export class PGPSend {
     let privateOpenPGPKey = await privateKey.openPGPPrivateKey();
     if (mail.shouldEncrypt) {
       let message = await openPGP.createMessage({ text: await PGPSend.protectHeaders(originalMIMEStr) });
-      let recipientKeys = mail.allRecipients().contents.flatMap(puid =>
+      let recipientKeys = recipients.contents.flatMap(puid =>
         getPublicKeyForPersonUID(puid, PGPPublicKey));
       let recipientOpenPGPKeys: OpenPGP.PublicKey[] = [];
       for (let recipientKey of recipientKeys) {
@@ -47,7 +47,7 @@ export class PGPSend {
         encryptionKeys: recipientOpenPGPKeys,
       });
       result.sendRawMIME = PGPSend.createMIMEForEncrypted(mail, headers, encrypted, privateKey);
-    } else if (mail.signedByKeyID) {
+    } else if (mail.shouldSign) {
       let message = await openPGP.createMessage({ text: originalMIMEStr });
       let signature = await openPGP.sign({
         message: message,
@@ -64,7 +64,7 @@ export class PGPSend {
     } else {
       throw new NotReached();
     }
-    result.signedByKeyID = privateKey.id;
+    result.signedPublicKeyFingerprint = privateKey.fingerprint;
     return result;
   }
 

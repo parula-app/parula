@@ -15,9 +15,9 @@ export class EWSIncomingInvitation extends IncomingInvitation {
   declare readonly calendar: EWSCalendar;
   declare readonly message: EWSEMail;
 
-  async respondToInvitationFromMail(response: InvitationResponseInMessage) {
+  async respondToInvitationFromMail(response: InvitationResponseInMessage, sendReply = true) {
     assert(this.invitationMessage == InvitationMessage.Invitation, "Only invitations can be responded to");
-    let request = new EWSCreateItemRequest({MessageDisposition: "SendAndSaveCopy"});
+    let request = new EWSCreateItemRequest({MessageDisposition: sendReply ? "SendAndSaveCopy" : "SaveOnly"});
     request.addField(ResponseTypes[response], "ReferenceItemId", { Id: this.message.itemID });
     await this.calendar.account.callEWS(request);
     await this.message.deleteMessageLocally(); // Exchange deletes the message from the inbox
@@ -28,6 +28,9 @@ export class EWSIncomingInvitation extends IncomingInvitation {
     await this.updateFromOtherInvitationMessage();
   }
   async updateParticipantReply() {
+    await this.updateFromOtherInvitationMessage();
+  }
+  async updateChangedMeeting() {
     await this.updateFromOtherInvitationMessage();
   }
   /** Exchange server auto-processes these */

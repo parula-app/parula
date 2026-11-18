@@ -11,7 +11,6 @@
 
 <script lang="ts">
   import type { Account } from "../../../logic/Abstract/Account";
-  import { MailAccount } from "../../../logic/Mail/MailAccount";
   import { accountSettings, type SettingsCategory } from "../SettingsCategory";
   import { selectedCategory, selectedAccount } from "./selected";
   import { getSettingsCategoryForAccount, openSettingsCategoryForAccount } from "./CategoriesUtils";
@@ -25,14 +24,7 @@
   $: accountSelected = account == $selectedAccount;
   $: itemSelected = account == $selectedAccount && $selectedCategory == mainAccountCategory;
   $: mainAccountCategory = getSettingsCategoryForAccount(account);
-  $: subCategories = accountSettings.filterObservable(cat => account instanceof cat.type && !cat.isMain && showCat(cat, account));
-
-  function showCat(category: SettingsCategory, account: Account): boolean {
-    if (category.id == "mail-sharing" && account instanceof MailAccount) {
-      return account.canShareWithPersons();
-    }
-    return true;
-  }
+  $: subCategories = accountSettings.filterObservable(cat => account instanceof cat.type && !cat.isMain && cat.isAvailable(account));
 
   function onSelect() {
     openSettingsCategoryForAccount(account);
@@ -42,7 +34,8 @@
 <style>
   .account {
     align-items: start;
-    padding: 0px 0px 2px 18px;
+    padding-block: 0px 2px;
+    padding-inline: 30px 0px;
   }
   .account:hover {
     background-color: var(--hover-bg);

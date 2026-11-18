@@ -10,7 +10,7 @@ import { ChatPersonUID } from "../../../../logic/Chat/ChatPersonUID";
 import { WhatsAppContact } from "../../../../logic/Chat/WhatsApp/WhatsAppContact";
 import { Group } from "../../../../logic/Abstract/Group";
 import { encode } from "../../../../logic/Chat/Signal/Proto/codec";
-import { HistorySync, decodeHistorySync, encodeWAMessage, decodeWAMessage } from "../../../../logic/Chat/WhatsApp/Proto/schema";
+import { HistorySync, HistorySyncType, ProtocolMessageType, decodeHistorySync, encodeWAMessage, decodeWAMessage, type WAMessage } from "../../../../logic/Chat/WhatsApp/Proto/schema";
 import { WANode } from "../../../../logic/Chat/WhatsApp/Binary/WANode";
 import { SignalStore } from "../../../../logic/Chat/Signal/Crypto/Store";
 import { createSenderKey, createDistributionMessage, groupEncrypt } from "../../../../logic/Chat/Signal/Crypto/GroupCipher";
@@ -36,6 +36,9 @@ function bundleFrom(store: SignalStore): PreKeyBundle {
 const kAliceJID = "491761111111@s.whatsapp.net";
 const kBobJID = "491762222222@s.whatsapp.net";
 const kGroupJID = "12345-67890@g.us";
+/** Another device of our own account (see `setup()`) */
+const kOwnPhoneJID = "412300000000:0@s.whatsapp.net";
+const kMalloryJID = "491769999999@s.whatsapp.net";
 
 /** A WhatsApp account with an empty personal address book, both backed by no-op
  * storage so we exercise only the in-memory room/contact creation. */
@@ -177,6 +180,60 @@ test("a live message we sent from another device is outgoing, attributed to us",
   expect(msg.outgoing).toBe(true);
   expect(msg.contact).not.toBe(appGlobal.me); // the owner chat contact, not appGlobal.me
   expect((msg.contact as ChatPersonUID).chatID).toBe("412300000000@s.whatsapp.net");
+});
+
+/** Lets the account receive a `<message>` stanza `from` that JID, which decrypts to `payload`. */
+async function receive(account: WhatsAppAccount, from: string, id: string, payload: WAMessage): Promise<void> {
+  (account as any).decryptStanza = async () => encodeWAMessage(payload);
+  await (account as any).receiveMessageStanza(new WANode("message", { from, id, t: "1700000500" }));
+}
+
+test("a copy of a message we sent counts only from our own devices", async () => {
+  let account = setup();
+
+  await receive(account, kMalloryJID, "DSM1", { deviceSentMessage: { destinationJID: kBobJID, message: { conversation: "Fake from me" } } });
+  await receive(account, kOwnPhoneJID, "DSM2", { deviceSentMessage: { destinationJID: kBobJID, message: { conversation: "Really from me" } } });
+
+  let messages = account.rooms.contents.flatMap(room => room.messages.contents);
+  expect(messages.find(msg => msg.text == "Fake from me")).toBeUndefined();
+  let real = messages.find(msg => msg.text == "Really from me")!;
+  expect(real.outgoing).toBe(true);
+  expect(account.rooms.contents.find(room => room.id == kBobJID)!.messages.contents).toContain(real);
+});
+
+test("app-state sync keys are taken only from our own devices", async () => {
+  let account = setup();
+  let keyShare = (keyID: number) => ({
+    protocolMessage: {
+      type: ProtocolMessageType.AppStateSyncKeyShare,
+      appStateSyncKeyShare: { keys: [{ keyID: { keyID: new Uint8Array([keyID]) }, keyData: { keyData: new Uint8Array(32).fill(keyID) } }] },
+    },
+  });
+
+  await receive(account, kMalloryJID, "KS1", keyShare(1));
+  expect(account.appState.keys.size).toBe(0);
+
+  await receive(account, kOwnPhoneJID, "KS2", keyShare(2));
+  expect(account.appState.keys.size).toBe(1);
+});
+
+test("a history sync is imported only from our own devices", async () => {
+  let account = setup();
+  let notified: any[] = [];
+  account.historySync.handleNotification = async notification => {
+    notified.push(notification);
+  };
+  let historySync = (directPath: string) => ({
+    protocolMessage: {
+      type: ProtocolMessageType.HistorySyncNotification,
+      historySyncNotification: { syncType: HistorySyncType.Full, directPath, mediaKey: new Uint8Array(32) },
+    },
+  });
+
+  await receive(account, kMalloryJID, "HS1", historySync("/fake"));
+  await receive(account, kOwnPhoneJID, "HS2", historySync("/real"));
+
+  expect(notified.map(notification => notification.directPath)).toEqual(["/real"]);
 });
 
 test("after login it uploads prekeys and switches the connection to active", async () => {

@@ -1,9 +1,9 @@
 import "../../../../../logic/app";
 import { setupTestFolder } from "../../SQL/setup";
-import { getPublicKeyByKeyID } from "../../../../../logic/Mail/Encryption/KeyUtils";
+import { getPublicKeyByFingerprint } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
 import type { EMail } from "../../../../../logic/Mail/EMail";
-import { kClearSigned, kOpaqueSigned } from "./signedMessages";
+import { kClearSigned, kOpaqueSigned, kECClearSigned } from "./signedMessages";
 import { expect, test, describe } from "vitest";
 
 // The browser has this, but Node does not.
@@ -47,7 +47,7 @@ function toCRLF(mime: string): string {
 
 /** What the message reader shows the signature for */
 async function signedWithKeyName(email: EMail): Promise<string | null> {
-  let key = await getPublicKeyByKeyID(email.signedByKeyID, email);
+  let key = await getPublicKeyByFingerprint(email.signedPublicKeyFingerprint, email);
   if (!key || key.trustLevel == TrustLevel.Distrusted) {
     return null;
   }
@@ -58,18 +58,63 @@ describe("Signature of a received message, without an own private key", () => {
   test("clear-signed message", async () => {
     let email = await readMessage(kClearSigned);
     expect(email.text.trim()).toBe("Hello, this is signed.");
-    expect(await signedWithKeyName(email)).toBe("F9D7");
+    expect(await signedWithKeyName(email)).toBe(email.signedPublicKey.name);
   });
 
   test("opaque-signed message, as Outlook sends it", async () => {
     let email = await readMessage(kOpaqueSigned);
     expect(email.text.trim()).toBe("Hello, this is signed.");
-    expect(await signedWithKeyName(email)).toBe("F9D7");
+    expect(await signedWithKeyName(email)).toBe(email.signedPublicKey.name);
+  });
+
+  test("clear-signed message, signed with an EC key", async () => {
+    let email = await readMessage(kECClearSigned);
+    expect(email.text.trim()).toBe("Hello, this is signed with an EC key.");
+    expect(await signedWithKeyName(email)).toBeTruthy();
+    // The certificate is kept for the sender
+    expect(email.from.encryptionPublicKey?.userIDs.contents).toEqual(["ec256@example.com"]);
   });
 
   test("an unknown CA leaves the trust level to the user", async () => {
     let email = await readMessage(kClearSigned);
-    let key = await getPublicKeyByKeyID(email.signedByKeyID, email);
+    let key = await getPublicKeyByFingerprint(email.signedPublicKeyFingerprint, email);
     expect(key.trustLevel).toBe(TrustLevel.Sender);
+  });
+
+  test("opaque-signed message, sent as a file (application/octet-stream, smime.p7m)", async () => {
+    // Named only by the filename of the Content-Disposition
+    let email = await readMessage(kOpaqueSigned.replace(`application/x-pkcs7-mime; smime-type=signed-data; name="smime.p7m"`, "application/octet-stream"));
+    expect(email.text.trim()).toBe("Hello, this is signed.");
+    expect(await signedWithKeyName(email)).toBe(email.signedPublicKey.name);
+  });
+
+  test("a mail with an attached signed file (.p7m) stays as it is", async () => {
+    // Like an Italian e-invoice, which is signed XML. Here, the CMS blob of `kOpaqueSigned`.
+    let signedFile = kOpaqueSigned.split("\n\n")[1];
+    let mime = `From: Alice <alice@example.com>
+To: User <user@example.com>
+Subject: Invoice
+Date: Tue, 14 Jul 2026 10:00:00 +0000
+Message-ID: <invoice@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="invoice"
+
+--invoice
+Content-Type: text/plain; charset=utf-8
+
+Please find the invoice attached.
+--invoice
+Content-Type: application/octet-stream; name="IT01234567890_FPA01.xml.p7m"
+Content-Disposition: attachment; filename="IT01234567890_FPA01.xml.p7m"
+Content-Transfer-Encoding: base64
+
+${signedFile}
+--invoice--
+`;
+    let email = await readMessage(mime);
+    expect(email.text.trim()).toBe("Please find the invoice attached.");
+    expect(email.attachments.contents.map(attachment => attachment.filename)).toEqual(["IT01234567890_FPA01.xml.p7m"]);
+    expect(email.signedPublicKeyFingerprint).toBeFalsy();
+    expect(new TextDecoder().decode(email.mime)).toBe(toCRLF(mime));
   });
 });

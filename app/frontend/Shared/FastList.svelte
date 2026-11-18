@@ -99,7 +99,9 @@
   export let selectedItem: T = null;
 
   /** When the `selectedItems` are removed from `items`,
-   * select the items which was in their place in the list. */
+   * select the items which was in their place in the list.
+   * When the caller replaces `items` with another list, e.g. a filtered one,
+   * nothing else gets selected. */
   export let ensureSelection = true;
 
   /** Whether the list is scrolled all the way to the top
@@ -112,7 +114,8 @@
   /** The `items` that the `init` event was dispatched for */
   let initDoneForItems: Collection<T> = null;
 
-  $: headerHeight = headerE?.firstChild?.offsetHeight ?? 10;
+  /** 0 without a header. Measured with the rows in `updateSize()`. {integer} in px */
+  let headerHeight = 0;
 
   /**
    * Height of the DOM elements for a single row.
@@ -159,10 +162,11 @@
    */
   async function updateSize() {
     try {
-      if (items.isEmpty) {
+      await tick();
+      if (!listE?.offsetHeight) { // Hidden list measures 0. `resizeObserver` calls this again when it's shown.
         return;
       }
-      await tick();
+      headerHeight = (headerE.firstElementChild as HTMLElement)?.offsetHeight ?? 0;
       let contentRow = contentE?.firstElementChild?.firstElementChild as HTMLElement;
       if (!contentRow) {
         return;
@@ -278,6 +282,9 @@
 
   const onScrollThrottled = throttle(onScroll, 10);
   function onScroll() {
+    if (!rowHeight) { // Rows without a box of their own (`display: contents`, Lookout contacts "Phone" view) measure 0
+      return;
+    }
     let topY = listE.scrollTop - headerHeight;
     let startPosCalc = Math.floor(topY / rowHeight);
     showStartPos = Math.max(Math.min(startPosCalc, items.length - showRows), 0);
@@ -316,12 +323,15 @@
   /** If the selected items were removed from the list,
    * adapt the selectedItems and implicitly selectedItem. */
   $: $items && replaceSelectedItem();
+  let previousItems: Collection<T> = null;
   function replaceSelectedItem() {
     // Before the first `selectedItems` change, else the caller misses it. Repeats are no-ops.
     selectedItems.registerObserver(singleSelectionObserver);
     if (!ensureSelection) {
       return;
     }
+    let isSameList = items == previousItems;
+    previousItems = items;
     let wantedItem = selectedItem; // `removeAll()` below clears it
     if (selectedItems.isEmpty) {
       if (items.includes(wantedItem)) { // The caller selected it before the items arrived
@@ -331,7 +341,11 @@
     }
     selectedItems.removeAll(selectedItems.filterOnce(a => !items.includes(a)));
     if (selectedItems.isEmpty) {
-      let newItem = items.includes(wantedItem) ? wantedItem : items.getIndex(lastSelectedIndex) ?? items.first;
+      let newItem = items.includes(wantedItem)
+        ? wantedItem
+        : isSameList
+          ? items.getIndex(lastSelectedIndex) ?? items.first
+          : null;
       if (!newItem) {
         return;
       }

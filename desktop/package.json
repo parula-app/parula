@@ -1,7 +1,7 @@
 {
   "name": "mustang",
-  "version": "0.9.40-dev",
-  "description": "Mustang - Video conference, chat, mail, calendar, files, contacts",
+  "version": "0.9.42-dev",
+  "description": "Parula - Video conference, chat, mail, calendar, files, contacts",
   "main": "./out/main/index.js",
   "type": "module",
   "scripts": {
@@ -65,14 +65,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mustang-im/mustang.git"
+    "url": "git+https://github.com/parula-app/parula.git"
   },
   "bugs": {
-    "url": "https://github.com/mustang-im/mustang/issues"
+    "url": "https://github.com/parula-app/parula/issues"
   },
-  "author": "Ben Bucksch and Mustang GmbH (https://mustang.im)",
+  "author": "Ben Bucksch and Parula GmbH (https://parula.app)",
   "copyright": "Ben Bucksch",
   "license": "EUPL-1.2",
   "licenseText": "See LICENSE file at top level",
-  "homepage": "https://mustang.im"
+  "homepage": "https://parula.app"
 }

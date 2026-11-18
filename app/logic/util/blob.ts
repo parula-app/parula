@@ -45,7 +45,7 @@ export function uint8ArrayToBase64(bytes: Uint8Array): string {
 }
 
 export function uint8ArrayToHex(bytes: Uint8Array): string {
-  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+  return bytes.toHex?.() ?? Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export async function dataURLToBlob(dataURL: URLString): Promise<Blob> {
@@ -87,4 +87,10 @@ export function URLPart(literals: TemplateStringsArray, ...values: any[]) {
     let value = values[i] == undefined ? "" : encodeURIComponent(values[i]);
     return literal + value;
   }).join("");
+}
+
+declare global {
+  interface Uint8Array {
+    toHex(): string;
+  }
 }

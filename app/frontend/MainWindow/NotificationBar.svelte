@@ -107,4 +107,46 @@
     color: #6B6B6CAA;
     background-color: transparent;
   }
+
+  /* Lookout. :where(), so that the error-info rule above still wins */
+  :global(:where(.lookout-window) .app-area) > .notification-bar {
+    min-height: 34px;
+    margin: 0 8px 6px 8px;
+    padding-inline-start: 4px;
+    border: 1px solid var(--lo-infobar-border);
+    border-radius: var(--lo-radius);
+    background-color: var(--lo-infobar-bg);
+    color: var(--lo-fg);
+    box-shadow: none;
+  }
+  :global(:where(.lookout-window) .app-area) > .notification-bar[severity="error"] {
+    border-color: var(--lo-infobar-error-border);
+    background-color: var(--lo-infobar-error-bg);
+  }
+  :global(:where(.lookout-window) .app-area) > .notification-bar[severity="meltdown"] {
+    border-color: var(--lo-danger);
+    background-color: var(--lo-danger);
+    color: var(--lo-danger-fg);
+  }
+  :global(:where(.lookout-window) .app-area) > .notification-bar[severity="info"],
+  :global(:where(.lookout-window) .app-area) > .notification-bar[severity="logged-out"] {
+    border-color: var(--lo-selected-bg);
+    background-color: var(--lo-accent-tint);
+  }
+  :global(:where(.lookout-window) .app-area) > .notification-bar > hbox:first-child {
+    display: none;
+  }
+  :global(:where(.lookout-window) .app-area) > .notification-bar :global(button) {
+    border-color: transparent;
+    background-color: transparent;
+    color: inherit;
+  }
+  :global(:where(.lookout-window) .app-area) > .notification-bar :global(button:hover) {
+    background-color: var(--lo-hover-bg);
+  }
+  :global(:where(.lookout-window) .app-area) > .notification-bar :global(button.action) {
+    border-color: var(--lo-input-border);
+    background-color: var(--lo-pane-bg);
+    color: var(--lo-fg);
+  }
 </style>

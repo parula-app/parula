@@ -220,3 +220,27 @@ test("group send: our own state is stored so our other devices and a restart can
   await account.sender.sendGroupMessage(JID.parse(kGroupJID), { conversation: "second" });
   expect(account.signalStore!.senderKeys.get(storeKey)!.keyID).toBe(keyID);
 });
+
+test("group send: a retry receipt re-sends to a member, but not to somebody outside the group", async () => {
+  let connection = new FakeConnection();
+  let account = makeAccount(connection);
+  connection.participants = ["99887766@lid", "55667788@lid"];
+  connection.deviceList.set("99887766", [5]);
+  connection.deviceList.set("55667788", [0]);
+  connection.deviceStores.set("55667788:0@lid", SignalStore.createNew());
+  let ourAddress = `${JID.parse(kSelfLID).user}.${JID.parse(kSelfJID).device}`;
+  await account.getOrCreateRoom(JID.parse(kGroupJID));
+  let messageID = await account.sender.sendGroupMessage(JID.parse(kGroupJID), { conversation: "members only" });
+
+  let mallory = SignalStore.createNew();
+  await (account as any).onReceipt(new WANode("receipt", { id: messageID, type: "retry", from: kGroupJID, participant: "11223344@lid" },
+    [new WANode("keys", {}, bundleUserNode("11223344@lid", mallory).children())]));
+  expect(connection.sent.filter(n => n.tag == "message").length).toBe(1); // only the original send
+
+  let bobReplacement = SignalStore.createNew();
+  await (account as any).onReceipt(new WANode("receipt", { id: messageID, type: "retry", from: kGroupJID, participant: "55667788@lid" },
+    [new WANode("keys", {}, bundleUserNode("55667788@lid", bobReplacement).children())]));
+  let resent = connection.sent.filter(n => n.tag == "message").at(-1)!;
+  expect(resent.attrs.id).toBe(messageID);
+  expect((await decryptSKDM(resent, "55667788@lid", bobReplacement, ourAddress)).conversation).toBe("members only");
+});

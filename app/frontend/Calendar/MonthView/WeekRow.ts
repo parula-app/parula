@@ -97,20 +97,45 @@ export class WeekRowLayout {
         shownSegments = this.segmentsOnDay(segments[day].slice(0, shownCount).map(segment => segment.event), day);
       }
       this.placeByTime(shownSegments, firstRow, lastRows[day]);
-      this.events.push(...shownSegments);
+      for (let segment of shownSegments) {
+        // An event over midnight is one bar over the days, and on all days positioned at its start time of the first day
+        let dayBefore = segment.continuesBefore && this.events.find(other =>
+          other.event == segment.event && other.endDay == day && other.startRow == segment.startRow && other.endRow == segment.endRow);
+        if (dayBefore) {
+          dayBefore.endDay = day + 1;
+          dayBefore.continuesAfter = segment.continuesAfter;
+        } else {
+          this.events.push(segment);
+        }
+      }
       let hiddenBars = barsOnDay(bars, day).filter(bar => !shownBars.includes(bar));
       return [...hiddenBars, ...segments[day].slice(shownCount)].map(item => item.event);
     });
   }
 
   protected segmentsOnDay(events: Event[], day: number): EventInWeekRow[] {
-    return layoutTimeColumn(events, this.days[day]).map(item => ({
+    let date = this.days[day];
+    let dayStart = date.getTime();
+    let dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
+    // At the start or the end of this day
+    const isOverMidnight = (event: Event) => {
+      let start = event.startTime.getTime();
+      let end = event.endTime.getTime();
+      return start < dayStart && dayStart < end || start < dayEnd && dayEnd < end;
+    };
+    let segments = layoutTimeColumn(events.filter(event => !isOverMidnight(event)), date).map(item => ({
       ...item,
       startDay: day,
       endDay: day + 1,
       startRow: Math.floor(this.rowOf(item.startRow / kRowsPerHour)),
       endRow: Math.ceil(this.rowOf(item.endRow / kRowsPerHour)),
     }));
+    // 1 line at its start time, on all its days
+    let bars = layoutTimeColumn(events.filter(isOverMidnight), date).map(item => {
+      let startRow = Math.floor(this.rowOf(item.event.startTime.getHours() + item.event.startTime.getMinutes() / 60));
+      return { ...item, startDay: day, endDay: day + 1, startRow, endRow: startRow + WeekRowLayout.kRowsPerLine, lane: 0, lanes: 1 };
+    });
+    return [...segments, ...bars].sort((a, b) => a.startRow - b.startRow);
   }
 
   protected rowOf(hours: number): number {
