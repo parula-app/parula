@@ -6,7 +6,8 @@ import { DeleteStrategy } from "../MailAccount";
 import { availableTags, getTagByName, type Tag } from "../../Abstract/Tag";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../../Abstract/PersonUID";
 import type { TJMAPEmailAddress, TJMAPEmailBodyPart, TJMAPEMailHeaders, TJMAPPerson } from "./TJMAPMail";
-import type { TJMAPGetResponse } from "./TJMAPGeneric";
+import type { TJMAPChangeResponse, TJMAPGetResponse } from "./TJMAPGeneric";
+import { checkChangeError } from "./JMAPError";
 import { retryOnTransientError } from "../../util/netUtil";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert, NotReached, getUserPreference } from "../../util/util";
@@ -18,6 +19,8 @@ export class JMAPEMail extends EMail {
   static readonly listProperties = ["id", "blobId", "threadId", "mailboxIds", "keywords", "size", "receivedAt", "sentAt", "messageId", "inReplyTo", "subject", "from", "to", "cc", "bcc"];
   declare folder: JMAPFolder;
   mimeBlobId: string | null = null; // TODO Save in DB
+  /** The folders that the email is in, as of our Email sync state. null, if we don't know. Not saved in the DB. */
+  mailboxIDs: string[] | null = null;
   protected flagsChanging = false;
 
   constructor(folder: JMAPFolder) {
@@ -35,6 +38,9 @@ export class JMAPEMail extends EMail {
     this.setFlagsLocal(json.keywords);
     // <https://www.rfc-editor.org/rfc/rfc8621.html#section-4.2.1>
     this.jmapID = sanitize.nonemptystring(json.id, null);
+    this.mailboxIDs = json.mailboxIds
+      ? Object.keys(json.mailboxIds).map(id => sanitize.nonemptystring(id))
+      : null;
     if (this.downloadComplete) {
       return;
     }
@@ -267,10 +273,7 @@ export class JMAPEMail extends EMail {
       this.folder.deletions.add(this.jmapID);
       if (strategy == DeleteStrategy.DeleteImmediately ||
           [SpecialFolder.Trash, SpecialFolder.Spam].includes(this.folder.specialFolder)) {
-        await this.folder.account.makeSingleCall("Email/set", {
-          accountId: this.folder.account.accountID,
-          destroy: [ this.jmapID ],
-        });
+        await this.removeFromFolderOnServer();
       } else if (strategy == DeleteStrategy.MoveToTrash || strategy == DeleteStrategy.Flag) {
         let trash = this.folder.account.getSpecialFolder(SpecialFolder.Trash);
         assert(trash, gt`Trash folder is not set. Cannot delete the email. Please go to folder properties and set Use As: Trash.`);
@@ -281,6 +284,54 @@ export class JMAPEMail extends EMail {
     } finally {
       this.folder.deletions.delete(this.jmapID);
     }
+  }
+
+  /** Destroying an email removes it from all folders, so destroy it only if it is in no other folder. */
+  protected async removeFromFolderOnServer() {
+    let state = this.folder.account.syncState.get("Email");
+    if (!this.mailboxIDs || !state) {
+      await this.removeFromFolderAsOnServerNow();
+      return;
+    }
+    try {
+      // `mailboxIDs` are right, if the server has no changes that we didn't get yet
+      await this.destroyOrRemoveFromFolder(this.mailboxIDs, state);
+    } catch (ex) {
+      if (ex.code == "stateMismatch") {
+        await this.removeFromFolderAsOnServerNow();
+        return;
+      }
+      throw ex;
+    }
+  }
+
+  protected async removeFromFolderAsOnServerNow() {
+    let account = this.folder.account;
+    let getResponse = await account.makeSingleCall("Email/get", {
+      accountId: account.accountID,
+      ids: [this.jmapID],
+      properties: ["mailboxIds"],
+    }) as TJMAPGetResponse<TJMAPEMailHeaders>;
+    let json = getResponse.list[0];
+    if (!json) {
+      return;
+    }
+    await this.destroyOrRemoveFromFolder(Object.keys(json.mailboxIds ?? {}), null);
+  }
+
+  /** @param ifInState The server refuses, if its emails changed since this state */
+  protected async destroyOrRemoveFromFolder(mailboxIDs: string[], ifInState: string | null) {
+    let account = this.folder.account;
+    let isInOtherFolders = mailboxIDs.some(folderID => folderID != this.folder.id);
+    let change = isInOtherFolders
+      ? { update: { [this.jmapID]: { [`mailboxIds/${this.folder.id}`]: null } } }
+      : { destroy: [this.jmapID] };
+    let setResponse = await account.makeSingleCall("Email/set", {
+      accountId: account.accountID,
+      ifInState: ifInState,
+      ...change,
+    }) as TJMAPChangeResponse<TJMAPEMailHeaders>;
+    checkChangeError(setResponse);
   }
 }
 
