@@ -50,7 +50,6 @@
   /** The identities as last saved. The fields change the identities directly. */
   let savedStr = identitiesStr();
 
-  // Also without Save, e.g. when the user closes Lookout's settings dialog
   onDestroy(() => catchErrors(onClose));
 
   function identitiesStr(): string {
