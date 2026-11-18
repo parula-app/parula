@@ -24,11 +24,11 @@
         <ImportantIcon size={16} class="important" />
       {/if}
     </hbox>
-    <hbox class="contact font-small">{contactName}</hbox>
+    <span class="contact font-small">{contactName}</span>
     <hbox flex />
     {#if $tags.hasItems}
       <hbox class="tags">
-        <TagSelector tags={$tags} object={message} canAdd={false} />
+        <TagSelector tags={$tags} object={message} canAdd={false} compact />
       </hbox>
     {/if}
     <hbox class="date font-smallest">{getDateTimeString($message.sent)}</hbox>
@@ -210,6 +210,9 @@
   }
   .contact {
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .subject,
   .date {
@@ -332,11 +335,6 @@
   }
   .unread-dot.unread :global(svg) {
     fill: green;
-  }
-  .tags :global(.tag) {
-    margin: 0 2px;
-    min-height: unset;
-    border: none;
   }
   /* </copied> */
   .tags {
