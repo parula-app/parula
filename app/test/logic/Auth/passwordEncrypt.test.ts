@@ -57,6 +57,16 @@ test("Passwords: When the OS has a key store, nobody can decrypt the saved passw
   expect(await passwordDecrypt(saved)).toBeNull();
 });
 
+test("Passwords: The OS key store gets the password only encrypted", async () => {
+  let osKeyStore = new FakeOSKeyStore();
+  appGlobal.remoteApp = osKeyStore;
+  let saved = await passwordEncrypt(kPassword);
+  let [givenToOS] = osKeyStore.stored.values();
+  expect(givenToOS).not.toContain(kPassword);
+  expect(await decrypt(kOldSecret, givenToOS)).toBe(kPassword);
+  expect(await passwordDecrypt(saved)).toBe(kPassword);
+});
+
 test.each([
   ["Linux without a keyring", { encryptWithOS: () => null }],
   ["mobile", {}],
@@ -69,9 +79,10 @@ test.each([
 
 test("Accounts: A password from an older version still works, and is then encrypted by the OS", async () => {
   let tempDir = mkdtempSync(path.join(tmpdir(), "password-encrypt-test-"));
-  appGlobal.remoteApp = Object.assign(new FakeOSKeyStore(), {
+  let osKeyStore = Object.assign(new FakeOSKeyStore(), {
     getSQLiteDatabase: (filename: string) => new InProcessSQLiteDatabase(path.join(tempDir, filename)),
   });
+  appGlobal.remoteApp = osKeyStore;
   await SQLAccount.save(new TestAccount(), AccountType.Mail);
   // as older versions saved it
   await (await getDatabase()).run(sql`UPDATE account SET json = json_set(json, '$.passwordEncrypted', ${await encrypt(kOldSecret, kPassword)})`);
@@ -84,10 +95,13 @@ test("Accounts: A password from an older version still works, and is then encryp
   let saved = JSON.parse(row.json).passwordEncrypted;
   await expect(decrypt(kOldSecret, saved)).rejects.toThrow();
   expect(await passwordDecrypt(saved)).toBe(kPassword);
+  let [givenToOS] = osKeyStore.stored.values();
+  expect(givenToOS).not.toContain(kPassword);
 });
 
 test("OAuth2: A refresh token from an older version still works, and is then encrypted by the OS", async () => {
-  appGlobal.remoteApp = new FakeOSKeyStore();
+  let osKeyStore = new FakeOSKeyStore();
+  appGlobal.remoteApp = osKeyStore;
   let localStorage = new Map<string, string>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => localStorage.get(key) ?? null,
@@ -100,4 +114,6 @@ test("OAuth2: A refresh token from an older version still works, and is then enc
   let saved = localStorage.get("password.oauth2-test");
   await expect(decrypt(kOldSecret, saved)).rejects.toThrow();
   expect(await getPassword("oauth2-test")).toBe(kPassword);
+  let [givenToOS] = osKeyStore.stored.values();
+  expect(givenToOS).not.toContain(kPassword);
 });

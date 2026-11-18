@@ -12,39 +12,41 @@ export async function passwordDecrypt(encrypted: string | null | undefined): Pro
   if (encrypted == null) {
     return null;
   }
-  if (!encrypted.startsWith(kOSPrefix)) {
-    return sanitize.string(await decrypt(secret, encrypted) as string, null);
+  if (encrypted.startsWith(kOSPrefix)) {
+    try {
+      encrypted = await appGlobal.remoteApp.decryptWithOS(encrypted.substring(kOSPrefix.length));
+    } catch (ex) {
+      // The OS lost our key, e.g. when the profile moved to another computer. The user needs to enter the password again.
+      minorError(ex);
+      return null;
+    }
   }
-  try {
-    return sanitize.string(await appGlobal.remoteApp.decryptWithOS(encrypted.substring(kOSPrefix.length)), null);
-  } catch (ex) {
-    // The OS lost our key, e.g. when the profile moved to another computer. The user needs to enter the password again.
-    minorError(ex);
-    return null;
-  }
+  return sanitize.string(await decrypt(secret, encrypted) as string, null);
 }
 
 export async function passwordEncrypt(password: string | null | undefined): Promise<string | null> {
   if (password == null) {
     return null;
   }
-  return await passwordEncryptWithOS(password) ?? await encrypt(secret, password);
+  let encrypted = await encrypt(secret, password);
+  return await passwordEncryptWithOS(encrypted) ?? encrypted;
 }
 
 /**
  * For passwords that are only obfuscated, because older versions saved them,
  * or because the OS key store was not available at that time.
- * @returns `password` encrypted by the OS, to save instead of `encrypted`,
+ * @returns `encrypted`, encrypted again by the OS, to save instead of `encrypted`,
  *   or null, if there is nothing to change
  */
 export async function passwordEncryptAgain(encrypted: string | null | undefined, password: string | null): Promise<string | null> {
   if (password == null || encrypted.startsWith(kOSPrefix)) {
     return null;
   }
-  return await passwordEncryptWithOS(password);
+  return await passwordEncryptWithOS(encrypted);
 }
 
-async function passwordEncryptWithOS(password: string): Promise<string | null> {
-  let encrypted = await appGlobal.remoteApp.encryptWithOS?.(password); // not on mobile and webmail
-  return encrypted ? kOSPrefix + encrypted : null;
+/** @param encrypted by `encrypt(secret, …)`, so that the password doesn't go to the backend and the OS in clear */
+async function passwordEncryptWithOS(encrypted: string): Promise<string | null> {
+  let encryptedByOS = await appGlobal.remoteApp.encryptWithOS?.(encrypted); // not on mobile and webmail
+  return encryptedByOS ? kOSPrefix + encryptedByOS : null;
 }
