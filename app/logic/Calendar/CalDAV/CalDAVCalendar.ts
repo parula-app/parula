@@ -2,6 +2,7 @@ import { Calendar } from "../Calendar";
 import type { Participant } from "../Participant";
 import type { FreeBusyEvent } from "../FreeBusyEvent";
 import { CalDAVEvent } from "./CalDAVEvent";
+import { NextcloudAttachments } from "./NextcloudAttachments";
 import { AuthMethod, type Account } from "../../Abstract/Account";
 import { OAuth2 } from "../../Auth/OAuth2";
 import { newCalendarForProtocol } from "../AccountsList/Calendars";
@@ -25,6 +26,13 @@ export class CalDAVCalendar extends Calendar {
   protected clientAccessToken: string | null = null;
   protected readonly syncLock = new Lock();
   protected readonly loginRunOnce = new RunOnce();
+  protected nextcloud: NextcloudAttachments | null = null;
+
+  /** Where the attachments of our events are stored, for servers that keep them
+   * outside of the event. null, if the server saves them in the event itself. */
+  get attachmentFiles(): NextcloudAttachments | null {
+    return this.nextcloud ??= NextcloudAttachments.forCalendar(this);
+  }
 
   newEvent(parentEvent?: CalDAVEvent): CalDAVEvent {
     return new CalDAVEvent(this, parentEvent);

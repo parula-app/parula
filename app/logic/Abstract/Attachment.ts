@@ -35,6 +35,12 @@ export class Attachment extends Observable {
    * null, if the attachment isn't on the server yet. */
   @notifyChangedProperty
   pID: string | null = null;
+  /** Where the file is stored on the server, for servers that save the file
+   * outside of the message, e.g. Nextcloud saves the attachments of an event
+   * as normal files of the user and references them in the event by URL.
+   * null, if the file is part of the message itself. */
+  @notifyChangedProperty
+  url: URLString | null = null;
   /** File contents. Not populated, if we have the attachment saved on disk */
   @notifyChangedProperty
   content: File;
@@ -90,7 +96,7 @@ export class Attachment extends Observable {
   cloneTo(to: MessageWithAttachments): Attachment {
     let clone = to.newAttachment();
     let { message, storage, storageRunOnce } = clone;
-    Object.assign(clone, this, { message, storage, storageRunOnce, filepathLocal: null, pID: null, _blobURL: null });
+    Object.assign(clone, this, { message, storage, storageRunOnce, filepathLocal: null, pID: null, url: null, _blobURL: null });
     if (this.content) {
       clone.content = new File([this.content], this.filename, { type: this.mimeType });
     }

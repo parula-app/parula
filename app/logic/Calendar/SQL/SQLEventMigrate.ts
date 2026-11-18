@@ -79,3 +79,15 @@ export async function removeDuplicateEvents(database: Database): Promise<void> {
     `);
   await database.execute(eventPIDIndex);
 }
+
+/** Add `eventAttachment.url` to pre-existing calendar.db.
+ * Pattern: read source-of-truth via `pragma_table_info`, ALTER on miss. */
+export async function addEventAttachmentURL(database: Database): Promise<void> {
+  let columns = await database.all(sql`SELECT name FROM pragma_table_info('eventAttachment')`) as any[];
+  if (columns.some(c => c.name == "url")) {
+    return;
+  }
+  await database.execute(sql`
+    ALTER TABLE eventAttachment ADD COLUMN "url" TEXT default null;
+  `);
+}

@@ -32,11 +32,11 @@ export class CalDAVEvent extends Event {
 
   fromDAVObject(entry: DAVObject): boolean {
     this.originalICal = entry.data;
-    let isEvent = convertICalToEvent(entry.data, this);
+    this.url = new URL(entry.url, this.calendar.calendarURL).href;
+    let isEvent = convertICalToEvent(entry.data, this, this.url);
     if (!isEvent) {
       return false;
     }
-    this.url = new URL(entry.url, this.calendar.calendarURL).href;
     this.etag = entry.etag;
     return true;
   }
@@ -65,7 +65,7 @@ export class CalDAVEvent extends Event {
         if (!occurrence) {
           continue;
         }
-        convertICalContainerToEvent(vevent, occurrence);
+        convertICalContainerToEvent(vevent, occurrence, this.url);
         await occurrence.saveLocally();
       } catch (ex) {
         this.calendar.errorCallback(ex);
@@ -100,6 +100,7 @@ export class CalDAVEvent extends Event {
     }
     await this.calendar.login(false);
     this.calUID ??= crypto.randomUUID();
+    await this.uploadAttachments();
     let iCal = await getICal(this);
     if (this.url) {
       // TODO take `originalICal` and update only the properties we know about
@@ -122,6 +123,48 @@ export class CalDAVEvent extends Event {
       await this.saveLocally(); // Save server IDs, otherwise we get dups
     }
     await this.sendInvitationsDirectly();
+  }
+
+  /** Some servers, e.g. Nextcloud, don't take the files in the event, but store
+   * them separately, and the event references them only by URL. Modified
+   * occurrences are in the same ics file, so save their attachments as well. */
+  protected async uploadAttachments(): Promise<void> {
+    let files = this.calendar.attachmentFiles;
+    if (!files) {
+      return; // The server saves the file in the event itself
+    }
+    for (let event of [this, ...this.exceptions]) {
+      let uploaded = false;
+      for (let attachment of event.attachments) {
+        if (attachment.url) {
+          continue; // already on the server
+        }
+        await attachment.read(); // from the local disk
+        if (attachment.content) {
+          attachment.url = await files.upload(attachment);
+          uploaded = true;
+        }
+      }
+      if (uploaded) {
+        // Remember where the files are now, so that we don't upload them twice
+        await event.saveLocally();
+      }
+    }
+  }
+
+  protected async downloadAttachmentsFromServer(): Promise<void> {
+    let files = this.calendar.attachmentFiles;
+    for (let attachment of this.attachments) {
+      if (attachment.content || !attachment.url) {
+        continue;
+      }
+      let content = await files?.download(attachment);
+      if (!content) {
+        continue; // A file that we cannot fetch, e.g. on a foreign web server
+      }
+      attachment.content = content;
+      attachment.size = content.size;
+    }
   }
 
   async saveTask() {

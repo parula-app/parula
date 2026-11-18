@@ -9,10 +9,12 @@ import { SQLCalendarStorage } from "../../../logic/Calendar/SQL/SQLCalendarStora
 import { SQLEvent } from "../../../logic/Calendar/SQL/SQLEvent";
 import { getDatabase } from "../../../logic/Calendar/SQL/SQLDatabase";
 import { calendarDatabaseSchema } from "../../../logic/Calendar/SQL/createDatabase";
-import { addEventAttachmentTable } from "../../../logic/Calendar/SQL/SQLEventMigrate";
+import { addEventAttachmentTable, addEventAttachmentURL } from "../../../logic/Calendar/SQL/SQLEventMigrate";
 import { getICal } from "../../../logic/Calendar/ICal/ICalGenerator";
 import { convertICalToEvent } from "../../../logic/Calendar/ICal/ICalToEvent";
 import { ICalEMailProcessor } from "../../../logic/Calendar/ICal/ICalEMailProcessor";
+import { CalDAVCalendar } from "../../../logic/Calendar/CalDAV/CalDAVCalendar";
+import { AuthMethod } from "../../../logic/Abstract/Account";
 import { IMAPAccount } from "../../../logic/Mail/IMAP/IMAPAccount";
 import { MailIdentity } from "../../../logic/Mail/MailIdentity";
 import { SpecialFolder } from "../../../logic/Mail/Folder";
@@ -49,6 +51,8 @@ beforeAll(async () => {
     },
     readFile: (filepath: string) => fsPromises.readFile(filepath),
     fs: fsPromises,
+    createWebDAVClient: () => nextcloudFilesClient,
+    kyCreate: () => nextcloudWeb,
     createIMAPFlowConnection: () => {
       throw new Error("The test should not talk to a server");
     },
@@ -220,6 +224,149 @@ test("Migration adds the attachment table to a pre-existing database", async () 
 
   // Running it again on an up-to-date database is a no-op
   await addEventAttachmentTable(database);
+});
+
+/** The files of our fake Nextcloud server, path -> contents */
+const kNextcloudFiles = new Map<string, Uint8Array>();
+const kNextcloudURL = "https://cloud.example.com";
+const kCalendarURL = `${kNextcloudURL}/remote.php/dav/calendars/pete/personal/`;
+const kFilesURL = `${kNextcloudURL}/remote.php/dav/files/pete/`;
+const kDirectURL = `${kNextcloudURL}/remote.php/direct/token123`;
+
+/** What `appGlobal.remoteApp.createWebDAVClient()` returns: the file API of our
+ * fake Nextcloud server, as the `webdav` library implements it */
+const nextcloudFilesClient = {
+  exists: async (path: string) => kNextcloudFiles.has(path),
+  createDirectory: async (path: string) => kNextcloudFiles.set(path, null),
+  putFileContents: async (path: string, bytes: Uint8Array) => kNextcloudFiles.set(path, bytes),
+  getFileContents: async (path: string) => kNextcloudFiles.get(path),
+};
+
+/** The OCS API of the same server, and the download URL that it hands out */
+const nextcloudWeb = {
+  post: async (url: string) => {
+    expect(url).toBe(`${kNextcloudURL}/ocs/v2.php/apps/dav/api/v1/direct`);
+    return { ocs: { data: { url: kDirectURL } } };
+  },
+  get: async (url: string) => {
+    expect(url).toBe(kDirectURL);
+    return kContent.buffer;
+  },
+};
+
+function newNextcloudCalendar(): CalDAVCalendar {
+  let calendar = new CalDAVCalendar();
+  calendar.name = "Nextcloud";
+  calendar.calendarURL = kCalendarURL;
+  calendar.authMethod = AuthMethod.Password;
+  calendar.username = "pete";
+  calendar.password = "secret";
+  return calendar;
+}
+
+test("Attachments that the server stores as files round-trip through iCal as a URL", async () => {
+  let event = newTestEvent("Budget");
+  event.calUID = "budget@example.com";
+  let attachment = event.attachments.first;
+  attachment.url = `${kFilesURL}Calendar/agenda.pdf`;
+  let ics = await getICal(event);
+  expect(ics).toContain(`ATTACH;FMTTYPE=application/pdf;FILENAME=agenda.pdf;SIZE=${kContent.length}:`);
+  expect(ics).not.toContain("VALUE=BINARY");
+
+  let readEvent = calendar.newEvent();
+  expect(convertICalToEvent(ics, readEvent)).toBe(true);
+  let read = readEvent.attachments.first;
+  expect(read.filename).toBe("agenda.pdf");
+  expect(read.mimeType).toBe("application/pdf");
+  expect(read.size).toBe(kContent.length);
+  expect(read.url).toBe(attachment.url);
+  expect(read.content).toBeFalsy(); // it's on the server, not in the event
+});
+
+test("An attachment URL that is relative to the server is read as absolute", () => {
+  let ics = `BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:nc@example.com\r\n` +
+    `SUMMARY:Nextcloud meeting\r\n` +
+    `ATTACH;FMTTYPE=application/pdf;FILENAME=agenda.pdf;X-NC-FILE-ID=1234:/index.php/f/1234\r\n` +
+    `END:VEVENT\r\nEND:VCALENDAR\r\n`;
+  let event = calendar.newEvent();
+  expect(convertICalToEvent(ics, event, `${kCalendarURL}nc.ics`)).toBe(true);
+  expect(event.attachments.first.url).toBe(`${kNextcloudURL}/index.php/f/1234`);
+  expect(event.attachments.first.filename).toBe("agenda.pdf");
+
+  // Without knowing the server, we can't do anything with a relative URL
+  let noBase = calendar.newEvent();
+  expect(convertICalToEvent(ics, noBase)).toBe(true);
+  expect(noBase.attachments.isEmpty).toBe(true);
+});
+
+test("The URL of an attachment is saved in the DB", async () => {
+  let event = newTestEvent("Roadmap");
+  event.attachments.first.url = `${kFilesURL}Calendar/agenda.pdf`;
+  await event.saveLocally();
+
+  let readEvent = calendar.newEvent();
+  await SQLEvent.read(event.dbID, readEvent);
+  expect(readEvent.attachments.first.url).toBe(`${kFilesURL}Calendar/agenda.pdf`);
+});
+
+test("Nextcloud saves the attachment as a file of the user, and the event links to it", async () => {
+  let nextcloud = newNextcloudCalendar().attachmentFiles;
+  expect(nextcloud).toBeTruthy();
+  let attachment = newTestEvent("Sprint").attachments.first;
+
+  let url = await nextcloud.upload(attachment);
+  expect(url).toBe(`${kFilesURL}Calendar/agenda.pdf`);
+  expect(kNextcloudFiles.has("/Calendar")).toBe(true);
+  expect(new Uint8Array(kNextcloudFiles.get("/Calendar/agenda.pdf"))).toEqual(kContent);
+
+  // Another event attaches a file with the same name: Don't overwrite the first one
+  let secondURL = await nextcloud.upload(attachment);
+  expect(secondURL).toBe(`${kFilesURL}Calendar/agenda%20(2).pdf`);
+});
+
+test("Nextcloud attachments are fetched from the files of the user", async () => {
+  let nextcloud = newNextcloudCalendar().attachmentFiles;
+  let attachment = newTestEvent("Review").attachments.first;
+  attachment.url = await nextcloud.upload(attachment);
+  attachment.content = null;
+
+  let content = await nextcloud.download(attachment);
+  expect(new Uint8Array(await content.arrayBuffer())).toEqual(kContent);
+
+  // The web app links to the web page of the file, so we need a download URL for it
+  attachment.url = `${kNextcloudURL}/index.php/f/1234`;
+  content = await nextcloud.download(attachment);
+  expect(new Uint8Array(await content.arrayBuffer())).toEqual(kContent);
+
+  // A file on a foreign server, e.g. a cloud drive link
+  attachment.url = "https://drive.example.net/file/1234";
+  expect(await nextcloud.download(attachment)).toBe(null);
+});
+
+test("Other CalDAV servers save the file in the event itself", () => {
+  let other = newNextcloudCalendar();
+  other.calendarURL = "https://caldav.example.com/calendars/pete/personal/";
+  expect(other.attachmentFiles).toBe(null);
+});
+
+test("Migration adds the attachment URL to a pre-existing database", async () => {
+  let database = new InProcessSQLiteDatabase(path.join(tempDir, "old-url-calendar.db")) as any;
+  // The schema as it was before the attachments could be files on the server
+  let oldSchema = {
+    ...calendarDatabaseSchema,
+    sourceParts: calendarDatabaseSchema.sourceParts.map(part =>
+      part.replace(/\s*-- Where the file is on the server[^"]*"url" TEXT default null,/s, "")),
+  };
+  await database.migrate(oldSchema);
+  let columns = await database.all(sql`SELECT name FROM pragma_table_info('eventAttachment')`) as any[];
+  expect(columns.some(c => c.name == "url")).toBe(false);
+
+  await addEventAttachmentURL(database);
+  columns = await database.all(sql`SELECT name FROM pragma_table_info('eventAttachment')`) as any[];
+  expect(columns.some(c => c.name == "url")).toBe(true);
+
+  // Running it again on an up-to-date database is a no-op
+  await addEventAttachmentURL(database);
 });
 
 /** The mail account of the organizer, with the sent emails captured */

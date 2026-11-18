@@ -571,7 +571,7 @@ export class Event extends Observable {
       await attachment.read();
     }
     // Only those that are on the server can be downloaded from there.
-    if (this.attachments.every(attachment => attachment.content || !attachment.pID)) {
+    if (this.attachments.every(attachment => attachment.content || (!attachment.pID && !attachment.url))) {
       return;
     }
     await this.downloadAttachmentsFromServer();
@@ -596,7 +596,8 @@ export class Event extends Observable {
   /** Fetches the attachment contents from the server.
    * Only needed for protocols that send the attachment metadata,
    * but not the contents, together with the event. Only those set
-   * `Attachment.pID`, and only for those is this function called. */
+   * `Attachment.pID` or `Attachment.url`, and only for those is
+   * this function called. */
   protected async downloadAttachmentsFromServer(): Promise<void> {
     throw new AbstractFunction();
   }

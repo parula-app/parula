@@ -52,6 +52,7 @@
   import RemoveIcon from "lucide-svelte/icons/x";
   import { catchErrors } from "../../../frontend/Util/error";
   import { appGlobal } from "../../../logic/app";
+  import { openExternalURL } from "../../../logic/util/os-integration";
   import { assert } from "../../../logic/util/util";
   import { createEventDispatcher } from "svelte";
   import { t } from "../../../l10n/l10n";
@@ -72,6 +73,14 @@
 
   // <copied from="../../../frontend/Mail/Message/AttachmentUI.svelte">
   async function onOpen() {
+    if (!attachment.content && !attachment.filepathLocal) {
+      await attachment.load();
+      if (!attachment.content && attachment.url) {
+        // The file is on a web server that we cannot download from, e.g. a cloud drive
+        await openExternalURL(attachment.url);
+        return;
+      }
+    }
     if (canOpenFileInternally(attachment.mimeType)) {
       await attachment.load();
       await openFileInternallyFromFile(attachment.content);
