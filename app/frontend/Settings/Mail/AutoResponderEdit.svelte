@@ -145,6 +145,7 @@
 
   $: load(account); // first, because it sets `autoResponder`
   $: isLoaded = !isLoading && !loadError;
+  $: $autoResponder && (isChanged = true);
   $: state = !$autoResponder.isOn ? "off" : $autoResponder.scheduled ? "scheduled" : "always";
   $: isTimeRange = state == "scheduled";
   $: isOutsideOn = $autoResponder.isOn && $autoResponder.externalAudience != AutoResponderAudience.None;
@@ -157,8 +158,7 @@
     loadError = null;
     try {
       await autoResponder.load();
-      autoResponder.subscribe(() => { isChanged = true; });
-      isChanged = false; // `subscribe()` calls at once
+      isChanged = false; // The `$:` above ran for the values from the server
     } catch (ex) {
       if (forAccount == account) {
         loadError = ex;
