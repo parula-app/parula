@@ -38,6 +38,9 @@ export class PKCS12 {
     let authSafe = OctetString.decode(pfx.authSafe.content);
     if (pfx.macData) {
       this.verifyMAC(pfx.macData, authSafe);
+    } else {
+      // Whoever changed the file could also have removed the MAC. Without passphrase, anybody could make the MAC anyway.
+      assert(!this.passphrase, gt`This file has no MAC, which would show that nobody changed it`);
     }
     for (let safe of AuthenticatedSafe.decode(authSafe, { berToDER: true })) {
       await this.readSafeContents(await this.decryptSafe(safe));
