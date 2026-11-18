@@ -31,7 +31,6 @@
   let isChanged = false;
   let autoResponderEdit: AutoResponderEdit;
 
-  // Also without Save, e.g. when the user closes Lookout's settings dialog
   onDestroy(() => catchErrors(onClose));
   async function onClose() {
     if (isChanged) {
