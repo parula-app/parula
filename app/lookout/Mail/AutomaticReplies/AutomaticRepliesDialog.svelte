@@ -45,6 +45,16 @@
       <vbox class="editor">
         <HTMLEditor bind:html={autoResponder.internalHTML} bind:editor={internalEditor} />
       </vbox>
+      {#if autoResponder.supportsExternal}
+        <hbox class="copy-buttons">
+          <DialogButton label={$t`Copy *=> Copy the message to the other text field`} icon={CopyDownIcon} classes="plain"
+            tooltip={$t`Copy to Outside My Organization`} disabled={!isOutsideOn}
+            onClick={() => { autoResponder.externalHTML = autoResponder.internalHTML; }} />
+          <DialogButton label="" icon={CopyUpIcon} classes="plain"
+            tooltip={$t`Copy from Outside My Organization`} disabled={!$autoResponder.isOn}
+            onClick={() => { autoResponder.internalHTML = autoResponder.externalHTML; }} />
+        </hbox>
+      {/if}
     </vbox>
     {#if autoResponder.supportsExternal}
       <vbox class="message" class:disabled={!isOutsideOn}>
@@ -62,11 +72,7 @@
               on:change={ev => { autoResponder.externalAudience = ev.detail; }} />
           </hbox>
         {/if}
-        <hbox class="toolbar-row">
-          <EditorToolbar editor={externalEditor} disabled={!isOutsideOn} />
-          <DialogButton label={$t`Copy from Inside My Organization`} icon={CopyIcon} classes="plain" disabled={!isOutsideOn}
-            onClick={() => { autoResponder.externalHTML = autoResponder.internalHTML; }} />
-        </hbox>
+        <EditorToolbar editor={externalEditor} disabled={!isOutsideOn} />
         <vbox class="editor">
           <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor={externalEditor} />
         </vbox>
@@ -91,7 +97,8 @@
   import EditorToolbar from "../../Shared/Editor/EditorToolbar.svelte";
   import HTMLEditor from "../../../frontend/Shared/Editor/HTMLEditor.svelte";
   import WarningIcon from "lucide-svelte/icons/triangle-alert";
-  import CopyIcon from "lucide-svelte/icons/copy";
+  import CopyDownIcon from "lucide-svelte/icons/arrow-down";
+  import CopyUpIcon from "lucide-svelte/icons/arrow-up";
   import type { Editor } from "@tiptap/core";
   import { onMount } from "svelte";
   import { t } from "../../../l10n/l10n";
@@ -184,9 +191,9 @@
     gap: 24px;
     margin-inline-start: 24px;
   }
-  .toolbar-row {
-    align-items: center;
-    justify-content: space-between;
+  .copy-buttons {
+    justify-content: end;
+    gap: 4px;
   }
   .editor {
     height: 110px;

@@ -210,15 +210,29 @@ test("Outside the organization: on with the checkbox, with its own message below
   expect(server.externalAudience).toBe(AutoResponderAudience.Contacts);
 });
 
-test("Outside the organization: Copy the message from inside", async () => {
+function copyUpButton(): HTMLButtonElement {
+  return target.querySelector("button[title='Copy from Outside My Organization']");
+}
+
+test("Copy the message down to outside the organization", async () => {
   await show(AutomaticRepliesDialog);
-  expect(button("Copy from Inside My Organization").disabled).toBe(true);
+  expect(button("Copy").disabled).toBe(true);
 
   await click(checkbox("Auto-reply to people outside my organization"));
-  await click(button("Copy from Inside My Organization"));
+  await click(button("Copy"));
   expect(editor(true).textContent).toContain("Back on Monday");
   await click(button("OK"));
   expect(server.externalHTML).toContain("Back on Monday");
+});
+
+test("Copy the message up to inside the organization", async () => {
+  await show(AutomaticRepliesDialog);
+  expect(copyUpButton().disabled).toBe(false);
+
+  await click(copyUpButton());
+  expect(editor().textContent).toContain("Away");
+  await click(button("OK"));
+  expect(server.internalHTML).toContain("Away");
 });
 
 test("Missing permission: Allow access, then the settings", async () => {
