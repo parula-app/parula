@@ -106,9 +106,11 @@ export class OAuth2 extends WebBasedAuth {
         try {
           return await this.getAccessTokenFromRefreshToken(this.refreshToken);
         } catch (ex) {
-          if (isTemporaryTokenError(ex)) {
+          // Anything but an OAuth2 error response, e.g. network down, timeout, HTTP 5xx, or the login page of a hotel Wi-Fi.
+          // The refresh token is still good. @see draft-ietf-mailmaint-oauth-public section 6.4
+          if (!(ex instanceof OAuth2ServerError) || ["server_error", "temporarily_unavailable"].includes(ex.code)) {
             ex.isTransient = true; // for `isTransientError()`, so that callers try again
-            throw ex; // e.g. the network or the VPN is down. The refresh token is still good.
+            throw ex;
           }
           console.error(ex);
           // Only these say that the refresh token is no longer valid. @see draft-ietf-mailmaint-oauth-public section 6.5
@@ -217,10 +219,11 @@ export class OAuth2 extends WebBasedAuth {
    */
   protected async getAccessTokenFromParams(params: any, additionalHeaders?: any, tokenURL: string = this.tokenURL): Promise<string> {
     await this.accessTokenRunOnce.runOnce(async () => {
-      // Without `scope`, a refresh gets the scopes that the user granted (RFC 6749 section 6).
-      // Google lets the user untick scopes on its consent page, e.g. Drive, and may refuse a refresh that asks for them.
-      // Microsoft needs the `scope` to pick the resource, e.g. EWS or Graph.
-      if (params.grant_type != "refresh_token" || getProvider(this.account) != Provider.Google) {
+      if (params.grant_type == "refresh_token" && getProvider(this.account) == Provider.Google) {
+      } else {
+        // Without `scope`, a refresh gets the scopes that the user granted (RFC 6749 section 6).
+        // Google lets the user untick scopes on its consent page, and may refuse a refresh that asks for them.
+        // Microsoft needs the `scope` to pick the resource, e.g. EWS or Graph.
         params.scope = this.scope;
       }
       params.client_id = this.clientID;
@@ -408,15 +411,6 @@ export class OAuth2 extends WebBasedAuth {
     let username = this.account.username.replace(/@/, "-").replaceAll(".", "-");
     return `oauth2refresh.${host}.${username}.${this.account.id}`;
   }
-}
-
-/**
- * Anything but an OAuth2 error response, e.g. network down, timeout, HTTP 5xx, or the login page of a hotel Wi-Fi.
- * @see draft-ietf-mailmaint-oauth-public section 6.4
- */
-function isTemporaryTokenError(ex: any): boolean {
-  return !(ex instanceof OAuth2ServerError) ||
-    ["server_error", "temporarily_unavailable"].includes(ex.code);
 }
 
 /** For logging: Hides the tokens, the password and the client secret */
