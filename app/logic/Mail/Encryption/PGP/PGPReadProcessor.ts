@@ -37,7 +37,6 @@ export class PGPReadProcessor extends EMailProcessor {
     }
     email.system = EncryptionSystem.PGP;
     let openPGP = await import("openpgp");
-    if (isLogging) console.log("MIME", mime, "encrypted", encrypted);
     let outerFrom = email.from.emailAddress;
     let senderPublicKeys = await this.getPublicKeysForEmailAddress(email.from, email.sent, email);
     let senderOpenPGPKeys: OpenPGP.PublicKey[] = [];
@@ -138,7 +137,7 @@ export class PGPReadProcessor extends EMailProcessor {
     await email.parseMIME();
     if (email.from.emailAddress.toLowerCase() != outerFrom.toLowerCase()) {
       // Treat as phishing
-      console.warn("PGP signature ignored, because inner signed From: is", email.from.emailAddress, "but outer header From: is", outerFrom);
+      console.warn("PGP signature ignored, because the signed From: is not the outer From:");
       email.rememberSigner(null);
     } else if (signer) { // else keep a signature that parseMIME() found inside
       email.rememberSigner(signer);
