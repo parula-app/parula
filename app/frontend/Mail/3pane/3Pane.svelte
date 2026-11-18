@@ -9,6 +9,7 @@
     slot="right">
     <vbox flex class="message-list-pane" slot="first">
       <PaymentBar account={selectedAccount} showWhenNoAccount={false} />
+      <AutoResponderBar account={selectedAccount} />
       <FolderHeader folder={selectedFolder} {searchMessages} />
       <TableMessageList {messages} bind:selectedMessage bind:selectedMessages />
       {#if !horizontal}
@@ -34,6 +35,7 @@
   import LeftPane from "../LeftPane/LeftPane.svelte";
   import FolderFooter from "../LeftPane/FolderFooter.svelte";
   import FolderHeader from "../LeftPane/FolderHeader.svelte";
+  import AutoResponderBar from "../AutoResponderBar.svelte";
   import MessageDisplay from "../Message/MessageDisplay.svelte";
   import StartPage from "../StartPage.svelte";
   // #if [PROPRIETARY]

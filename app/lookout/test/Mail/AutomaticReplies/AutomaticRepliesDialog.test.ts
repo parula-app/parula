@@ -5,7 +5,7 @@ import { MailAccount } from "../../../../logic/Mail/MailAccount";
 import { AutoResponder, AutoResponderAudience } from "../../../../logic/Mail/AutoResponder";
 import { PermissionMissing } from "../../../../logic/Abstract/Account";
 import AutomaticRepliesDialog from "../../../Mail/AutomaticReplies/AutomaticRepliesDialog.svelte";
-import AutomaticRepliesBar from "../../../Mail/AutomaticReplies/AutomaticRepliesBar.svelte";
+import AutoResponderBar from "../../../../frontend/Mail/AutoResponderBar.svelte";
 import { flushSync, mount, tick, unmount } from "svelte";
 import { afterEach, beforeAll, expect, test, vi } from "vitest";
 
@@ -161,7 +161,7 @@ test("Missing permission: Allow access, then the settings", async () => {
 });
 
 test("The bar shows while automatic replies are being sent, and turns them off", async () => {
-  let { account } = await show(AutomaticRepliesBar);
+  let { account } = await show(AutoResponderBar);
   expect(target.textContent).toContain("Automatic replies are being sent for this account");
 
   await click(button("Turn off"));
