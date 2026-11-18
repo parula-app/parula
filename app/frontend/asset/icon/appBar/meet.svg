@@ -3,7 +3,7 @@
   <defs>
     <style>
       .cls-1 {
-        stroke: #000;
+        stroke: var(--selected-fg, #000);
         stroke-linejoin: round;
         stroke-width: 8.01px;
       }
@@ -14,7 +14,7 @@
       }
 
       .cls-2 {
-        stroke: #27c1aa;
+        stroke: var(--selected-bg, #27c1aa);
         stroke-width: 8.06px;
       }
 

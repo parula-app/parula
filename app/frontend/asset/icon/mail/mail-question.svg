@@ -3,7 +3,7 @@
   <defs>
     <style>
       .cls-2 {
-        stroke: #27c1aa;
+        stroke: var(--selected-bg, #27c1aa);
         stroke-width: 8px;
       }
 
@@ -13,7 +13,7 @@
       }
 
       .cls-1 {
-        stroke: #000;
+        stroke: var(--selected-fg, #000);
         stroke-width: 8px;
       }
     </style>
