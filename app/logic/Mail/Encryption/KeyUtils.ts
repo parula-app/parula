@@ -119,8 +119,10 @@ export function getMyPrivateKey<T extends PublicKey & PrivateKey>(identity: Mail
 /** For sending, which own key signs the outgoing email: the one that the
  * composer chose, `mail.signWithKey`, if it is of this type */
 export function getMySigningKey<T extends PublicKey & PrivateKey>(mail: EMail, keyType: new () => T): T | null {
-  let chosen = mail.signWithKey;
-  return chosen instanceof keyType ? chosen : getMyPrivateKey(mail.identity, keyType);
+  if (mail.signWithKey instanceof keyType) {
+    return mail.signWithKey;
+  }
+  return getMyPrivateKey(mail.identity, keyType);
 }
 
 /** Our own key with this fingerprint, of any identity,

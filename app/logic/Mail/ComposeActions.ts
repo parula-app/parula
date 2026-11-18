@@ -215,7 +215,7 @@ export class ComposeActions {
   async editDraft(): Promise<void> {
     await this.email.loadMIME();
     this.email.mustEncrypt = this.email.wasEncrypted;
-    // The draft is signed by the key that we chose
+    // The draft is signed by the key that the user (or the app) chose before saving
     this.email.signWithKey ??= getMyKeyByFingerprint(this.email.signedKeyFingerprint);
   }
 

@@ -241,6 +241,7 @@ export class JSONEMail {
     if (e) {
       email.system = sanitize.enum<EncryptionSystem>(e.system, Object.values(EncryptionSystem), null);
       email.signedKeyFingerprint = sanitize.alphanumdash(e.signedPublicKeyFingerprint, null);
+      // Accounts must be loaded first before calling this
       email.signWithKey = getMyKeyByFingerprint(sanitize.alphanumdash(e.signWithKeyFingerprint, null));
       // Parsed on demand, @see `getPublicKeyByFingerprint()`
       email.signedKeyJSON = e.signedPublicKey ?? null;
