@@ -34,7 +34,7 @@ export class JSContact {
       return new ContactEntry(url, null, url ? new URL(url).protocol.slice(0, -1) : null);
     });
 
-    person.picture = sanitize.url(jscontact.media?.avatar?.uri, null, ["https", "data", "blob"]);
+    person.picture = sanitize.url(jscontact.media?.[JSContact.photoID(person, jscontact)]?.uri, null, ["https", "data", "blob"]);
 
     person.notes = sanitize.nonemptystring(getOneValue(person, jscontact, jscontact.notes, "notes", entry => entry.note), "");
     person.position = sanitize.nonemptylabel(getOneValue(person, jscontact, jscontact.titles, "titles", entry => entry.name), "");
@@ -122,14 +122,17 @@ export class JSContact {
     // person.streetAddresses
     // person.popularity
 
+    let photoID = JSContact.photoID(person, jscontact);
     if (person.picture) {
+      photoID ??= (person as JMAPPerson).propertyFieldIDs.media = randomID();
       jscontact.media ??= {};
-      jscontact.media.avatar = {
-        uri: person.picture,
-        kind: "photo",
-      };
-    } else {
-      delete jscontact.media?.avatar;
+      let photo = jscontact.media[photoID] ??= { kind: "photo", uri: person.picture };
+      if (photo.uri != person.picture) {
+        photo.uri = person.picture;
+        delete photo.mediaType;
+      }
+    } else if (photoID) {
+      delete jscontact.media[photoID];
     }
 
     setOneValue(person, jscontact, jscontact.notes, "notes", (entry) => entry.note = person.notes);
@@ -187,6 +190,21 @@ export class JSContact {
         personEntries.remove(p);
       }
     }
+  }
+
+  /** The ID of the photo that we show, in `jscontact.media`.
+   * The same as last time, otherwise the preferred one. */
+  protected static photoID(personGeneric: Person, jscontact: TJSContact): string | null {
+    let person = personGeneric as JMAPPerson;
+    person.propertyFieldIDs ??= {};
+    let id = person.propertyFieldIDs.media;
+    if (jscontact.media?.[id]?.kind == "photo") {
+      return id;
+    }
+    let photos = Object.entries(jscontact.media ?? {})
+      .filter(([, media]) => media.kind == "photo")
+      .sort(([, a], [, b]) => (a.pref ?? 100) - (b.pref ?? 100));
+    return person.propertyFieldIDs.media = photos[0]?.[0] ?? null;
   }
 
   protected static fromContactEntries<T extends { pref?: number, contexts?: Record<string, true> }>(
