@@ -48,9 +48,9 @@ export class AutoResponder extends Observable {
   constructor(account: MailAccount) {
     super();
     this.account = account;
-    // Default: From today until tomorrow, at the times of day of the last saved time range, else 0:00 to 23:00
+    // Default: From today until tomorrow, at the times of day of the last saved time range, else 1:00 to 23:00
     this.startTime = new Date();
-    this.startTime.setHours(0, getUserPreference("mail.autoResponder.startMinutes", 0), 0, 0);
+    this.startTime.setHours(0, getUserPreference("mail.autoResponder.startMinutes", 60), 0, 0);
     this.endTime = new Date();
     this.endTime.setDate(this.endTime.getDate() + 1);
     this.endTime.setHours(0, getUserPreference("mail.autoResponder.endMinutes", 23 * 60), 0, 0);
@@ -101,9 +101,11 @@ export class AutoResponder extends Observable {
     }
   }
 
+  /** Call after setting `scheduled` */
   protected setTimes(startTime: Date | null, endTime: Date | null) {
-    // Old dates of a past vacation are useless as defaults
-    if (startTime && endTime && (this.scheduled || endTime > new Date())) {
+    // Without a time range, the times are useless as defaults: Exchange makes up
+    // the current hour until tomorrow, and other servers have old dates of a past vacation
+    if (startTime && endTime && this.scheduled) {
       this.startTime = startTime;
       this.endTime = endTime;
     }

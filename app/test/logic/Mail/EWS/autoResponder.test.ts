@@ -118,6 +118,27 @@ test("Old dates of a disabled responder are not kept", async () => {
   expect(autoResponder.endTime.getTime()).toBeGreaterThan(autoResponder.startTime.getTime());
 });
 
+test("Without time range, the default times stay, not the times Exchange makes up", async () => {
+  let account = newAccount();
+  // Exchange reports from the current hour until tomorrow
+  let hour = new Date();
+  hour.setMinutes(0, 0, 0);
+  let tomorrow = new Date(hour.getTime() + 24 * 60 * 60 * 1000);
+  account.response = kGetResponse
+    .replace("<OofState>Scheduled", "<OofState>Enabled")
+    .replace("2026-10-05T07:00:00", hour.toISOString())
+    .replace("2026-10-19T16:00:00", tomorrow.toISOString());
+  let autoResponder = account.autoResponder;
+  let defaultStart = autoResponder.startTime.getTime();
+  let defaultEnd = autoResponder.endTime.getTime();
+  await autoResponder.load();
+
+  expect(autoResponder.isOn).toBe(true);
+  expect(autoResponder.scheduled).toBe(false);
+  expect(autoResponder.startTime.getTime()).toBe(defaultStart);
+  expect(autoResponder.endTime.getTime()).toBe(defaultEnd);
+});
+
 test("Unknown values are read as off, without admin limit", async () => {
   let account = newAccount();
   account.response = kGetResponse

@@ -23,9 +23,9 @@ function dayOffset(time: Date): number {
   return Math.round((day.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
 }
 
-test("The default time range is from today 0:00 until tomorrow 23:00", () => {
+test("The default time range is from today 1:00 until tomorrow 23:00", () => {
   let autoResponder = new AutoResponder(new MailAccount());
-  expect(timeOfDay(autoResponder.startTime)).toBe("0:00");
+  expect(timeOfDay(autoResponder.startTime)).toBe("1:00");
   expect(dayOffset(autoResponder.startTime)).toBe(0);
   expect(timeOfDay(autoResponder.endTime)).toBe("23:00");
   expect(dayOffset(autoResponder.endTime)).toBe(1);
@@ -36,7 +36,7 @@ test("The next default time range has the times of day of the last saved one", (
   autoResponder.startTime = new Date(2026, 6, 1, 17, 30);
   autoResponder.endTime = new Date(2026, 6, 15, 8, 0);
   autoResponder.rememberTimes(); // not on: nothing to remember
-  expect(timeOfDay(new AutoResponder(new MailAccount()).startTime)).toBe("0:00");
+  expect(timeOfDay(new AutoResponder(new MailAccount()).startTime)).toBe("1:00");
 
   autoResponder.isOn = true;
   autoResponder.scheduled = true;

@@ -109,12 +109,14 @@ test("Reads the settings from the server", async () => {
 });
 
 test("Exchange 2013", async () => {
-  // When Neil captured the response. A disabled responder keeps only times that are not over yet.
+  // When Neil captured the response. Exchange made up its times from it: the current hour until tomorrow.
   vi.setSystemTime(new Date("2026-10-22T16:36:00Z"));
   let account = newAccount();
   // Exchange 2013 CU23, Neil's capture, unchanged
   response = JSON.parse(String.raw`{"Header":{"ServerVersionInfo":{"MajorVersion":15,"MinorVersion":0,"MajorBuildNumber":1497,"MinorBuildNumber":0,"Version":"V2_23"}},"ErrorCode":0,"ErrorMessage":null,"UserPrompt":null,"WasSuccessful":true,"Options":{"AutoReplyState":0,"EndTime":"2026-10-23T16:00:00Z","ExternalAudience":2,"ExternalMessage":"","ExternalMessageText":"\u000d\u000a","InternalMessage":"","InternalMessageText":"\u000d\u000a","StartTime":"2026-10-22T16:00:00Z"}}`);
   let autoResponder = account.autoResponder;
+  let defaultStart = autoResponder.startTime.getTime();
+  let defaultEnd = autoResponder.endTime.getTime();
   await autoResponder.load();
 
   expect(calls.length).toBe(1);
@@ -124,8 +126,8 @@ test("Exchange 2013", async () => {
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.All);
   expect(autoResponder.internalHTML.trim()).toBe("");
   expect(autoResponder.externalHTML.trim()).toBe("");
-  expect(autoResponder.startTime.toISOString()).toBe("2026-10-22T16:00:00.000Z");
-  expect(autoResponder.endTime.toISOString()).toBe("2026-10-23T16:00:00.000Z");
+  expect(autoResponder.startTime.getTime()).toBe(defaultStart);
+  expect(autoResponder.endTime.getTime()).toBe(defaultEnd);
 });
 
 test("Times with a time zone offset", async () => {
