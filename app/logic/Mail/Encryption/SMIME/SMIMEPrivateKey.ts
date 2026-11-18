@@ -90,6 +90,12 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     return this.keyAsFile(chain.join("\n"), "application/pkcs8", "SecretKey", "key");
   }
 
+  publicKey(): SMIMEPublicKey {
+    let publicKey = new SMIMEPublicKey();
+    publicKey.fromJSON(this.toJSON());
+    return publicKey;
+  }
+
   async generateCSRFile(subject: Record<string, string>): Promise<File> {
     let key = await this.decryptKey();
     let subjectSequence = [];

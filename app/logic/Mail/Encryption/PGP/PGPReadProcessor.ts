@@ -176,7 +176,7 @@ export class PGPReadProcessor extends EMailProcessor {
           continue;
         }
         // Not the secret key: The key that signed is saved with the message and the sender
-        keys.add(await privateKey.publicKey());
+        keys.add(privateKey.publicKey());
       }
     } else if (email && keys.isEmpty) {
       let publicKey = await readAutoCryptKeys(email);
