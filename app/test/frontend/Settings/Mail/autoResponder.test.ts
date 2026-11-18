@@ -20,7 +20,7 @@ class TestAutoResponder extends AutoResponder {
   get supported() {
     return true;
   }
-  get supportsExternal() {
+  get supportsInternal() {
     return true;
   }
   get supportsContacts() {
@@ -156,7 +156,7 @@ test("Replying to contacts outside shows their message", async () => {
 
 /** E.g. JMAP */
 class OneMessageResponder extends TestAutoResponder {
-  get supportsExternal() {
+  get supportsInternal() {
     return false;
   }
   get supportsContacts() {

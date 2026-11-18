@@ -51,7 +51,7 @@
     </HeaderGroupBox>
 
     {#if $autoResponder.isOn}
-      {#if autoResponder.supportsExternal}
+      {#if autoResponder.supportsInternal}
         <HeaderGroupBox>
           <hbox slot="header">{$t`Inside my organization`}</hbox>
           <vbox class="editor-box">
@@ -63,9 +63,9 @@
 
       <HeaderGroupBox>
         <hbox slot="header">
-          {autoResponder.supportsExternal ? $t`Outside my organization` : $t`Automatic reply`}
+          {autoResponder.supportsInternal ? $t`Outside my organization` : $t`Automatic reply`}
         </hbox>
-        {#if autoResponder.supportsExternal}
+        {#if autoResponder.supportsInternal}
           <vbox class="options">
             <label class="radio">
               <input type="radio" value={AutoResponderAudience.None} bind:group={autoResponder.externalAudience} />

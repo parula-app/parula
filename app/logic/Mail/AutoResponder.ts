@@ -30,11 +30,11 @@ export class AutoResponder extends Observable {
   startTime: Date;
   @notifyChangedProperty
   endTime: Date;
-  /** For senders inside the organization. Only if `supportsExternal`. */
+  /** For senders inside the organization. Only if `supportsInternal`. */
   @notifyChangedProperty
   internalHTML = "";
   /** For senders outside the organization.
-   * For all senders, if `!supportsExternal`. */
+   * For all senders, if `!supportsInternal`. */
   @notifyChangedProperty
   externalHTML = "";
   /** Which senders outside the organization get `externalHTML` */
@@ -56,8 +56,8 @@ export class AutoResponder extends Observable {
     return false;
   }
 
-  /** A separate message and audience for senders outside the organization */
-  get supportsExternal(): boolean {
+  /** A separate message for senders inside the organization, and the audience outside */
+  get supportsInternal(): boolean {
     return false;
   }
 
@@ -113,7 +113,7 @@ export class AutoResponder extends Observable {
  * for colleagues and contacts, but the user may not want to tell spammers and strangers.
  * Exchange stores it as `ExternalAudience`, and the server enforces the admin's limit.
  *
- * It matters only if `supportsExternal`, i.e. for Exchange.
+ * It matters only if `supportsInternal`, i.e. for Exchange.
  * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders
  * with `externalHTML`, so their audience is `All`.
  *

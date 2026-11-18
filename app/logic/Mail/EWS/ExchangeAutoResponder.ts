@@ -14,7 +14,7 @@ export class ExchangeAutoResponder extends AutoResponder {
     return !this.account.isDependentAccount;
   }
 
-  get supportsExternal(): boolean {
+  get supportsInternal(): boolean {
     return true;
   }
 
