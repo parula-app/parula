@@ -166,6 +166,24 @@ describe("A draft", () => {
     expect(draft.wasEncrypted).toBe(false);
     expect(draft.mustEncrypt).toBe(false);
   });
+
+  test("of an encrypted message that the user redirects must be encrypted, and is saved without the text in clear", async () => {
+    let original = await receive(await send(true));
+    let redirect = await original.compose.redirect();
+    expect(redirect.mustEncrypt).toBe(true);
+    redirect.identity = identity; // as the composer does
+    await redirect.compose.saveAsDraft();
+    expect(new TextDecoder().decode(savedMIME)).not.toContain("K=C3=B6ln");
+  });
+
+  test("of an encrypted message that the user edits as new must be encrypted, and is saved without the text in clear", async () => {
+    let original = await receive(await send(true));
+    let clone = await original.compose.editAsNew();
+    expect(clone.mustEncrypt).toBe(true);
+    clone.identity = identity; // as the composer does
+    await clone.compose.saveAsDraft();
+    expect(new TextDecoder().decode(savedMIME)).not.toContain("K=C3=B6ln");
+  });
 });
 
 /** Longer than a header line may be, so it must be folded, and only between words */
