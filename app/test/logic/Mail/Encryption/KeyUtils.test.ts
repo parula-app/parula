@@ -6,7 +6,7 @@ import { PersonUID } from "../../../../logic/Abstract/PersonUID";
 import { ContactEntry } from "../../../../logic/Abstract/Person";
 import { setUpAccount, type TestMailAccount } from "../TestMailAccount";
 import { SpecialFolder } from "../../../../logic/Mail/Folder";
-import { getEncryptionSystem, getPublicKeyForPerson, getPublicKeyForPersonUID } from "../../../../logic/Mail/Encryption/KeyUtils";
+import { getEncryptionSystem, getPublicKeyByFingerprint, getPublicKeyForPerson, getPublicKeyForPersonUID } from "../../../../logic/Mail/Encryption/KeyUtils";
 import { EncryptionSystem, TrustLevel } from "../../../../logic/Mail/Encryption/enums";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { SMIMEPrivateKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
@@ -84,6 +84,22 @@ describe("Encryption system of the outgoing email", () => {
     let original = await signedMail(accountWithMyKey(new PGPPrivateKey()));
     expect(getEncryptionSystem(original.compose.replyToAuthor())).toBe(EncryptionSystem.SMIME);
     expect(getEncryptionSystem(await original.compose.forwardInline())).toBe(EncryptionSystem.SMIME);
+  });
+});
+
+describe("Key that signed the email, as the mail viewer shows it", () => {
+  test("is not our own key with the same key ID", async () => {
+    let account = accountWithMyKey(new PGPPrivateKey());
+    appGlobal.emailAccounts.add(account);
+    let mail = account.getSpecialFolder(SpecialFolder.Inbox).newEMail();
+    mail.from = new PersonUID("mallory@example.com", "Mallory");
+    // Another PGP key can have the same 64-bit key ID
+    let signer = new PGPPublicKey();
+    signer.id = account.identities.first.encryptionPrivateKeys.first.id;
+    signer.fingerprint = "6d616c6c6f7279";
+    signer.userIDs.add("mallory@example.com");
+    mail.rememberSigner(signer);
+    expect(await getPublicKeyByFingerprint(mail.signedPublicKeyFingerprint, mail)).toBe(signer);
   });
 });
 

@@ -120,8 +120,10 @@ export class PGPReadProcessor extends EMailProcessor {
     for (let sig of validSignatures.each) {
       // TODO senders not in my addressbook (never replied)
       for (let publicKey of senderPublicKeys.each) {
+        // openpgp.js verified with the first key that has a key or subkey with this key ID.
+        // A later key with the same key ID did not sign.
         let openPGPPublicKey = await publicKey.openPGPPublicKey(openPGP);
-        if (sig.keyID.equals(openPGPPublicKey.getKeyID())) {
+        if (openPGPPublicKey.getKeys(sig.keyID).length) {
           return publicKey;
         }
       }

@@ -45,12 +45,19 @@ beforeEach(() => {
   aliceUID.encryptionPublicKey = undefined;
 });
 
-async function newIdentity(emailAddress: string, realname: string): Promise<MailIdentity> {
+async function newIdentity(emailAddress: string, realname: string, key?: PGPPrivateKey): Promise<MailIdentity> {
   let identity = new MailIdentity(folder.account);
   identity.emailAddress = emailAddress;
   identity.realname = realname;
-  identity.encryptionPrivateKeys.add(await PGPPrivateKey.createNewPrivateKey({ realname, emailAddress }));
+  identity.encryptionPrivateKeys.add(key ?? await PGPPrivateKey.createNewPrivateKey({ realname, emailAddress }));
   return identity;
+}
+
+/** A key whose subkey signs, not the primary key, e.g. a GnuPG key on a smartcard */
+async function keyWithSigningSubkey(emailAddress: string): Promise<PGPPrivateKey> {
+  let openPGP = await import("openpgp");
+  let { privateKey } = await openPGP.generateKey({ userIDs: [{ email: emailAddress }], subkeys: [{}, { sign: true }], format: "armored" });
+  return await PGPPrivateKey.importPrivateKey(privateKey);
 }
 
 /** @returns the contact of the sender, with his public key */
@@ -80,7 +87,7 @@ async function send(signedHeaders: string, encrypt: boolean, sender = alice): Pr
   mail.identity = sender;
   mail.from = findOrCreatePersonUID(sender.emailAddress, sender.realname);
   mail.to.add(userUID);
-  mail.signedByKeyID = sender.encryptionPrivateKeys.first.id;
+  mail.signPrivateKey = sender.encryptionPrivateKeys.first;
   mail.shouldEncrypt = encrypt;
   return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
 }
@@ -93,13 +100,13 @@ async function receive(mime: string): Promise<EMail> {
 }
 
 function expectSigned(email: EMail) {
-  expect(email.signedByKeyID).toBeTruthy();
-  expect(email.signedByKeyID).toBe(email.signedKey?.id);
+  expect(email.signedPublicKeyFingerprint).toBeTruthy();
+  expect(email.signedPublicKeyFingerprint).toBe(email.signedPublicKey?.fingerprint);
 }
 
 function expectNotSigned(email: EMail) {
-  expect(email.signedByKeyID).toBe(null);
-  expect(email.signedKey).toBe(null);
+  expect(email.signedPublicKeyFingerprint).toBe(null);
+  expect(email.signedPublicKey).toBe(null);
 }
 
 describe("PGP signed message", () => {
@@ -107,7 +114,7 @@ describe("PGP signed message", () => {
     let email = await sendAndReceive(kHeaders, false);
     expect(email.wasEncrypted).toBe(false);
     expectSigned(email);
-    expect(aliceUID.encryptionPublicKey).toBe(email.signedKey);
+    expect(aliceUID.encryptionPublicKey).toBe(email.signedPublicKey);
   });
 
   test("whose signed From: is another address is not signed", async () => {
@@ -129,6 +136,31 @@ describe("PGP signed message", () => {
     let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Bob <bob@example.com>"), false, bobAtHome, "Bob <bob@example.com>");
     expect(email.from.findPerson()).toBe(bob);
     expectNotSigned(email);
+  });
+});
+
+describe("PGP message signed with a subkey", () => {
+  test("is signed", async () => {
+    let carol = await newIdentity("carol@example.com", "Carol", await keyWithSigningSubkey("carol@example.com"));
+    await newContact(carol, carol.emailAddress);
+    let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Carol <carol@example.com>"), false, carol, "Carol <carol@example.com>");
+    expectSigned(email);
+  });
+
+  test("is signed by the key with that subkey, not by another key with the same key ID", async () => {
+    let mallory = await newIdentity("dave@example.com", "Dave", await keyWithSigningSubkey("dave@example.com"));
+    let dave = await newContact(mallory, "dave@example.com");
+    let malloryKey = dave.encryptionPublicKeys.first as PGPPublicKey;
+    let daveKey = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Dave", emailAddress: "dave@example.com" })).publicKeyArmored);
+    dave.addEncryptionPublicKey(daveKey);
+    // Gives Dave's key the key ID of Mallory's signing subkey. For real, that takes 2^64 tries.
+    let openPGPKey = await daveKey.openPGPPublicKey();
+    let subkeyID = (await (await malloryKey.openPGPPublicKey()).getSigningKey()).getKeyID();
+    openPGPKey.getKeyID = () => subkeyID;
+    (daveKey as any)._openPGPPublicKey = openPGPKey;
+
+    let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Dave <dave@example.com>"), false, mallory, "Dave <dave@example.com>");
+    expect(email.signedPublicKey).toBe(malloryKey);
   });
 });
 
@@ -196,7 +228,7 @@ describe("PGP message that we signed", () => {
     expectSigned(email);
     email.received = new Date();
     let saved = JSON.stringify(JSONEMail.save(email));
-    expect(saved).toContain(email.signedByKeyID);
+    expect(saved).toContain(email.signedPublicKeyFingerprint);
     expect(saved).not.toContain("PRIVATE KEY");
     expect(saved).not.toContain((user.encryptionPrivateKeys.first as PGPPrivateKey).passphrase);
   });
