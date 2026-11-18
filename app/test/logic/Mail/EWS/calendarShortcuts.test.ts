@@ -246,6 +246,9 @@ class TestServer {
     if (element("m:FindItem")) {
       expect(element("m:FindItem").getAttribute("Traversal")).toBe("Associated");
       expect(element("t:FolderId").getAttribute("Id")).toBe("common-views-id");
+      if (!element("m:IndexedPageItemView")) { // as some Exchange servers do
+        return error("FindItem", "ErrorInternalServerError");
+      }
       return success("FindItem", `<RootFolder TotalItemsInView="${this.links.length}" IncludesLastItemInRange="true"><Items ${kTypes}>
         ${this.links.map(linkXML).join("")}
       </Items></RootFolder>`);
