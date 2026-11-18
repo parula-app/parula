@@ -39,9 +39,9 @@
           <hbox>{$t`Start: *=> Start of the time range for automatic replies`}</hbox>
           <hbox class="date-time">
             <DateInput date={$autoResponder.startTime} disabled={!isTimeRange}
-              on:change={ev => autoResponder.setStartTime(ev.detail)} />
+              on:change={ev => { autoResponder.startTime = ev.detail; }} />
             <TimeInput time={$autoResponder.startTime} disabled={!isTimeRange}
-              on:change={ev => autoResponder.setStartTime(ev.detail)} />
+              on:change={ev => { autoResponder.startTime = ev.detail; }} />
           </hbox>
           <hbox>{$t`End: *=> End of the time range for automatic replies`}</hbox>
           <hbox class="date-time">
