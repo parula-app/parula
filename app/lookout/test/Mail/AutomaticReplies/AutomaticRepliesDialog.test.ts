@@ -20,7 +20,7 @@ class TestAutoResponder extends AutoResponder {
   get supported() {
     return true;
   }
-  get supportsExternal() {
+  get supportsInternal() {
     return true;
   }
   get supportsContacts() {
@@ -233,6 +233,33 @@ test("Copy the message up to inside the organization", async () => {
   expect(editor().textContent).toContain("Away");
   await click(button("OK"));
   expect(server.internalHTML).toContain("Away");
+});
+
+/** E.g. JMAP */
+class OneMessageResponder extends TestAutoResponder {
+  get supportsInternal() {
+    return false;
+  }
+  get supportsContacts() {
+    return false;
+  }
+
+  async load() {
+    await super.load();
+    this.externalAudience = AutoResponderAudience.All;
+  }
+}
+
+test("Without inside and outside the organization, one message for all senders", async () => {
+  await show(AutomaticRepliesDialog, OneMessageResponder);
+
+  expect(find(".header", "Automatic reply")).toBeTruthy();
+  expect(target.textContent).not.toContain("Organization");
+  expect(target.querySelectorAll(".ProseMirror").length).toBe(1);
+  expect(editor().textContent).toContain("Away");
+  expect(editor().getAttribute("contenteditable")).toBe("true");
+  await click(button("OK"));
+  expect(server.externalHTML).toContain("Away");
 });
 
 test("Missing permission: Allow access, then the settings", async () => {

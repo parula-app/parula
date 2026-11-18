@@ -39,13 +39,13 @@
         </hbox>
       </FormGrid>
     </vbox>
-    <vbox class="message" class:disabled={!$autoResponder.isOn}>
-      <hbox class="header">{autoResponder.supportsExternal ? $t`Inside My Organization` : $t`Automatic reply`}</hbox>
-      <EditorToolbar editor={internalEditor} disabled={!$autoResponder.isOn} />
-      <vbox class="editor">
-        <HTMLEditor bind:html={autoResponder.internalHTML} bind:editor={internalEditor} />
-      </vbox>
-      {#if autoResponder.supportsExternal}
+    {#if autoResponder.supportsInternal}
+      <vbox class="message" class:disabled={!$autoResponder.isOn}>
+        <hbox class="header">{$t`Inside My Organization`}</hbox>
+        <EditorToolbar editor={internalEditor} disabled={!$autoResponder.isOn} />
+        <vbox class="editor">
+          <HTMLEditor bind:html={autoResponder.internalHTML} bind:editor={internalEditor} />
+        </vbox>
         <hbox class="copy-buttons">
           <DialogButton label={$t`Copy *=> Copy the message to the other text field`} icon={CopyDownIcon} classes="plain"
             tooltip={$t`Copy to Outside My Organization`} disabled={!isOutsideOn}
@@ -54,30 +54,30 @@
             tooltip={$t`Copy from Outside My Organization`} disabled={!$autoResponder.isOn}
             onClick={() => { autoResponder.internalHTML = autoResponder.externalHTML; }} />
         </hbox>
-      {/if}
-    </vbox>
-    {#if autoResponder.supportsExternal}
-      <vbox class="message" class:disabled={!isOutsideOn}>
-        <hbox class="header">{$t`Outside My Organization`}</hbox>
+      </vbox>
+    {/if}
+    <vbox class="message" class:disabled={!isOutsideOn}>
+      <hbox class="header">{autoResponder.supportsInternal ? $t`Outside My Organization` : $t`Automatic reply`}</hbox>
+      {#if autoResponder.supportsInternal}
         <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.None} disabled={!$autoResponder.isOn}
           label={$t`Auto-reply to people outside my organization`}
           on:change={ev => { autoResponder.externalAudience = ev.detail ? AutoResponderAudience.All : AutoResponderAudience.None; }} />
-        {#if autoResponder.supportsContacts}
-          <hbox class="audience-choice">
-            <Radio name="audience" value={AutoResponderAudience.Contacts} group={shownAudience} disabled={!isOutsideOn}
-              label={$t`My Contacts only`}
-              on:change={ev => { autoResponder.externalAudience = ev.detail; }} />
-            <Radio name="audience" value={AutoResponderAudience.All} group={shownAudience} disabled={!isOutsideOn}
-              label={$t`Anyone outside my organization`}
-              on:change={ev => { autoResponder.externalAudience = ev.detail; }} />
-          </hbox>
-        {/if}
-        <EditorToolbar editor={externalEditor} disabled={!isOutsideOn} />
-        <vbox class="editor">
-          <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor={externalEditor} />
-        </vbox>
+      {/if}
+      {#if autoResponder.supportsContacts}
+        <hbox class="audience-choice">
+          <Radio name="audience" value={AutoResponderAudience.Contacts} group={shownAudience} disabled={!isOutsideOn}
+            label={$t`My Contacts only`}
+            on:change={ev => { autoResponder.externalAudience = ev.detail; }} />
+          <Radio name="audience" value={AutoResponderAudience.All} group={shownAudience} disabled={!isOutsideOn}
+            label={$t`Anyone outside my organization`}
+            on:change={ev => { autoResponder.externalAudience = ev.detail; }} />
+        </hbox>
+      {/if}
+      <EditorToolbar editor={externalEditor} disabled={!isOutsideOn} />
+      <vbox class="editor">
+        <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor={externalEditor} />
       </vbox>
-    {/if}
+    </vbox>
   {/if}
 </Dialog>
 

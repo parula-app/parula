@@ -20,7 +20,7 @@ class TestAutoResponder extends AutoResponder {
   get supported() {
     return true;
   }
-  get supportsExternal() {
+  get supportsInternal() {
     return true;
   }
   get supportsContacts() {
@@ -152,6 +152,31 @@ test("Replying to contacts outside shows their message", async () => {
   click(radio("Only to my contacts"));
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Contacts);
   expect(target.querySelectorAll(".html-editor").length).toBe(2);
+});
+
+/** E.g. JMAP */
+class OneMessageResponder extends TestAutoResponder {
+  get supportsInternal() {
+    return false;
+  }
+  get supportsContacts() {
+    return false;
+  }
+
+  async load() {
+    this.isOn = true;
+    this.externalHTML = "<p>Away</p>";
+    this.externalAudience = AutoResponderAudience.All;
+  }
+}
+
+test("Without inside and outside the organization, one message for all senders", async () => {
+  await showPage(OneMessageResponder);
+
+  expect(target.textContent).toContain("Automatic reply");
+  expect(target.textContent).not.toContain("organization");
+  expect(target.querySelectorAll(".html-editor").length).toBe(1);
+  expect(target.textContent).toContain("Away");
 });
 
 test("A login without the permission offers to allow it", async () => {
