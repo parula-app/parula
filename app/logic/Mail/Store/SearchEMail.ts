@@ -44,6 +44,8 @@ export class SearchEMail extends Observable {
   @notifyChangedProperty
   threadID: string | null = null;
   @notifyChangedProperty
+  inReplyTo: string | null = null;
+  @notifyChangedProperty
   sentDateMin: Date | null = null;
   @notifyChangedProperty
   sentDateMax: Date | null = null;
@@ -95,6 +97,7 @@ export class SearchEMail extends Observable {
     this.sizeMax = sanitize.integer(json.sizeMax, null) ?? null;
     this.messageID = sanitize.string(json.messageID, null) ?? null;
     this.threadID = sanitize.string(json.threadID, null) ?? null;
+    this.inReplyTo = sanitize.string(json.inReplyTo, null) ?? null;
     this.sentDateMin = sanitize.date(json.sentDateMin, null) ?? null;
     this.sentDateMax = sanitize.date(json.sentDateMax, null) ?? null;
 
@@ -118,6 +121,7 @@ export class SearchEMail extends Observable {
       sizeMax: this.sizeMax,
       messageID: this.messageID,
       threadID: this.threadID,
+      inReplyTo: this.inReplyTo,
       sentDateMin: this.sentDateMin?.toISOString(),
       sentDateMax: this.sentDateMax?.toISOString(),
       includesPersonEMail: this.includesPerson?.emailAddresses.first?.value ?? null,
@@ -136,6 +140,7 @@ export class SearchEMail extends Observable {
     this.includesPerson = other.includesPerson;
     this.messageID = other.messageID;
     this.threadID = other.threadID;
+    this.inReplyTo = other.inReplyTo;
     this.sentDateMin = other.sentDateMin;
     this.sentDateMax = other.sentDateMax;
     this.sizeMin = other.sizeMin;
@@ -160,6 +165,9 @@ export class SearchEMail extends Observable {
       return false;
     }
     if (this.threadID && this.threadID != email.threadID) {
+      return false;
+    }
+    if (this.inReplyTo && this.inReplyTo != email.inReplyTo) {
       return false;
     }
     if (this.folder && this.folder != email.folder) {
