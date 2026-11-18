@@ -24,12 +24,12 @@ export async function getPublicKeyByFingerprint(fingerprint: string | null, emai
   if (!fingerprint) {
     return null;
   }
-  let signedKey = email?.signedPublicKey?.fingerprint == fingerprint ? email.signedPublicKey : null;
-  if (!signedKey && email?.signedPublicKeyJSON) {
+  let signedPublicKey = email?.signedPublicKey?.fingerprint == fingerprint ? email.signedPublicKey : null;
+  if (!signedPublicKey && email?.signedPublicKeyJSON) {
     let key = publicKeyFromJSON(email.signedPublicKeyJSON);
     if (key.fingerprint == fingerprint) {
       email.signedPublicKey = key;
-      signedKey = key;
+      signedPublicKey = key;
     }
   }
   if (email?.from) {
@@ -57,8 +57,8 @@ export async function getPublicKeyByFingerprint(fingerprint: string | null, emai
       }
     }
   }
-  if (signedKey) {
-    return signedKey;
+  if (signedPublicKey) {
+    return signedPublicKey;
   }
   if (email && email.system != EncryptionSystem.SMIME) {
     let key = await readAutoCryptKeys(email);

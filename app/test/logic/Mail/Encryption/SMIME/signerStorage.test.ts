@@ -83,7 +83,7 @@ describe("The key of a sender who is not in the addressbook", () => {
     let signingKey = await getPublicKeyByFingerprint(fromDB.signedPublicKeyFingerprint, fromDB);
     expect(signingKey.id).toBe(email.signedPublicKey.id);
     // stored now, so that we do not read the message again
-    expect(await reread(email)).toHaveProperty("signedKeyJSON.id", signingKey.id);
+    expect(await reread(email)).toHaveProperty("signedPublicKeyJSON.id", signingKey.id);
   });
 
   test("is not duplicated, once the contact has it", async () => {

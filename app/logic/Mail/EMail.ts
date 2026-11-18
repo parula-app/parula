@@ -105,7 +105,7 @@ export class EMail extends Message {
   @notifyChangedProperty
   shouldEncrypt = false;
   /** For composer/send only: Our key that will sign this email.
-   * Not `signedKey`, which is the key that signed a received email, and which
+   * Not `signedPublicKey`, which is the key that signed a received email, and which
    * is saved with it: This one is our secret key, so it is only in memory.
    * A draft saves only its fingerprint. */
   @notifyChangedProperty
@@ -125,10 +125,10 @@ export class EMail extends Message {
    * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
   signedPublicKeyFingerprint: string | null = null;
-  /** As `signedKeyFingerprint` but giving you the actual PublicKey object.
+  /** As `signedPublicKeyFingerprint` but giving you the actual PublicKey object.
    * Set this using @see rememberSigner() */
   signedPublicKey: PublicKey | null = null;
-  /** As `signedKey`, but not parsed yet.
+  /** As `signedPublicKey`, but not parsed yet.
    * `getPublicKeyByFingerprint()` parses it when the reader needs it. */
   signedPublicKeyJSON: any = null;
   /** Contains the complete MIME message for sending.

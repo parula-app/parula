@@ -45,25 +45,25 @@ describe("S/MIME signed .eml file with LF line endings", () => {
   test("clear-signed", async () => {
     let email = await openEMLFile(withLF(kClearSigned));
     expect(email.text.trim()).toBe("Hello, this is signed.");
-    expect(email.signedKey?.userIDs.contents).toContain("alice@example.com");
+    expect(email.signedPublicKey?.userIDs.contents).toContain("alice@example.com");
   });
 
   test("clear-signed, 8-bit text in UTF-8", async () => {
     let email = await openEMLFile(new TextEncoder().encode(kClearSignedUTF8));
     expect(email.text.trim()).toBe("Grüße aus Köln");
-    expect(email.signedKey?.userIDs.contents).toContain("joerg@example.com");
+    expect(email.signedPublicKey?.userIDs.contents).toContain("joerg@example.com");
   });
 
   /** Fails if the conversion goes through a UTF-8 string */
   test("clear-signed, 8-bit text in ISO-8859-1", async () => {
     let email = await openEMLFile(withLF(kClearSignedLatin1));
     expect(email.text.trim()).toBe("Grüße aus Köln");
-    expect(email.signedKey?.userIDs.contents).toContain("heidi@example.com");
+    expect(email.signedPublicKey?.userIDs.contents).toContain("heidi@example.com");
   });
 
   test("opaque-signed", async () => {
     let email = await openEMLFile(withLF(kOpaqueSigned));
     expect(email.text.trim()).toBe("Hello, this is signed.");
-    expect(email.signedKey?.userIDs.contents).toContain("alice@example.com");
+    expect(email.signedPublicKey?.userIDs.contents).toContain("alice@example.com");
   });
 });
