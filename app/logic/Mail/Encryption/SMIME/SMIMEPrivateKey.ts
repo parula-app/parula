@@ -83,8 +83,11 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     return RSAPrivateKey.decode(privateKeyInfo.privateKey);
   }
 
+  /** With our certificate and its CAs, which the key needs to decrypt and sign after the user imports the file again */
   privateKeyAsFile(): File {
-    return this.keyAsFile(this.privateKeyArmored, "application/pkcs8", "SecretKey", "key");
+    let cas = this.chain.contents.map(ca => ca.certificate);
+    let chain = [this.privateKeyArmored, this.certificate, ...cas].filter(Boolean);
+    return this.keyAsFile(chain.join("\n"), "application/pkcs8", "SecretKey", "key");
   }
 
   async generateCSRFile(subject: Record<string, string>): Promise<File> {

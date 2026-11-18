@@ -3,7 +3,9 @@ import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
-import { Certificate } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { Any, Certificate } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { encryptPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/PBES2";
+import { importPrivateKey, readPrivateKeyFile } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import type { Folder } from "../../../../../logic/Mail/Folder";
 import type { MailAccount } from "../../../../../logic/Mail/MailAccount";
 import type { EMail } from "../../../../../logic/Mail/EMail";
@@ -71,6 +73,20 @@ test("A message for our renewed certificate decrypts, after we added the certifi
 test("A message for our certificate from a CA whose name has DC= parts, as Windows company CAs have, decrypts", async () => {
   let folder = await addAccount("dana@example.com", kDanaKey, kDanaCompanyCert);
   let { email, errors } = await read(folder, "Dana <dana@example.com>", kCompany);
+  expect(errors).toEqual([]);
+  expect(email.text.trim()).toBe("Hello Dana");
+});
+
+test("A message decrypts with our key after we exported it and imported it again", async () => {
+  // E.g. "Backup secret", or "Export Digital ID" and then "Delete Digital ID from System"
+  let passphrase = "secret";
+  let encryptedKey = await encryptPrivateKey(Any.decodePEM(kDanaKey, { label: "PRIVATE KEY" }), passphrase);
+  let exported = (await SMIMEPrivateKey.importPrivateKey(encryptedKey + "\n" + kDanaCert, passphrase)).privateKeyAsFile();
+  expect(await exported.text()).not.toContain("-----BEGIN PRIVATE KEY-----");
+  let folder = await addAccount("dana@example.com");
+  folder.account.identities.first.encryptionPrivateKeys.add(
+    await importPrivateKey(await readPrivateKeyFile(exported, passphrase), passphrase));
+  let { email, errors } = await read(folder, "Dana <dana@example.com>", kBcc);
   expect(errors).toEqual([]);
   expect(email.text.trim()).toBe("Hello Dana");
 });
