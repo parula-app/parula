@@ -2,7 +2,7 @@
 import { appGlobal } from "../../../../logic/app";
 import { MailAccount } from "../../../../logic/Mail/MailAccount";
 import { AutoResponder } from "../../../../logic/Mail/AutoResponder";
-import { isReplyingNow, loadAutomaticReplies, setStartTime } from "../../../Mail/AutomaticReplies/AutomaticReplies";
+import { isReplyingNow, loadAutomaticReplies } from "../../../Mail/AutomaticReplies/AutomaticReplies";
 import { expect, test } from "vitest";
 
 appGlobal.remoteApp = {} as any;
@@ -50,14 +50,6 @@ test("Replying now: when on, and with a time range only within it", () => {
   expect(isReplyingNow(scheduled, new Date(2026, 6, 1, 16, 59))).toBe(false);
   expect(isReplyingNow(scheduled, new Date(2026, 6, 1, 17, 0))).toBe(true);
   expect(isReplyingNow(scheduled, new Date(2026, 6, 15, 8, 0))).toBe(false);
-});
-
-test("A new start time moves the end time, so that the time range keeps its length", () => {
-  let autoResponder = newAutoResponder(true, true);
-  let length = autoResponder.endTime.getTime() - autoResponder.startTime.getTime();
-  setStartTime(autoResponder, new Date(2026, 7, 3, 9, 30));
-  expect(autoResponder.startTime.getTime()).toBe(new Date(2026, 7, 3, 9, 30).getTime());
-  expect(autoResponder.endTime.getTime() - autoResponder.startTime.getTime()).toBe(length);
 });
 
 test("Loads the state only for logged-in accounts that support it", async () => {

@@ -8,7 +8,10 @@ import { Addressbook } from "../../../../../logic/Contacts/Addressbook";
 import { PGPSend } from "../../../../../logic/Mail/Encryption/PGP/PGPSend";
 import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
 import { PGPPublicKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPublicKey";
+import { sendAutoCryptHeader } from "../../../../../logic/Mail/Encryption/PGP/AutoCrypt";
+import { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
+import { kGrace } from "../SMIME/certificateChains";
 import { JSONEMail } from "../../../../../logic/Mail/JSON/JSONEMail";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import type { Folder } from "../../../../../logic/Mail/Folder";
@@ -217,6 +220,23 @@ describe("PGP signed message of a contact with a confirmed key", () => {
     frank.addEncryptionPublicKey(confirmed);
 
     let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Frank <frank@example.com>"), false, mallory, "Frank <frank@example.com>");
+    expectNotSigned(email);
+  });
+
+  test("signed with the key in its AutoCrypt header, while the user confirmed an S/MIME certificate of the contact, is not signed", async () => {
+    let mallory = await newIdentity("grace@example.com", "Grace");
+    let grace = addressbook.newPerson();
+    grace.name = "Grace";
+    grace.emailAddresses.add(new ContactEntry("grace@example.com"));
+    let confirmed = await SMIMEPublicKey.importPublicKey(kGrace);
+    confirmed.trustLevel = TrustLevel.Personal;
+    grace.addEncryptionPublicKey(confirmed);
+    addressbook.persons.add(grace);
+
+    let sent = await send(kHeaders.replace("Alice <alice@example.com>", "Grace <grace@example.com>"), false, mallory);
+    // Unfolded, because the folded header that `PGPSend` writes can't be read
+    let autoCrypt = sendAutoCryptHeader(mallory, mallory.encryptionPrivateKeys.first as PGPPrivateKey);
+    let email = await receive(autoCrypt + "\r\n" + sent.replace(/^AutoCrypt: .*\r\n( .*\r\n)*/m, ""));
     expectNotSigned(email);
   });
 });

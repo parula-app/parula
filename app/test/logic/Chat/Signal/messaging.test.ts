@@ -27,6 +27,7 @@ import { Addressbook } from "../../../../logic/Contacts/Addressbook";
 import { DummyAddressbookStorage } from "../../../../logic/Contacts/SQL/DummyAddressbookStorage";
 import { Person } from "../../../../logic/Abstract/Person";
 import { ChatMessage } from "../../../../logic/Chat/ChatMessage";
+import { IdentityChange } from "../../../../logic/Chat/RoomEvent";
 import { expect, test, beforeEach } from "vitest";
 
 /** A SignalAccount wired for in-process delivery: `fetchPreKeyBundle` reads the
@@ -248,6 +249,75 @@ test("the peer can edit and delete only their own messages", async () => {
   await find(aliceRoom, "edited by alice").deleteForOthers();
   expect(alicesAtBob.deleted).toBe(true);
 });
+
+test("a contact's new identity key shows a notice in the chat, the first key doesn't", async () => {
+  let alice = newAccount("Alice");
+  let bob = newAccount("Bob");
+  alice.peer = bob;
+  bob.peer = alice;
+  let aliceRoom = await roomTo(alice, bob);
+  await aliceRoom.sendMessage(messageWith(aliceRoom, "hello"));
+  let bobRoom = await roomTo(bob, alice);
+  await bobRoom.sendMessage(messageWith(bobRoom, "hi"));
+  expect(identityChanges(aliceRoom)).toHaveLength(0);
+  expect(identityChanges(bobRoom)).toHaveLength(0);
+
+  // Bob reinstalled, or the server put in its own keys
+  let newBob = newIdentityFor(bob);
+  newBob.peer = alice;
+  alice.peer = newBob;
+  let newBobRoom = await roomTo(newBob, alice);
+  await newBobRoom.sendMessage(messageWith(newBobRoom, "new phone"));
+
+  expect(textsIn(aliceRoom)).toContain("new phone"); // not blocked
+  expect(identityChanges(aliceRoom)).toHaveLength(1);
+});
+
+test("a new identity key in the bundle after a 410 stale devices shows a notice", async () => {
+  let alice = newAccount("Alice");
+  let bob = newAccount("Bob");
+  alice.peer = bob;
+  bob.peer = alice;
+  let aliceRoom = await roomTo(alice, bob);
+  await aliceRoom.sendMessage(messageWith(aliceRoom, "hello"));
+
+  // The server says that Bob's device is stale, and then serves a bundle with another key
+  await (alice as any).handleDeviceMismatch(bob.aci, { status: 410, body: { staleDevices: [1] } });
+  alice.peer = newIdentityFor(bob);
+  await aliceRoom.sendMessage(messageWith(aliceRoom, "still there?"));
+
+  expect(identityChanges(aliceRoom)).toHaveLength(1);
+});
+
+test("another device of the contact with a different identity key shows a notice", async () => {
+  let alice = newAccount("Alice");
+  let bob = newAccount("Bob");
+  alice.peer = bob;
+  bob.peer = alice;
+  let aliceRoom = await roomTo(alice, bob);
+  await aliceRoom.sendMessage(messageWith(aliceRoom, "hello"));
+
+  // All devices of a Signal account share its identity key, so device 2 must have Bob's
+  let bobDevice2 = newIdentityFor(bob, 2);
+  bobDevice2.peer = alice;
+  let bobRoom2 = await roomTo(bobDevice2, alice);
+  await bobRoom2.sendMessage(messageWith(bobRoom2, "from another device"));
+
+  expect(identityChanges(aliceRoom)).toHaveLength(1);
+});
+
+/** `peer`'s account with a new identity key: reinstalled, or the server's own keys. */
+function newIdentityFor(peer: TestSignalAccount, deviceID = 1): TestSignalAccount {
+  let account = newAccount(peer.realname);
+  account.aci = peer.aci;
+  account.deviceID = deviceID;
+  return account;
+}
+
+/** The notices in `room` that the contact's identity key changed. */
+function identityChanges(room: Signal1to1ChatRoom): IdentityChange[] {
+  return room.messages.contents.filter((m): m is IdentityChange => m instanceof IdentityChange);
+}
 
 /** Build an unsent outgoing message in a room. */
 function messageWith(room: Signal1to1ChatRoom, text: string): ChatMessage {

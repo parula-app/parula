@@ -1,9 +1,12 @@
 import { Folder } from "../Folder";
+import type { ExchangeMailAccount } from "./ExchangeMailAccount";
 import { ExchangePermission } from "./ExchangePermission";
 import { AbstractFunction } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
 export class ExchangeFolder extends Folder {
+  declare account: ExchangeMailAccount;
+
   disableChangeSpecial(): string | false {
     return gt`You cannot change special folders on the Exchange server`;
   }
