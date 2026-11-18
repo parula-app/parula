@@ -20,7 +20,6 @@ import type { OWACalendar } from "../../Calendar/OWA/OWACalendar";
 import { OWARequest } from "./Request/OWARequest";
 import { OWACreateItemRequest } from "./Request/OWACreateItemRequest";
 import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
-import { OWASubscribeToHierarchyNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
 import { owaCreateNewTopLevelFolderRequest, owaFindFoldersRequest, owaSharedFolderRequest } from "./Request/OWAFolderRequests";
 import { OWACalendarShortcut } from "../../Calendar/OWA/OWACalendarShortcut";
 import { EWSCalendarShortcut } from "../../Calendar/EWS/EWSCalendarShortcut";
@@ -217,7 +216,6 @@ export class OWAAccount extends ExchangeMailAccount {
         this.tags.load()
           .catch(logErrorToServer);
 
-        await this.callOWA(new OWASubscribeToHierarchyNotificationRequest());
         this.listenForNotifications();
       } finally { // Even when the mail folders failed, so that calendar and addressbook still work
         await this.startupDependentAccounts();

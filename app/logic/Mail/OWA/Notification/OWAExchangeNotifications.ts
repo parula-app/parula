@@ -1,8 +1,10 @@
 import { OWANotifications } from "./OWANotifications";
+import { OWASubscribeToHierarchyNotificationRequest } from "../Request/OWASubscribeToNotificationRequest";
 import { appGlobal } from "../../../app";
 
 export class OWAExchangeNotifications extends OWANotifications {
   protected async listen(): Promise<never> {
+    await this.account.callOWA(new OWASubscribeToHierarchyNotificationRequest());
     // handle logout
     // add throttle
     let url = this.account.url + "ev.owa2?ns=PendingRequest&ev=FinishNotificationRequest&UA=0";
