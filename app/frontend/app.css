@@ -231,12 +231,12 @@ grid[flex] {
 
 /* macOS without title bar: The background of these elements moves the window.
  * The controls in them still get the clicks, and their text values can still be selected.
- * The same for popups that open from them.
- * `app-region` works only on elements with a box, and Electron 41 doesn't inherit it.
- * `.clickable` has no box (`display: contents`), so its content needs it. */
+ * The same for popups that open from them. */
 .no-title-bar .window-drag {
   app-region: drag;
 }
+/* `app-region` works only on elements with a box.
+ *`display: contents` has no box, so its content needs it. */
 .no-title-bar .window-drag :is(button, input, select, textarea, a, label, value, .value, .selectable, .clickable *, .popup) {
   app-region: no-drag;
 }
