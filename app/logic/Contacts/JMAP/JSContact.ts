@@ -132,8 +132,8 @@ export class JSContact {
       delete jscontact.media?.avatar;
     }
 
-    setOneValue(person, jscontact, jscontact.notes, "notes", (entry) => entry.note = person.notes);
-    setOneValue(person, jscontact, jscontact.titles, "titles", (entry) => entry.name = person.position);
+    setOneValue(person, jscontact, jscontact.notes, "notes", !person.notes?.trim(), (entry) => entry.note = person.notes);
+    setOneValue(person, jscontact, jscontact.titles, "titles", !person.position, (entry) => entry.name = person.position);
     let company = {} as TOrganization;
     if (person.company || person.department) {
       company = sanitize.object(getOneValue(person, jscontact, jscontact.organizations, "organizations", entry => entry), {});
@@ -149,8 +149,8 @@ export class JSContact {
         }
       }
     }
-    setOneValue(person, jscontact, jscontact.organizations, "organizations", (entry: TOrganization) => {
-      entry.name = company.name;
+    setOneValue(person, jscontact, jscontact.organizations, "organizations", !person.company && !person.department, (entry: TOrganization) => {
+      entry.name = company.name || undefined;
       entry.units = company.units;
     });
   }
@@ -255,8 +255,15 @@ function setJMAPID(contactEntry: ContactEntry, jmapID: TID) {
  * we could simply use the index 0 all the time. This is very annoying.
  * @param jscontactEntries `= jscontact[propName]`
  */
-function setOneValue<TValueObject>(personGeneric: Person, jscontact: JSContact, jscontactEntries: Record<string, TValueObject>, propName: string, setter: (obj: TValueObject) => void) {
+function setOneValue<TValueObject>(personGeneric: Person, jscontact: JSContact, jscontactEntries: Record<string, TValueObject>, propName: string, isEmpty: boolean, setter: (obj: TValueObject) => void) {
   assert(jscontact[propName] == jscontactEntries, "propName needs to match the entries");
+  if (isEmpty) {
+    let id = (personGeneric as JMAPPerson).propertyFieldIDs?.[propName];
+    if (id && jscontactEntries?.[id]) {
+      delete jscontactEntries[id];
+    }
+    return;
+  }
   if (!jscontactEntries) {
     jscontactEntries = jscontact[propName] ??= {};
   }
