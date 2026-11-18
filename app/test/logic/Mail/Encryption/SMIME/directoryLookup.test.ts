@@ -22,6 +22,8 @@ const kDirectory: Record<string, string> = {
   "partner@other.org": kSMIMECertificate,
   // E.g. a certificate that the server made itself, to read the mail
   "untrusted@example.com": kUntrustedSMIMECertificate,
+  // A certificate that a trusted CA issued for another mailbox, e.g. one that the admin reads
+  "boss@example.com": kSMIMECertificate,
 };
 
 trustTestCAs();
@@ -242,6 +244,21 @@ test("Certificate from the directory without a trusted CA counts as missing, als
   let recipient = new PersonUID("untrusted@example.com", "Untrusted");
   await recipient.fetchEncryptionKeys();
   expect(account.queries).toEqual(["smtp:untrusted@example.com"]);
+  expect(canEncryptTo(recipient)).toBe(false);
+});
+
+test("Certificate from the directory for another email address counts as missing", async () => {
+  let recipient = new PersonUID("boss@example.com", "Boss");
+  await recipient.fetchEncryptionKeys();
+  expect(account.queries).toEqual(["smtp:boss@example.com"]);
+  expect(canEncryptTo(recipient)).toBe(false);
+});
+
+test("Certificate from the directory for another email address counts as missing, also for a contact", async () => {
+  personInAddressbook("boss@example.com");
+  let recipient = new PersonUID("boss@example.com", "Boss");
+  await recipient.fetchEncryptionKeys();
+  expect(account.queries).toEqual(["smtp:boss@example.com"]);
   expect(canEncryptTo(recipient)).toBe(false);
 });
 
