@@ -1,6 +1,7 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
 import { appGlobal } from "../../../../logic/app";
 import { JMAPAccount } from "../../../../logic/Mail/JMAP/JMAPAccount";
+import type { JMAPAddressbook } from "../../../../logic/Contacts/JMAP/JMAPAddressbook";
 import { newAccountForProtocol } from "../../../../logic/Mail/AccountsList/MailAccounts";
 import type { TJMAPSession } from "../../../../logic/Mail/JMAP/TJMAPGeneric";
 import { InProcessSQLiteDatabase } from "../../util/inProcessSQLite";
@@ -66,6 +67,15 @@ function respond(method: string, args: any): any {
       }],
     };
   }
+  if (method == "AddressBook/get" && args.accountId == "u2") {
+    return {
+      accountId: args.accountId, state: "a1", notFound: [],
+      list: [{
+        id: "jane-contacts", name: "Jane's contacts", isDefault: true, isSubscribed: false,
+        myRights: { mayRead: true, mayWrite: false, mayShare: false, mayDelete: false },
+      }],
+    };
+  }
   if (method.endsWith("/get")) {
     return { accountId: args.accountId, state: "n", list: [], notFound: [] };
   }
@@ -78,11 +88,12 @@ function respond(method: string, args: any): any {
   throw new Error("Test server has no answer for " + method);
 }
 
-/** Jane delegated only her mail, so the server refuses everything else,
+/** By default, Jane delegated only her mail, so the server refuses everything else,
  * although the session claims that her account offers it */
+let janeShares: string[];
 function sharedWithUs(method: string, accountID: string): boolean {
   return accountID != "u2" ||
-    method.startsWith("Mailbox/") || method.startsWith("Email/");
+    janeShares.some(type => method.startsWith(type + "/"));
 }
 
 let session: TJMAPSession;
@@ -90,6 +101,7 @@ let calls: string[];
 
 beforeEach(() => {
   calls = [];
+  janeShares = ["Mailbox", "Email"];
   let tempDir = mkdtempSync(path.join(tmpdir(), "jmap-sharing-test-"));
   appGlobal.remoteApp = {
     getSQLiteDatabase: (filename: string) => new InProcessSQLiteDatabase(path.join(tempDir, filename)),
@@ -182,6 +194,18 @@ test("Setup adds the account that another user delegated to us", async () => {
   expect(calls).toContain("Mailbox/get u2");
   // The parts that she did not share do not abort the setup of the rest
   expect(calls).toContain("AddressBook/get u2");
+});
+
+test("Setup adds an account whose owner shared only an address book, and no mail folder", async () => {
+  session = kStalwartSession;
+  janeShares = ["AddressBook", "ContactCard"];
+
+  await loginToNewAccount();
+
+  let shared = delegatedAccounts();
+  expect(shared.length).toBe(1);
+  expect(shared[0].rootFolders.isEmpty).toBe(true);
+  expect(shared[0].dependentAccounts().contents.map(dependent => (dependent as JMAPAddressbook).jmapID)).toContain("jane-contacts");
 });
 
 test("Setup adds it also on a server that implements the older `Principal` draft", async () => {
