@@ -167,8 +167,10 @@ export class SMIMESend {
         let publicKey = cert.tbsCertificate.publicKey;
         switch (publicKey.algorithmIdentifier.algorithm) {
         case "ecPublicKey":
-          // RFC 5652 section 6.1, but AuthEnvelopedData is always version 0, RFC 5083 section 2.1
-          pkcs7.content.version = useGCM ? 0n : 2n;
+          if (!useGCM) {
+            // RFC 5652 section 6.1 EnvelopedData needs to be version 2 for EC
+            pkcs7.content.version = 2n;
+          }
           pkcs7.content.recipientInfos.push(await recipientKey.keyAgreeRecipientInfo(symmetricKey));
           break;
         case "rsaEncryption": {
