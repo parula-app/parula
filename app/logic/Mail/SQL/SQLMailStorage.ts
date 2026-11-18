@@ -40,7 +40,7 @@ export class SQLMailStorage implements MailAccountStorage {
     await SQLEMail.readBody(email);
   }
   async readMessageWritableProps(email: EMail): Promise<void> {
-    await SQLEMail.readWritableProps(email);
+    await SQLEMail.readWritableProps([email]);
   }
   async saveMessage(email: EMail): Promise<void> {
     await SQLEMail.save(email);

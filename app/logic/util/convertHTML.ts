@@ -12,6 +12,20 @@ export function convertHTMLToText(html: string): string {
     const options = {
       formatters: {
         removeFormatter: () => { },
+        signatureFormatter: (elem, walk, builder) => {
+          builder.openBlock({ leadingLineBreaks: 2 });
+          builder.addLiteral("-- ");
+          builder.closeBlock({ trailingLineBreaks: 1 });
+          for (let child of elem.children ?? []) {
+            if (child.type == "tag" && child.name == "p") {
+              builder.openBlock({ leadingLineBreaks: 1 });
+              walk(child.children, builder);
+              builder.closeBlock({ trailingLineBreaks: 1 });
+            } else {
+              walk([child], builder);
+            }
+          }
+        },
       },
       selectors: [
         {
@@ -21,6 +35,10 @@ export function convertHTMLToText(html: string): string {
         {
           selector: "style",
           format: "removeFormatter",
+        },
+        {
+          selector: "footer.signature",
+          format: "signatureFormatter",
         },
       ],
     };
@@ -38,7 +56,17 @@ export function convertTextToHTML(plaintext: string): string {
       breaks: true,
     });
   }
-  let html = markdownitInstance.render(plaintext);
+  let body = plaintext;
+  let signatureHTML = "";
+  let lines = plaintext.split(/\r?\n/);
+  let separator = lines.lastIndexOf("-- ");
+  let signature = lines.slice(separator + 1);
+  // With a quote after it, we can't tell where the signature ends
+  if (separator >= 0 && !signature.some(line => line.startsWith(">"))) {
+    body = lines.slice(0, separator).join("\n");
+    signatureHTML = `<footer class="signature">${markdownitInstance.render(signature.join("\n"))}</footer>`;
+  }
+  let html = markdownitInstance.render(body) + signatureHTML;
   return sanitizeHTML(html);
 }
 

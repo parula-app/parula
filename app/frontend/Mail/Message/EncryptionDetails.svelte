@@ -34,7 +34,7 @@
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { PublicKey } from "../../../logic/Mail/Encryption/PublicKey";
   import { TrustLevel } from "../../../logic/Mail/Encryption/enums";
-  import { getPublicKeyByKeyID } from "../../../logic/Mail/Encryption/KeyUtils";
+  import { getPublicKeyByFingerprint } from "../../../logic/Mail/Encryption/KeyUtils";
   import { SMIMEPublicKey } from "../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
   import { findIdentityForEMailAddress } from "../../../logic/Mail/MailIdentity";
   import EncryptionKey from "../../Contacts/PersonPage/EncryptionKey.svelte";
@@ -52,16 +52,16 @@
   export let isExpanded = false;
 
   let signingKey: PublicKey;
-  $: getPublicKeyByKeyID($message.signedByKeyID, message)
+  $: getPublicKeyByFingerprint($message.signedPublicKeyFingerprint, message)
     .then(key => signingKey = key)
     .catch(showError);
-  $: signed = $message.signedByKeyID && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
+  $: signed = $message.signedPublicKeyFingerprint && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
   $: received = $message.received ?? new Date();
   $: expired = signed && signingKey instanceof SMIMEPublicKey && !signingKey.isValidAt(received);
   $: encrypted = $message.wasEncrypted;
   $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : expired ? TrustLevel.Sender : $signingKey?.trustLevel ?? "none";
   $: identity = $message.outgoing ? findIdentityForEMailAddress($message.from?.emailAddress) : null;
-  $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.id == message.signedByKeyID);
+  $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.fingerprint == message.signedPublicKeyFingerprint);
   $: title = signed && encrypted
       ? $t`End-to-end encrypted and signed`
       : signed
