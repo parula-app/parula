@@ -13,8 +13,8 @@ export class JMAPAutoResponder extends AutoResponder {
 
   /** Only the owner of the account */
   get supported(): boolean {
-    return !this.account.isDependentAccount &&
-      !!this.account.accountCapabilities["urn:ietf:params:jmap:vacationresponse"];
+    return !!this.account.accountCapabilities["urn:ietf:params:jmap:vacationresponse"] &&
+      !this.account.isDependentAccount;
   }
 
   async load(): Promise<void> {
@@ -27,16 +27,14 @@ export class JMAPAutoResponder extends AutoResponder {
 
   async save(): Promise<void> {
     this.validate();
-    await this.setVacationResponse(this.isOn);
+    await this.setVacationResponse(this.toJMAP());
   }
 
-  /** Writes the reply and the time range.
-   * @param isEnabled false only stores the reply */
-  protected async setVacationResponse(isEnabled: boolean) {
+  protected async setVacationResponse(json: TJMAPVacationResponse) {
     let response = await this.account.makeSingleCall("VacationResponse/set", {
       accountId: this.account.accountID,
       update: {
-        singleton: this.toJMAP(isEnabled),
+        singleton: json,
       },
     }) as TJMAPChangeResponse<TJMAPVacationResponse>;
     checkChangeError(response);
@@ -48,16 +46,17 @@ export class JMAPAutoResponder extends AutoResponder {
     let toDate = sanitize.date(json.toDate, null);
     this.scheduled = !!fromDate || !!toDate;
     this.setTimes(fromDate ?? this.startTime, toDate ?? this.endTime);
+    // For all senders, also outside the organization, because JMAP has only one message
     this.internalHTML = json.htmlBody
       ? sanitizeHTML(json.htmlBody)
       : convertTextToHTML(sanitize.string(json.textBody, ""));
   }
 
   /** The subject stays as it is on the server */
-  toJMAP(isEnabled: boolean): TJMAPVacationResponse {
+  toJMAP(): TJMAPVacationResponse {
     let html = this.stripEmptyParagraph(this.internalHTML);
     return {
-      isEnabled: isEnabled,
+      isEnabled: this.isOn,
       fromDate: this.isOn && this.scheduled ? this.startTime.toISOString() : null,
       toDate: this.isOn && this.scheduled ? this.endTime.toISOString() : null,
       // null = the server's default reply

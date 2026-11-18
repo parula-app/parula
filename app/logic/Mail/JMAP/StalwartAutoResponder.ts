@@ -32,7 +32,8 @@ export class StalwartAutoResponder extends JMAPAutoResponder {
     let active = scripts.find(script => script.isActive);
     let isOurs = !!active?.name?.startsWith(StalwartAutoResponder.kPrefix);
     let haveFilters = !!active && active.name?.toLowerCase() != "vacation"; // Our script runs them, too
-    await this.setVacationResponse(this.isOn && !haveFilters);
+    // `isEnabled` would make "vacation" the only active script. With filters, our script runs it instead.
+    await this.setVacationResponse({ ...this.toJMAP(), isEnabled: this.isOn && !haveFilters });
     if (this.isOn && haveFilters && !isOurs) {
       await this.activateOurScript(active);
     } else if (!this.isOn && isOurs) {

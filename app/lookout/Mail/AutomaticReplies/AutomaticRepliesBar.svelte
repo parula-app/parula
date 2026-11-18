@@ -16,7 +16,7 @@
 
   export let account: MailAccount;
 
-  $: autoResponder = $account?.autoResponder; // JMAP: The login decides the class
+  $: autoResponder = $account?.autoResponder;
   $: isLoggedIn = $account?.isLoggedIn;
   $: if (isLoggedIn) {
     loadAutomaticReplies(account)

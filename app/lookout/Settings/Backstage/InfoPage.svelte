@@ -77,7 +77,7 @@
       : $emailAccounts.first;
 
   let isAutomaticRepliesOpen = false;
-  $: autoResponder = $account?.autoResponder; // JMAP: The login decides the class
+  $: autoResponder = $account?.autoResponder;
   $: isLoggedIn = $account?.isLoggedIn;
   $: if (isLoggedIn) {
     loadAutomaticReplies(account)
