@@ -138,8 +138,7 @@ export class Person extends ContactBase {
   }
 
   /** Adds a PGP key or S/MIME certificate for this contact,
-   * unless we already have it: the same fingerprint, because another
-   * PGP key or a renewed certificate can have the same key ID. */
+   * unless we already have it. */
   addEncryptionPublicKey(key: PublicKey) {
     if (this.encryptionPublicKeys.some(existing => existing.fingerprint == key.fingerprint)) {
       return;

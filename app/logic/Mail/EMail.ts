@@ -121,11 +121,10 @@ export class EMail extends Message {
   /** This email was correctly signed with this public key.
    * The signature was valid and the public key matches `From:`.
    * This gives you the specific public key that was used to sign.
-   * Not the key ID, because another key can have the same key ID.
    * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
   signedPublicKeyFingerprint: string | null = null;
-  /** As `signedPublicKeyFingerprint` but giving you the actual PublicKey object.
+  /** The `PublicKey` object for `signedPublicKeyFingerprint`
    * Set this using @see rememberSigner() */
   signedPublicKey: PublicKey | null = null;
   /** As `signedPublicKey`, but not parsed yet.
