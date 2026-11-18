@@ -40,10 +40,12 @@ export class SignalChatRoom extends ChatRoom {
   // --- receiving + sending: delegated to SignalChatMessage ---
 
   /** Find the message in this room with the given Signal send-timestamp (the message
-   * key that reactions/edits/deletes/receipts reference). */
-  findBySentTimestamp(timestamp: number): SignalChatMessage | undefined {
+   * key that reactions/edits/deletes/receipts reference).
+   * @param author Only a message from this contact. Signal identifies the target of an edit or delete by author and timestamp. */
+  findBySentTimestamp(timestamp: number, author?: SignalContact): SignalChatMessage | undefined {
     return this.messages.contents.find(
-      (m): m is SignalChatMessage => m instanceof SignalChatMessage && m.sentTimestamp == timestamp);
+      (m): m is SignalChatMessage => m instanceof SignalChatMessage && m.sentTimestamp == timestamp &&
+        (!author || m.from?.chatID == author.chatID));
   }
 
   async sendMessage(message: SignalChatMessage): Promise<void> {

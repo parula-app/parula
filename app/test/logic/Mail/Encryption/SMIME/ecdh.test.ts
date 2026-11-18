@@ -6,7 +6,7 @@ import { findOrCreatePersonUID } from "../../../../../logic/Abstract/PersonUID";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { SMIMESend } from "../../../../../logic/Mail/Encryption/SMIME/SMIMESend";
-import { AlgorithmIdentifier, EnvelopedData, Null } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { AlgorithmIdentifier, EnvelopedData, AuthEnvelopedData, Null } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import type { Folder } from "../../../../../logic/Mail/Folder";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { kOwnP256, kOwnP384, kOwnP521 } from "./ownECKeys";
@@ -128,6 +128,19 @@ describe("A message that we encrypt to an EC certificate", () => {
   test("from our own EC key decrypts for us", async () => {
     await useKey(kOwnP384);
     let sent = await send(await SMIMEPublicKey.importPublicKey(kAliceRSA));
+    let { email, errors } = await receive(sent);
+    expect(errors).toEqual([]);
+    expect(email.text.trim()).toBe("Hello EC");
+  });
+
+  test("only to our own EC key, like a draft, uses AES-GCM and decrypts for us", async () => {
+    await useKey(kOwnP384);
+    let sent = await send(await SMIMEPublicKey.importPublicKey(kOwnP384));
+    let cms = AuthEnvelopedData.decode(base64ToBytes(sent.split("\r\n\r\n")[1]));
+    expect(cms.contentType).toBe("authEnvelopedData");
+    // RFC 5083 section 2.1, unlike `EnvelopedData` with ECDH
+    expect(cms.content.version).toBe(0n);
+    expect(cms.content.recipientInfos.map(recipientInfo => recipientInfo.type)).toContain("kari");
     let { email, errors } = await receive(sent);
     expect(errors).toEqual([]);
     expect(email.text.trim()).toBe("Hello EC");

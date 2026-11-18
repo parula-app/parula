@@ -153,7 +153,7 @@ export class MailIdentity extends Observable {
       sendCC: this.sendCC.contents,
       sendBCC: this.sendBCC.contents,
       smlAccount: this.smlAccount?.toJSON(),
-      encryptionPrivateKeys: this.encryptionPrivateKeys.contents.map(key => key.toJSON()),
+      encryptionPrivateKeys: this.encryptionPrivateKeys.contents.map(key => key.toPrivateJSON()),
     };
   }
 

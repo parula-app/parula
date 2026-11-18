@@ -115,8 +115,8 @@ Rules and Alerts and Create Rule. All Mustang rules are client rules that run wh
 
 | Outlook feature | Where in Outlook | What the logic would need |
 |---|---|---|
-| Automatic replies for IMAP and JMAP accounts | File > Info > Automatic Replies | JMAP `VacationResponse`, ManageSieve `vacation` for IMAP, as `AutoResponder` subclasses |
-| Font, size, color, lists and indent for the messages | Automatic Replies dialog | More buttons in Lookout's editor toolbar, which has bold, italic, underline and links |
+| Automatic replies for IMAP accounts | File > Info > Automatic Replies | ManageSieve `vacation`, as an `AutoResponder` subclass |
+| Font, size, color, underline and indent for the messages | Automatic Replies dialog | More buttons in the editor toolbar, which has bold, italic, strike-through, lists, headings and links. Underline works with Ctrl+U. |
 | Updating the bar while the app runs | Below the ribbon | A periodic `autoResponder.load()`. Lookout reads the state when you go to the account. |
 | Automatic Reply Rules | Automatic Replies > Rules | Exchange OOF rules |
 | Block my calendar, decline new invitations, cancel my meetings during the period | Automatic replies (new Outlook) | Calendar integration of the above |

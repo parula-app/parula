@@ -92,6 +92,10 @@ export class SMIMEPublicKey extends PublicKey {
   async addCertificate(cert: Certificate): Promise<boolean> {
     let publicKey = cert.tbsCertificate.publicKey;
     if (!this.publicKeyArmored) {
+      // Our own key has its ID from the secret key. With another key's certificate, we would encrypt our drafts to that key.
+      if (this.id && !await this.matches(publicKey)) {
+        throw new UserError(gt`This certificate is not for this secret key`);
+      }
       await this.setCertificate(cert);
       return true;
     }
