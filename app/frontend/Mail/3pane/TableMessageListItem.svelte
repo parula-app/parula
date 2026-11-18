@@ -47,7 +47,7 @@
   <hbox flex />
   <hbox class="tags" class:tagged={$tags.hasItems}>
     {#if $tags.hasItems}
-      <TagSelector tags={$tags} object={message} canAdd={false} />
+      <TagSelector tags={$tags} object={message} canAdd={false} compact />
     {/if}
   </hbox>
   <hbox class="star button" class:starred={$message.isStarred}>
@@ -329,11 +329,6 @@
   }
   .unread-dot.unread :global(svg) {
     fill: green;
-  }
-  .tags :global(.tag) {
-    margin: 0 2px;
-    min-height: unset;
-    border: none;
   }
   /* </copied> */
 </style>
