@@ -49,7 +49,8 @@ export class SignalChatMessage extends ChatMessage {
       return null;
     }
     if (content.editMessage?.dataMessage) {
-      room.findBySentTimestamp(content.editMessage.targetSentTimestamp!)?.
+      // Like Signal, only the author can edit a message
+      room.findBySentTimestamp(content.editMessage.targetSentTimestamp!, sender)?.
         fromSignalEdit(content.editMessage.dataMessage);
       return null;
     }
@@ -68,7 +69,8 @@ export class SignalChatMessage extends ChatMessage {
       return null;
     }
     if (data.delete) {
-      room.findBySentTimestamp(data.delete.targetSentTimestamp!)?.
+      // Like Signal, only the author can delete a message for everyone. A group admin would need `adminDelete`, which we don't support.
+      room.findBySentTimestamp(data.delete.targetSentTimestamp!, sender)?.
         fromSignalDelete();
       return null;
     }
