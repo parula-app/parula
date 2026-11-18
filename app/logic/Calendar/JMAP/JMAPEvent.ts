@@ -5,6 +5,7 @@ import type { TID, TJMAPChangeResponse } from "../../Mail/JMAP/TJMAPGeneric";
 import type { JMAPCalendar } from "./JMAPCalendar";
 import { JMAPOutgoingInvitation } from "./JMAPOutgoingInvitation";
 import { checkChangeError } from "../../Mail/JMAP/JMAPError";
+import { JMAPPatchObject } from "../../Mail/JMAP/JMAPPatchObject";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../util/util";
 import type { ArrayColl } from "svelte-collections";
@@ -69,22 +70,18 @@ export class JMAPEvent extends Event {
     }
 
     let isNew = !this.original;
+    let serverEvent = structuredClone(this.original);
     let jsevent = this.original ?? {} as TJMAPCalendarEvent;
     JSCalendarEvent.fromEvent(this, jsevent); // overwrites `jsevent`, so must be first
     jsevent.calendarIds ??= {};
     jsevent.calendarIds[this.calendar.jmapID] = true;
-    delete jsevent.id; // Workaround for <https://github.com/stalwartlabs/stalwart/discussions/2858>
-    delete jsevent.isOrigin; // ditto
-    if (!isNew) {
-      delete jsevent.uid; // UID is immutable
-    }
     assert(this.id, "Event ctor should set this");
 
     let results = await this.account.makeSingleCall("CalendarEvent/set", {
       accountId: this.account.accountID,
-      [isNew ? "create" : "update"]: {
-        [isNew ? this.id : this.jmapID]: jsevent,
-      },
+      ...isNew
+        ? { create: { [this.id]: jsevent } }
+        : { update: { [this.jmapID]: JMAPPatchObject.diff(serverEvent, jsevent) } },
     }) as TJMAPChangeResponse<TJMAPCalendarEvent>;
     checkChangeError(results);
 

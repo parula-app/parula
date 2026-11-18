@@ -9,6 +9,7 @@ import { DummyCalendarStorage } from "../../../../logic/Calendar/SQL/DummyCalend
 import { Frequency } from "../../../../logic/Calendar/RecurrenceRule";
 import { expectDaylightSavingTime } from "../timeZone";
 import { beforeAll, describe, expect, test } from "vitest";
+import { durationSeconds } from "./durationSeconds";
 
 beforeAll(() => {
   appGlobal.remoteApp ??= {
@@ -93,6 +94,36 @@ test("A new event sends its UID", async () => {
   expect(sent[0].create[event.id].uid).toBe(event.calUID);
 });
 
+test("A change sends only what changed, so that changes made elsewhere stay", async () => {
+  let json = serverEvent();
+  delete json.recurrenceRule;
+  json.locations = { "0": { "@type": "Location", name: "Room 1" } };
+  json.keywords = { "project-x": true };
+  let { event, sent } = await listEvents([json]);
+
+  event.title = "Weekly meeting";
+  await event.save();
+
+  let patch = sent[0].update.eventID;
+  expect(patch.title).toBe("Weekly meeting");
+  expect(Object.keys(patch).filter(path => /^(locations|keywords|alerts|start|duration|timeZone)\b/.test(path))).toEqual([]);
+});
+
+test("A changed occurrence is sent as a change inside its override", async () => {
+  let json = serverEvent();
+  json.recurrenceOverrides = { "2026-01-12T10:00:00": { start: "2026-01-12T11:00:00" } } as any;
+  let { event, sent } = await listEvents([json]);
+
+  let occurrence = event.exceptions.first;
+  occurrence.title = "Moved and renamed";
+  await occurrence.save();
+
+  let patch = sent[0].update.eventID;
+  // Not all overrides as a whole, which would undo changes of the other occurrences
+  expect(patch).not.toHaveProperty("recurrenceOverrides");
+  expect(applyPatch(json, patch).recurrenceOverrides["2026-01-12T10:00:00"]).toMatchObject({ start: "2026-01-12T11:00:00", title: "Moved and renamed" });
+});
+
 test("The reminder is read from the server", async () => {
   let { event } = await listEvents([serverEvent()]);
 
@@ -136,18 +167,28 @@ test("An alert relative to the end is read as the reminder", async () => {
   expect(event.alarm.getTime() - event.endTime.getTime()).toBe(5 * 60 * 1000);
 });
 
+/** The offsets in seconds of the alerts to display, relative to the start, in any equivalent form */
+function reminderOffsets(json: TJMAPCalendarEvent): number[] {
+  return Object.values(json.alerts ?? {})
+    .filter(alert => (alert.action ?? "display") == "display")
+    .map(alert => {
+      let trigger = alert.trigger as any;
+      expect(trigger["@type"] ?? "OffsetTrigger").toBe("OffsetTrigger");
+      expect(trigger.relativeTo ?? "start").toBe("start");
+      return durationSeconds(trigger.offset);
+    });
+}
+
 test("A changed reminder is sent to the server", async () => {
   let { event, sent } = await listEvents([serverEvent()]);
 
   event.alarm = new Date(event.startTime.getTime() - 15 * 60 * 1000);
   await event.save();
 
-  expect(Object.values(sent[0].update.eventID.alerts)[0]).toMatchObject({
-    "@type": "Alert",
-    trigger: { "@type": "OffsetTrigger", offset: "-PT15M" },
-  });
+  let stored = applyPatch(serverEvent(), sent[0].update.eventID);
+  expect(reminderOffsets(stored)).toEqual([-15 * 60]);
   // Otherwise the server ignores our alert and uses the calendar default
-  expect(sent[0].update.eventID.useDefaultAlerts).toBe(false);
+  expect(stored.useDefaultAlerts).toBe(false);
 });
 
 test("An unchanged alert is left alone", async () => {
@@ -162,10 +203,10 @@ test("An unchanged alert is left alone", async () => {
   event.title = "Weekly meeting";
   await event.save();
 
-  expect(Object.values(sent[0].update.eventID.alerts)[0]).toMatchObject({
+  expect(Object.values(applyPatch(json, sent[0].update.eventID).alerts)[0]).toMatchObject({
     trigger: { "@type": "AbsoluteTrigger", when: "2026-01-05T08:00:00Z" },
   });
-  expect(sent[0].update.eventID).not.toHaveProperty("useDefaultAlerts");
+  expect(Object.keys(sent[0].update.eventID).filter(path => /^(alerts|useDefaultAlerts)\b/.test(path))).toEqual([]);
 });
 
 test("A changed reminder replaces an absolute alert", async () => {
@@ -178,9 +219,7 @@ test("A changed reminder replaces an absolute alert", async () => {
   event.alarm = new Date(event.startTime.getTime() - 15 * 60 * 1000);
   await event.save();
 
-  expect(Object.values(sent[0].update.eventID.alerts)[0]).toMatchObject({
-    trigger: { "@type": "OffsetTrigger", offset: "-PT15M" },
-  });
+  expect(reminderOffsets(applyPatch(json, sent[0].update.eventID))).toEqual([-15 * 60]);
 });
 
 test("A removed reminder is sent to the server", async () => {
@@ -189,7 +228,7 @@ test("A removed reminder is sent to the server", async () => {
   event.alarm = null;
   await event.save();
 
-  expect(sent[0].update.eventID.alerts).toEqual({});
+  expect(Object.keys(applyPatch(serverEvent(), sent[0].update.eventID).alerts ?? {})).toEqual([]);
 });
 
 /* The organizer counts the changes of a meeting in `sequence`, and the server
@@ -303,7 +342,7 @@ describe("All-day events on the days when the clocks change", () => {
     event.title = "Changed";
     await event.save();
 
-    expect(sent[0].update.eventID.duration).toBe("P1D");
+    expect(applyPatch(allDayServerEvent("2026-03-29T00:00:00"), sent[0].update.eventID).duration).toBe("P1D");
   });
 
   test("A new all-day event on the day the clocks go back is sent as 1 day", async () => {
