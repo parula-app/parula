@@ -160,7 +160,8 @@
   $: isOutsideOn = $autoResponder.isOn && $autoResponder.externalAudience != AutoResponderAudience.None;
   // Like Outlook, one of the 2 is checked, even while there are no replies outside
   $: shownAudience = $autoResponder.externalAudience == AutoResponderAudience.Contacts || $autoResponder.maxAudience == AutoResponderAudience.Contacts
-    ? AutoResponderAudience.Contacts : AutoResponderAudience.All;
+    ? AutoResponderAudience.Contacts
+    : AutoResponderAudience.All;
 
   async function load(forAccount: MailAccount) {
     autoResponder = forAccount.newAutoResponder();
