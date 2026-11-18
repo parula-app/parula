@@ -755,47 +755,47 @@ export class EMail extends Message {
   copyFrom(other: EMail): void {
     super.copyFrom(other, true);
     // <copied to="SendEncrypted.cloneEMail()">
-    other.folder = this.folder;
-    other.identity = this.identity;
-    other.from = this.from;
-    other.replyTo = this.replyTo;
-    other.to.replaceAll(this.to);
-    other.cc.replaceAll(this.cc);
+    this.folder = other.folder;
+    this.identity = other.identity;
+    this.from = other.from;
+    this.replyTo = other.replyTo;
+    this.to.replaceAll(other.to);
+    this.cc.replaceAll(other.cc);
     // </copied>
-    other.bcc.replaceAll(this.bcc);
-    other.tags.replaceAll(this.tags);
-    //other.headers.replaceAll(this.headers);
-    other.headers.clear();
-    for (let name of this.headers.keys()) {
-      other.headers.set(name, this.headers.get(name));
+    this.bcc.replaceAll(other.bcc);
+    this.tags.replaceAll(other.tags);
+    //this.headers.replaceAll(other.headers);
+    this.headers.clear();
+    for (let name of other.headers.keys()) {
+      this.headers.set(name, other.headers.get(name));
     }
-    other.size = this.size;
-    if (this.references) {
-      other.references = this.references.slice();
+    this.size = other.size;
+    if (other.references) {
+      this.references = other.references.slice();
     }
-    other.threadID = this.threadID;
-    other.isSpam = this.isSpam;
-    other.isReplied = this.isReplied;
-    other.isForwarded = this.isForwarded;
-    other.isImportant = this.isImportant;
-    other.isDraft = this.isDraft;
-    other.isDeleted = this.isDeleted;
-    other.mime = this.mime;
-    other.invitationMessage = this.invitationMessage;
-    other.event = this.event;
-    other.sml = this.sml;
-    //other.extraData.replaceAll(this.extraData);
-    other.extraData.clear();
-    for (let name of this.extraData.keys()) {
-      other.extraData.set(name, this.extraData.get(name));
+    this.threadID = other.threadID;
+    this.isSpam = other.isSpam;
+    this.isReplied = other.isReplied;
+    this.isForwarded = other.isForwarded;
+    this.isImportant = other.isImportant;
+    this.isDraft = other.isDraft;
+    this.isDeleted = other.isDeleted;
+    this.mime = other.mime;
+    this.invitationMessage = other.invitationMessage;
+    this.event = other.event;
+    this.sml = other.sml;
+    //this.extraData.replaceAll(other.extraData);
+    this.extraData.clear();
+    for (let name of other.extraData.keys()) {
+      this.extraData.set(name, other.extraData.get(name));
     }
 
-    other.mustEncrypt = this.mustEncrypt;
-    other.shouldEncrypt = this.shouldEncrypt;
-    other.wasEncrypted = this.wasEncrypted;
-    other.signPrivateKey = this.signPrivateKey;
-    other.signedPublicKeyFingerprint = this.signedPublicKeyFingerprint;
-    other.system = this.system;
+    this.mustEncrypt = other.mustEncrypt;
+    this.shouldEncrypt = other.shouldEncrypt;
+    this.wasEncrypted = other.wasEncrypted;
+    this.signPrivateKey = other.signPrivateKey;
+    this.signedPublicKeyFingerprint = other.signedPublicKeyFingerprint;
+    this.system = other.system;
   }
 
   /**

@@ -122,7 +122,7 @@ describe("Opening the message", () => {
   });
 });
 
-test("Copying an encrypted message to another account uploads it still encrypted", async () => {
+test("Copying an encrypted message to another account uploads it still encrypted, and keeps our decrypted copy", async () => {
   let { email } = await newMailToBob(kEncryptedAsFile);
   let original = email.mime;
   email.downloadMIME = async () => original; // the server
@@ -139,6 +139,8 @@ test("Copying an encrypted message to another account uploads it still encrypted
   let uploadedText = new TextDecoder().decode(uploaded);
   expect(uploadedText).toContain("smime.p7m");
   expect(uploadedText).not.toContain("Hello Bob");
+  expect(new TextDecoder().decode(email.mime)).toContain("Hello Bob");
+  expect(email.text).toContain("Hello Bob");
 });
 
 /** Reads the CMS blob as a message to Bob, whose private key we have.

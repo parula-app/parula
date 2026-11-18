@@ -44,7 +44,7 @@ test("Opening an encrypted message for another key than ours shows the error ins
   expect(email.html).toMatch(/decrypt/i);
 });
 
-test("Copying an encrypted message to another account uploads it still encrypted", async () => {
+test("Copying an encrypted message to another account uploads it still encrypted, and keeps our decrypted copy", async () => {
   let { folder } = await setupTestFolder();
   let identity = new MailIdentity(folder.account);
   identity.emailAddress = "user@example.com";
@@ -87,6 +87,8 @@ test("Copying an encrypted message to another account uploads it still encrypted
   let uploadedText = new TextDecoder().decode(uploaded);
   expect(uploadedText).toContain("BEGIN PGP MESSAGE");
   expect(uploadedText).not.toContain("secret body");
+  expect(new TextDecoder().decode(email.mime)).toContain("secret body");
+  expect(email.text).toContain("secret body");
 });
 
 /** `gpg --encrypt`, to a key that is not ours */

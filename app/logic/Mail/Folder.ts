@@ -210,12 +210,16 @@ export class Folder extends Observable {
       }
       if (!sameServer) {
         for (let message of messages) {
+          let upload = message;
           if (message.wasEncrypted) {
             // Our local copy is decrypted. Upload the original from the server, which is still encrypted.
-            message.mime = await message.downloadMIME();
+            // As a clone, so that the source keeps the decrypted mail, e.g. in case the user loses the key.
+            upload = message.folder.newEMail();
+            upload.copyFrom(message);
+            upload.mime = await message.downloadMIME();
           }
-          await message.loadMIME();
-          await this.addMessage(message);
+          await upload.loadMIME();
+          await this.addMessage(upload);
           if (action == "move") {
             await message.deleteMessage();
           }
