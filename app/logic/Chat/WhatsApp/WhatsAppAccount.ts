@@ -551,6 +551,13 @@ export class WhatsAppAccount extends ChatAccount {
     let payload = WhatsAppMessage.unwrap(rawPayload);
     // Any group sender-key distribution was already stored while decrypting (a
     // group message's pairwise enc carries it); decryptStanza handles that.
+    // Only our own devices send these. From anybody else, they would fake our chats, keys or messages.
+    if ((payload.protocolMessage?.historySyncNotification || payload.protocolMessage?.appStateSyncKeyShare ||
+        rawPayload.deviceSentMessage) && !this.isOwnJID(sender)) {
+      waLog("ignoring a sync message from", sender.toString(), "— only our own devices may send it");
+      await this.sendDeliveryReceipt(node);
+      return;
+    }
     let historyNotification = payload.protocolMessage?.historySyncNotification;
     if (historyNotification) {
       await this.historySync.handleNotification(historyNotification);
