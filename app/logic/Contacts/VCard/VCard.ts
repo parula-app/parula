@@ -77,7 +77,14 @@ export function updatePerson(vcard: ICalContainer, person: Person) {
   person.phoneNumbers.clear();
   if (vcard.entries.tel) {
     for (let entry of vcard.entries.tel) {
-      person.phoneNumbers.add(makeContactEntry(entry, "tel", entry.properties.value == "uri", true));
+      let phone = makeContactEntry(entry, "tel", /^uri$/i.test(entry.properties.value), true);
+      if (/\bfax\b/i.test(entry.properties.type)) {
+        phone.protocol = "fax";
+      }
+      if (phone.purpose == "other" && /\bcell\b/i.test(entry.properties.type)) {
+        phone.purpose = "mobile";
+      }
+      person.phoneNumbers.add(phone);
     }
   }
   person.chatAccounts.clear();
@@ -273,12 +280,18 @@ function setValues(container: Record<string, string[]>, key: string, values: Arr
       // We control parameters, no need to escape
       line += ";" + parameter.toUpperCase() + "=" + parameters[parameter];
     }
-    let type = entry.purpose == "work" || entry.purpose == "home" ? entry.purpose : "";
-    if (entry.preference == 1) {
-      type = type ? type + ",pref" : "pref";
+    let types = entry.purpose == "work" || entry.purpose == "home" ? [entry.purpose] : [];
+    if (key == "tel" && entry.purpose == "mobile") {
+      types.push("cell");
     }
-    if (type) {
-      line += ";TYPE=" + type.toUpperCase();
+    if (key == "tel" && entry.protocol == "fax") {
+      types.push("fax");
+    }
+    if (entry.preference == 1) {
+      types.push("pref");
+    }
+    if (types.length) {
+      line += ";TYPE=" + types.join(",").toUpperCase();
     }
     if (entry.preference && entry.preference != ContactEntry.defaultPreference) {
       line += `;PREF=${entry.preference}`;

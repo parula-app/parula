@@ -33,7 +33,7 @@
     {
       "value": "+49 5678 90123",
       "protocol": "tel",
-      "purpose": "other",
+      "purpose": "mobile",
       "preference": 100
     },
     {
