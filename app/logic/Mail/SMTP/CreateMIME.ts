@@ -10,9 +10,10 @@ import type { default as Mail, Attachment as NMAttachment, Address as NMAddress 
 type NMMail = Mail.Options;
 
 export class CreateMIME {
-  static async getMIME(email: EMail): Promise<Uint8Array> {
+  /** @param keepBcc Only for a copy that we store, e.g. a draft or the Sent copy. Never for the MIME that we send. */
+  static async getMIME(email: EMail, keepBcc = false): Promise<Uint8Array> {
     let mail = await CreateMIME.getNMMail(email);
-    return await appGlobal.remoteApp.getMIMENodemailer(mail);
+    return await appGlobal.remoteApp.getMIMENodemailer(mail, keepBcc);
   }
 
   static async getNMMail(email: EMail): Promise<NMMail> {

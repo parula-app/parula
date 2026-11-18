@@ -83,7 +83,7 @@ export class SMTPAccount extends MailAccount {
         this.getTransportOptions(), mail);
       email.sent = new Date();
       email.received = email.sent;
-      email.mime = await appGlobal.remoteApp.getMIMENodemailer(mail); // to save the Sent mail
+      email.mime = await appGlobal.remoteApp.getMIMENodemailer(mail, true); // to save the Sent mail
     } catch (ex) {
       if (ex.code == "EAUTH") {
         ex.message = "Check your login, username, and password.\n" + ex.message;
