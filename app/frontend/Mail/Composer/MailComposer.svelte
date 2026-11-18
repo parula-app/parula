@@ -3,7 +3,8 @@
   on:inline-files={(event) => catchErrors(() => onFileInlineDrop(event))}
   allowInline={true}>
   <vbox flex class="mail-composer-window">
-    <hbox class="window-title-bar">
+    <hbox class="window-title-bar window-drag">
+      <SecondaryWindowButtons />
       {#if appGlobal.isMobile}
         <hbox class="close buttons mobile">
           <CloseButton {mail} on:close={onClose} />
@@ -220,6 +221,7 @@
   import SMLComposer from "./SMLComposer.svelte";
   import SMLAddKinds from "../SML/SMLAddKinds.svelte";
   import ComposerBarM from "./ComposerBarM.svelte";
+  import SecondaryWindowButtons from "../../MainWindow/SecondaryWindowButtons.svelte";
   import Paper from "../../Shared/Paper.svelte";
   import Spinner from "../../Shared/Spinner.svelte";
   import Popup from "../../Shared/Popup.svelte";
@@ -450,9 +452,12 @@
 
 <style>
   .mail-composer-window {
-    padding: 8px 16px 0px 16px;
+    padding: 0px 16px;
     background-color: var(--leftpane-bg);
     color: var(--leftpane-fg);
+  }
+  .window-title-bar {
+    padding-block-start: 8px; /* moves the window, too */
   }
   .cc.buttons {
     align-items: start;
