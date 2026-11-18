@@ -316,7 +316,7 @@ export class OAuth2 extends WebBasedAuth {
   async isAuthDoneURL(url: URLString): Promise<boolean> {
     let pageURL = new URL(url);
     let urlParams = Object.fromEntries(pageURL.searchParams);
-    // Without query and fragment, because the done URL has the auth code
+    // Log without query and fragment, because the done URL has the auth code
     console.log("OAuth2 page change to", pageURL.origin + pageURL.pathname, "doneURL is", this.authDoneURL, "matches", url.startsWith(this.authDoneURL),
       "is auth done", url.startsWith(this.authDoneURL) && this.verificationToken && urlParams.state == this.verificationToken);
     return url.startsWith(this.authDoneURL) &&
