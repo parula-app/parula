@@ -1,6 +1,5 @@
 import sql, { type Database } from "../../../../../lib/rs-sqlite/index";
 import { accountsDatabaseSchema } from "./createDatabase";
-import { migrateToAccountsDB } from "./SQLAccountsMigrate";
 import { getSQLiteDatabase } from "../../../util/backend-wrapper";
 import { RunOnce } from "../../../util/flow/RunOnce";
 
@@ -14,7 +13,6 @@ let openRunOnce = new RunOnce<Database>();
 
 export async function getDatabase(): Promise<Database> {
   return accountsDatabase ?? await openRunOnce.runOnce(async () => {
-    await migrateToAccountsDB();
     let db = await getSQLiteDatabase("account.db");
     await db.migrate(accountsDatabaseSchema);
     await db.pragma('foreign_keys = true');

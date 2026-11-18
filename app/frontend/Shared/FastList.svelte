@@ -114,7 +114,8 @@
   /** The `items` that the `init` event was dispatched for */
   let initDoneForItems: Collection<T> = null;
 
-  $: headerHeight = (headerE?.firstElementChild as HTMLElement)?.offsetHeight ?? 10;
+  /** 0 without a header. Measured with the rows in `updateSize()`. {integer} in px */
+  let headerHeight = 0;
 
   /**
    * Height of the DOM elements for a single row.
@@ -161,10 +162,11 @@
    */
   async function updateSize() {
     try {
-      if (items.isEmpty) {
+      await tick();
+      if (!listE?.offsetHeight) { // Hidden list measures 0. `resizeObserver` calls this again when it's shown.
         return;
       }
-      await tick();
+      headerHeight = (headerE.firstElementChild as HTMLElement)?.offsetHeight ?? 0;
       let contentRow = contentE?.firstElementChild?.firstElementChild as HTMLElement;
       if (!contentRow) {
         return;
@@ -280,6 +282,9 @@
 
   const onScrollThrottled = throttle(onScroll, 10);
   function onScroll() {
+    if (!rowHeight) { // Rows without a box of their own (`display: contents`, Lookout contacts "Phone" view) measure 0
+      return;
+    }
     let topY = listE.scrollTop - headerHeight;
     let startPosCalc = Math.floor(topY / rowHeight);
     showStartPos = Math.max(Math.min(startPosCalc, items.length - showRows), 0);

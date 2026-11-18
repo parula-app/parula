@@ -50,6 +50,14 @@
         <hbox />
       </vbox>
     </hbox>
+
+    <hbox class="strip-signatures">
+      <input type="checkbox" bind:checked={stripSignaturesSetting.value} id="strip-signatures"
+        disabled={quoteSetting.value == "none"} />
+      <label for="strip-signatures">
+        {$t`Remove signatures from the quoted message`}
+      </label>
+    </hbox>
   </vbox>
 </HeaderGroupBox>
 
@@ -117,6 +125,7 @@
 
   let formatSetting = getLocalStorage("mail.send.format", "html");
   let quoteSetting = getLocalStorage("mail.send.quote", "below");
+  let stripSignaturesSetting = getLocalStorage("mail.send.quote.stripSignatures", true);
   let spellcheckEnabledSetting = getLocalStorage("mail.send.spellcheck.enabled", false);
 </script>
 
@@ -134,6 +143,10 @@
   }
   .format img {
     margin: 16px 32px 24px 28px;
+  }
+  .strip-signatures {
+    align-items: center;
+    margin-block-start: 16px;
   }
   label.spellcheck {
     text-decoration: underline;

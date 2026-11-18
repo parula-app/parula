@@ -65,6 +65,8 @@
         <ComboBox options={[ { value: "inline", label: $t`Include original message text` }, { value: "attachment", label: $t`Attach original message` } ]}
           bind:value={$forwardSetting.value} label={$t`When forwarding a message`} width="320px" />
       </grid>
+      <Checkbox label={$t`Remove signatures from the quoted message`} bind:checked={$stripSignaturesSetting.value}
+        disabled={$quoteSetting.value == "none"} />
     </OptionsRow>
   </OptionsSection>
 
@@ -126,6 +128,7 @@
   const spellcheckSetting = getLocalStorage<boolean>("mail.send.spellcheck.enabled", false);
   const quoteSetting = getLocalStorage<string>("mail.send.quote", "below");
   const forwardSetting = getLocalStorage<string>("mail.send.forward", "inline");
+  const stripSignaturesSetting = getLocalStorage<boolean>("mail.send.quote.stripSignatures", true);
   const repliesInNewWindowSetting = getLocalStorage<boolean>("lookout.mail.compose.repliesInNewWindow", false);
   const notificationsSetting = getLocalStorage<string[]>("notifications.mail", ["popup"]);
   const onlyFromContactsSetting = getLocalStorage<boolean>("notifications.mail.only.addressbook", true);

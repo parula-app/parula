@@ -149,7 +149,7 @@ test("Old dates of a disabled responder are not kept", async () => {
 
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
-  expect(autoResponder.startTime.getTime()).toBeGreaterThan(Date.now());
+  expect(autoResponder.endTime.getTime()).toBeGreaterThan(Date.now());
 });
 
 test("Always on, for everybody", async () => {

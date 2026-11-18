@@ -1,5 +1,5 @@
 import type { EMail } from "../../../logic/Mail/EMail";
-import { hasOwnText } from "../../../frontend/Mail/Composer/CloseButton.svelte";
+import { MailBody } from "../../../logic/Mail/MailBody";
 import { askYesNo } from "../../Shared/Dialog/MessageBox";
 import { inlineReplies, inlineRibbon } from "../Selected";
 import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
@@ -26,14 +26,13 @@ export interface InlineRibbon {
   onSelectNames: (field: RecipientField) => void;
   onCheckNames: () => Promise<void>;
   onOpenTool: (tool: EditorTool) => void;
-  onEditSignatures: () => void;
 }
 
 export async function startInlineReply(original: EMail, draft: EMail) {
   let appWindow = AppWindow.current();
   let replies = appWindow.uiState(inlineReplies);
   let existing = replies.find(reply => reply.original == original) ?? null;
-  if (existing && hasOwnText(existing.draft) &&
+  if (existing && new MailBody(existing.draft.html).hasUserText &&
       !await askYesNo(gt`Discard Draft`, gt`You already started a response to this message. Do you want to discard it and start a new one?`)) {
     return;
   }

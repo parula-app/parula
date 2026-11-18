@@ -12,9 +12,10 @@
     {#if $inlineRibbon}
       <ComposerMessageTab mail={$inlineRibbon.draft} editor={$inlineRibbon.editor} isInline
         onSelectNames={$inlineRibbon.onSelectNames} onCheckNames={$inlineRibbon.onCheckNames}
-        onOpenTool={$inlineRibbon.onOpenTool} onEditSignatures={$inlineRibbon.onEditSignatures} />
+        onOpenTool={$inlineRibbon.onOpenTool} />
     {/if}
   </Ribbon>
+  <AutomaticRepliesBar account={$selectedAccount} />
   <ThreePane bind:messageList
     {accounts}
     messages={listMessages}
@@ -117,6 +118,7 @@
   import { kSearchLimit, hasRefiners, isRealFolder, isRealAccount, newMailSearch, SearchScope, defaultSearchOptions } from "./Search/MailSearch";
   import { FolderTreeActions } from "./LeftPane/FolderTreeActions";
   import Ribbon from "../Shared/Ribbon/Ribbon.svelte";
+  import AutomaticRepliesBar from "./AutomaticReplies/AutomaticRepliesBar.svelte";
   import HomeTab from "./Ribbon/HomeTab.svelte";
   import SendReceiveTab from "./Ribbon/SendReceiveTab.svelte";
   import FolderTab from "./Ribbon/FolderTab.svelte";

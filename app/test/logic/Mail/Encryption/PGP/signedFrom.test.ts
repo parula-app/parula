@@ -8,6 +8,7 @@ import { Addressbook } from "../../../../../logic/Contacts/Addressbook";
 import { PGPSend } from "../../../../../logic/Mail/Encryption/PGP/PGPSend";
 import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
 import { PGPPublicKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPublicKey";
+import { TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
 import { JSONEMail } from "../../../../../logic/Mail/JSON/JSONEMail";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import type { Folder } from "../../../../../logic/Mail/Folder";
@@ -159,6 +160,32 @@ describe("PGP message that was signed, then encrypted without signing again", ()
     let email = await receive(kEncryptedHeaders + encrypted + "\r\n--encrypted--\r\n");
     expect(email.wasEncrypted).toBe(true);
     expectSigned(email);
+  });
+});
+
+describe("PGP signed message of a contact with a confirmed key", () => {
+  test("signed with a key of the contact that nobody confirmed is not signed", async () => {
+    let mallory = await newIdentity("erin@example.com", "Erin");
+    // Mallory's key, as the AutoCrypt header of a mail from her, with Erin's address, added it
+    let erin = await newContact(mallory, "erin@example.com");
+    let confirmed = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Erin", emailAddress: "erin@example.com" })).publicKeyArmored);
+    confirmed.trustLevel = TrustLevel.Personal;
+    erin.addEncryptionPublicKey(confirmed);
+
+    let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Erin <erin@example.com>"), false, mallory, "Erin <erin@example.com>");
+    expectNotSigned(email);
+  });
+
+  test("signed with a key that a key server confirmed, while the user confirmed another key, is not signed", async () => {
+    let mallory = await newIdentity("frank@example.com", "Frank");
+    let frank = await newContact(mallory, "frank@example.com");
+    frank.encryptionPublicKeys.first.trustLevel = TrustLevel.ThirdParty; // as a key server gives it
+    let confirmed = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Frank", emailAddress: "frank@example.com" })).publicKeyArmored);
+    confirmed.trustLevel = TrustLevel.Personal;
+    frank.addEncryptionPublicKey(confirmed);
+
+    let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Frank <frank@example.com>"), false, mallory, "Frank <frank@example.com>");
+    expectNotSigned(email);
   });
 });
 

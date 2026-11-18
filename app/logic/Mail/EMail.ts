@@ -794,8 +794,10 @@ export class EMail extends Message {
       null;
   }
 
+  /** One per mail, because it keeps state for the composer */
+  protected _compose: ComposeActions | null = null;
   get compose(): ComposeActions {
-    return new ComposeActions(this);
+    return this._compose ??= new ComposeActions(this);
   }
 }
 
