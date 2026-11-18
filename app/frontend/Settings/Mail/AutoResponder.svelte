@@ -1,5 +1,6 @@
 <vbox flex class="page">
-  <PageHeader title={$t`Auto-Responder *=> Automatic replies to incoming mail, e.g. during vacation`} subtitle={$t`Automatically reply to incoming mail while you are away`} />
+  <PageHeader title={$t`Auto Replies *=> Automatic replies to incoming mail, e.g. during vacation`}
+    subtitle={$t`Automatically respond to incoming mail while you are away`} />
 
   {#if loading}
     <hbox class="loading">
