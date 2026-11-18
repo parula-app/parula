@@ -6,6 +6,7 @@ import { findOrCreatePersonUID } from "../../../../../logic/Abstract/PersonUID";
 import { PGPSend } from "../../../../../logic/Mail/Encryption/PGP/PGPSend";
 import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
 import { PGPPublicKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPublicKey";
+import { readAutoCryptKeys } from "../../../../../logic/Mail/Encryption/PGP/AutoCrypt";
 import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
 import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import { JSONEMail } from "../../../../../logic/Mail/JSON/JSONEMail";
@@ -80,6 +81,14 @@ describe("PGP message with non-ASCII sender name and a long subject", () => {
     expect(email.subject).toBe(kSubject);
     expect(email.from.name).toBe("User Müller");
     expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
+  });
+});
+
+describe("PGP message with our key in the AutoCrypt header", () => {
+  test("gives the recipient our whole public key, although the header spans several lines", async () => {
+    let email = await receive(await send(false));
+    let headerKey = await readAutoCryptKeys(email);
+    expect(headerKey?.fingerprint).toBe(key.fingerprint);
   });
 });
 
