@@ -85,8 +85,23 @@ test("Reads the settings from the server", async () => {
   expect(autoResponder.startTime.toISOString()).toBe("2026-10-05T07:00:00.000Z");
   expect(autoResponder.endTime.toISOString()).toBe("2026-10-19T16:00:00.000Z");
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Contacts);
+  expect(autoResponder.externalAllowed).toBe(true);
   expect(autoResponder.internalHTML).toBe("sanitized:<html><body><p>Back on the <b>19th</b>.</p></body></html>");
   expect(autoResponder.externalHTML).toBe("sanitized:<p>I am out of office.</p>");
+});
+
+test("Without the admin's OK, there are no replies outside, although Exchange reports an audience", async () => {
+  let account = newAccount();
+  // Set-Mailbox -ExternalOofOptions InternalOnly, after the user chose All
+  account.response = kGetResponse
+    .replace("<ExternalAudience>Known", "<ExternalAudience>All")
+    .replace("<AllowExternalOof>Known", "<AllowExternalOof>None");
+  let autoResponder = account.autoResponder;
+  await autoResponder.load();
+
+  expect(autoResponder.externalAllowed).toBe(false);
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
+  expect(autoResponder.externalHTML).toContain("I am out of office.");
 });
 
 test("Old dates of a disabled responder are not kept", async () => {
