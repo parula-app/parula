@@ -54,14 +54,8 @@
     on:close={closeChooser} />
 {/if}
 
-<script lang="ts" context="module">
-  import type { MailAccount } from "../../../logic/Mail/MailAccount";
-  import { writable } from "svelte/store";
-
-  export const openNewSearchFolder = writable<{ account: MailAccount | null } | null>(null);
-</script>
-
 <script lang="ts">
+  import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import { SavedSearchFolder } from "../../../logic/Mail/Virtual/SavedSearchFolder";
   import { newSearchEMail } from "../../../logic/Mail/Store/setStorage";
   import { allAccountsAccount } from "../../../logic/Mail/AccountsList/ShowAccounts";
@@ -79,6 +73,9 @@
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
   import type { ComboOption } from "../../Shared/Form/ComboOption";
   import { t } from "../../../l10n/l10n";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let defaultAccount: MailAccount | null = null;
 
@@ -123,8 +120,8 @@
     let folder = new SavedSearchFolder(search);
     folder.name = selected.name(values);
     await folder.save();
-    $selectedAccount = allAccountsAccount;
-    $selectedFolder = folder;
+    appWindow.uiState(selectedAccount).set(allAccountsAccount);
+    appWindow.uiState(selectedFolder).set(folder);
   }
 </script>
 

@@ -7,24 +7,36 @@ import { PGPPublicKey } from "./PGP/PGPPublicKey";
 import { SMIMEPrivateKey } from "./SMIME/SMIMEPrivateKey";
 import { SMIMEPublicKey } from "./SMIME/SMIMEPublicKey";
 import { PKCS12 } from "./SMIME/PKCS12";
+import { Any } from "./SMIME/SMIMEASN1";
 import { readAutoCryptKeys } from "./PGP/AutoCrypt";
 import { publicKeyFromJSON } from "./KeyFromJSON";
-import { EncryptionSystem } from "./enums";
+import { EncryptionSystem, trustOrder } from "./enums";
 import type { EMail } from "../EMail";
 import { findAllIdentities, type MailIdentity } from "../MailIdentity";
 import { appGlobal } from "../../app";
 import { UserError, assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
-export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Promise<PublicKey | null> {
-  if (!id) {
+/** The key that signed the email, by fingerprint, because another PGP key can
+ * have the same 64-bit key ID, and an S/MIME key pair can have several certificates.
+ * The contact's or our own copy of the key, if we have it, else the one from the email. */
+export async function getPublicKeyByFingerprint(fingerprint: string | null, email?: EMail): Promise<PublicKey | null> {
+  if (!fingerprint) {
     return null;
+  }
+  let signedPublicKey = email?.signedPublicKey?.fingerprint == fingerprint ? email.signedPublicKey : null;
+  if (!signedPublicKey && email?.signedPublicKeyJSON) {
+    let key = publicKeyFromJSON(email.signedPublicKeyJSON);
+    if (key.fingerprint == fingerprint) {
+      email.signedPublicKey = key;
+      signedPublicKey = key;
+    }
   }
   if (email?.from) {
     let person = email.from.findPerson();
     if (person) {
       for (let key of person.encryptionPublicKeys.each) {
-        if (key.id == id) {
+        if (key.fingerprint == fingerprint) {
           return key;
         }
       }
@@ -32,7 +44,7 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   } else {
     for (let person of appGlobal.persons.each) {
       for (let key of person.encryptionPublicKeys.each) {
-        if (key.id == id) {
+        if (key.fingerprint == fingerprint) {
           return key;
         }
       }
@@ -40,33 +52,26 @@ export async function getPublicKeyByKeyID(id: string | null, email?: EMail): Pro
   }
   for (let identity of findAllIdentities()) {
     for (let key of identity.encryptionPrivateKeys.each) {
-      if (key.id == id) {
-        return key;
+      if (key.fingerprint == fingerprint) {
+        return publicKeyFromJSON(key.toJSON()); // Without the secret key, which must not get to where the caller keeps the key, see #1916
       }
     }
   }
-  if (email?.signedKey?.id == id) {
-    return email.signedKey;
-  }
-  if (email?.signedKeyJSON) {
-    let key = publicKeyFromJSON(email.signedKeyJSON);
-    if (key.id == id) {
-      email.signedKey = key;
-      return key;
-    }
+  if (signedPublicKey) {
+    return signedPublicKey;
   }
   if (email && email.system != EncryptionSystem.SMIME) {
     let key = await readAutoCryptKeys(email);
-    if (key?.id == id) {
+    if (key?.fingerprint == fingerprint) {
       return key;
     }
   }
   if (email) {
-    // Last resort, for messages that we stored before we kept the key
+    // Last resort, when the contact had the key as we saved the message, but no longer has it
     await email.loadMIME(); // calls `rememberSigner()` via processors
-    if (email.signedKey?.id == id) {
+    if (email.signedPublicKey?.fingerprint == fingerprint) {
       await email.saveWritablePropsLocally();
-      return email.signedKey;
+      return email.signedPublicKey;
     }
   }
   return null;
@@ -77,7 +82,7 @@ export function getPublicKeyForPerson<T extends PublicKey>(person: Person, keyTy
   if (!person || person.encryptionPublicKeys.isEmpty) {
     return null;
   }
-  let keys = person.encryptionPublicKeys.filterOnce(key => isUsableKey(key, keyType));
+  let keys = person.encryptionPublicKeys.filterOnce(key => isUsableKey(key, keyType) && mayUseKeyOf(person, key));
   return (keys.find(key => key.encryptByDefault) ?? keys.first) as T;
 }
 
@@ -85,16 +90,26 @@ export function getPublicKeyForPerson<T extends PublicKey>(person: Person, keyTy
  * Also considers the key that we know only for this email address, e.g. the
  * certificate with which the recipient signed the email that we are replying to. */
 export function getPublicKeyForPersonUID<T extends PublicKey>(uid: PersonUID, keyType?: new () => T): T | null {
-  let saved = getPublicKeyForPerson(uid?.findPerson(), keyType);
+  let person = uid?.findPerson();
+  let saved = getPublicKeyForPerson(person, keyType);
   if (saved) {
     return saved;
   }
   let known = uid?.encryptionPublicKey;
-  return isUsableKey(known, keyType) ? known : null;
+  return isUsableKey(known, keyType) && (!person || mayUseKeyOf(person, known)) ? known : null;
 }
 
-function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {
-  return !!key && !key.obsolete && (!keyType || key instanceof keyType);
+/** Whether we may use this key of the contact, to encrypt to them, or to verify
+ * their signature: only if no valid key of the contact is trusted more, also not
+ * one of the other encryption system. Anybody can send a key in the AutoCrypt
+ * header of a mail with the contact's address, and a key that the user confirmed
+ * is better than one that a CA confirmed. */
+export function mayUseKeyOf(person: Person, key: PublicKey): boolean {
+  return !person.encryptionPublicKeys.some(other => !other.obsolete && trustOrder(other.trustLevel) > trustOrder(key.trustLevel));
+}
+
+export function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {
+  return !!key && !key.obsolete && key.usableForEncryption() && (!keyType || key instanceof keyType);
 }
 
 /** For composer, which own key to use for signing the outgoing email */
@@ -106,6 +121,30 @@ export function getMyPrivateKey<T extends PublicKey & PrivateKey>(identity: Mail
   return (keys.find(key => key.encryptByDefault && key.useToSign) ??
     keys.find(key => key.useToSign) ??
     keys.first) as T | null;
+}
+
+/** For sending, which own key signs the outgoing email: the one that the
+ * composer chose, `mail.signPrivateKey`, if it is of this type */
+export function getMySigningKey<T extends PublicKey & PrivateKey>(mail: EMail, keyType: new () => T): T | null {
+  if (mail.signPrivateKey instanceof keyType) {
+    return mail.signPrivateKey;
+  }
+  return getMyPrivateKey(mail.identity, keyType);
+}
+
+/** Our own key with this fingerprint, of any identity,
+ * e.g. to restore `EMail.signPrivateKey` of a draft */
+export function getMyKeyByFingerprint(fingerprint: string | null): (PublicKey & PrivateKey) | null {
+  if (!fingerprint) {
+    return null;
+  }
+  for (let identity of findAllIdentities()) {
+    let key = identity.encryptionPrivateKeys.find(key => key.fingerprint == fingerprint);
+    if (key) {
+      return key;
+    }
+  }
+  return null;
 }
 
 /** Whether we have an own key for this identity, e.g. an S/MIME certificate */
@@ -125,7 +164,7 @@ export function getEncryptionSystem(mail: EMail): EncryptionSystem | null {
  * converted here into the PEM that `importPrivateKey()` reads.
  * @returns the contents of the file, as PEM
  */
-export async function readKeyFile(file: File, passphrase: string): Promise<string> {
+export async function readPrivateKeyFile(file: File, passphrase: string): Promise<string> {
   let fileContents = new Uint8Array(await file.arrayBuffer());
   // PEM and ASCII armor start with the "-----BEGIN " line,
   // whereas a .p12 file starts with the ASN.1 tag for a sequence.
@@ -149,13 +188,31 @@ export async function importPrivateKey(fileContent: string, passphrase: string):
   throw new UserError(gt`Could not find a key in this file`);
 }
 
+/**
+ * Reads the public key or certificate file that the user picked.
+ * .cer, .crt and .p7b files are often binary, so they are
+ * converted here into the PEM that `importPublicKey()` reads.
+ * @returns the contents of the file, as PEM
+ */
+export async function readPublicKeyFile(file: File): Promise<string> {
+  let fileContents = new Uint8Array(await file.arrayBuffer());
+  // PEM and ASCII armor start with the "-----BEGIN " line,
+  // whereas DER starts with the ASN.1 tag for a sequence.
+  if (fileContents[0] != 0x30) {
+    return new TextDecoder().decode(fileContents);
+  }
+  // Also for PKCS#7, which `addCertificates()` reads from a CERTIFICATE block
+  return Any.encodePEM(fileContents, { label: "CERTIFICATE" });
+}
+
 export async function importPublicKey(fileContent: string): Promise<PublicKey> {
   assert(fileContent.includes("---BEGIN ") && fileContent.includes("---END "), gt`Could not find a key in this file`);
   assert(!fileContent.includes("PRIVATE KEY"), gt`This is a secret key. If this is your key, go to Settings | Mail | Identity | Encryption and import it there.`);
   if (fileContent.includes("-----BEGIN PGP PUBLIC KEY BLOCK-----")) {
     return await PGPPublicKey.importPublicKey(fileContent);
   } else if (fileContent.includes("-----BEGIN CERTIFICATE-----") ||
-    fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----")) {
+    fileContent.includes("-----BEGIN TRUSTED CERTIFICATE-----") ||
+    fileContent.includes("-----BEGIN PKCS7-----")) {
     return await SMIMEPublicKey.importPublicKey(fileContent);
   }
   throw new UserError(gt`Could not find a key in this file`);

@@ -76,6 +76,7 @@
 </vbox>
 
 <script lang="ts">
+  import { personDisplayName } from "../../../logic/Abstract/PersonUID";
   import type { EMail } from "../../../logic/Mail/EMail";
   import type { Event } from "../../../logic/Calendar/Event";
   import type { Calendar } from "../../../logic/Calendar/Calendar";
@@ -85,8 +86,10 @@
   import { appGlobal } from "../../../logic/app";
   import { CalendarActions } from "../CalendarActions";
   import { calendarMustangApp } from "../../../frontend/Calendar/CalendarMustangApp";
+  import { openEvent } from "../../../frontend/Calendar/open";
   import { selectedDate, selectedEvent, startDate } from "../../../frontend/Calendar/selected";
   import { openApp } from "../../../frontend/AppsBar/selectedApp";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import { eventWhenText, eventConflict, myResponseText } from "../EditEvent/EventFormInfo";
   import EventInDayView from "../DisplayEvent/EventInDayView.svelte";
   import ResponseButton from "./ResponseButton.svelte";
@@ -174,7 +177,7 @@
 
   function replyText(message: EMail): string {
     let participant = message.event?.participants.find(participant => participant.matches(message.from)) ?? null;
-    let name = participant?.name || participant?.emailAddress || message.from?.name || message.from?.emailAddress || "";
+    let name = personDisplayName(participant) || message.from?.name || message.from?.emailAddress || "";
     if (message.outgoing) {
       return myResponseText(participant?.response);
     }
@@ -211,11 +214,16 @@
   }
 
   function showInCalendar() {
-    let eventInCalendar = incoming?.calEvent() ?? null;
-    let day = new Date((eventInCalendar ?? event).startTime);
-    $selectedEvent = eventInCalendar;
-    $selectedDate = day;
-    $startDate = day;
+    let eventInCalendar = incoming?.calEvent();
+    if (eventInCalendar) {
+      openEvent(eventInCalendar, false);
+      return;
+    }
+    let day = new Date(event.startTime);
+    let appWindow = AppWindow.current().mainWindow;
+    appWindow.uiState(selectedEvent).set(null);
+    appWindow.uiState(selectedDate).set(day);
+    appWindow.uiState(startDate).set(day);
     openApp(calendarMustangApp, {});
   }
 

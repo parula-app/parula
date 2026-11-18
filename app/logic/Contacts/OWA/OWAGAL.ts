@@ -3,7 +3,7 @@ import { OWAPerson } from "./OWAPerson";
 import type { OWAAccount } from "../../Mail/OWA/OWAAccount";
 import type { PublicKey } from "../../Mail/Encryption/PublicKey";
 import { owaFindGALPersonsRequest, owaResolveNamesRequest } from "./Request/OWAPersonRequests";
-import { readDirectoryCertificates } from "../../Mail/Encryption/SMIME/SMIMEDirectory";
+import { SMIMEDirectory } from "../../Mail/Encryption/SMIME/SMIMEDirectory";
 import { ensureArray, NotReached } from "../../util/util";
 import { ArrayColl, type Collection } from "svelte-collections";
 
@@ -43,7 +43,7 @@ export class OWAGAL extends ExchangeGAL {
         candidate.Mailbox?.EmailAddress?.toLowerCase() == emailAddress.toLowerCase());
       // `UserSMIMECertificate` and `MSExchangeCertificate` are the AD
       // attributes `userSMIMECertificate` and `userCertificate`, resp.
-      return await readDirectoryCertificates(
+      return await new SMIMEDirectory(this.account.url).readDirectoryCertificates(
         ensureArray(resolution?.Contact?.UserSMIMECertificate),
         ensureArray(resolution?.Contact?.MSExchangeCertificate),
         this.errorCallback);

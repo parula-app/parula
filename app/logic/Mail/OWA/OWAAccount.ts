@@ -5,6 +5,7 @@ import type { EMail } from "../EMail";
 import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShareIndividualPermissions } from "../Folder";
 import { OWAFolder } from "./OWAFolder";
 import { OWASearchEMail } from "./OWASearchEMail";
+import { OWAAutoResponder } from "./OWAAutoResponder";
 import { OWAError } from "./OWAError";
 import type { OWANotifications } from "./Notification/OWANotifications";
 import { OWAExchangeNotifications } from "./Notification/OWAExchangeNotifications";
@@ -21,6 +22,7 @@ import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
 import { OWASubscribeToHierarchyNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
 import { owaCreateNewTopLevelFolderRequest, owaFindFoldersRequest, owaSharedFolderRequest } from "./Request/OWAFolderRequests";
 import { OWACalendarShortcut } from "../../Calendar/OWA/OWACalendarShortcut";
+import { EWSCalendarShortcut } from "../../Calendar/EWS/EWSCalendarShortcut";
 import { OWALoginBackground } from "./Login/OWALoginBackground";
 import { deleteExchangePermissions, setExchangePermissions } from "../EWS/ExchangePermission";
 import type { PersonUID } from "../../Abstract/PersonUID";
@@ -78,6 +80,10 @@ export class OWAAccount extends ExchangeMailAccount {
 
   newSearch(): OWASearchEMail {
     return new OWASearchEMail();
+  }
+
+  newAutoResponder(): OWAAutoResponder {
+    return new OWAAutoResponder(this);
   }
 
   /**
@@ -186,6 +192,10 @@ export class OWAAccount extends ExchangeMailAccount {
         // `listFolders()` will subscribe to new user-added calendars
         await super.syncOnStartup();
 
+        if (this.isDependentAccount) {
+          return;
+        }
+
         // Create primary addressbook automatically
         let haveAddressbook = appGlobal.addressbooks.some(addressbook => addressbook.dependsOn(this));
         if (!haveAddressbook) {
@@ -196,18 +206,12 @@ export class OWAAccount extends ExchangeMailAccount {
           await addressbook.save();
         }
 
-        if (!this.isDependentAccount &&
-            !appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
+        if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new OWAGAL(this));
         }
 
         await this.callOWA(new OWASubscribeToHierarchyNotificationRequest());
-
-        this.notifications = this.provider() == Provider.Office365
-          ? new OWAOffice365Notifications(this)
-          : new OWAExchangeNotifications(this);
-        this.notifications.start()
-          .catch(this.errorCallback);
+        this.listenForNotifications();
       } finally { // Even when the mail folders failed, so that calendar and addressbook still work
         await this.startupDependentAccounts();
       }
@@ -237,7 +241,37 @@ export class OWAAccount extends ExchangeMailAccount {
     }
   }
 
+  /** Starts a new listener for notifications from the server, and ends the old one,
+   * e.g. when its connection died */
+  listenForNotifications(isReconnect = false): void {
+    this.notifications?.stop();
+    this.notifications = this.provider() == Provider.Office365
+      ? new OWAOffice365Notifications(this, isReconnect)
+      : new OWAExchangeNotifications(this, isReconnect);
+    this.notifications.start()
+      .catch(this.errorCallback);
+  }
+
+  /** The server doesn't tell us what changed while we weren't listening, e.g. while the VPN was down */
+  fetchChangesMissedByNotifications(): void {
+    for (let folder of this.folderMap.values()) {
+      if (folder.listening) {
+        folder.getNewMessages() // no-op, if count didn't change
+          .catch(this.errorCallback);
+      }
+    }
+    for (let addressbook of appGlobal.addressbooks.filterOnce(addressbook => addressbook.mainAccount == this)) {
+      addressbook.listContacts()
+        .catch(this.errorCallback);
+    }
+    for (let calendar of appGlobal.calendars.filterOnce(calendar => calendar.mainAccount == this)) {
+      calendar.listEvents()
+        .catch(this.errorCallback);
+    }
+  }
+
   async disconnect() {
+    this.notifications?.stop();
     let galAB = appGlobal.searchOnlyAddressbooks.find(ab => ab.mainAccount == this);
     if (galAB) {
       appGlobal.searchOnlyAddressbooks.remove(galAB);
@@ -450,7 +484,7 @@ export class OWAAccount extends ExchangeMailAccount {
     if (this.isThrottleError(result)) {
       return await this.callOWAShared(url, options);
     }
-    if (result.MessageText) {
+    if (result.MessageText || result.WasSuccessful === false) {
       this.throttle.waitForSecond(1);
       throw new OWAError(response);
     }
@@ -753,8 +787,16 @@ export class OWAAccount extends ExchangeMailAccount {
     if (this.mainAccount) {
       throw new NotReached();
     }
-    let result = await this.callOWA(owaSharedFolderRequest(distinguishedIDs, person.emailAddress));
-    return result.ResponseMessages.Items.filter(folder => folder.ResponseClass == "Success").map(folder => folder.Folders[0].DistinguishedFolderId);
+    try {
+      let result = await this.callOWA(owaSharedFolderRequest(distinguishedIDs, person.emailAddress));
+      let responses = result.ResponseMessages ? result.ResponseMessages.Items : [result];
+      return responses.filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(folder.Folders[0].DistinguishedFolderId));
+    } catch (ex) {
+      if (EWSCalendarShortcut.isStaleError(ex)) { // `callOWA()` throws the error of a single folder
+        return [];
+      }
+      throw ex;
+    }
   }
 
   /**

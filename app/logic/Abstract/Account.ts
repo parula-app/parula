@@ -362,6 +362,12 @@ export class LoginError extends SpecificError {
   isUserError = true;
 }
 
+/** The login works, but lacks a permission that this function needs.
+ * E.g. a login from an older app version, which asked for fewer scopes.
+ * `MailAccount.upgradeScopes()` asks for them. */
+export class PermissionMissing extends LoginError {
+}
+
 /**
  * Returns a preset account color that is not used by another account yet.
  * Once all preset colors are taken, falls back to any random color.

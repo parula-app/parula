@@ -2,6 +2,8 @@ import { MailAccount, DeleteStrategy } from "../MailAccount";
 import { JMAPFolder } from "./JMAPFolder";
 import { JMAPIdentity } from "./JMAPIdentity";
 import { JMAPSearchEMail } from "./JMAPSearchEMail";
+import { JMAPAutoResponder } from "./JMAPAutoResponder";
+import { StalwartAutoResponder } from "./StalwartAutoResponder";
 import type { EMail } from "../EMail";
 import { newAccountForProtocol } from "../AccountsList/MailAccounts";
 import { PersonUID } from "../../Abstract/PersonUID";
@@ -221,20 +223,26 @@ export class JMAPAccount extends MailAccount {
     let serverMax = sanitize.integer(this.session?.capabilities?.["urn:ietf:params:jmap:core"]?.maxConcurrentRequests, null);
     return serverMax ? Math.max(1, Math.min(serverMax - 1, 30)) : 5;
   }
-  /** @see <https://www.rfc-editor.org/rfc/rfc8620#section-2> `maxObjectsInGet` */
-  get maxObjectsInGet(): number {
-    let serverMax = sanitize.integer(this.session?.capabilities?.["urn:ietf:params:jmap:core"]?.maxObjectsInGet, null);
-    return serverMax > 0 ? serverMax : 500;
-  }
   /** @see <https://www.rfc-editor.org/rfc/rfc8620#section-2> `maxObjectsInSet` */
   get maxObjectsInSet(): number {
     let serverMax = sanitize.integer(this.session?.capabilities?.["urn:ietf:params:jmap:core"]?.maxObjectsInSet, null);
+    return serverMax > 0 ? serverMax : 500;
+  }
+  /** @see <https://www.rfc-editor.org/rfc/rfc8620#section-2> `maxObjectsInGet` */
+  get maxObjectsInGet(): number {
+    let serverMax = sanitize.integer(this.session?.capabilities?.["urn:ietf:params:jmap:core"]?.maxObjectsInGet, null);
     return serverMax > 0 ? serverMax : 500;
   }
   // <compat for="Cyrus">
   // Cyrus announces its core extension always, even when its non-standard extensions are off.
   get isCyrus(): boolean {
     return this.hasCapability("https://cyrusimap.org/ns/jmap/core");
+  }
+  // </compat>
+  // <compat for="Stalwart">
+  // Stalwart names itself only as the Sieve implementation, e.g. "Stalwart v1.0.0"
+  get isStalwart(): boolean {
+    return sanitize.string(this.getCapability("urn:ietf:params:jmap:sieve")?.implementation, "").startsWith("Stalwart");
   }
   // </compat>
 
@@ -298,6 +306,7 @@ export class JMAPAccount extends MailAccount {
     await this.ensureLoggedIn();
     const kOurCapabilities = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:submission",
       "urn:ietf:params:jmap:contacts", "urn:ietf:params:jmap:calendars", "urn:ietf:params:jmap:principals",
+      "urn:ietf:params:jmap:vacationresponse", "urn:ietf:params:jmap:sieve", "urn:ietf:params:jmap:blob",
       "urn:ietf:params:jmap:filenode", "urn:ietf:params:jmap:conditional"];
     let using = kOurCapabilities.filter(capability => this.hasCapability(capability));
     let requestJSON: TJMAPAPIRequest = {
@@ -436,17 +445,23 @@ export class JMAPAccount extends MailAccount {
   /** @throws an appropriate exception (always throws) */
   protected async httpError(ex: Error) {
     if (ex.name == "HTTPError") {
-      // HTTPFetchError from backend.ts, which has only scalar properties, not the HTTP response body
+      // HTTPFetchError from backend.ts
       let ext = ex as any;
+      let msg: string;
+      try {
+        // Problem details <https://www.rfc-editor.org/rfc/rfc8620#section-3.6.1>
+        msg = sanitize.nonemptylabel(JSON.parse(ext.responseBody).detail, null);
+      } catch (ex2) { // not JSON, e.g. from a proxy
+      }
       if (ext.httpCode == 401) {
-        throw new LoginError(ex, null);
+        throw new LoginError(ex, msg);
       } else {
         if (isTransientError(ext)) {
           const kDefaultBackoffSec = 5;
           const kMaxBackoffSec = 20; // Sensible upper limit
           this.throttle.waitForSecond(Math.min(ext.retryAfterSeconds ?? kDefaultBackoffSec, kMaxBackoffSec));
         }
-        throw new ConnectError(ex, null);
+        throw new ConnectError(ex, msg);
       }
     }
     throw ex;
@@ -1323,5 +1338,19 @@ export class JMAPAccount extends MailAccount {
 
   newSearch(): JMAPSearchEMail {
     return new JMAPSearchEMail();
+  }
+
+  /** Its class depends on the server, which we know only after the login */
+  get autoResponder(): JMAPAutoResponder {
+    if (!(this._autoResponder instanceof StalwartAutoResponder) && this.isStalwart) {
+      this._autoResponder = null;
+    }
+    return super.autoResponder as JMAPAutoResponder;
+  }
+
+  newAutoResponder(): JMAPAutoResponder {
+    return this.isStalwart
+      ? new StalwartAutoResponder(this)
+      : new JMAPAutoResponder(this);
   }
 }

@@ -12,6 +12,7 @@
 
 <script lang="ts">
   import Popup from "../../../frontend/Shared/Popup.svelte";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import type { Placement } from "@popperjs/core";
   import { createEventDispatcher, getContext, setContext, tick } from "svelte";
   import { writable } from "svelte/store";
@@ -23,6 +24,7 @@
   export let isSubMenu = false;
   export let autoFocus = true;
 
+  const appWindow = AppWindow.current();
   const dispatch = createEventDispatcher<{ close: void }>();
   let menuEl: HTMLElement;
 
@@ -51,7 +53,7 @@
       maxHeight = null;
       return;
     }
-    let below = window.innerHeight - rect.bottom - kWindowMargin;
+    let below = appWindow.window.innerHeight - rect.bottom - kWindowMargin;
     let above = rect.top - kWindowMargin;
     maxHeight = Math.max(below, above) + "px";
   }
@@ -98,7 +100,7 @@
     if (!all.length) {
       return;
     }
-    let pos = all.indexOf(document.activeElement as HTMLElement);
+    let pos = all.indexOf(appWindow.window.document.activeElement as HTMLElement);
     let next = event.key == "Home" ? 0
       : event.key == "End" ? all.length - 1
       : event.key == "ArrowDown" ? (pos + 1) % all.length

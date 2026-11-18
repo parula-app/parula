@@ -12,14 +12,8 @@
   </FormGrid>
 </Dialog>
 
-<script lang="ts" context="module">
-  import { writable } from "svelte/store";
-
-  export const isGoToDateOpen = writable(false);
-</script>
-
 <script lang="ts">
-  import type { CalendarViewType } from "./selected";
+  import type { CalendarViewType } from "../../frontend/Calendar/CalendarRange";
   import Dialog from "../Shared/Dialog/Dialog.svelte";
   import FormGrid from "../Shared/Form/FormGrid.svelte";
   import DateField from "../Shared/Form/DateField.svelte";

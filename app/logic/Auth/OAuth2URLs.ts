@@ -32,7 +32,7 @@ export const OAuth2URLs = [
     authDoneURL: "https://login.microsoftonline.com/common/oauth2/nativeclient",
     tokenURL: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
     logoutURL: "https://login.microsoftonline.com/common/oauth2/logout",
-    scope: "Mail.ReadWrite Mail.ReadWrite.Shared Mail.Send Mail.Send.Shared Calendars.ReadWrite Calendars.ReadWrite.Shared Contacts.ReadWrite Contacts.ReadWrite.Shared Chat.ReadWrite OnlineMeetings.ReadWrite Files.ReadWrite.All User.Read openid profile offline_access",
+    scope: "Mail.ReadWrite Mail.ReadWrite.Shared Mail.Send Mail.Send.Shared MailboxSettings.ReadWrite Calendars.ReadWrite Calendars.ReadWrite.Shared Contacts.ReadWrite Contacts.ReadWrite.Shared Chat.ReadWrite OnlineMeetings.ReadWrite Files.ReadWrite.All User.Read openid profile offline_access",
     clientID: "1d01f7d4-334b-475a-9176-a0d504c6a38a",
     clientSecret: null,
     doPKCE: false,

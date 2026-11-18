@@ -119,6 +119,12 @@ export function encrypt(data: Uint8Array, key: RSAPublicKey): Uint8Array {
   if (data.length != k) {
     throw new Error("Decryption error");
   }
+  // Larger keys would block the app for minutes. NSS and OpenSSL have the same limits.
+  const kMaxModulusBits = 16384;
+  const kMaxExponentBits = 64;
+  if (k * 8 > kMaxModulusBits || key.e.toString(2).length > kMaxExponentBits) {
+    throw new Error("RSA key is too large");
+  }
 
   // Convert the message to an integer message representative m.
   let m = UbigintFromHex(uint8ArrayToHex(data));
@@ -188,7 +194,7 @@ function UbigintToHex(data: bigint, k: number): string {
   return data.toString(16).padStart(k * 2, "0");
 }
 
-function Uint8ArrayFromHex(hex: string): Uint8Array {
+export function Uint8ArrayFromHex(hex: string): Uint8Array {
   return Uint8Array.fromHex?.(hex) ?? Uint8Array.from(hex.match(/../g), s => parseInt(s, 16));
 }
 

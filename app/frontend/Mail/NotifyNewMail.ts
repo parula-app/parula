@@ -77,6 +77,7 @@ async function reply(msg: EMail, replyText: string) {
     let replyMsg = msg.compose.replyToAuthor();
     replyMsg.html = null;
     replyMsg.text = replyText;
+    replyMsg.compose.addSignatureWithoutComposer();
     await replyMsg.compose.send();
   } catch (ex) {
     showError(ex);

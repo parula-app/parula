@@ -15,3 +15,10 @@ img[src=""] {
 img {
   max-width: 100%;
 }
+
+/* Keep in sync with `MailBody.kSignatureSelector` */
+footer.signature,
+.moz-signature,
+.gmail_signature {
+  opacity: 70%;
+}

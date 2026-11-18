@@ -1,13 +1,13 @@
 import { SendEncrypted } from "../SendEncrypted";
 import type { EMail } from "../../EMail";
-import { getMyPrivateKey, getPublicKeyForPersonUID } from "../KeyUtils";
+import { getMySigningKey, getPublicKeyForPersonUID } from "../KeyUtils";
 import { CreateMIME } from "../../SMTP/CreateMIME";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
 import { Oid, UTCTime, Attributes, DigestInfo, SignedData, Certificate, RSAPublicKey, Null, OctetString, EnvelopedData, SMIMECapabilities } from "./SMIMEASN1";
 import { decrypt, padFF, padRandom, encrypt } from "./SMIMERSAES";
 import { splitMIMEHeaders, kLineBreak, newBoundary } from "../MIME";
-import { assert } from "../../../util/util";
+import { UserError, assert } from "../../../util/util";
 import { gt } from "../../../../l10n/l10n";
 
 export class SMIMESend {
@@ -21,15 +21,16 @@ export class SMIMESend {
    * @returns a new email that is encrypted and/or signed.
    *   The original email is untouched.
    */
-  static async encryptAndSign(mail: EMail): Promise<EMail> {
-    let privateKey = getMyPrivateKey(mail.identity, SMIMEPrivateKey);
+  static async encryptAndSign(mail: EMail, recipients = mail.allRecipients()): Promise<EMail> {
+    let privateKey = getMySigningKey(mail, SMIMEPrivateKey);
     assert(privateKey, gt`Please first set up S/MIME encryption for yourself, in Settings | Mail | Identity | Encryption`);
     assert(privateKey.certificate, gt`Your S/MIME key does not have a certificate yet. Please add it, in Settings | Mail | Identity | Encryption`);
     let rawKey = await privateKey.decryptKey();
     let result = SendEncrypted.cloneEMail(mail);
     let mime = await CreateMIME.getMIME(mail);
     let mimeAsText = new TextDecoder().decode(mime);
-    if (mail.signedByKeyID) {
+    if (mail.shouldSign) {
+      result.signedPublicKeyFingerprint = privateKey.fingerprint;
       // Only the body and the Content-* headers are signed, not the other headers.
       let { content, otherHeaders } = await SMIMESend.splitOffContent(mimeAsText);
       mimeAsText = content;
@@ -122,9 +123,11 @@ export class SMIMESend {
       // Only the body and the Content-* headers are encrypted, not the other headers.
       let { content, otherHeaders } = await SMIMESend.splitOffContent(mimeAsText);
       mime = new TextEncoder().encode(content);
-      let recipientKeys = mail.allRecipients().contents.flatMap(puid =>
+      let recipientKeys = recipients.contents.map(puid =>
         getPublicKeyForPersonUID(puid, SMIMEPublicKey));
-      if (!(await Promise.all(recipientKeys.map(key => key.matches(rawKey)))).some(Boolean)) {
+      assert(recipientKeys.every(key => key), gt`Cannot encrypt to all recipients using S/MIME`);
+      let myPublicKey = privateKey.decodedCertificate.tbsCertificate.publicKey;
+      if (!(await Promise.all(recipientKeys.map(key => key.matches(myPublicKey)))).some(Boolean)) {
         recipientKeys.push(privateKey);
       }
       let symmetricKey = new Uint8Array(32);
@@ -149,7 +152,11 @@ export class SMIMESend {
       };
       for (let recipientKey of recipientKeys) {
         let cert = Certificate.decodePEM(recipientKey.certificate, { label: "CERTIFICATE" });
-        let rsa = RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data);
+        let publicKey = cert.tbsCertificate.publicKey;
+        if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
+          throw new UserError(gt`Cannot encrypt to ${recipientKey.userIDs.first}, because we can encrypt only to RSA certificates`);
+        }
+        let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
         pkcs7.content.recipientInfos.push({
           type: "ktri",
           value: {
