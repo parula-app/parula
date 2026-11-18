@@ -140,3 +140,20 @@ test("OAuth2: The log doesn't show the auth code", async () => {
   expect(logged).not.toContain("auth-code");
   oAuth2.stop();
 });
+
+test.each([
+  ["with a path", "https://www.example.com/loggedin"],
+  ["without a path", "https://mail.example.com"],
+  ["on localhost", "http://localhost:5455/login-success"],
+])("OAuth2: Only the exact done URL %s finishes the login", async (_case, doneURL) => {
+  let oAuth2 = newOAuth2();
+  await oAuth2.getAuthURL(doneURL);
+  let query = "?" + new URLSearchParams({ code: "auth-code", state: oAuth2.verificationToken });
+
+  expect(await oAuth2.isAuthDoneURL(doneURL + query)).toBeTruthy();
+  expect(await oAuth2.isAuthDoneURL(new URL(doneURL).href + query)).toBeTruthy(); // Microsoft adds a `/` to a done URL without path
+  expect(await oAuth2.isAuthDoneURL(doneURL + "/superuser" + query)).toBeFalsy();
+  expect(await oAuth2.isAuthDoneURL(doneURL + ".evil.net" + query)).toBeFalsy();
+  expect(await oAuth2.isAuthDoneURL("https://evil.net/loggedin" + query)).toBeFalsy();
+  expect(await oAuth2.isAuthDoneURL(doneURL + "?code=auth-code&state=wrong")).toBeFalsy();
+});
