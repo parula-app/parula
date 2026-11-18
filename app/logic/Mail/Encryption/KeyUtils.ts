@@ -53,7 +53,7 @@ export async function getPublicKeyByFingerprint(fingerprint: string | null, emai
   for (let identity of findAllIdentities()) {
     for (let key of identity.encryptionPrivateKeys.each) {
       if (key.fingerprint == fingerprint) {
-        return publicKeyFromJSON(key.toJSON()); // Without the secret key, which must not get to where the caller keeps the key, see #1916
+        return key.publicKey();
       }
     }
   }
