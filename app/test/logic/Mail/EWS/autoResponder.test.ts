@@ -99,7 +99,7 @@ test("Without the admin's OK, there are no replies outside, although Exchange re
   let autoResponder = account.autoResponder;
   await autoResponder.load();
 
-  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.None);
+  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.Internal);
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
   expect(autoResponder.externalHTML).toContain("I am out of office.");
 });

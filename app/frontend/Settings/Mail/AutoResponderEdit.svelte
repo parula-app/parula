@@ -61,7 +61,7 @@
           <HTMLEditorToolbar editor={internalEditor} />
           <HTMLEditor bind:html={autoResponder.internalHTML} bind:editor={internalEditor} />
         </vbox>
-        {#if $autoResponder.maxAudience != AutoResponderAudience.None}
+        {#if $autoResponder.maxAudience != AutoResponderAudience.Internal}
           <hbox class="copy-buttons">
             <Button label={$t`Copy *=> Copy the message to the other text field`}
               tooltip={$t`Copy to Outside My Organization`}
@@ -87,7 +87,7 @@
       {#if autoResponder.supportsInternal}
         <vbox class="options">
           <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.None}
-            disabled={!$autoResponder.isOn || $autoResponder.maxAudience == AutoResponderAudience.None}
+            disabled={!$autoResponder.isOn || $autoResponder.maxAudience == AutoResponderAudience.Internal}
             label={$t`Auto-reply to people outside my organization`}
             on:change={ev => { autoResponder.externalAudience = ev.detail ? shownAudience : AutoResponderAudience.None; }} />
           {#if autoResponder.supportsContacts}
@@ -110,7 +110,7 @@
           {/if}
         </vbox>
       {/if}
-      {#if $autoResponder.maxAudience != AutoResponderAudience.None}
+      {#if $autoResponder.maxAudience != AutoResponderAudience.Internal}
         <vbox class="editor-box" class:disabled={!isOutsideOn} inert={!isOutsideOn}>
           <HTMLEditorToolbar editor={externalEditor} />
           <HTMLEditor bind:html={autoResponder.externalHTML} bind:editor={externalEditor} />

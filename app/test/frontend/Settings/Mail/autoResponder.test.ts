@@ -208,7 +208,7 @@ test("The admin allows only contacts outside the organization", async () => {
 class InternalOnlyResponder extends TestAutoResponder {
   async load() {
     await super.load();
-    this.maxAudience = AutoResponderAudience.None;
+    this.maxAudience = AutoResponderAudience.Internal;
   }
 }
 
