@@ -33,27 +33,31 @@ export class ActiveSyncEMail extends ExchangeEMail {
 
   async download() {
     await this.downloadRunOnce.runOnce(async () => {
-      let request = {
-        Fetch: {
-          Store: "Mailbox",
-          ServerId: this.serverID,
-          CollectionId: this.folder.id,
-          Options: {
-            MIMESupport: "2",
-            BodyPreference: {
-              Type: "4",
-            },
-          },
-        },
-      };
-      let response = await this.folder.account.callEAS("ItemOperations", request);
-      if (response.Response.Fetch.Status != "1") {
-        throw new ActiveSyncError("ItemOperations", response.Response.Fetch.Status, this.folder?.account);
-      }
-      this.mime = response.Response.Fetch.Properties.Body.RawData;
+      this.mime = await this.downloadMIME();
       await this.parseMIME();
       await this.saveCompleteMessage();
     });
+  }
+
+  async downloadMIME(): Promise<Uint8Array> {
+    let request = {
+      Fetch: {
+        Store: "Mailbox",
+        ServerId: this.serverID,
+        CollectionId: this.folder.id,
+        Options: {
+          MIMESupport: "2",
+          BodyPreference: {
+            Type: "4",
+          },
+        },
+      },
+    };
+    let response = await this.folder.account.callEAS("ItemOperations", request);
+    if (response.Response.Fetch.Status != "1") {
+      throw new ActiveSyncError("ItemOperations", response.Response.Fetch.Status, this.folder?.account);
+    }
+    return response.Response.Fetch.Properties.Body.RawData;
   }
 
   fromWBXML(wbxmljs: any) {

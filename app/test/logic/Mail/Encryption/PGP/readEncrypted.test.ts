@@ -3,6 +3,9 @@ import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
+import { MailAccount } from "../../../../../logic/Mail/MailAccount";
+import { Folder } from "../../../../../logic/Mail/Folder";
+import type { EMail } from "../../../../../logic/Mail/EMail";
 import { expect, test } from "vitest";
 
 test("An encrypted message that is not for us tells the user why it stays empty", async () => {
@@ -39,6 +42,51 @@ test("Opening an encrypted message for another key than ours shows the error ins
   };
   await email.loadBody();
   expect(email.html).toMatch(/decrypt/i);
+});
+
+test("Copying an encrypted message to another account uploads it still encrypted", async () => {
+  let { folder } = await setupTestFolder();
+  let identity = new MailIdentity(folder.account);
+  identity.emailAddress = "user@example.com";
+  identity.realname = "User";
+  let key = await PGPPrivateKey.createNewPrivateKey({ realname: "User", emailAddress: "user@example.com" });
+  identity.encryptionPrivateKeys.add(key);
+  folder.account.identities.add(identity);
+  appGlobal.emailAccounts.replaceAll([folder.account]);
+  let openPGP = await import("openpgp");
+  let armored = await openPGP.encrypt({
+    message: await openPGP.createMessage({ text: "Content-Type: text/plain\r\n\r\nThe secret body\r\n" }),
+    encryptionKeys: await openPGP.readKey({ armoredKey: key.publicKeyArmored }),
+  });
+  let original = new TextEncoder().encode("From: Bob <bob@example.com>\r\n" +
+    "To: User <user@example.com>\r\n" +
+    "Subject: PGP encrypted test\r\n" +
+    "MIME-Version: 1.0\r\n" +
+    `Content-Type: multipart/encrypted; protocol="application/pgp-encrypted"; boundary="pgp"\r\n\r\n` +
+    "--pgp\r\n" +
+    "Content-Type: application/pgp-encrypted\r\n\r\n" +
+    "Version: 1\r\n\r\n" +
+    "--pgp\r\n" +
+    `Content-Type: application/octet-stream; name="encrypted.asc"\r\n\r\n` +
+    armored.replace(/\r?\n/g, "\r\n") + "\r\n" +
+    "--pgp--\r\n");
+
+  let email = folder.newEMail();
+  email.mime = original;
+  email.downloadMIME = async () => original; // the server
+  await email.parseMIME();
+  expect(email.text.trim()).toBe("The secret body");
+
+  let uploaded: Uint8Array;
+  let otherAccount = new Folder(new MailAccount());
+  otherAccount.addMessage = async (message: EMail) => {
+    uploaded = message.mime;
+  };
+  await otherAccount.copyMessageHere(email);
+
+  let uploadedText = new TextDecoder().decode(uploaded);
+  expect(uploadedText).toContain("BEGIN PGP MESSAGE");
+  expect(uploadedText).not.toContain("secret body");
 });
 
 /** `gpg --encrypt`, to a key that is not ours */

@@ -210,6 +210,10 @@ export class Folder extends Observable {
       }
       if (!sameServer) {
         for (let message of messages) {
+          if (message.wasEncrypted) {
+            // Our local copy is decrypted. Upload the original from the server, which is still encrypted.
+            message.mime = await message.downloadMIME();
+          }
           await message.loadMIME();
           await this.addMessage(message);
           if (action == "move") {

@@ -163,37 +163,41 @@ export class JMAPEMail extends EMail {
 
   async download() {
     await this.downloadRunOnce.runOnce(async () => {
-      let account = this.folder.account;
-      if (!this.mimeBlobId) {
-        let response = await account.makeSingleCall(
-          "Email/get", {
-          accountId: account.accountID,
-          "ids": [this.jmapID],
-          properties: ["blobId"],
-        },
-        ) as TJMAPGetResponse<TJMAPEMailHeaders>;
-        let json = response.list[0];
-        assert(json, "JMAP: EMail no longer on server");
-        this.mimeBlobId = sanitize.string(json.blobId);
-      }
-
-      let url = account.session.downloadUrl;
-      url = url
-        .replace("{accountId}", account.accountID)
-        .replace("{blobId}", this.mimeBlobId)
-        .replace("{name}", "email")
-        .replace("{type}", "message/rfc822");
-      let response = await retryOnTransientError(() => account.httpGet(url, {
-        headers: {
-          "Accept": "message/rfc822",
-          "Content-Type": undefined, // override
-        },
-        result: "blob",
-      }));
-      this.mime = new Uint8Array(await response.arrayBuffer());
+      this.mime = await this.downloadMIME();
       await this.parseMIME();
       await this.saveCompleteMessage();
     });
+  }
+
+  async downloadMIME(): Promise<Uint8Array> {
+    let account = this.folder.account;
+    if (!this.mimeBlobId) {
+      let response = await account.makeSingleCall(
+        "Email/get", {
+        accountId: account.accountID,
+        "ids": [this.jmapID],
+        properties: ["blobId"],
+      },
+      ) as TJMAPGetResponse<TJMAPEMailHeaders>;
+      let json = response.list[0];
+      assert(json, "JMAP: EMail no longer on server");
+      this.mimeBlobId = sanitize.string(json.blobId);
+    }
+
+    let url = account.session.downloadUrl;
+    url = url
+      .replace("{accountId}", account.accountID)
+      .replace("{blobId}", this.mimeBlobId)
+      .replace("{name}", "email")
+      .replace("{type}", "message/rfc822");
+    let response = await retryOnTransientError(() => account.httpGet(url, {
+      headers: {
+        "Accept": "message/rfc822",
+        "Content-Type": undefined, // override
+      },
+      result: "blob",
+    }));
+    return new Uint8Array(await response.arrayBuffer());
   }
 
   async markRead(read = true) {

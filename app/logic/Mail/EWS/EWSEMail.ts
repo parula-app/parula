@@ -35,25 +35,29 @@ export class EWSEMail extends ExchangeEMail {
 
   async download() {
     await this.downloadRunOnce.runOnce(async () => {
-      let request = {
-        m$GetItem: {
-          m$ItemShape: {
-            t$BaseShape: "IdOnly",
-            t$IncludeMimeContent: true,
-          },
-          m$ItemIds: {
-            t$ItemId: {
-              Id: this.itemID,
-            },
-          },
-        },
-      };
-      let result = await this.folder.account.callEWS(request);
-      let mimeBase64 = sanitize.nonemptystring(getEWSItem(result.Items).MimeContent.Value);
-      this.mime = base64ToUint8Array(mimeBase64);
+      this.mime = await this.downloadMIME();
       await this.parseMIME();
       await this.saveCompleteMessage();
     });
+  }
+
+  async downloadMIME(): Promise<Uint8Array> {
+    let request = {
+      m$GetItem: {
+        m$ItemShape: {
+          t$BaseShape: "IdOnly",
+          t$IncludeMimeContent: true,
+        },
+        m$ItemIds: {
+          t$ItemId: {
+            Id: this.itemID,
+          },
+        },
+      },
+    };
+    let result = await this.folder.account.callEWS(request);
+    let mimeBase64 = sanitize.nonemptystring(getEWSItem(result.Items).MimeContent.Value);
+    return base64ToUint8Array(mimeBase64);
   }
 
   fromXML(xmljs: Record<string, any>) {

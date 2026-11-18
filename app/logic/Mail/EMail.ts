@@ -689,6 +689,11 @@ export class EMail extends Message {
     //this.mime = await SMTPAccount.getMIME(this);
   }
 
+  /** @returns The MIME source as it is on the server, i.e. still encrypted, without parsing or saving it */
+  async downloadMIME(): Promise<Uint8Array> {
+    throw new AbstractFunction();
+  }
+
   /**
    * Runs filters, spam filter, and content interpreters on the message.
    *
