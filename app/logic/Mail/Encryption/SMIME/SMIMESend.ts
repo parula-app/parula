@@ -131,7 +131,8 @@ export class SMIMESend {
       if (!isMyKey.some(Boolean)) {
         recipientKeys.push(privateKey);
       }
-      // AES-GCM notices when somebody changed the ciphertext, AES-CBC does not (EFAIL).
+      // AES-GCM notices when somebody changed the ciphertext, AES-CBC does not.
+      // So we use this to encrypt drafts and verify that they were not tampered with (EFAIL).
       // But only we are known to read AES-GCM. E.g. Thunderbird before 154 can't.
       let useGCM = isMyKey.every(Boolean);
       let symmetricKey = new Uint8Array(32);
