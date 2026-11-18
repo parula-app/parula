@@ -488,7 +488,6 @@ class StartupArgs extends Observable {
 }
 export const startupArgs = new StartupArgs();
 
-// <copied to="../../app/test/logic/util/httpPool.test.ts">
 /** The server closed our idle keep-alive connections while the computer slept, but we
  * don't know that yet, and the next request on one of them would fail with "fetch failed".
  * Chromium closes them when the computer wakes up, Node's `fetch()` doesn't.
@@ -502,7 +501,6 @@ function closeIdleHTTPConnections(): void {
   (globalThis as any)[kGlobalDispatcher] = new dispatcher.constructor();
   dispatcher.close().catch(console.error);
 }
-// </copied>
 
 /** Tells the UI whether the computer is awake or in sleep mode.
  * The UI subscribes to it via `computerOn` in app/logic/util/backend-wrapper.ts */
