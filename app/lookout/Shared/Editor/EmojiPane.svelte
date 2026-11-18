@@ -142,6 +142,9 @@
     if (isSearching) {
       return;
     }
+    if (!scrollEl) {
+      return; // The browser sends a scroll event only with the next frame
+    }
     let top = scrollEl.scrollTop + scrollEl.offsetTop + 4;
     let current = sectionHeaders().filter(header => header.offsetTop <= top).pop();
     selectedCategory = current?.dataset.category ?? emojiCategories[0]?.id;

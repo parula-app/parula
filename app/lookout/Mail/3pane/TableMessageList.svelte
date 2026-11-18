@@ -251,6 +251,9 @@
   }
 
   function onScroll() {
+    if (!listEl) {
+      return; // The browser sends a scroll event only with the next frame
+    }
     scrollTop = listEl.scrollTop;
   }
 
