@@ -322,11 +322,13 @@ export class GraphFolder extends Folder {
   }
 
   protected async moveOrCopyMessagesOnServer(action: "move" | "copy", messages: Collection<GraphEMail>) {
-    for (let msg of messages) {
-      await this.account.graphPost(msg.path + "/" + action, {
+    await this.account.graphBatch(messages.contents.map(msg => ({
+      method: "POST",
+      path: msg.path + "/" + action,
+      body: {
         destinationId: this.id,
-      });
-    }
+      },
+    })));
 
     await this.listChangedMessages();
     if (action == "move") {
