@@ -158,7 +158,7 @@
     loadError = null;
     try {
       await autoResponder.load();
-      isChanged = false; // The `$:` above ran for the values from the server
+      isChanged = false;
     } catch (ex) {
       if (forAccount == account) {
         loadError = ex;
