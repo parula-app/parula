@@ -1,11 +1,16 @@
 <hbox class="tag font-smallest"
   style="--color: {$tag.color}"
+  title={$tag.name}
   on:click
   class:selected={selected == true}
   class:partial={selected === null}
   class:unselected={selected == false}
+  class:compact
+  class:circle
   >
-  {$tag.name}
+  {#if !circle}
+    <span class="name">{$tag.name}</span>
+  {/if}
 
   <hbox class="buttons-right">
     <slot name="tag-button" {tag} />
@@ -19,6 +24,10 @@
   /** true = all objects have this tag, null = only some of them,
    * false = none of them, undefined = tags are not being set here */
   export let selected: boolean | null | undefined = undefined;
+  /** For message lists: Cut off long names */
+  export let compact = false;
+  /** Show only the color, without the name */
+  export let circle = false;
 </script>
 
 <style>
@@ -45,6 +54,23 @@
   .tag.partial {
     border: 1px dashed var(--button-border);
     opacity: 75%;
+  }
+  .tag.compact {
+    min-height: unset;
+    border: none;
+    margin: 0 2px;
+  }
+  .compact .name {
+    max-width: 10ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tag.circle {
+    width: 1lh;
+    height: 1lh;
+    padding: 0;
+    border-radius: 50%;
   }
   .buttons-right :global(button) {
     align-self: center;

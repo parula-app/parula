@@ -2,6 +2,7 @@ import { appGlobal } from "../../../../../logic/app";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { importPrivateKey, importPublicKey, readPrivateKeyFile, readPublicKeyFile } from "../../../../../logic/Mail/Encryption/KeyUtils";
+import { UserError } from "../../../../../logic/util/util";
 import { base64ToBytes } from "../../../../../../lib/asn1/decoders/pem";
 import { expect, test, describe } from "vitest";
 
@@ -220,4 +221,13 @@ test("Our own key, exported and imported again, keeps its certificate and its CA
   await key.addCertificateFile(kChain);
   let imported = await importPrivateKey(await readPrivateKeyFile(key.privateKeyAsFile(), key.passphrase), key.passphrase);
   await expectUserCertificate(imported as SMIMEPrivateKey, true);
+});
+
+test("Our own key takes no certificate that is for another key", async () => {
+  // E.g. the certificate of a contact, or of a CA, which the user picked by mistake
+  let key = await SMIMEPrivateKey.importPrivateKey(kUserKey);
+  await expect(key.addCertificateFile(kRootCert)).rejects.toThrow(UserError);
+  expect(key.certificate).toBeFalsy();
+  // Also not in the same file as the secret key, e.g. from a .p12 file
+  await expect(SMIMEPrivateKey.importPrivateKey(kUserKey + kRootCert)).rejects.toThrow(UserError);
 });

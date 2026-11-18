@@ -4,24 +4,24 @@ echo Building version $VERSION
 perl -p -i \
   -e "s|production = false|production = true|;" \
   -e "s|'Mustang'|'Parula'|;" \
-  -e "s|'https://mustang.im'|'https://parula.beonex.com'|;" \
+  -e "s|'https://mustang.im'|'https://parula.app'|;" \
   -e "s|appVersion: string = '.*';$|appVersion: string = '$VERSION';|;" \
   ../logic/build.ts
 perl -p -i \
   -e "s|Mustang|Parula|g;" \
-  -e "s|https://mustang.im|https://parula.beonex.com|g;" \
+  -e "s|https://mustang.im|https://parula.app|g;" \
   -e "s|\"name\": \"mustang\"|\"name\": \"parula\"|;" \
   -e "s|\"version\": \".*\"|\"version\": \"$VERSION\"|;" \
   ../../desktop/package.json
 perl -p -i \
   -e "s|Mustang|Parula|g;" \
-  -e "s|https://mustang.im|https://parula.beonex.com|g;" \
+  -e "s|https://mustang.im|https://parula.app|g;" \
   -e "s|\"name\": \"mustang\"|\"name\": \"parula\"|;" \
   -e "s|\"version\": \".*\"|\"version\": \"$VERSION\"|;" \
   ../../mobile/package.json
 perl -p -i \
   -e "s|Mustang|Parula|g;" \
-  -e "s|https://mustang.im|https://parula.beonex.com|g;" \
+  -e "s|https://mustang.im|https://parula.app|g;" \
   -e "s|\"name\": \"mustang\"|\"name\": \"parula\"|;" \
   ../package.json
 perl -p -i \

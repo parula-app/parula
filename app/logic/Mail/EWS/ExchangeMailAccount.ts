@@ -5,6 +5,7 @@ import { ExchangeCalendar } from "../../Calendar/EWS/ExchangeCalendar";
 import { PersonUID } from "../../Abstract/PersonUID";
 import { appGlobal } from "../../app";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
+import { ExchangeTags } from "./ExchangeTags";
 import { ArrayColl, Collection } from "svelte-collections";
 
 export class ExchangeMailAccount extends MailAccount {
@@ -12,6 +13,7 @@ export class ExchangeMailAccount extends MailAccount {
   readonly tls = TLSSocketType.TLS;
   readonly canSendOutgoingInvitations: boolean = false;
   deleteStrategy: DeleteStrategy = DeleteStrategy.MoveToTrash;
+  protected _tags: ExchangeTags;
 
   get calendarsAvailable(): Collection<Calendar> {
     let mailboxCalendars = this.calendarsOfMailbox(this.username);
@@ -62,6 +64,15 @@ export class ExchangeMailAccount extends MailAccount {
       return null;
     }
     return new PersonUID(address, sanitize.nonemptylabel(name, null) ?? undefined);
+  }
+
+  /** The tags that the server knows, with their colors */
+  get tags(): ExchangeTags {
+    return this._tags ??= this.newTags();
+  }
+
+  newTags(): ExchangeTags {
+    return new ExchangeTags(this);
   }
 
   async deleteIt(): Promise<void> {

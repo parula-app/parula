@@ -2,7 +2,7 @@ import { ChatMessage } from "../ChatMessage";
 import { type Attachment, ContentDisposition } from "../../Abstract/Attachment";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import type { MatrixRoom } from "./MatrixRoom";
-import { base64Decode } from "../Signal/Crypto/primitives";
+import { base64Decode, bytesEqual, sha256 } from "../Signal/Crypto/primitives";
 import { appGlobal } from "../../app";
 import { assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
@@ -159,9 +159,14 @@ export class MatrixChatMessage extends ChatMessage {
   }
 
   /** Decrypts a Matrix encrypted attachment: AES-CTR-256 keyed by the JWK in the
-   * message's `EncryptedFile`, with the IV as the initial counter block. */
+   * message's `EncryptedFile`, with the IV as the initial counter block.
+   * @throws if the file was changed */
   protected static async decryptFile(file: any, cipherBlob: Uint8Array): Promise<Uint8Array> {
     assert(file.key?.k && file.iv, "Matrix encrypted file is missing its key or IV");
+    assert(file.v == "v2" && file.key.alg == "A256CTR", "Matrix encrypted file has an unknown version or algorithm");
+    // AES-CTR doesn't detect changes, but the hash is in the end-to-end encrypted event, which the media server can't change
+    assert(file.hashes?.sha256 && bytesEqual(sha256(cipherBlob), matrixBase64(file.hashes.sha256)),
+      "Matrix encrypted file was changed: Its SHA-256 doesn't match");
     let keyBytes = matrixBase64(file.key.k);
     let counter = matrixBase64(file.iv);
     let key = await crypto.subtle.importKey("raw", keyBytes as BufferSource, { name: "AES-CTR" }, false, ["decrypt"]);

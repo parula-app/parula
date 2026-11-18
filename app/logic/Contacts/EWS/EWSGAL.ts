@@ -66,7 +66,7 @@ export class EWSGAL extends ExchangeGAL {
         candidate.Mailbox?.EmailAddress?.toLowerCase() == emailAddress.toLowerCase());
       // `UserSMIMECertificate` and `MSExchangeCertificate` are the AD
       // attributes `userSMIMECertificate` and `userCertificate`, resp.
-      return await new SMIMEDirectory(this.account.url).readDirectoryCertificates(
+      return await new SMIMEDirectory(this.account.url).readDirectoryCertificates(emailAddress,
         ensureArray(resolution?.Contact?.UserSMIMECertificate?.Base64Binary),
         ensureArray(resolution?.Contact?.MSExchangeCertificate?.Base64Binary),
         this.errorCallback);

@@ -115,7 +115,7 @@ export class WhatsAppSender {
     if (encNodes.length) {
       this.account.scheduleSave(); // we advanced/created sessions
     }
-    this.account.rememberSent(messageID, payload); // so a retry receipt can re-send
+    this.account.rememberSent(chat, messageID, payload, [chat]); // so a retry receipt can re-send
     let node = this.messageStanza(messageID, chat.toNonDevice(), encNodes, anyPreKey);
     this.applyEditAttribute(node, payload);
     await connection.sendNode(node);
@@ -198,7 +198,7 @@ export class WhatsAppSender {
     let stanza = this.groupMessageStanza(WhatsAppSender.generateMessageID(), chat.toNonDevice(),
       messageType(payload), mode, phash, encNodes, anyPreKey, skmsg);
     let messageID = stanza.attrs.id;
-    this.account.rememberSent(messageID, payload);
+    this.account.rememberSent(chat, messageID, payload, participantBaseJIDs);
     this.account.rememberGroupPhash(messageID, chat.toNonDevice().toString(), phash);
     this.applyEditAttribute(stanza, payload);
     await connection.sendNode(stanza);
@@ -253,13 +253,13 @@ export class WhatsAppSender {
   /** Handles an incoming `<receipt type="retry">` for a message WE sent: the peer
    * device couldn't decrypt it, and ships its current registration and (on a real
    * desync) a fresh prekey bundle inside `<keys>`. We drop the stale session,
-   * re-establish from those keys (or refetch), and re-send to just that device.
-   * The original `payload` comes from the account's recent-sends cache. Capped so
-   * a permanently-broken device can't loop. */
-  async handleRetryReceipt(node: WANode, payload: WAMessage | undefined): Promise<void> {
+   * re-establish from those keys (or refetch), and re-send to just that device,
+   * if it belongs to a recipient or to us. The original `sent` message comes from
+   * the account's recent-sends cache. Capped so a permanently-broken device can't loop. */
+  async handleRetryReceipt(node: WANode, sent: { payload: WAMessage, recipients: string[] } | undefined): Promise<void> {
     let connection = this.account.connection;
     let store = this.account.signalStore;
-    if (!connection || !store || !payload) {
+    if (!connection || !store || !sent) {
       return;
     }
     let messageID = node.attrs.id;
@@ -269,6 +269,12 @@ export class WhatsAppSender {
     }
     // The failing device is the `participant` (multi-device fan-out) or `from`.
     let device = node.jidAttr("participant") ?? from;
+    let own = this.account.isOwnJID(device);
+    // Anybody else, e.g. the server, could read the message by attaching its own keys
+    if (!own && !sent.recipients.includes(device.toNonDevice().toString())) {
+      console.error(`WhatsApp: ignoring a retry receipt for ${messageID} from ${device.toString()}, who was not a recipient`);
+      return;
+    }
     let address = this.addressFor(device);
     let key = `${messageID}|${address}`;
     let count = (this.retrySends.get(key) ?? 0) + 1;
@@ -291,14 +297,13 @@ export class WhatsAppSender {
       console.error(`WhatsApp: cannot re-establish a session to ${device.toString()} for retry`);
       return;
     }
-    let own = this.account.isOwnJID(device);
     let plaintext = own
-      ? encodeWAMessage({ deviceSentMessage: { destinationJID: from.toNonDevice().toString(), message: payload } })
-      : encodeWAMessage(payload);
+      ? encodeWAMessage({ deviceSentMessage: { destinationJID: from.toNonDevice().toString(), message: sent.payload } })
+      : encodeWAMessage(sent.payload);
     let encrypted = await encrypt(store, address, plaintext);
     this.account.scheduleSave();
     let stanza = this.messageStanza(messageID, from.toNonDevice(), [this.participantNode(device, encrypted)], encrypted.type == "pkmsg");
-    this.applyEditAttribute(stanza, payload);
+    this.applyEditAttribute(stanza, sent.payload);
     await connection.sendNode(stanza);
   }
 

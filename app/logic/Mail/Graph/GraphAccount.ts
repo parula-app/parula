@@ -4,6 +4,7 @@ import { Provider } from "../../Auth/OAuth2URLs";
 import { GraphFolder } from "./GraphFolder";
 import { GraphSearchEMail } from "./GraphSearchEMail";
 import { GraphAutoResponder } from "./GraphAutoResponder";
+import { GraphTags } from "./GraphTags";
 import type { TGraphFolder } from "./TGraphMail";
 import type { UUID } from "./TGraphGeneric";
 import type { EMail } from "../EMail";
@@ -14,6 +15,7 @@ import { newCalendarForProtocol } from "../../Calendar/AccountsList/Calendars";
 import { newChatAccountForProtocol } from "../../Chat/AccountsList/ChatAccounts";
 import { CreateMIME } from "../SMTP/CreateMIME";
 import { ensureLicensed } from "../../util/LicenseClient";
+import { logErrorToServer } from "../../util/error";
 import { appGlobal } from "../../app";
 import { appName, appVersion } from "../../build";
 import { LoopGuard } from "../../util/flow/LoopGuard";
@@ -71,6 +73,8 @@ export class GraphAccount extends ExchangeMailAccount {
         let inbox = this.inbox as GraphFolder;
         assert(inbox, "Inbox not found");
         inbox.startPolling();
+        this.tags.load()
+          .catch(logErrorToServer);
 
         await this.createDefaultDependentAccounts();
       } finally { // Even when the mail folders failed, so that calendar and addressbook still work
@@ -448,6 +452,10 @@ export class GraphAccount extends ExchangeMailAccount {
 
   newAutoResponder(): GraphAutoResponder {
     return new GraphAutoResponder(this);
+  }
+
+  newTags(): GraphTags {
+    return new GraphTags(this);
   }
 }
 

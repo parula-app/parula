@@ -101,6 +101,22 @@ describe("Key that signed the email, as the mail viewer shows it", () => {
     mail.rememberSigner(signer);
     expect(await getPublicKeyByFingerprint(mail.signedPublicKeyFingerprint, mail)).toBe(signer);
   });
+
+  test("of a mail that we signed is our key with our trust, but without the secret key", async () => {
+    let myKey = await PGPPrivateKey.createNewPrivateKey({ realname: "Me", emailAddress: "me@example.com" });
+    myKey.trustLevel = TrustLevel.Personal;
+    let account = accountWithMyKey(myKey);
+    appGlobal.emailAccounts.add(account);
+    let mail = account.getSpecialFolder(SpecialFolder.Inbox).newEMail();
+    mail.from = new PersonUID("me@example.com", "Me");
+    mail.signedPublicKeyFingerprint = myKey.fingerprint;
+    let key = await getPublicKeyByFingerprint(mail.signedPublicKeyFingerprint, mail);
+    expect(key.fingerprint).toBe(myKey.fingerprint);
+    expect(key.trustLevel).toBe(TrustLevel.Personal);
+    expect(key).not.toBeInstanceOf(PGPPrivateKey);
+    expect(JSON.stringify(key)).not.toContain("PRIVATE KEY");
+    expect(JSON.stringify(key)).not.toContain(myKey.passphrase);
+  });
 });
 
 describe("Certificate to which we encrypt", () => {

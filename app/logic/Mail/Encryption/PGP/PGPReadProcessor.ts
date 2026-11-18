@@ -180,7 +180,8 @@ export class PGPReadProcessor extends EMailProcessor {
       }
     } else if (email && keys.isEmpty) {
       let publicKey = await readAutoCryptKeys(email);
-      if (publicKey) {
+      // Anybody can send this header, so not if the contact has a key that is trusted more, e.g. an S/MIME certificate
+      if (publicKey && (!person || mayUseKeyOf(person, publicKey))) {
         keys.add(publicKey);
       }
     }
