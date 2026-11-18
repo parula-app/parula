@@ -48,16 +48,16 @@
 
   $: identities = (account as MailAccount).identities;
   /** The identities as last saved. The fields change the identities directly. */
-  let savedJSON = identitiesJSON();
+  let savedStr = identitiesStr();
 
   // Also without Save, e.g. when the user closes Lookout's settings dialog
   onDestroy(() => {
-    if (identitiesJSON() != savedJSON) {
+    if (identitiesStr() != savedStr) {
       catchErrors(onSave);
     }
   });
 
-  function identitiesJSON(): string {
+  function identitiesStr(): string {
     return JSON.stringify(account.identities.contents.map(identity => identity.toConfigJSON()));
   }
 
@@ -84,7 +84,7 @@
       await identity.saveToServer();
     }
     await account.save();
-    savedJSON = identitiesJSON();
+    savedStr = identitiesStr();
   }
 </script>
 
