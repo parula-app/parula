@@ -56,7 +56,7 @@ function newAccount(httpResponse: Record<string, any>) {
   let account = new JMAPAccount();
   account.accountID = "e";
   account.emailAddress = "mail-alice@example.com";
-  account.session = { apiUrl: "http://jmap.example.com/jmap/", capabilities: {}, accounts: {}, primaryAccounts: {} } as any as TJMAPSession;
+  account.session = { apiUrl: "http://jmap.example.com/jmap/", capabilities: {}, accounts: {}, primaryAccounts: {}, state: "s1" } as any as TJMAPSession;
   let errors: Error[] = [];
   account.errorCallback = ex => errors.push(ex);
   let requests: Record<string, any>[] = [];
