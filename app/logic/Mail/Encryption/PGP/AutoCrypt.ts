@@ -1,9 +1,9 @@
 import { PGPPublicKey } from "./PGPPublicKey";
 import type { PGPPrivateKey } from "./PGPPrivateKey";
-import { TrustLevel } from "../enums";
+import { TrustLevel, trustOrder } from "../enums";
 import type { EMail } from "../../EMail";
 import type { MailIdentity } from "../../MailIdentity";
-import { addArmorHeader, extractBase64FromArmorned, isConfirmedKey } from "../KeyUtils";
+import { addArmorHeader, extractBase64FromArmorned } from "../KeyUtils";
 import { parseHeaderParameters } from "../MIME";
 import { appGlobal } from "../../../app";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
@@ -57,8 +57,8 @@ export async function importAutoCryptKeys(mail: EMail) {
   let person = mail.from.createPerson(appGlobal.collectedAddressbook);
   let existing = person.encryptionPublicKeys.find(key => key.id == publicKey.id);
   if (existing) {
-    // Anybody can send this header, so it must not change a key that the user or a CA confirmed
-    if (existing.encryptByDefault != preferEncrypted && !isConfirmedKey(existing)) {
+    // Anybody can send this header, so it must not change a key that is trusted more than the header
+    if (existing.encryptByDefault != preferEncrypted && trustOrder(existing.trustLevel) <= trustOrder(publicKey.trustLevel)) {
       existing.encryptByDefault = preferEncrypted;
       await person.save();
     }

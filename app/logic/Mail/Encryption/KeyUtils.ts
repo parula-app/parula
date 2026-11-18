@@ -10,7 +10,7 @@ import { PKCS12 } from "./SMIME/PKCS12";
 import { Any } from "./SMIME/SMIMEASN1";
 import { readAutoCryptKeys } from "./PGP/AutoCrypt";
 import { publicKeyFromJSON } from "./KeyFromJSON";
-import { EncryptionSystem, TrustLevel, trustOrder } from "./enums";
+import { EncryptionSystem, trustOrder } from "./enums";
 import type { EMail } from "../EMail";
 import { findAllIdentities, type MailIdentity } from "../MailIdentity";
 import { appGlobal } from "../../app";
@@ -81,9 +81,6 @@ export function getPublicKeyForPerson<T extends PublicKey>(person: Person, keyTy
     return null;
   }
   let keys = person.encryptionPublicKeys.filterOnce(key => isUsableKey(key, keyType) && mayUseKeyOf(person, key));
-  // The most trusted key, because anybody can send a key in the AutoCrypt header of a mail
-  let mostTrusted = Math.max(...keys.contents.map(key => trustOrder(key.trustLevel)));
-  keys = keys.filterOnce(key => trustOrder(key.trustLevel) == mostTrusted);
   return (keys.find(key => key.encryptByDefault) ?? keys.first) as T;
 }
 
@@ -101,16 +98,12 @@ export function getPublicKeyForPersonUID<T extends PublicKey>(uid: PersonUID, ke
 }
 
 /** Whether we may use this key of the contact, to encrypt to them, or to verify
- * their signature. If the user or a CA confirmed a valid key of the contact, only
- * the confirmed keys: Anybody can send a key in the AutoCrypt header of a mail
- * with the contact's address, so the user has to confirm such a key first. */
+ * their signature: only if no valid key of the contact is trusted more, also not
+ * one of the other encryption system. Anybody can send a key in the AutoCrypt
+ * header of a mail with the contact's address, and a key that the user confirmed
+ * is better than one that a CA confirmed. */
 export function mayUseKeyOf(person: Person, key: PublicKey): boolean {
-  return isConfirmedKey(key) || !person.encryptionPublicKeys.some(other => isConfirmedKey(other) && !other.obsolete);
-}
-
-/** The user or a CA confirmed this key. It does not only come from a mail. */
-export function isConfirmedKey(key: PublicKey): boolean {
-  return trustOrder(key.trustLevel) > trustOrder(TrustLevel.Sender);
+  return !person.encryptionPublicKeys.some(other => !other.obsolete && trustOrder(other.trustLevel) > trustOrder(key.trustLevel));
 }
 
 export function isUsableKey<T extends PublicKey>(key: PublicKey | null, keyType?: new () => T): key is T {

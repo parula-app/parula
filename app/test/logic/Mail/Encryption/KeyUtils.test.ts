@@ -161,6 +161,18 @@ describe("Certificate to which we encrypt", () => {
     }
   });
 
+  test("of a contact with a certificate that the user confirmed: not a PGP key that only a key server confirmed", async () => {
+    let person = new Addressbook().newPerson();
+    let confirmed = await SMIMEPublicKey.importPublicKey(kVictorEncryption);
+    confirmed.trustLevel = TrustLevel.Personal;
+    person.addEncryptionPublicKey(confirmed);
+    let keyServer = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Victor", emailAddress: "victor@example.com" })).publicKeyArmored);
+    keyServer.trustLevel = TrustLevel.ThirdParty;
+    person.addEncryptionPublicKey(keyServer);
+    expect(getPublicKeyForPerson(person, PGPPublicKey)).toBeFalsy();
+    expect(getPublicKeyForPerson(person)).toBe(confirmed);
+  });
+
   test("from a company directory that has one for signing and one for encrypting", async () => {
     let encryption = await SMIMEPublicKey.importPublicKey(kVictorEncryption);
     let signing = await SMIMEPublicKey.importPublicKey(kVictorSigning);

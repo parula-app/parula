@@ -175,6 +175,18 @@ describe("PGP signed message of a contact with a confirmed key", () => {
     let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Erin <erin@example.com>"), false, mallory, "Erin <erin@example.com>");
     expectNotSigned(email);
   });
+
+  test("signed with a key that a key server confirmed, while the user confirmed another key, is not signed", async () => {
+    let mallory = await newIdentity("frank@example.com", "Frank");
+    let frank = await newContact(mallory, "frank@example.com");
+    frank.encryptionPublicKeys.first.trustLevel = TrustLevel.ThirdParty; // as a key server gives it
+    let confirmed = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Frank", emailAddress: "frank@example.com" })).publicKeyArmored);
+    confirmed.trustLevel = TrustLevel.Personal;
+    frank.addEncryptionPublicKey(confirmed);
+
+    let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Frank <frank@example.com>"), false, mallory, "Frank <frank@example.com>");
+    expectNotSigned(email);
+  });
 });
 
 describe("PGP message that we signed", () => {
