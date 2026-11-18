@@ -126,11 +126,9 @@ export class AutoResponder extends Observable {
  *
  * It matters only if `supportsInternal`, i.e. for Exchange.
  * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders
- * with `externalHTML`, so their audience is `All`.
- *
- * `Contacts` and `All` have Graph's `externalAudience` values. */
+ * with `externalHTML`, so their audience is `All`. */
 export enum AutoResponderAudience {
-  /** Only senders inside the organization. No replies outside. */
+  /** Only recipients inside the organization. No replies outside. */
   Internal = "internal",
   /** Only senders in the user's addressbook */
   Contacts = "contactsOnly",

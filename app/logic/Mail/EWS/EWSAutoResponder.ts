@@ -1,4 +1,4 @@
-import { ExchangeAutoResponder, OOFAudience, OOFState } from "./ExchangeAutoResponder";
+import { ExchangeAutoResponder, OOFState } from "./ExchangeAutoResponder";
 import { AutoResponderAudience } from "../AutoResponder";
 import type { EWSAccount } from "./EWSAccount";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
@@ -37,13 +37,17 @@ export class EWSAutoResponder extends ExchangeAutoResponder {
     let settings = json.OofSettings;
     this.oofState = sanitize.integerRange(OOFState[settings.OofState as string], 0, 2, OOFState.Disabled);
     this.setTimes(this.parseUTC(settings.Duration?.StartTime), this.parseUTC(settings.Duration?.EndTime));
-    // `AllowExternalOof` `None` -> `maxAudience` `Internal`.
-    // Exchange has only that (`ExternalOofOptions` `InternalOnly`) and `All`.
-    this.maxAudience = this.sanitizeAudience(OOFAudience[json.AllowExternalOof as string], AutoResponderAudience.All);
+    let audiences = {
+      None: AutoResponderAudience.Internal,
+      Known: AutoResponderAudience.Contacts,
+      All: AutoResponderAudience.All,
+    };
+    // Exchange has only `None` (`ExternalOofOptions` `InternalOnly`) and `All`
+    this.maxAudience = sanitize.translate(json.AllowExternalOof, audiences, AutoResponderAudience.All);
     // With `Internal`, Exchange saves the audience as `Internal`, and doesn't reply outside
     // with an audience that was saved before the admin's change
     this.externalAudience = this.maxAudience == AutoResponderAudience.Internal ? AutoResponderAudience.Internal :
-      this.sanitizeAudience(OOFAudience[settings.ExternalAudience as string], AutoResponderAudience.Internal);
+      sanitize.translate(settings.ExternalAudience, audiences, AutoResponderAudience.Internal);
     this.internalHTML = sanitizeHTML(settings.InternalReply?.Message);
     this.externalHTML = sanitizeHTML(settings.ExternalReply?.Message);
   }
@@ -52,7 +56,11 @@ export class EWSAutoResponder extends ExchangeAutoResponder {
   toEWS() {
     return {
       t$OofState: OOFState[this.oofState],
-      t$ExternalAudience: OOFAudience[this.oofAudience],
+      t$ExternalAudience: sanitize.translate(this.externalAudience, {
+        [AutoResponderAudience.Internal]: "None",
+        [AutoResponderAudience.Contacts]: "Known",
+        [AutoResponderAudience.All]: "All",
+      }),
       t$Duration: this.scheduled ? {
         t$StartTime: this.startTime.toISOString(),
         t$EndTime: this.endTime.toISOString(),

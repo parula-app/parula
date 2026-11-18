@@ -52,9 +52,11 @@ export class GraphAutoResponder extends AutoResponder {
     this.isOn = status == "alwaysenabled" || status == "scheduled";
     this.scheduled = status == "scheduled";
     this.setTimes(this.parseTime(json.scheduledStartDateTime), this.parseTime(json.scheduledEndDateTime));
-    let audience = sanitize.string(json.externalAudience, "").toLowerCase();
-    this.externalAudience = Object.values(AutoResponderAudience)
-      .find(value => value.toLowerCase() == audience) ?? AutoResponderAudience.Internal;
+    this.externalAudience = sanitize.translate(sanitize.string(json.externalAudience, "").toLowerCase(), {
+      none: AutoResponderAudience.Internal,
+      contactsonly: AutoResponderAudience.Contacts,
+      all: AutoResponderAudience.All,
+    }, AutoResponderAudience.Internal);
     this.internalHTML = sanitizeHTML(json.internalReplyMessage);
     this.externalHTML = sanitizeHTML(json.externalReplyMessage);
   }
@@ -62,7 +64,11 @@ export class GraphAutoResponder extends AutoResponder {
   toGraph(): TGraphAutoReplies {
     return {
       status: !this.isOn ? "disabled" : this.scheduled ? "scheduled" : "alwaysEnabled",
-      externalAudience: this.externalAudience == AutoResponderAudience.Internal ? "none" : this.externalAudience,
+      externalAudience: sanitize.translate(this.externalAudience, {
+        [AutoResponderAudience.Internal]: "none",
+        [AutoResponderAudience.Contacts]: "contactsOnly",
+        [AutoResponderAudience.All]: "all",
+      }),
       internalReplyMessage: this.stripEmptyParagraph(this.internalHTML),
       externalReplyMessage: this.stripEmptyParagraph(this.externalHTML),
       // JSON omits `undefined`. `null` would go to the server.
