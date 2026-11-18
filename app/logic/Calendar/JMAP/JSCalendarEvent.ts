@@ -1,5 +1,5 @@
 import { Event, RecurrenceCase } from "../Event";
-import type { TJMAPCalendarEvent, TJSCalendarAlert, TJSCalendarRecurrenceRule, TJSCalendarRecurrenceFrequency } from "./TJSCalendar";
+import type { TJMAPCalendarEvent, TJSCalendarAlert, TJSCalendarLocation, TJSCalendarRecurrenceRule, TJSCalendarRecurrenceFrequency } from "./TJSCalendar";
 import { Frequency, RecurrenceRule, type RecurrenceInit } from "../RecurrenceRule";
 import { InvitationResponse } from "../Invitation/InvitationStatus";
 import { Participant } from "../Participant";
@@ -47,12 +47,7 @@ export class JSCalendarEvent {
 
     // Location
     if (jmap.locations) {
-      let location = Object.values(jmap.locations)[0];
-      event.location = sanitize.string(location.name, "");
-      if (location.description) {
-        event.location += kLocationNameDescriptionSeparator;
-      }
-      event.location += sanitize.string(location.description, "");
+      event.location = this.toLocationString(Object.values(jmap.locations)[0]);
     }
     if (jmap.virtualLocations) {
       let conf = Object.values(jmap.virtualLocations)[0];
@@ -87,6 +82,15 @@ export class JSCalendarEvent {
     }
 
     event.color = sanitize.nonemptystring(jmap.color, null);
+  }
+
+  /** The text of the location, with the description of older JSCalendar data */
+  protected static toLocationString(location: TJSCalendarLocation | undefined): string {
+    let text = sanitize.string(location?.name, "");
+    if (location?.description) {
+      text += kLocationNameDescriptionSeparator + sanitize.string(location.description, "");
+    }
+    return text;
   }
 
   static fromEvent(event: Event, jmap: TJMAPCalendarEvent) {
@@ -194,14 +198,9 @@ export class JSCalendarEvent {
         };
         jmap.locations["0"] = location;
       }
-      let descriptionPos = event.location.indexOf(kLocationNameDescriptionSeparator);
-      if (descriptionPos > 1) {
-        location.name = event.location.substring(0, descriptionPos);
-        location.description = event.location.substring(descriptionPos + kLocationNameDescriptionSeparator.length);
-      } else {
-        location.name = event.location;
-        delete location.description;
-      }
+      // JSCalendar-bis reserves `Location.description`, so only read it
+      location.name = event.location;
+      delete location.description;
     } else if (jmap.locations) {
       let first = Object.keys(jmap.locations)[0];
       delete jmap.locations[first];
