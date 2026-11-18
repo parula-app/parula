@@ -692,6 +692,21 @@ export class EMail extends Message {
     });
   }
 
+  /** What may go to a server: this mail, or if we decrypted it, a clone with the encrypted original and without the decrypted text, HTML and attachments.
+   * The clone keeps the server's ID, and this mail keeps the decrypted copy, e.g. in case the user loses the key. */
+  async forServer(): Promise<EMail> {
+    if (!this.wasEncrypted) {
+      return this;
+    }
+    let clone = this.folder.newEMail();
+    clone.copyFrom(this);
+    clone.pID = this.pID; // for the protocols, e.g. the IMAP UID
+    clone.text = "";
+    clone.attachments.clear();
+    clone.mime = await this.downloadMIME();
+    return clone;
+  }
+
   /** @returns The MIME source as it is on the server, i.e. still encrypted, without parsing or saving it */
   async downloadMIME(): Promise<Uint8Array> {
     throw new AbstractFunction();

@@ -208,23 +208,8 @@ export class Folder extends Observable {
       if (action == "move") {
         sourceFolder.messages.removeAll(messages);
       }
-      let uploads = messages.contents;
-      if (messages.some(message => message.wasEncrypted)) {
-        // Our decrypted copy must never go to a server, also not if a protocol uploads for a move or copy on the same server.
-        // So the server gets only clones with the encrypted original. The source keeps the decrypted mail, e.g. in case the user loses the key.
-        uploads = await Promise.all(messages.contents.map(async message => {
-          if (!message.wasEncrypted) {
-            return message;
-          }
-          let upload = message.folder.newEMail();
-          upload.copyFrom(message);
-          upload.pID = message.pID; // for the protocols, e.g. the IMAP UID
-          upload.text = ""; // without the decrypted text, HTML and attachments
-          upload.attachments.clear();
-          upload.mime = await message.downloadMIME();
-          return upload;
-        }));
-      }
+      // Our decrypted copy must never go to a server, also not for a move or copy on the same server
+      let uploads = await Promise.all(messages.contents.map(message => message.forServer()));
       if (!sameServer) {
         for (let [i, message] of messages.contents.entries()) {
           await uploads[i].loadMIME();
