@@ -677,7 +677,11 @@ export class EMail extends Message {
     if (!emailAddress || emailAddress == kDummyPerson.emailAddress) {
       return;
     }
-    let otherSenders = sanitize.array(getUserPreference("mail.externalImages.senders", []), []).filter(sender => sender != emailAddress);
+    let senders = sanitize.array(getUserPreference("mail.externalImages.senders", []), []);
+    if (allow == senders.includes(emailAddress)) { // not `loadExternalImagesFromSender()`, which is false for junk and encrypted mails
+      return;
+    }
+    let otherSenders = senders.filter(sender => sender != emailAddress);
     setUserPreference("mail.externalImages.senders", allow ? [...otherSenders, emailAddress] : otherSenders);
   }
 
