@@ -106,7 +106,7 @@
             </hbox>
           {/if}
           {#if $autoResponder.maxAudience != AutoResponderAudience.All}
-            <hbox class="hint font-small">{$t`Your administrator limits automatic replies outside your organization.`}</hbox>
+            <hbox class="hint">{$t`Your administrator limits automatic replies outside your organization.`}</hbox>
           {/if}
         </vbox>
       {/if}
@@ -224,10 +224,6 @@
   .audience {
     gap: 24px;
     margin-inline-start: 28px;
-  }
-  .hint {
-    margin-inline-start: 28px;
-    opacity: 70%;
   }
   .editor-box {
     border: 1px solid var(--border);

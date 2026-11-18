@@ -37,7 +37,7 @@ export class EWSAutoResponder extends ExchangeAutoResponder {
     let settings = json.OofSettings;
     this.oofState = sanitize.integerRange(OOFState[settings.OofState as string], 0, 2, OOFState.Disabled);
     this.setTimes(this.parseUTC(settings.Duration?.StartTime), this.parseUTC(settings.Duration?.EndTime));
-    let audiences = {
+    const audiences = {
       None: AutoResponderAudience.Internal,
       Known: AutoResponderAudience.Contacts,
       All: AutoResponderAudience.All,
