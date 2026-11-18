@@ -57,7 +57,7 @@ export async function importAutoCryptKeys(mail: EMail) {
   let person = mail.from.createPerson(appGlobal.collectedAddressbook);
   let existing = person.encryptionPublicKeys.find(key => key.id == publicKey.id);
   if (existing) {
-    // Anybody can send this header, so it must not change a key that is trusted more than the header
+    // Anybody can send this header, so it must not change a key that is trusted more
     if (existing.encryptByDefault != preferEncrypted && trustOrder(existing.trustLevel) <= trustOrder(publicKey.trustLevel)) {
       existing.encryptByDefault = preferEncrypted;
       await person.save();
