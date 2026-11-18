@@ -1,7 +1,11 @@
 // @vitest-environment happy-dom
 import Ribbon from "../../../Shared/Ribbon/Ribbon.svelte";
+import { currentRibbon } from "../../../MainWindow/Selected";
+import { isBackstageOpen } from "../../../Settings/Backstage/selected";
+import { AppWindow } from "../../../../frontend/MainWindow/AppWindow";
 import { getLocalStorage } from "../../../../frontend/Util/LocalStorage";
 import { flushSync, mount, unmount } from "svelte";
+import { get } from "svelte/store";
 import { afterEach, beforeAll, beforeEach, expect, test } from "vitest";
 
 beforeAll(() => {
@@ -14,10 +18,11 @@ beforeAll(() => {
 
 let ribbons: Record<string, any>[] = [];
 
-function mountRibbon(id: string) {
+function mountRibbon(id: string, appWindow?: AppWindow) {
   let target = document.createElement("div");
   document.body.append(target);
-  ribbons.push(mount(Ribbon, { target, props: { id } }));
+  let context = appWindow ? new Map([["appWindow", appWindow]]) : undefined;
+  ribbons.push(mount(Ribbon, { target, props: { id }, context }));
   flushSync();
 }
 
@@ -31,6 +36,7 @@ afterEach(() => {
   }
   ribbons = [];
   document.body.innerHTML = "";
+  isBackstageOpen.set(false);
 });
 
 /** Presses Ctrl+F1 and returns whether someone handled it */
@@ -72,4 +78,23 @@ test("Ctrl+F1 in the text editor or handled by someone else stays with them", ()
   window.removeEventListener("keydown", pageListener, { capture: true });
 
   expect(!!collapsed.value).toBe(wasCollapsed);
+});
+
+const homeTab = { label: "Home", isContextual: false, groups: [] };
+
+test("Selecting a ribbon tab closes the File view", () => {
+  let ribbon = get(currentRibbon);
+  ribbon.onFile();
+  expect(get(isBackstageOpen)).toBe(true);
+  ribbon.onSelectTab(homeTab);
+  expect(get(isBackstageOpen)).toBe(false);
+  expect(get(ribbon.selectedTab)).toBe(homeTab);
+});
+
+test("A tab in a window opened for one thing leaves the File view of the main window open", () => {
+  let appWindow = new (AppWindow as any)(window, "test-window", AppWindow.main) as AppWindow;
+  mountRibbon("mail-write", appWindow);
+  get(currentRibbon).onFile();
+  get(appWindow.uiState(currentRibbon)).onSelectTab(homeTab);
+  expect(get(isBackstageOpen)).toBe(true);
 });
