@@ -51,8 +51,14 @@ const kNotSent = {
   sessionState: "s1",
 };
 
-/** Goes through the real `makeCalls()`, only the HTTP POST is replaced */
-function newAccount(httpResponse: Record<string, any>) {
+const kDestroyed = {
+  methodResponses: [["Email/set", { accountId: "e", oldState: "s0maq", newState: "s0qaq", destroyed: ["laaaaacy"] }, "c1"]],
+  sessionState: "s1",
+};
+
+/** Goes through the real `makeCalls()`, only the HTTP POST is replaced
+ * @param httpResponses for the requests in this order. The last one also for all further requests. */
+function newAccount(...httpResponses: Record<string, any>[]) {
   let account = new JMAPAccount();
   account.accountID = "e";
   account.emailAddress = "mail-alice@example.com";
@@ -62,7 +68,7 @@ function newAccount(httpResponse: Record<string, any>) {
   let requests: Record<string, any>[] = [];
   account.httpPost = async (url: string, request: any) => {
     requests.push(request);
-    return httpResponse;
+    return httpResponses[Math.min(requests.length, httpResponses.length) - 1];
   };
   for (let specialFolder of [SpecialFolder.Inbox, SpecialFolder.Drafts, SpecialFolder.Sent]) {
     let folder = account.newFolder();
@@ -115,7 +121,7 @@ test("When the email can't be moved to Sent, the user hears about it, but sendin
 });
 
 test("When the server refuses to send, sending fails", async () => {
-  let { account, errors } = newAccount(kNotSent);
+  let { account, errors } = newAccount(kNotSent, kDestroyed); // Then the uploaded copy is deleted
 
   await expect(account.send(newEMail(account))).rejects.toThrow("You are not allowed to send from this address");
   expect(errors).toEqual([]);
