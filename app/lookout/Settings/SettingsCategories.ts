@@ -13,6 +13,7 @@ import MailGeneral from "./Mail/General.svelte";
 import CalendarGeneral from "./Calendar/General.svelte";
 import ContactsGeneral from "./Contacts/General.svelte";
 import TrustCenterGeneral from "./TrustCenter/General.svelte";
+import AddonsList from "../../frontend/Settings/Addons/AddonsList.svelte";
 import AccountGeneral from "./AccountGeneral.svelte";
 import AccountURLServer from "../../frontend/Settings/AccountURLServer.svelte";
 import AccountSubAccounts from "./AccountSubAccounts.svelte";
@@ -144,4 +145,5 @@ accountSettings.add(new AccSetting(M3Account, "m3-server", gt`Server`, AccountUR
 accountSettings.add(new AccSetting(SIPAccount, "sip", gt`Details`, SIP, true));
 // #endif
 
+settingsCategories.add(new SettingsCategory("addons", gt`Addons`, AddonsList, true));
 settingsCategories.add(new SettingsCategory("trust-center", gt`Trust Center`, TrustCenterGeneral, true));

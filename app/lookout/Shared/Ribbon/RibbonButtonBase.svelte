@@ -18,6 +18,8 @@
       <span class="loading"><LoadingIcon /></span>
     {:else if icon}
       <svelte:component this={icon} />
+    {:else}
+      <slot name="icon" />
     {/if}
   </span>
   <span class="label">

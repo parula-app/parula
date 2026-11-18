@@ -69,6 +69,7 @@
   label={$t`Show DOM`}
   tooltip={$t`Show HTML email in the DOM Inspector of the Developer Tools`}
   icon={SourceIcon} />
+<AddonMenuItems messages={[message]} />
 <hbox bind:this={domE} />
 
 <script lang="ts">
@@ -77,6 +78,7 @@
   import { getLocalStorage } from "../../Util/LocalStorage";
   import type Print from "./MessagePrint.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
+  import AddonMenuItems from "../../Addons/AddonMenuItems.svelte";
   import ReplyIcon from "lucide-svelte/icons/reply";
   import ReplyAllIcon from "lucide-svelte/icons/reply-all";
   import NewAllIcon from "lucide-svelte/icons/plus";

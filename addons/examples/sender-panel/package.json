@@ -1,0 +1,22 @@
+{
+  "name": "@mustang-examples/sender-panel",
+  "version": "1.0.0",
+  "description": "Shows who sent the message, above the message",
+  "author": "Mustang",
+  "mustang": {
+    "name": "Sender panel",
+    "icon": "icons/sender-panel.svg",
+    "permissions": [
+      "mail"
+    ],
+    "ui": {
+      "message-panel": [
+        {
+          "id": "sender",
+          "entry": "dist/panel.js",
+          "maxHeight": 200
+        }
+      ]
+    }
+  }
+}

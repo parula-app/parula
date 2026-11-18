@@ -1,0 +1,32 @@
+{
+  "name": "@mustang-test/evil",
+  "version": "1.0.0",
+  "description": "Test only: tries everything that an addon must not be able to do",
+  "license": "MIT",
+  "mustang": {
+    "name": "Evil",
+    "permissions": [
+      "mail"
+    ],
+    "hosts": [
+      "https://allowed.addon-test.example"
+    ],
+    "main": "dist/main.js",
+    "ui": {
+      "message-panel": [
+        {
+          "id": "panel",
+          "entry": "dist/panel.js"
+        },
+        {
+          "id": "navigate",
+          "entry": "dist/navigate.js"
+        },
+        {
+          "id": "hello",
+          "entry": "dist/hello.js"
+        }
+      ]
+    }
+  }
+}

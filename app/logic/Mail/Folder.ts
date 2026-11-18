@@ -2,26 +2,35 @@ import { EMail } from "./EMail";
 import type { MailAccount } from "./MailAccount";
 import { EMailCollection } from "./Store/EMailCollection";
 import { Observable, notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import { ArrayColl, Collection } from 'svelte-collections';
 import { Lock } from "../util/flow/Lock";
 import { assert, AbstractFunction } from "../util/util";
 import { gt } from "../../l10n/l10n";
 
+@addon("mail.all")
 export class Folder extends Observable {
   /** IMAP: folder path */
   id: string;
   dbID: number | string;
+  @addon("mail.all")
   @notifyChangedProperty
   name: string;
   @notifyChangedProperty
   parent: Folder | null;
+  @addon("mail.all")
   account: MailAccount;
+  @addon("mail.all")
   @notifyChangedProperty
   specialFolder: SpecialFolder = SpecialFolder.Normal;
+  @addon("mail.all")
   readonly messages = new EMailCollection<EMail>(this);
+  @addon("mail.all")
   readonly subFolders = new ArrayColl<Folder>();
+  @addon("mail.all")
   @notifyChangedProperty
   countTotal = 0;
+  @addon("mail.all")
   @notifyChangedProperty
   countUnread = 0;
   @notifyChangedProperty
@@ -400,6 +409,7 @@ export class Folder extends Observable {
   }
 }
 
+/** @addon("mail.all") */
 export enum SpecialFolder {
   Normal = "normal",
   Inbox = "inbox",

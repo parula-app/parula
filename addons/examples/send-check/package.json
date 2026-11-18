@@ -1,0 +1,17 @@
+{
+  "name": "@mustang-examples/send-check",
+  "version": "1.0.0",
+  "description": "Stops sending when the text mentions an attachment, but there is none. Marks the subject of checked messages.",
+  "author": "Mustang",
+  "mustang": {
+    "name": "Send check",
+    "icon": "icons/send-check.svg",
+    "permissions": [
+      "mail.compose"
+    ],
+    "main": "dist/main.js",
+    "hooks": [
+      "mail.send"
+    ]
+  }
+}

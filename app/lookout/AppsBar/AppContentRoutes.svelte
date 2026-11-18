@@ -36,6 +36,11 @@
       <WebAppsRoutes />
     </vbox>
   </Route>
+  <Route path="addon-app/*">
+    <vbox flex class="frontend-page">
+      <AddonAppPage app={$selectedApp} />
+    </vbox>
+  </Route>
   <Route path="settings/*">
     <vbox flex class="frontend-panes">
       <SettingsRoutes />
@@ -74,11 +79,12 @@
   import TopicRoutes from "../../frontend/Topic/TopicRoutes.svelte";
   import WebAppsRoutes from "../../frontend/WebApps/WebAppsRoutes.svelte";
   import SettingsRoutes from "../../frontend/Settings/SettingsRoutes.svelte";
+  import AddonAppPage from "../../frontend/Addons/AddonAppPage.svelte";
   // #if [!WEBMAIL]
   import SetupRoutes from "../Setup/SetupRoutes.svelte";
   // #endif
   import OAuth2EmbeddedBrowser from "../../frontend/Shared/Auth/OAuth2EmbeddedBrowser.svelte";
-  import { getParams } from "../../frontend/AppsBar/selectedApp";
+  import { getParams, selectedApp } from "../../frontend/AppsBar/selectedApp";
   import { requiredParam } from "../../frontend/Util/route";
   import { Route, useLocation } from "svelte-navigator";
 

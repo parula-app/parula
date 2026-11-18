@@ -1,4 +1,5 @@
 import { Calendar } from '../Calendar';
+import { AddonCalendar } from '../Addon/AddonCalendar';
 // #if [!WEBMAIL || WEBMAIL=JMAP]
 import { JMAPCalendar } from '../JMAP/JMAPCalendar';
 // #endif
@@ -29,6 +30,9 @@ export function newCalendarForProtocol(protocol: string): Calendar {
 }
 
 function _newCalendarForProtocol(protocol: string): Calendar {
+  if (protocol.startsWith("addon-")) {
+    return new AddonCalendar(protocol);
+  }
   if (protocol == "calendar-local") {
     return new Calendar();
   }

@@ -26,16 +26,21 @@ import { Lock } from "../util/flow/Lock";
 import { RunOnce } from "../util/flow/RunOnce";
 import { LoopGuard } from "../util/flow/LoopGuard";
 import { notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import { gt } from "../../l10n/l10n";
 import { Collection, ArrayColl, MapColl, SetColl } from "svelte-collections";
 import PostalMIME, { type Email as MIME } from "postal-mime";
 
+@addon("mail")
 export class EMail extends Message {
   @notifyChangedProperty
   from = new PersonUID();
+  @addon("mail")
   @notifyChangedProperty
   replyTo: PersonUID | null = null;
+  @addon("mail")
   readonly to = new ArrayColl<PersonUID>();
+  @addon("mail")
   readonly cc = new ArrayColl<PersonUID>();
   readonly bcc = new ArrayColl<PersonUID>();
   /** Tags/keywords that apply to this message.
@@ -44,6 +49,7 @@ export class EMail extends Message {
   readonly tags = new SetColl<Tag>();
   readonly headers = new MapColl<string, string>();
   /** Size of full RFC822 MIME message, in bytes */
+  @addon("mail")
   @notifyChangedProperty
   size: number;
   /** List of parent message IDs, starting with top level and ending with direct parent.
@@ -52,6 +58,7 @@ export class EMail extends Message {
   references: string[] | null = null;
 
   /** This is a Junk message */
+  @addon("mail")
   @notifyChangedProperty
   isSpam = false;
   /** The user has answered this message, by clicking "Reply" */
@@ -65,6 +72,7 @@ export class EMail extends Message {
   @notifyChangedProperty
   isImportant = false;
   /** The user started writing this message, but didn't send it yet */
+  @addon("mail")
   @notifyChangedProperty
   isDraft = false;
   /** We are currently sending this message to the server.
@@ -76,6 +84,7 @@ export class EMail extends Message {
   /** Complete MIME source of the email */
   @notifyChangedProperty
   mime: Uint8Array | undefined;
+  @addon("mail.all")
   folder: Folder;
   /** msg ID of the thread starter message */
   threadID: string | null = null;
@@ -153,6 +162,7 @@ export class EMail extends Message {
     this.folder = folder;
   }
 
+  @addon("mail")
   get messageID(): string {
     return this.id;
   }
@@ -613,6 +623,7 @@ export class EMail extends Message {
   }
 
   readonly loadBodyRunOnce = new RunOnce<void>();
+  @addon("mail")
   async loadBody() {
     if (this.loadedBody) {
       return;

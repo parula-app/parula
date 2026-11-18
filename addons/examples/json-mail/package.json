@@ -1,0 +1,26 @@
+{
+  "name": "@mustang-examples/json-mail",
+  "version": "1.0.0",
+  "description": "Mail from a server with a simple JSON API over https",
+  "author": "Mustang",
+  "files": [
+    "dist",
+    "icons"
+  ],
+  "mustang": {
+    "name": "JSON Mail",
+    "icon": "icons/json-mail.svg",
+    "hosts": [
+      "https://json-mail.example.com"
+    ],
+    "main": "dist/main.js",
+    "protocols": [
+      {
+        "id": "json",
+        "type": "mail",
+        "label": "JSON Mail",
+        "setup": "dist/setup.js"
+      }
+    ]
+  }
+}

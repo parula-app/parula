@@ -145,6 +145,7 @@
 
   async function startup() {
     await getStartObjects();
+    appGlobal.addons.loadOnStartup();
     if (appGlobal.emailAccounts.isEmpty && appGlobal.chatAccounts.isEmpty) {
       await setup();
     } else {

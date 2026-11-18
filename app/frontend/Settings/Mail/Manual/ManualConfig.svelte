@@ -1,5 +1,10 @@
 {#if usesHostname}
   <ManualConfigHost bind:config bind:stepFull {isSetup} bind:this={el} />
+{:else if isSetup && $config instanceof AddonMailAccount}
+  <hbox class="addon-protocol">
+    <ProtocolSelector bind:config {isSetup} />
+  </hbox>
+  <AddonAccountSetup account={$config} bind:this={el} />
 {:else}
   <ManualConfigURL bind:config bind:stepFull {isSetup} bind:this={el} />
 {/if}
@@ -30,6 +35,9 @@
   import { OAuth2 } from "../../../../logic/Auth/OAuth2";
   import ManualConfigURL from "./ManualConfigURL.svelte";
   import ManualConfigHost from "./ManualConfigHost.svelte";
+  import ProtocolSelector from "./ProtocolSelector.svelte";
+  import { AddonMailAccount } from "../../../../logic/Mail/Addon/AddonMailAccount";
+  import AddonAccountSetup from "../../../Setup/Addon/AddonAccountSetup.svelte";
   import OAuth2Manual from "./OAuth2Manual.svelte";
   import POP3Warning from "../../../Setup/Mail/POP3Warning.svelte";
   import Button from "../../../Shared/Button.svelte";
@@ -59,7 +67,7 @@
     }
   }
 
-  let el: ManualConfigURL | ManualConfigHost  = null;
+  let el: ManualConfigURL | ManualConfigHost | AddonAccountSetup = null;
   export async function onContinue(): Promise<boolean> {
     config.source = "manual";
     return await el.onContinue();
@@ -67,6 +75,9 @@
 </script>
 
 <style>
+  .addon-protocol {
+    margin-block-start: 24px;
+  }
   .buttons {
     justify-content: end;
     margin-block-start: 16px;
