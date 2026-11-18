@@ -157,7 +157,7 @@
     <InsertTab {editor} bind:openedTool onAttachFile={onAddAttachment} bind:showEmojis>
       <svelte:fragment slot="include">
         <RibbonMenuButton label={$t`Signature`} icon={SignatureIcon}>
-          <SignatureMenuItems identity={null} {editor} on:editSignatures={onEditSignatures} />
+          <SignatureMenuItems identity={null} {editor} />
         </RibbonMenuButton>
       </svelte:fragment>
     </InsertTab>
@@ -219,7 +219,7 @@
   import ReminderIcon from "lucide-svelte/icons/bell";
   import RecurrenceIcon from "lucide-svelte/icons/repeat-2";
   import RefreshIcon from "lucide-svelte/icons/refresh-cw";
-  import SignatureIcon from "lucide-svelte/icons/pen-line";
+  import SignatureIcon from "lucide-svelte/icons/stamp";
   import CopyIcon from "lucide-svelte/icons/clipboard-copy";
   import { t } from "../../../l10n/l10n";
 
@@ -238,7 +238,6 @@
   export let onSelectAttendees: () => void;
   export let onCheckNames: () => Promise<void>;
   export let onRefreshAvailability: () => void;
-  export let onEditSignatures: () => void;
 
   $: participants = event.participants;
   $: isMeeting = $participants.hasItems;

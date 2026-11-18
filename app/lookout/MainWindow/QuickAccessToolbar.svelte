@@ -1,4 +1,4 @@
-{#if $position.value == placement && $isShown.value}
+{#if appWindow.isMainWindow && $position.value == placement && $isShown.value}
   <hbox class="quick-access {placement}" role="toolbar" aria-label={$t`Quick Access Toolbar`}>
     {#each shownCommands as command (command.id)}
       <QuickAccessButton {command} />
@@ -33,6 +33,7 @@
   import { quickAccessCommands } from "./Selected";
   import { shownQuickAccessCommands, toggledQuickAccessIDs, type QuickAccessPosition } from "../Shared/QuickAccess/QuickAccess";
   import { getLocalStorage } from "../../frontend/Util/LocalStorage";
+  import { AppWindow } from "../../frontend/MainWindow/AppWindow";
   import QuickAccessButton from "./QuickAccessButton.svelte";
   import Menu from "../Shared/Menu/Menu.svelte";
   import MenuItem from "../Shared/Menu/MenuItem.svelte";
@@ -43,6 +44,7 @@
 
   export let placement: QuickAccessPosition;
 
+  const appWindow = AppWindow.current();
   const position = getLocalStorage<QuickAccessPosition>("lookout.qat.position", "above");
   const isShown = getLocalStorage<boolean>("lookout.quickaction.shown", false);
   const chosenIDs = getLocalStorage<string[] | null>("lookout.qat.commands", null);

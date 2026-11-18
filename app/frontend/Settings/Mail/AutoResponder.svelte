@@ -147,6 +147,7 @@
 
   async function onSave() {
     await autoResponder.save();
+    autoResponder.rememberTimes();
   }
 
   async function onAllow() {

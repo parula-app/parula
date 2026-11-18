@@ -1,7 +1,8 @@
 import type { EMail } from "../../../logic/Mail/EMail";
-import { hasOwnText } from "../../../frontend/Mail/Composer/CloseButton.svelte";
+import { MailBody } from "../../../logic/Mail/MailBody";
 import { askYesNo } from "../../Shared/Dialog/MessageBox";
 import { inlineReplies, inlineRibbon } from "../Selected";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 import { get } from "svelte/store";
 import { gt } from "../../../l10n/l10n";
 import type { RecipientField } from "./SelectNamesDialog.svelte";
@@ -25,27 +26,30 @@ export interface InlineRibbon {
   onSelectNames: (field: RecipientField) => void;
   onCheckNames: () => Promise<void>;
   onOpenTool: (tool: EditorTool) => void;
-  onEditSignatures: () => void;
 }
 
 export async function startInlineReply(original: EMail, draft: EMail) {
-  let existing = inlineReplies.find(reply => reply.original == original) ?? null;
-  if (existing && hasOwnText(existing.draft) &&
+  let appWindow = AppWindow.current();
+  let replies = appWindow.uiState(inlineReplies);
+  let existing = replies.find(reply => reply.original == original) ?? null;
+  if (existing && new MailBody(existing.draft.html).hasUserText &&
       !await askYesNo(gt`Discard Draft`, gt`You already started a response to this message. Do you want to discard it and start a new one?`)) {
     return;
   }
   if (existing) {
-    removeInlineReply(existing.draft);
+    removeInlineReply(existing.draft, appWindow);
   }
-  inlineReplies.add(new InlineReply(original, draft));
+  replies.add(new InlineReply(original, draft));
 }
 
-export function removeInlineReply(draft: EMail) {
-  let reply = inlineReplies.find(existing => existing.draft == draft);
+export function removeInlineReply(draft: EMail, appWindow = AppWindow.current()) {
+  let replies = appWindow.uiState(inlineReplies);
+  let reply = replies.find(existing => existing.draft == draft);
   if (reply) {
-    inlineReplies.remove(reply);
+    replies.remove(reply);
   }
-  if (get(inlineRibbon)?.draft == draft) {
-    inlineRibbon.set(null);
+  let ribbon = appWindow.uiState(inlineRibbon);
+  if (get(ribbon)?.draft == draft) {
+    ribbon.set(null);
   }
 }

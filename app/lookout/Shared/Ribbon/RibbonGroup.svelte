@@ -36,13 +36,15 @@
     </div>
   {/if}
 </div>
-<svelte:window on:click={onClickOutside} on:keydown={onKeyDown} on:resize={closePopup} />
+<AppWindowEvents on:click={onClickOutside} on:keydown={onKeyDown} on:resize={closePopup} />
 
 <script lang="ts">
   import { computeStageWidths, type RibbonGroupInfo, type RibbonGroupLook, type RibbonItemInfo, type RibbonLayout, type RibbonMetrics } from "./RibbonGroup";
   import type { RibbonHiddenParts } from "./RibbonCustomization";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import RibbonButtonBase from "./RibbonButtonBase.svelte";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import { showError } from "../../../frontend/Util/error";
   import LauncherIcon from "lucide-svelte/icons/arrow-down-right";
   import { getContext, setContext, onMount, onDestroy } from "svelte";
@@ -53,6 +55,7 @@
   export let onLauncher: () => void | Promise<void> = null;
   export let launcherTooltip: string = null;
 
+  const appWindow = AppWindow.current();
   const ribbonID = getContext<string>("ribbonID");
   const tabLabel = getContext<Readable<string>>("ribbonTabLabel") ?? readable<string>(undefined);
   const onGroupAdded = getContext<(group: RibbonGroupInfo) => void>("onRibbonGroupAdded");
@@ -135,7 +138,7 @@
     }));
     let currentLayout: RibbonLayout = layout;
     if (labelTextEl) {
-      let text = document.createRange();
+      let text = appWindow.window.document.createRange();
       text.selectNodeContents(labelTextEl);
       labelWidth = Math.ceil(text.getBoundingClientRect().width);
     }
@@ -193,7 +196,7 @@
       return;
     }
     let anchor = collapsedButtonEl.getBoundingClientRect();
-    let left = Math.max(4, Math.min(anchor.left, window.innerWidth - buttonsEl.offsetWidth - 8));
+    let left = Math.max(4, Math.min(anchor.left, appWindow.window.innerWidth - buttonsEl.offsetWidth - 8));
     popupStyle = `left: ${left}px; top: ${anchor.bottom + 4}px;`;
     isPopupOpen = true;
   }

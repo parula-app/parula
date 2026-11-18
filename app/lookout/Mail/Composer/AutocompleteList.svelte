@@ -19,13 +19,17 @@
     </hbox>
   {/each}
 </vbox>
-<svelte:window on:resize={place} />
+<AppWindowEvents on:resize={place} />
 
 <script lang="ts">
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import PersonCircle from "../../Contacts/Person/PersonCircle.svelte";
   import { t } from "../../../l10n/l10n";
   import { createEventDispatcher } from "svelte";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
+
+  const appWindow = AppWindow.current();
 
   export let suggestions: PersonUID[];
   export let highlighted = 0;
@@ -46,7 +50,7 @@
     }
     let rect = anchor.getBoundingClientRect();
     width = Math.max(320, Math.min(rect.width, 480));
-    left = Math.min(rect.left, window.innerWidth - width - 8);
+    left = Math.min(rect.left, appWindow.window.innerWidth - width - 8);
     top = rect.bottom + 2;
   }
 

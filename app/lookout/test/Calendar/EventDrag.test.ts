@@ -18,7 +18,7 @@ function newEvent(start: Date, end: Date): Event {
 }
 
 function drag(event: Event, mode: EventDragMode, deltaMinutes: number, deltaDays = 0): EventDrag {
-  let pointer = { clientX: 100, clientY: 100 } as PointerEvent;
+  let pointer = { clientX: 100, clientY: 100, target: document.body } as unknown as PointerEvent;
   let eventDrag = new EventDrag(event, mode, pointer, 0.8, 15);
   eventDrag.hasMoved = true;
   eventDrag.deltaMinutes = deltaMinutes;
@@ -64,7 +64,7 @@ test("A click without movement doesn't change the time", () => {
 
 test("Moving the pointer snaps to the time steps", () => {
   let event = newEvent(new Date(2026, 9, 15, 9), new Date(2026, 9, 15, 10));
-  let eventDrag = new EventDrag(event, "resize-end", { clientX: 100, clientY: 100 } as PointerEvent, 0.8, 15);
+  let eventDrag = new EventDrag(event, "resize-end", { clientX: 100, clientY: 100, target: document.body } as unknown as PointerEvent, 0.8, 15);
   // 0.8 px per minute: 20 px = 25 minutes -> 30 minutes
   eventDrag.move({ clientX: 100, clientY: 120 } as PointerEvent);
   expect(eventDrag.deltaMinutes).toBe(30);
@@ -77,7 +77,7 @@ test("Dropping on a day of the date navigator moves the event to that day, at th
   navigatorDay.dataset.navDay = String(new Date(2026, 9, 20).getTime());
   document.elementsFromPoint = () => [ navigatorDay ];
   try {
-    let eventDrag = new EventDrag(event, "move", { clientX: 100, clientY: 100 } as PointerEvent, 0.8, 15);
+    let eventDrag = new EventDrag(event, "move", { clientX: 100, clientY: 100, target: document.body } as unknown as PointerEvent, 0.8, 15);
     eventDrag.move({ clientX: 300, clientY: 40 } as PointerEvent);
     expect(eventDrag.deltaMinutes).toBe(0);
     expect(eventDrag.deltaDays).toBe(5);
