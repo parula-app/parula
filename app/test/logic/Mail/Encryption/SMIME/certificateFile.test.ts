@@ -1,7 +1,7 @@
 import { appGlobal } from "../../../../../logic/app";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { SMIMEPublicKey, KeyStatus } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { importPublicKey, readPublicKeyFile } from "../../../../../logic/Mail/Encryption/KeyUtils";
+import { importPrivateKey, importPublicKey, readPrivateKeyFile, readPublicKeyFile } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { base64ToBytes } from "../../../../../../lib/asn1/decoders/pem";
 import { expect, test, describe } from "vitest";
 
@@ -213,4 +213,11 @@ test("A file without a certificate is rejected", async () => {
   await expect(contactKey.addCertificateFile(fileContent)).rejects.toThrow();
   let ownKey = await SMIMEPrivateKey.importPrivateKey(kUserKey);
   await expect(ownKey.addCertificateFile(fileContent)).rejects.toThrow();
+});
+
+test("Our own key, exported and imported again, keeps its certificate and its CAs", async () => {
+  let key = await SMIMEPrivateKey.importPrivateKey(kUserKey);
+  await key.addCertificateFile(kChain);
+  let imported = await importPrivateKey(await readPrivateKeyFile(key.privateKeyAsFile(), key.passphrase), key.passphrase);
+  await expectUserCertificate(imported as SMIMEPrivateKey, true);
 });
