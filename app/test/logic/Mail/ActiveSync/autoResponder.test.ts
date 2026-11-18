@@ -83,12 +83,11 @@ test("Reads the settings from the server", async () => {
   expect(autoResponder.startTime.toISOString()).toBe("2026-10-05T07:00:00.000Z");
   expect(autoResponder.endTime.toISOString()).toBe("2026-10-19T16:00:00.000Z");
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Contacts);
-  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.All);
   expect(autoResponder.internalHTML).toBe("sanitized:<p>Back on the 19th</p>");
   expect(autoResponder.externalHTML).toBe("sanitized:<p>I am out of office.</p>");
 });
 
-test("Audiences that the admin disallowed are missing", async () => {
+test("Without external messages, there are no replies outside", async () => {
   let account = newAccount();
   account.response = settingsResponse(
     open(T.Get),
@@ -100,10 +99,11 @@ test("Audiences that the admin disallowed are missing", async () => {
 
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
-  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.None);
+  // Not the admin: Z-Push (Kopano, Zarafa) and Horde have one message for all senders
+  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.All);
 });
 
-test("While it's off, the audience is the most that the admin allows", async () => {
+test("While it's off, the audience is Exchange's default", async () => {
   let account = newAccount();
   // As Exchange sends it while OOF is off
   account.response = settingsResponse(

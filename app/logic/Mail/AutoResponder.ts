@@ -41,7 +41,7 @@ export class AutoResponder extends Observable {
   @notifyChangedProperty
   externalAudience = AutoResponderAudience.None;
   /** Limit of `externalAudience`, set by the admin.
-   * EWS reports it. OWA and Graph don't. */
+   * Only EWS reports it. OWA, Graph and ActiveSync don't. */
   @notifyChangedProperty
   maxAudience = AutoResponderAudience.All;
 
