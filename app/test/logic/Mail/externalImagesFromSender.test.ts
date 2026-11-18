@@ -56,6 +56,23 @@ test("Junk does not load pictures, because spammers forge the sender address", (
   expect(markedAsJunk.loadExternalImagesFromSender()).toBe(false);
 });
 
+test("An encrypted mail does not load pictures, because an attacker can change it so that it sends its text to him (EFAIL)", () => {
+  newMail("news@example.com").setLoadExternalImagesFromSender(true);
+
+  let encrypted = newMail("news@example.com");
+  encrypted.wasEncrypted = true;
+  expect(encrypted.loadExternalImagesFromSender()).toBe(false);
+});
+
+test("The user stops pictures from the sender in an encrypted mail", () => {
+  newMail("news@example.com").setLoadExternalImagesFromSender(true);
+  let encrypted = newMail("news@example.com");
+  encrypted.wasEncrypted = true;
+  encrypted.setLoadExternalImagesFromSender(false);
+
+  expect(newMail("news@example.com").loadExternalImagesFromSender()).toBe(false);
+});
+
 test("A mail without sender allows nothing for other mails without sender", () => {
   newMail(null).setLoadExternalImagesFromSender(true);
 
