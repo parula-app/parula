@@ -81,14 +81,16 @@ describe("A message encrypted with ECDH to our EC key decrypts", () => {
 describe("A message encrypted with ECDH to our EC key that we cannot decrypt tells the user why", () => {
   test("a KDF that we do not support", async () => {
     await useKey(kOwnP256);
-    let { errors } = await read(kECDHSHA224);
+    let { email, errors } = await read(kECDHSHA224);
     expect(errors).toEqual([expect.stringMatching(/sha224/i)]);
+    expect(email.html).toMatch(/sha224/i); // shown in the mail viewer
   });
 
   test("a key wrap algorithm that we do not support", async () => {
     await useKey(kOwnP256);
-    let { errors } = await read(kECDH3DESWrap);
+    let { email, errors } = await read(kECDH3DESWrap);
     expect(errors).toEqual([expect.stringMatching(/3DES/i)]);
+    expect(email.html).toMatch(/3DES/i); // shown in the mail viewer
   });
 
   test("a damaged encrypted key", async () => {
@@ -96,8 +98,9 @@ describe("A message encrypted with ECDH to our EC key that we cannot decrypt tel
     let envelopedData = EnvelopedData.decode(base64ToBytes(kOutlookECDH));
     let kari = envelopedData.content.recipientInfos.find(recipientInfo => recipientInfo.type == "kari");
     kari.value.recipientEncryptedKeys[0].encryptedKey[5] ^= 1;
-    let { errors } = await read(Buffer.from(EnvelopedData.encode(envelopedData)).toString("base64"));
+    let { email, errors } = await read(Buffer.from(EnvelopedData.encode(envelopedData)).toString("base64"));
     expect(errors).toEqual(["Could not decrypt this message"]);
+    expect(email.html).toContain("Could not decrypt this message"); // shown in the mail viewer
   });
 });
 

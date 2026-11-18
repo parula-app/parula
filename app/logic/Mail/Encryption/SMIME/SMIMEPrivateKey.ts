@@ -7,7 +7,8 @@ import { sameName } from "./SMIMEVerify";
 import { uint8ArrayToHex } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
-import { assert, NotImplemented, UserError } from "../../../util/util";
+import { assert, NotImplemented } from "../../../util/util";
+import { CannotReadMail } from "../../EMailProcessor";
 import { gt } from "../../../../l10n/l10n";
 import { sha256 } from "@noble/hashes/sha2.js";
 
@@ -91,7 +92,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     let keyWrapAlgorithm = AlgorithmIdentifier.decode(keyEncryptionAlgorithm.parameters);
     let hash = sanitize.translate(keyEncryptionAlgorithm.algorithm, KeyAgreementAlgorithm, null);
     if (!hash || !sanitize.translate(keyWrapAlgorithm.algorithm, KeyWrapAlgorithm, null)) {
-      throw new NotImplemented(gt`The key of this message is encrypted with ECDH using ${algorithmName(keyEncryptionAlgorithm.algorithm)} and ${algorithmName(keyWrapAlgorithm.algorithm)}, which is not supported`);
+      throw new CannotReadMail(null, gt`The key of this message is encrypted with ECDH using ${algorithmName(keyEncryptionAlgorithm.algorithm)} and ${algorithmName(keyWrapAlgorithm.algorithm)}, which is not supported`);
     }
     assert(originator.type == "originatorKey" && originator.value.algorithm.algorithm == "ecPublicKey", "Unsupported ECDH: The key of the sender is missing");
     // Outlook sends its key without the curve, so it is on the curve of our key
@@ -105,7 +106,7 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
       let key = await crypto.subtle.unwrapKey("raw", encryptedKey as BufferSource, keyEncryptionKey, "AES-KW", "AES-CBC", true, ["decrypt"]);
       return new Uint8Array(await crypto.subtle.exportKey("raw", key));
     } catch (ex) {
-      throw new UserError(gt`Could not decrypt this message`);
+      throw new CannotReadMail(null, gt`Could not decrypt this message`);
     }
   }
 
