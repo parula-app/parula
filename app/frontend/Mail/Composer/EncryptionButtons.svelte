@@ -102,7 +102,7 @@
         extra.encryptOnlyByDefault = true;
       }
       if (mail.shouldSign && extra.signOnlyByDefault && !privateKey.useToSign) {
-        mail.signWithKeyFingerprint = null;
+        mail.shouldSign = false;
         extra.signOnlyByDefault = false;
       }
       if (mail.shouldEncrypt && extra.encryptOnlyByDefault && !privateKey.encryptByDefault) {
@@ -112,7 +112,7 @@
     } else {
       assert(!mail.mustEncrypt, gt`This email must be encrypted.`);
       mail.shouldEncrypt = false;
-      mail.signWithKeyFingerprint = null;
+      mail.shouldSign = false;
     }
   }
 
@@ -123,7 +123,7 @@
     if (mail.shouldSign && mail.shouldEncrypt) {
       mail.shouldEncrypt = false;
     } else if (mail.shouldSign) {
-      mail.signWithKeyFingerprint = null;
+      mail.shouldSign = false;
       mail.shouldEncrypt = false;
     } else {
       doSign();
@@ -155,7 +155,7 @@
     if (mail.mustEncrypt) {
       return;
     }
-    mail.signWithKeyFingerprint = null;
+    mail.shouldSign = false;
     mail.shouldEncrypt = false;
   }
 

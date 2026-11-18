@@ -388,7 +388,7 @@
         extra.encryptOnlyByDefault = true;
       }
       if (mail.shouldSign && extra.signOnlyByDefault && !privateKey.useToSign) {
-        mail.signWithKeyFingerprint = null;
+        mail.shouldSign = false;
         extra.signOnlyByDefault = false;
       }
       if (mail.shouldEncrypt && extra.encryptOnlyByDefault && !privateKey.encryptByDefault) {
@@ -398,7 +398,7 @@
     } else {
       assert(!mail.mustEncrypt, $t`This email must be encrypted`);
       mail.shouldEncrypt = false;
-      mail.signWithKeyFingerprint = null;
+      mail.shouldSign = false;
     }
   }
   // </copied>

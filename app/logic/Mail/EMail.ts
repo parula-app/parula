@@ -173,6 +173,12 @@ export class EMail extends Message {
   get shouldSign(): boolean {
     return !!this.signWithKeyFingerprint;
   }
+  /** false: Don't sign this email.
+   * To sign it, set `signWithKeyFingerprint` to the key that signs. */
+  set shouldSign(val: boolean) {
+    assert(!val, "To sign, set signWithKeyFingerprint");
+    this.signWithKeyFingerprint = null;
+  }
 
   get mustEncrypt(): boolean {
     return this._mustEncrypt;

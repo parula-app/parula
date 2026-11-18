@@ -47,7 +47,7 @@
     if (mail.shouldSign && mail.shouldEncrypt) {
       mail.shouldEncrypt = false;
     } else if (mail.shouldSign) {
-      mail.signWithKeyFingerprint = null;
+      mail.shouldSign = false;
       mail.shouldEncrypt = false;
     } else {
       doSign();
