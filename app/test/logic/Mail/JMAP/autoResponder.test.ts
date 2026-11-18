@@ -4,6 +4,7 @@ import { appGlobal } from "../../../../logic/app";
 import { JMAPAccount } from "../../../../logic/Mail/JMAP/JMAPAccount";
 import { JMAPAutoResponder } from "../../../../logic/Mail/JMAP/JMAPAutoResponder";
 import { StalwartAutoResponder } from "../../../../logic/Mail/JMAP/StalwartAutoResponder";
+import { AutoResponderAudience } from "../../../../logic/Mail/AutoResponder";
 import type { TJMAPMethodResponse, TJMAPSession } from "../../../../logic/Mail/JMAP/TJMAPGeneric";
 import type { TJMAPSieveScript, TJMAPVacationResponse } from "../../../../logic/Mail/JMAP/TJMAPMail";
 import { expect, test } from "vitest";
@@ -121,7 +122,7 @@ test("Writes the reply and the time range", async () => {
   autoResponder.scheduled = true;
   autoResponder.startTime = new Date("2026-12-21T08:00:00Z");
   autoResponder.endTime = new Date("2027-01-04T17:00:00Z");
-  autoResponder.internalHTML = "<p>Back on <b>January 4</b></p>";
+  autoResponder.externalHTML = "<p>Back on <b>January 4</b></p>";
   await autoResponder.save();
 
   expect(server.vacation.isEnabled).toBe(true);
@@ -152,20 +153,21 @@ test("Reads the reply and the time range", async () => {
   expect(autoResponder.scheduled).toBe(true);
   expect(autoResponder.startTime.getTime()).toBe(new Date("2026-12-21T08:00:00Z").getTime());
   expect(autoResponder.endTime.getTime()).toBe(new Date("2027-01-04T17:00:00Z").getTime());
-  expect(autoResponder.internalHTML).toContain("Back on January 4"); // Text from another app
+  expect(autoResponder.externalHTML).toContain("Back on January 4"); // Text from another app
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.All);
 
   server.vacation = { ...server.vacation, isEnabled: false, fromDate: null, toDate: null, htmlBody: "<p>Gone fishing</p>" };
   await autoResponder.load();
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
-  expect(autoResponder.internalHTML).toContain("Gone fishing");
+  expect(autoResponder.externalHTML).toContain("Gone fishing");
 });
 
 test("Stalwart: The filters keep working while the automatic replies are on, and afterwards", async () => {
   let server = new Server(true, kFilters);
   let autoResponder = server.account.autoResponder;
   autoResponder.isOn = true;
-  autoResponder.internalHTML = "<p>Gone fishing</p>";
+  autoResponder.externalHTML = "<p>Gone fishing</p>";
   await autoResponder.save();
 
   expect(server.vacation.htmlBody).toContain("Gone fishing");
@@ -196,7 +198,7 @@ test("Stalwart: Changing the reply while it's on keeps our script", async () => 
   await autoResponder.save();
   let ourScript = server.activeScript;
 
-  autoResponder.internalHTML = "<p>Back next week</p>";
+  autoResponder.externalHTML = "<p>Back next week</p>";
   await autoResponder.save();
   expect(server.activeScript).toBe(ourScript);
   expect(server.vacation.htmlBody).toContain("Back next week");
@@ -234,7 +236,7 @@ test("Stalwart: A too long reply fails before it changes anything", async () => 
   let server = new Server(true, kFilters);
   let autoResponder = server.account.autoResponder;
   autoResponder.isOn = true;
-  autoResponder.internalHTML = "<p>" + "Gone fishing. ".repeat(200) + "</p>";
+  autoResponder.externalHTML = "<p>" + "Gone fishing. ".repeat(200) + "</p>";
 
   await expect(autoResponder.save()).rejects.toThrow();
   expect(server.methods).toEqual([]);

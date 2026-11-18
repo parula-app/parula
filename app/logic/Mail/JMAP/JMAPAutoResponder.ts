@@ -1,4 +1,4 @@
-import { AutoResponder } from "../AutoResponder";
+import { AutoResponder, AutoResponderAudience } from "../AutoResponder";
 import type { JMAPAccount } from "./JMAPAccount";
 import type { TJMAPChangeResponse, TJMAPGetResponse } from "./TJMAPGeneric";
 import type { TJMAPVacationResponse } from "./TJMAPMail";
@@ -46,15 +46,16 @@ export class JMAPAutoResponder extends AutoResponder {
     let toDate = sanitize.date(json.toDate, null);
     this.scheduled = !!fromDate || !!toDate;
     this.setTimes(fromDate ?? this.startTime, toDate ?? this.endTime);
-    // For all senders, also outside the organization, because JMAP has only one message
-    this.internalHTML = json.htmlBody
+    // JMAP has only one message, for all senders, also outside the organization
+    this.externalAudience = AutoResponderAudience.All;
+    this.externalHTML = json.htmlBody
       ? sanitizeHTML(json.htmlBody)
       : convertTextToHTML(sanitize.string(json.textBody, ""));
   }
 
   /** The subject stays as it is on the server */
   toJMAP(): TJMAPVacationResponse {
-    let html = this.stripEmptyParagraph(this.internalHTML);
+    let html = this.stripEmptyParagraph(this.externalHTML);
     return {
       isEnabled: this.isOn,
       fromDate: this.isOn && this.scheduled ? this.startTime.toISOString() : null,

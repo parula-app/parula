@@ -45,7 +45,7 @@ export class StalwartAutoResponder extends JMAPAutoResponder {
   /** Stalwart takes only replies with less than 2048 bytes */
   protected validate() {
     super.validate();
-    assert(new TextEncoder().encode(this.internalHTML).length < 2048, gt`The automatic reply is too long for the server. Please shorten it.`);
+    assert(new TextEncoder().encode(this.externalHTML).length < 2048, gt`The automatic reply is too long for the server. Please shorten it.`);
   }
 
   protected async listScripts(): Promise<TJMAPSieveScript[]> {

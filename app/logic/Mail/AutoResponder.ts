@@ -30,11 +30,11 @@ export class AutoResponder extends Observable {
   startTime: Date;
   @notifyChangedProperty
   endTime: Date;
-  /** For senders inside the organization.
-   * For all senders, if `!supportsExternal`. */
+  /** For senders inside the organization. Only if `supportsExternal`. */
   @notifyChangedProperty
   internalHTML = "";
-  /** For senders outside the organization */
+  /** For senders outside the organization.
+   * For all senders, if `!supportsExternal`. */
   @notifyChangedProperty
   externalHTML = "";
   /** Which senders outside the organization get `externalHTML` */
@@ -114,7 +114,8 @@ export class AutoResponder extends Observable {
  * Exchange stores it as `ExternalAudience`, and the server enforces the admin's limit.
  *
  * It matters only if `supportsExternal`, i.e. for Exchange.
- * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders.
+ * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders
+ * with `externalHTML`, so their audience is `All`.
  *
  * The values are Graph's `externalAudience`. */
 export enum AutoResponderAudience {
