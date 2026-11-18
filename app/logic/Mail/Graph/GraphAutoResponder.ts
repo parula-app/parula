@@ -51,7 +51,7 @@ export class GraphAutoResponder extends AutoResponder {
     let status = sanitize.string(json.status, "").toLowerCase();
     this.isOn = status == "alwaysenabled" || status == "scheduled";
     this.scheduled = status == "scheduled";
-    this.setTimes(this.parseTime(json.scheduledStartDateTime), this.parseTime(json.scheduledEndDateTime));
+    this.timesFromServer(this.parseTime(json.scheduledStartDateTime), this.parseTime(json.scheduledEndDateTime));
     this.externalAudience = sanitize.translate(sanitize.string(json.externalAudience, "").toLowerCase(), {
       none: AutoResponderAudience.Internal,
       contactsonly: AutoResponderAudience.Contacts,

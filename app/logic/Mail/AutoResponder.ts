@@ -94,8 +94,8 @@ export class AutoResponder extends Observable {
     }
   }
 
-  /** Call after setting `scheduled` */
-  protected setTimes(startTime: Date | null, endTime: Date | null) {
+  /** Takes the times that the server reports. Call after reading `scheduled` from the server. */
+  protected timesFromServer(startTime: Date | null, endTime: Date | null) {
     // Without a time range, the times are useless as defaults: Exchange makes up
     // the current hour until tomorrow, and other servers have old dates of a past vacation
     if (startTime && endTime && this.scheduled) {

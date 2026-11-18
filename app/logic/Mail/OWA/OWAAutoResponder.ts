@@ -21,7 +21,7 @@ export class OWAAutoResponder extends ExchangeAutoResponder {
   /** @param options as returned by `GetMailboxAutoReplyConfiguration` in `load()` */
   fromOWA(options: any) {
     this.oofState = sanitize.integerRange(options.AutoReplyState, 0, 2, OOFState.Disabled);
-    this.setTimes(sanitize.date(options.StartTime, null), sanitize.date(options.EndTime, null));
+    this.timesFromServer(sanitize.date(options.StartTime, null), sanitize.date(options.EndTime, null));
     this.externalAudience = sanitize.translate(options.ExternalAudience, {
       0: AutoResponderAudience.Internal,
       1: AutoResponderAudience.Contacts,

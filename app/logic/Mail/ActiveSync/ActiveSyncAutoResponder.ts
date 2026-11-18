@@ -33,7 +33,7 @@ export class ActiveSyncAutoResponder extends ExchangeAutoResponder {
   /** @param wbxmljs `Get` of the `Oof` response */
   fromWBXML(wbxmljs: Record<string, any>) {
     this.oofState = sanitize.integerRange(wbxmljs.OofState, 0, 2, OOFState.Disabled);
-    this.setTimes(sanitize.date(wbxmljs.StartTime, null), sanitize.date(wbxmljs.EndTime, null));
+    this.timesFromServer(sanitize.date(wbxmljs.StartTime, null), sanitize.date(wbxmljs.EndTime, null));
     let messages = ensureArray(wbxmljs.OofMessage).filter(message => message && typeof (message) == "object");
     let internal = messages.find(message => "AppliesToInternal" in message);
     let known = messages.find(message => "AppliesToExternalKnown" in message);

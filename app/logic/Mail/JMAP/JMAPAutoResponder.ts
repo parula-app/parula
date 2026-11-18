@@ -45,7 +45,7 @@ export class JMAPAutoResponder extends AutoResponder {
     let fromDate = sanitize.date(json.fromDate, null);
     let toDate = sanitize.date(json.toDate, null);
     this.scheduled = !!fromDate || !!toDate;
-    this.setTimes(fromDate ?? this.startTime, toDate ?? this.endTime);
+    this.timesFromServer(fromDate ?? this.startTime, toDate ?? this.endTime);
     // JMAP has only one message, for all senders, also outside the organization
     this.externalAudience = AutoResponderAudience.All;
     this.externalHTML = json.htmlBody
