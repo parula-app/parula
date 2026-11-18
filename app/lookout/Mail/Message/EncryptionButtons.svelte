@@ -28,12 +28,12 @@
 
   let signingKey: PublicKey = null;
   // <copied from="../../../frontend/Mail/Message/EncryptionButtons.svelte">
-  $: getPublicKeyByFingerprint($message.signedKeyFingerprint, message)
+  $: getPublicKeyByFingerprint($message.signedPublicKeyFingerprint, message)
     .then(key => signingKey = key)
     .catch(showError);
   // </copied>
   /* <copied to="EncryptionDetails.svelte"> */
-  $: isSigned = $message && !!message.signedKeyFingerprint && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
+  $: isSigned = $message && !!message.signedPublicKeyFingerprint && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
   /* </copied> */
   $: isEncrypted = !!$message.wasEncrypted;
 </script>

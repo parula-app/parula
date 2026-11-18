@@ -58,17 +58,17 @@ describe("The key of a sender who is not in the addressbook", () => {
   test("is stored with the message, and read back on demand", async () => {
     let { folder } = await setupTestFolder({ getCACertificates: async () => [] });
     let email = await readAndSaveSignedMessage(folder);
-    expect(email.signedKey).toBeTruthy();
+    expect(email.signedPublicKey).toBeTruthy();
 
     let fromDB = await reread(email);
-    expect(fromDB.signedKeyFingerprint).toBe(email.signedKeyFingerprint);
-    expect(fromDB.signedKey).toBe(null); // not parsed while merely reading
-    expect(fromDB.signedKeyJSON).toBeTruthy();
+    expect(fromDB.signedPublicKeyFingerprint).toBe(email.signedPublicKeyFingerprint);
+    expect(fromDB.signedPublicKey).toBe(null); // not parsed while merely reading
+    expect(fromDB.signedPublicKeyJSON).toBeTruthy();
 
-    let signingKey = await getPublicKeyByFingerprint(fromDB.signedKeyFingerprint, fromDB);
-    expect(signingKey.id).toBe(email.signedKey.id);
+    let signingKey = await getPublicKeyByFingerprint(fromDB.signedPublicKeyFingerprint, fromDB);
+    expect(signingKey.id).toBe(email.signedPublicKey.id);
     expect(signingKey.userIDs.contents).toEqual(["alice@example.com"]);
-    expect(fromDB.signedKey).toBe(signingKey); // parsed only once
+    expect(fromDB.signedPublicKey).toBe(signingKey); // parsed only once
   });
 
   test("is read from the message itself, for messages that predate this", async () => {
@@ -78,10 +78,10 @@ describe("The key of a sender who is not in the addressbook", () => {
     await folder.account.contentStorage.first.save(email);
 
     let fromDB = await reread(email);
-    fromDB.signedKeyJSON = null; // an older message, stored without the key
+    fromDB.signedPublicKeyJSON = null; // an older message, stored without the key
 
-    let signingKey = await getPublicKeyByFingerprint(fromDB.signedKeyFingerprint, fromDB);
-    expect(signingKey.id).toBe(email.signedKey.id);
+    let signingKey = await getPublicKeyByFingerprint(fromDB.signedPublicKeyFingerprint, fromDB);
+    expect(signingKey.id).toBe(email.signedPublicKey.id);
     // stored now, so that we do not read the message again
     expect(await reread(email)).toHaveProperty("signedKeyJSON.id", signingKey.id);
   });
@@ -94,12 +94,12 @@ describe("The key of a sender who is not in the addressbook", () => {
 
     // As "Add to addressbook" does it
     let alice = email.from.createPerson(addressbook);
-    alice.addEncryptionPublicKey(email.signedKey);
+    alice.addEncryptionPublicKey(email.signedPublicKey);
     await SQLEMail.save(email);
 
     let fromDB = await reread(email);
-    expect(fromDB.signedKeyJSON).toBe(null);
-    let signingKey = await getPublicKeyByFingerprint(fromDB.signedKeyFingerprint, fromDB);
+    expect(fromDB.signedPublicKeyJSON).toBe(null);
+    let signingKey = await getPublicKeyByFingerprint(fromDB.signedPublicKeyFingerprint, fromDB);
     expect(signingKey).toBe(alice.encryptionPublicKeys.first);
   });
 });
@@ -114,12 +114,12 @@ describe("The key that the mail viewer shows", () => {
     // Alice's certificate in the message is valid from 2026-08-31, the contact's only from 2026-11-06
     let alice = email.from.createPerson(addressbook);
     alice.encryptionPublicKeys.replaceAll([await SMIMEPublicKey.importPublicKey(kAliceRenewedCertificate)]);
-    expect(alice.encryptionPublicKeys.first.id).toBe(email.signedKey.id);
+    expect(alice.encryptionPublicKeys.first.id).toBe(email.signedPublicKey.id);
     await SQLEMail.save(email);
 
     for (let message of [email, await reread(email)]) {
-      let signingKey = await getPublicKeyByFingerprint(message.signedKeyFingerprint, message) as SMIMEPublicKey;
-      expect(signingKey.fingerprint).toBe(email.signedKey.fingerprint);
+      let signingKey = await getPublicKeyByFingerprint(message.signedPublicKeyFingerprint, message) as SMIMEPublicKey;
+      expect(signingKey.fingerprint).toBe(email.signedPublicKey.fingerprint);
       expect(signingKey.isValidAt(message.received)).toBe(true);
     }
   });
@@ -132,13 +132,13 @@ describe("The key that the mail viewer shows", () => {
 
     let alice = email.from.createPerson(addressbook);
     alice.encryptionPublicKeys.replaceAll([await SMIMEPublicKey.importPublicKey(kAliceRenewedCertificate)]);
-    alice.addEncryptionPublicKey(email.signedKey);
+    alice.addEncryptionPublicKey(email.signedPublicKey);
     expect(alice.encryptionPublicKeys.length).toBe(2);
     await SQLEMail.save(email);
 
     let fromDB = await reread(email);
-    expect(fromDB.signedKeyJSON).toBe(null); // the contact has it
-    expect(await getPublicKeyByFingerprint(fromDB.signedKeyFingerprint, fromDB)).toBe(alice.encryptionPublicKeys.last);
+    expect(fromDB.signedPublicKeyJSON).toBe(null); // the contact has it
+    expect(await getPublicKeyByFingerprint(fromDB.signedPublicKeyFingerprint, fromDB)).toBe(alice.encryptionPublicKeys.last);
   });
 });
 

@@ -86,7 +86,7 @@ async function send(signedHeaders: string, encrypt: boolean, sender = alice): Pr
   mail.identity = sender;
   mail.from = findOrCreatePersonUID(sender.emailAddress, sender.realname);
   mail.to.add(userUID);
-  mail.signWithKey = sender.encryptionPrivateKeys.first;
+  mail.signPrivateKey = sender.encryptionPrivateKeys.first;
   mail.shouldEncrypt = encrypt;
   return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
 }
@@ -99,13 +99,13 @@ async function receive(mime: string): Promise<EMail> {
 }
 
 function expectSigned(email: EMail) {
-  expect(email.signedKeyFingerprint).toBeTruthy();
-  expect(email.signedKeyFingerprint).toBe(email.signedKey?.fingerprint);
+  expect(email.signedPublicKeyFingerprint).toBeTruthy();
+  expect(email.signedPublicKeyFingerprint).toBe(email.signedPublicKey?.fingerprint);
 }
 
 function expectNotSigned(email: EMail) {
-  expect(email.signedKeyFingerprint).toBe(null);
-  expect(email.signedKey).toBe(null);
+  expect(email.signedPublicKeyFingerprint).toBe(null);
+  expect(email.signedPublicKey).toBe(null);
 }
 
 describe("PGP signed message", () => {
@@ -113,7 +113,7 @@ describe("PGP signed message", () => {
     let email = await sendAndReceive(kHeaders, false);
     expect(email.wasEncrypted).toBe(false);
     expectSigned(email);
-    expect(aliceUID.encryptionPublicKey).toBe(email.signedKey);
+    expect(aliceUID.encryptionPublicKey).toBe(email.signedPublicKey);
   });
 
   test("whose signed From: is another address is not signed", async () => {
@@ -159,7 +159,7 @@ describe("PGP message signed with a subkey", () => {
     (daveKey as any)._openPGPPublicKey = openPGPKey;
 
     let email = await sendAndReceive(kHeaders.replace("Alice <alice@example.com>", "Dave <dave@example.com>"), false, mallory, "Dave <dave@example.com>");
-    expect(email.signedKey).toBe(malloryKey);
+    expect(email.signedPublicKey).toBe(malloryKey);
   });
 });
 
@@ -201,7 +201,7 @@ describe("PGP message that we signed", () => {
     expectSigned(email);
     email.received = new Date();
     let saved = JSON.stringify(JSONEMail.save(email));
-    expect(saved).toContain(email.signedKeyFingerprint);
+    expect(saved).toContain(email.signedPublicKeyFingerprint);
     expect(saved).not.toContain("PRIVATE KEY");
     expect(saved).not.toContain((user.encryptionPrivateKeys.first as PGPPrivateKey).passphrase);
   });

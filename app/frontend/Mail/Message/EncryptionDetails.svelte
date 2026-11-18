@@ -52,16 +52,16 @@
   export let isExpanded = false;
 
   let signingKey: PublicKey;
-  $: getPublicKeyByFingerprint($message.signedKeyFingerprint, message)
+  $: getPublicKeyByFingerprint($message.signedPublicKeyFingerprint, message)
     .then(key => signingKey = key)
     .catch(showError);
-  $: signed = $message.signedKeyFingerprint && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
+  $: signed = $message.signedPublicKeyFingerprint && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
   $: received = $message.received ?? new Date();
   $: expired = signed && signingKey instanceof SMIMEPublicKey && !signingKey.isValidAt(received);
   $: encrypted = $message.wasEncrypted;
   $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : expired ? TrustLevel.Sender : $signingKey?.trustLevel ?? "none";
   $: identity = $message.outgoing ? findIdentityForEMailAddress($message.from?.emailAddress) : null;
-  $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.fingerprint == message.signedKeyFingerprint);
+  $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.fingerprint == message.signedPublicKeyFingerprint);
   $: title = signed && encrypted
       ? $t`End-to-end encrypted and signed`
       : signed

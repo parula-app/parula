@@ -58,7 +58,7 @@
       openTrustCenter(identity);
       return;
     }
-    mail.signWithKey = getMyPrivateKey(identity);
+    mail.signPrivateKey = getMyPrivateKey(identity);
     assert(mail.shouldSign, "No signing key found");
   }
   function toggleEncrypted() {

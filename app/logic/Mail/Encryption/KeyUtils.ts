@@ -24,11 +24,11 @@ export async function getPublicKeyByFingerprint(fingerprint: string | null, emai
   if (!fingerprint) {
     return null;
   }
-  let signedKey = email?.signedKey?.fingerprint == fingerprint ? email.signedKey : null;
-  if (!signedKey && email?.signedKeyJSON) {
-    let key = publicKeyFromJSON(email.signedKeyJSON);
+  let signedKey = email?.signedPublicKey?.fingerprint == fingerprint ? email.signedPublicKey : null;
+  if (!signedKey && email?.signedPublicKeyJSON) {
+    let key = publicKeyFromJSON(email.signedPublicKeyJSON);
     if (key.fingerprint == fingerprint) {
-      email.signedKey = key;
+      email.signedPublicKey = key;
       signedKey = key;
     }
   }
@@ -69,9 +69,9 @@ export async function getPublicKeyByFingerprint(fingerprint: string | null, emai
   if (email) {
     // Last resort, when the contact had the key as we saved the message, but no longer has it
     await email.loadMIME(); // calls `rememberSigner()` via processors
-    if (email.signedKey?.fingerprint == fingerprint) {
+    if (email.signedPublicKey?.fingerprint == fingerprint) {
       await email.saveWritablePropsLocally();
-      return email.signedKey;
+      return email.signedPublicKey;
     }
   }
   return null;
@@ -117,16 +117,16 @@ export function getMyPrivateKey<T extends PublicKey & PrivateKey>(identity: Mail
 }
 
 /** For sending, which own key signs the outgoing email: the one that the
- * composer chose, `mail.signWithKey`, if it is of this type */
+ * composer chose, `mail.signPrivateKey`, if it is of this type */
 export function getMySigningKey<T extends PublicKey & PrivateKey>(mail: EMail, keyType: new () => T): T | null {
-  if (mail.signWithKey instanceof keyType) {
-    return mail.signWithKey;
+  if (mail.signPrivateKey instanceof keyType) {
+    return mail.signPrivateKey;
   }
   return getMyPrivateKey(mail.identity, keyType);
 }
 
 /** Our own key with this fingerprint, of any identity,
- * e.g. to restore `EMail.signWithKey` of a draft */
+ * e.g. to restore `EMail.signPrivateKey` of a draft */
 export function getMyKeyByFingerprint(fingerprint: string | null): (PublicKey & PrivateKey) | null {
   if (!fingerprint) {
     return null;

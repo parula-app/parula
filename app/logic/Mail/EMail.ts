@@ -109,7 +109,7 @@ export class EMail extends Message {
    * is saved with it: This one is our secret key, so it is only in memory.
    * A draft saves only its fingerprint. */
   @notifyChangedProperty
-  signWithKey: (PublicKey & PrivateKey) | null = null;
+  signPrivateKey: (PublicKey & PrivateKey) | null = null;
   /** For composer/send only: This email must be end-to-end encrypted, e.g.
    * because it quotes from an encrypted email. */
   @notifyChangedProperty
@@ -124,13 +124,13 @@ export class EMail extends Message {
    * Not the key ID, because another key can have the same key ID.
    * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
-  signedKeyFingerprint: string | null = null;
+  signedPublicKeyFingerprint: string | null = null;
   /** As `signedKeyFingerprint` but giving you the actual PublicKey object.
    * Set this using @see rememberSigner() */
-  signedKey: PublicKey | null = null;
+  signedPublicKey: PublicKey | null = null;
   /** As `signedKey`, but not parsed yet.
    * `getPublicKeyByFingerprint()` parses it when the reader needs it. */
-  signedKeyJSON: any = null;
+  signedPublicKeyJSON: any = null;
   /** Contains the complete MIME message for sending.
    * Used for encrypted messages. */
   sendRawMIME: string | null = null;
@@ -169,15 +169,15 @@ export class EMail extends Message {
     return this.folder.account.storage;
   }
 
-  /** For composer/send only: Sign this email, with our key `signWithKey` */
+  /** For composer/send only: Sign this email, with our key `signPrivateKey` */
   get shouldSign(): boolean {
-    return !!this.signWithKey;
+    return !!this.signPrivateKey;
   }
   /** false: Don't sign this email.
-   * To sign it, set `signWithKey` to the key that signs. */
+   * To sign it, set `signPrivateKey` to the key that signs. */
   set shouldSign(val: boolean) {
-    assert(!val, "To sign, set signWithKey");
-    this.signWithKey = null;
+    assert(!val, "To sign, set signPrivateKey");
+    this.signPrivateKey = null;
   }
 
   get mustEncrypt(): boolean {
@@ -211,8 +211,8 @@ export class EMail extends Message {
     if (!signer?.isForEMailAddress(this.from?.emailAddress)) {
       signer = null;
     }
-    this.signedKey = signer;
-    this.signedKeyFingerprint = signer?.fingerprint ?? null;
+    this.signedPublicKey = signer;
+    this.signedPublicKeyFingerprint = signer?.fingerprint ?? null;
     if (!signer) {
       return;
     }
@@ -786,8 +786,8 @@ export class EMail extends Message {
     other.mustEncrypt = this.mustEncrypt;
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
-    other.signWithKey = this.signWithKey;
-    other.signedKeyFingerprint = this.signedKeyFingerprint;
+    other.signPrivateKey = this.signPrivateKey;
+    other.signedPublicKeyFingerprint = this.signedPublicKeyFingerprint;
     other.system = this.system;
   }
 

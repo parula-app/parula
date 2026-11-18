@@ -94,7 +94,7 @@
   function changedIdentity() {
     if (privateKey) {
       if (!mail.shouldSign && privateKey.useToSign) {
-        mail.signWithKey = privateKey;
+        mail.signPrivateKey = privateKey;
         extra.signOnlyByDefault = true;
       }
       if (!mail.shouldEncrypt && privateKey.encryptByDefault) {
@@ -134,7 +134,7 @@
       openSettingsCategoryForAccount(identity.account, "mail-identity");
       return;
     }
-    mail.signWithKey = getMyPrivateKey(identity);
+    mail.signPrivateKey = getMyPrivateKey(identity);
     assert(mail.shouldSign, "No signing key found");
   }
   function toggleEncrypted() {

@@ -98,7 +98,7 @@ describe("Key that signed the email, as the mail viewer shows it", () => {
     signer.fingerprint = "6d616c6c6f7279";
     signer.userIDs.add("mallory@example.com");
     mail.rememberSigner(signer);
-    expect(await getPublicKeyByFingerprint(mail.signedKeyFingerprint, mail)).toBe(signer);
+    expect(await getPublicKeyByFingerprint(mail.signedPublicKeyFingerprint, mail)).toBe(signer);
   });
 });
 

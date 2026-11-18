@@ -70,17 +70,17 @@
 
   let signingKey: PublicKey = null;
   /* <copied from="../../../frontend/Mail/Message/EncryptionButtons.svelte"> */
-  $: getPublicKeyByFingerprint($message.signedKeyFingerprint, message)
+  $: getPublicKeyByFingerprint($message.signedPublicKeyFingerprint, message)
     .then(key => signingKey = key)
     .catch(showError);
   /* </copied> */
   /* <copied from="EncryptionButtons.svelte"> */
-  $: isSigned = $message && !!message.signedKeyFingerprint && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
+  $: isSigned = $message && !!message.signedPublicKeyFingerprint && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
   /* </copied> */
   $: isEncrypted = !!$message.wasEncrypted;
   // <copied from="../../../frontend/Mail/Message/EncryptionDetails.svelte">
   $: identity = $message.outgoing ? findIdentityForEMailAddress($message.from?.emailAddress) : null;
-  $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.fingerprint == message.signedKeyFingerprint);
+  $: mySigningKey = identity?.encryptionPrivateKeys.find(key => key.fingerprint == message.signedPublicKeyFingerprint);
   $: title = isSigned && isEncrypted
       ? $t`End-to-end encrypted and signed`
       : isSigned

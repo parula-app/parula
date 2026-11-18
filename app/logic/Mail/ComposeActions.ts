@@ -216,7 +216,7 @@ export class ComposeActions {
     await this.email.loadMIME();
     this.email.mustEncrypt = this.email.wasEncrypted;
     // The draft is signed by the key that the user (or the app) chose before saving
-    this.email.signWithKey ??= getMyKeyByFingerprint(this.email.signedKeyFingerprint);
+    this.email.signPrivateKey ??= getMyKeyByFingerprint(this.email.signedPublicKeyFingerprint);
   }
 
   async convertInlineAttachmentsURLs() {

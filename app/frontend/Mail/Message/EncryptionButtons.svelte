@@ -29,10 +29,10 @@
   export let isExpanded = false;
 
   let signingKey: PublicKey;
-  $: getPublicKeyByFingerprint($message.signedKeyFingerprint, message)
+  $: getPublicKeyByFingerprint($message.signedPublicKeyFingerprint, message)
     .then(key => signingKey = key)
     .catch(showError);
-  $: signed = $message.signedKeyFingerprint && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
+  $: signed = $message.signedPublicKeyFingerprint && signingKey && $signingKey.trustLevel != TrustLevel.Distrusted;
   $: expired = signed && signingKey instanceof SMIMEPublicKey && !signingKey.isValidAt($message.received ?? new Date());
   $: encrypted = $message.wasEncrypted;
   $: trustLevel = $signingKey?.trustLevel == TrustLevel.Distrusted ? "none" : expired ? TrustLevel.Sender : $signingKey?.trustLevel ?? "none";

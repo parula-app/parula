@@ -41,7 +41,7 @@ async function send(encrypt: boolean): Promise<string> {
   mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
   mail.to.add(mail.from);
   mail.subject = kSubject;
-  mail.signWithKey = key;
+  mail.signPrivateKey = key;
   mail.shouldEncrypt = encrypt;
   return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
 }
@@ -71,7 +71,7 @@ describe("PGP message with non-ASCII sender name and a long subject", () => {
     let email = await receive(await send(false));
     expect(email.subject).toBe(kSubject);
     expect(email.from.name).toBe("User Müller");
-    expect(email.signedKeyFingerprint).toBe(key.fingerprint);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
   });
 
   test("encrypted: the recipient sees the subject and sender as written", async () => {
@@ -79,7 +79,7 @@ describe("PGP message with non-ASCII sender name and a long subject", () => {
     expect(email.wasEncrypted).toBe(true);
     expect(email.subject).toBe(kSubject);
     expect(email.from.name).toBe("User Müller");
-    expect(email.signedKeyFingerprint).toBe(key.fingerprint);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
   });
 });
 
@@ -90,7 +90,7 @@ describe("PGP message signed with the key that the composer chose", () => {
     identity.encryptionPrivateKeys.add(defaultKey);
     try {
       let email = await receive(await send(false)); // `send()` chooses `key`
-      expect(email.signedKeyFingerprint).toBe(key.fingerprint);
+      expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
     } finally {
       identity.encryptionPrivateKeys.remove(defaultKey);
     }
@@ -128,7 +128,7 @@ describe("A draft", () => {
     mail.identity = identity;
     mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
     mail.sent = mail.received = new Date();
-    mail.signWithKey = key; // as the composer does
+    mail.signPrivateKey = key; // as the composer does
     let saved = JSON.stringify(JSONEMail.save(mail));
     expect(saved).toContain(key.fingerprint);
     expect(saved).not.toContain("PRIVATE KEY");
@@ -136,7 +136,7 @@ describe("A draft", () => {
 
     let reread = folder.newEMail();
     JSONEMail.readExtraData(reread, JSON.parse(saved));
-    expect(reread.signWithKey).toBe(key);
+    expect(reread.signPrivateKey).toBe(key);
   });
 
   test("that is encrypted is saved without the text in clear", async () => {
@@ -155,7 +155,7 @@ describe("A draft", () => {
     expect(draft.text.trim()).toBe("Grüße aus Köln!");
     expect(draft.shouldEncrypt).toBe(true);
     expect(draft.mustEncrypt).toBe(true);
-    expect(draft.signWithKey).toBe(key);
+    expect(draft.signPrivateKey).toBe(key);
   });
 
   test("that is not encrypted reopens with encryption optional", async () => {

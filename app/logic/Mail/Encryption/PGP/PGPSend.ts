@@ -64,7 +64,7 @@ export class PGPSend {
     } else {
       throw new NotReached();
     }
-    result.signedKeyFingerprint = privateKey.fingerprint;
+    result.signedPublicKeyFingerprint = privateKey.fingerprint;
     return result;
   }
 
