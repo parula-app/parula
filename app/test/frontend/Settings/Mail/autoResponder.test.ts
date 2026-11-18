@@ -185,22 +185,6 @@ test("Outside the organization: on with the checkbox, with its own message below
   expect(server.externalAudience).toBe(AutoResponderAudience.Contacts);
 });
 
-/** E.g. EWS, when the admin allows automatic replies only inside the organization */
-class InternalOnlyResponder extends TestAutoResponder {
-  async load() {
-    await super.load();
-    this.externalAllowed = false;
-  }
-}
-
-test("Without the admin's OK, replies outside can't be turned on", async () => {
-  await showPage(InternalOnlyResponder);
-
-  expect(checkbox("Auto-reply to people outside my organization").disabled).toBe(true);
-  expect(target.textContent).toContain("administrator");
-  expect(editorBox().inert).toBe(false);
-});
-
 function copyUpButton(): HTMLButtonElement {
   return target.querySelector("button[title='Copy from Outside My Organization']");
 }

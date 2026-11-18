@@ -84,7 +84,7 @@
       <hbox slot="header">{autoResponder.supportsInternal ? $t`Outside My Organization` : $t`Automatic reply`}</hbox>
       {#if autoResponder.supportsInternal}
         <vbox class="options">
-          <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.None} disabled={!$autoResponder.isOn || !$autoResponder.externalAllowed}
+          <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.None} disabled={!$autoResponder.isOn}
             label={$t`Auto-reply to people outside my organization`}
             on:change={ev => { autoResponder.externalAudience = ev.detail ? AutoResponderAudience.All : AutoResponderAudience.None; }} />
           {#if autoResponder.supportsContacts}
@@ -100,9 +100,6 @@
                 {$t`Anyone outside my organization`}
               </label>
             </hbox>
-          {/if}
-          {#if !$autoResponder.externalAllowed}
-            <hbox class="hint font-small">{$t`Your administrator does not allow automatic replies outside your organization.`}</hbox>
           {/if}
         </vbox>
       {/if}
@@ -216,10 +213,6 @@
   .audience {
     gap: 24px;
     margin-inline-start: 28px;
-  }
-  .hint {
-    margin-inline-start: 28px;
-    opacity: 70%;
   }
   .editor-box {
     border: 1px solid var(--border);

@@ -40,10 +40,6 @@ export class AutoResponder extends Observable {
   /** Which senders outside the organization get `externalHTML` */
   @notifyChangedProperty
   externalAudience = AutoResponderAudience.None;
-  /** The admin allows automatic replies outside the organization.
-   * Only EWS reports it. */
-  @notifyChangedProperty
-  externalAllowed = true;
 
   constructor(account: MailAccount) {
     super();
@@ -122,8 +118,7 @@ export class AutoResponder extends Observable {
  * The user chooses it separately from the message, because a reply tells
  * the sender that the user is away and that the address is valid. That's fine
  * for colleagues and contacts, but the user may not want to tell spammers and strangers.
- * Exchange stores it as `ExternalAudience`. If the admin doesn't allow replies outside
- * (`externalAllowed`), Exchange saves `None` instead.
+ * Exchange stores it as `ExternalAudience`, and the server enforces the admin's limit.
  *
  * It matters only if `supportsInternal`, i.e. for Exchange.
  * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders

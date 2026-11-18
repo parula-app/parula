@@ -37,12 +37,7 @@ export class EWSAutoResponder extends ExchangeAutoResponder {
     let settings = json.OofSettings;
     this.oofState = sanitize.integerRange(OOFState[settings.OofState as string], 0, 2, OOFState.Disabled);
     this.setTimes(this.parseUTC(settings.Duration?.StartTime), this.parseUTC(settings.Duration?.EndTime));
-    // `None` or `All`. Without the admin's OK, Exchange saves the audience as `None`,
-    // and doesn't reply outside with an audience saved before.
-    this.externalAllowed = json.AllowExternalOof != "None";
-    this.externalAudience = this.externalAllowed
-      ? this.sanitizeAudience(OOFAudience[settings.ExternalAudience as string], AutoResponderAudience.None)
-      : AutoResponderAudience.None;
+    this.externalAudience = this.sanitizeAudience(OOFAudience[settings.ExternalAudience as string], AutoResponderAudience.None);
     this.internalHTML = sanitizeHTML(settings.InternalReply?.Message);
     this.externalHTML = sanitizeHTML(settings.ExternalReply?.Message);
   }
