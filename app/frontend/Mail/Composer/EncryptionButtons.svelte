@@ -84,7 +84,7 @@
   $: trustLevel = mail.shouldEncrypt ? lowestTrust($allRecipientsKeys) : TrustLevel.Personal;
   $: encryptDisabledReason =
     $mail.mustEncrypt
-    ? gt`Policy requires that this email stays encrypted, to keep protect secret information`
+    ? gt`Policy requires that this email stays encrypted, to protect secret information`
     : null; // Enable even if some recipients don't have public keys. Our UI warns and allows to resolve it.
 
   let isMenuOpen = false;
