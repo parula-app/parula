@@ -4,7 +4,6 @@ import { JMAPIdentity } from "./JMAPIdentity";
 import { JMAPSearchEMail } from "./JMAPSearchEMail";
 import { JMAPAutoResponder } from "./JMAPAutoResponder";
 import { StalwartAutoResponder } from "./StalwartAutoResponder";
-import type { AutoResponder } from "../AutoResponder";
 import type { EMail } from "../EMail";
 import { newAccountForProtocol } from "../AccountsList/MailAccounts";
 import { PersonUID } from "../../Abstract/PersonUID";
@@ -1291,11 +1290,11 @@ export class JMAPAccount extends MailAccount {
   }
 
   /** Its class depends on the server, which we know only after the login */
-  get autoResponder(): AutoResponder {
+  get autoResponder(): JMAPAutoResponder {
     if (!(this._autoResponder instanceof StalwartAutoResponder) && this.isStalwart) {
       this._autoResponder = null;
     }
-    return super.autoResponder;
+    return super.autoResponder as JMAPAutoResponder;
   }
 
   newAutoResponder(): JMAPAutoResponder {
