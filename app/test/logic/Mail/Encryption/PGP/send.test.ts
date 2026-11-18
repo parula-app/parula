@@ -41,7 +41,7 @@ async function send(encrypt: boolean): Promise<string> {
   mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
   mail.to.add(mail.from);
   mail.subject = kSubject;
-  mail.signWithKeyFingerprint = key.fingerprint;
+  mail.signWithKey = key;
   mail.shouldEncrypt = encrypt;
   return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
 }
@@ -123,16 +123,20 @@ describe("A draft", () => {
     return savedMIME;
   }
 
-  test("that we sign is saved with which key signs, but without our secret key", async () => {
+  test("that we sign is saved with the fingerprint of the key that signs, not the key, and reads back with that key", async () => {
     let mail = folder.newEMail();
     mail.identity = identity;
     mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
     mail.sent = mail.received = new Date();
-    mail.signWithKeyFingerprint = key.fingerprint; // as the composer does
+    mail.signWithKey = key; // as the composer does
     let saved = JSON.stringify(JSONEMail.save(mail));
     expect(saved).toContain(key.fingerprint);
     expect(saved).not.toContain("PRIVATE KEY");
     expect(saved).not.toContain(key.passphrase);
+
+    let reread = folder.newEMail();
+    JSONEMail.readExtraData(reread, JSON.parse(saved));
+    expect(reread.signWithKey).toBe(key);
   });
 
   test("that is encrypted is saved without the text in clear", async () => {
@@ -151,7 +155,7 @@ describe("A draft", () => {
     expect(draft.text.trim()).toBe("Grüße aus Köln!");
     expect(draft.shouldEncrypt).toBe(true);
     expect(draft.mustEncrypt).toBe(true);
-    expect(draft.signWithKeyFingerprint).toBe(key.fingerprint);
+    expect(draft.signWithKey).toBe(key);
   });
 
   test("that is not encrypted reopens with encryption optional", async () => {

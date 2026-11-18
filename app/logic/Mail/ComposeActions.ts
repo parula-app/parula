@@ -8,6 +8,7 @@ import { ExtraData } from "./ExtraData";
 import { appName, appVersion, siteRoot } from "../build";
 import { gLicense } from "../util/License";
 import { importAutoCryptKeys } from "./Encryption/PGP/AutoCrypt";
+import { getMyKeyByFingerprint } from "./Encryption/KeyUtils";
 import { fileExtensionForMIMEType } from "../Files/FileType/MIMETypes";
 import { escapeAttr, escapeHTML } from "../Files/FileType/htmlHelper";
 import { minorError } from "../util/error";
@@ -215,7 +216,7 @@ export class ComposeActions {
     await this.email.loadMIME();
     this.email.mustEncrypt = this.email.wasEncrypted;
     // The draft is signed by the key that we chose
-    this.email.signWithKeyFingerprint ??= this.email.signedKeyFingerprint;
+    this.email.signWithKey ??= getMyKeyByFingerprint(this.email.signedKeyFingerprint);
   }
 
   async convertInlineAttachmentsURLs() {

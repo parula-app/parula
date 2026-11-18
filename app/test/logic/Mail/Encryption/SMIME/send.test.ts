@@ -56,7 +56,7 @@ async function sendAndReceive(sign: boolean, encrypt: boolean): Promise<EMail> {
   mail.identity = identity;
   mail.from = findOrCreatePersonUID("user@example.com", "User");
   mail.to.add(mail.from);
-  mail.signWithKeyFingerprint = sign ? key.fingerprint : null;
+  mail.signWithKey = sign ? key : null;
   mail.shouldEncrypt = encrypt;
   let sent = await SMIMESend.encryptAndSign(mail);
 

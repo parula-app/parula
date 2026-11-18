@@ -11,6 +11,7 @@ import { EMailProcessorList, ProcessingStartOn, CannotReadMail } from "./EMailPr
 import type { ExtraData } from "./ExtraData";
 import type { SMLData } from "./SML/SMLData";
 import type { PublicKey } from "./Encryption/PublicKey";
+import type { PrivateKey } from "./Encryption/PrivateKey";
 import { Event } from "../Calendar/Event";
 import { InvitationMessage, type iCalMethod } from "../Calendar/Invitation/InvitationStatus";
 import { FilterMoment } from "./FilterRules/FilterMoments";
@@ -104,12 +105,11 @@ export class EMail extends Message {
   @notifyChangedProperty
   shouldEncrypt = false;
   /** For composer/send only: Our key that will sign this email.
-   * Not `signedKeyFingerprint` and `signedKey`, which are for the key that
-   * signed a received email, and are saved with it: Here, that would be our
-   * secret key.
-   * Format: `PublicKey.fingerprint` */
+   * Not `signedKey`, which is the key that signed a received email, and which
+   * is saved with it: This one is our secret key, so it is only in memory.
+   * A draft saves only its fingerprint. */
   @notifyChangedProperty
-  signWithKeyFingerprint: string | null = null;
+  signWithKey: (PublicKey & PrivateKey) | null = null;
   /** For composer/send only: This email must be end-to-end encrypted, e.g.
    * because it quotes from an encrypted email. */
   @notifyChangedProperty
@@ -169,15 +169,15 @@ export class EMail extends Message {
     return this.folder.account.storage;
   }
 
-  /** For composer/send only: Sign this email, with our key `signWithKeyFingerprint` */
+  /** For composer/send only: Sign this email, with our key `signWithKey` */
   get shouldSign(): boolean {
-    return !!this.signWithKeyFingerprint;
+    return !!this.signWithKey;
   }
   /** false: Don't sign this email.
-   * To sign it, set `signWithKeyFingerprint` to the key that signs. */
+   * To sign it, set `signWithKey` to the key that signs. */
   set shouldSign(val: boolean) {
-    assert(!val, "To sign, set signWithKeyFingerprint");
-    this.signWithKeyFingerprint = null;
+    assert(!val, "To sign, set signWithKey");
+    this.signWithKey = null;
   }
 
   get mustEncrypt(): boolean {
@@ -786,7 +786,7 @@ export class EMail extends Message {
     other.mustEncrypt = this.mustEncrypt;
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
-    other.signWithKeyFingerprint = this.signWithKeyFingerprint;
+    other.signWithKey = this.signWithKey;
     other.signedKeyFingerprint = this.signedKeyFingerprint;
     other.system = this.system;
   }

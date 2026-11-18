@@ -117,10 +117,25 @@ export function getMyPrivateKey<T extends PublicKey & PrivateKey>(identity: Mail
 }
 
 /** For sending, which own key signs the outgoing email: the one that the
- * composer chose, `mail.signWithKeyFingerprint`, if it is of this type */
+ * composer chose, `mail.signWithKey`, if it is of this type */
 export function getMySigningKey<T extends PublicKey & PrivateKey>(mail: EMail, keyType: new () => T): T | null {
-  let chosen = mail.identity?.encryptionPrivateKeys.find(key => key.fingerprint == mail.signWithKeyFingerprint);
+  let chosen = mail.signWithKey;
   return chosen instanceof keyType ? chosen : getMyPrivateKey(mail.identity, keyType);
+}
+
+/** Our own key with this fingerprint, of any identity,
+ * e.g. to restore `EMail.signWithKey` of a draft */
+export function getMyKeyByFingerprint(fingerprint: string | null): (PublicKey & PrivateKey) | null {
+  if (!fingerprint) {
+    return null;
+  }
+  for (let identity of findAllIdentities()) {
+    let key = identity.encryptionPrivateKeys.find(key => key.fingerprint == fingerprint);
+    if (key) {
+      return key;
+    }
+  }
+  return null;
 }
 
 /** Whether we have an own key for this identity, e.g. an S/MIME certificate */

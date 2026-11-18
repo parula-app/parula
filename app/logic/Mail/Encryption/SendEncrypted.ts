@@ -83,7 +83,7 @@ export class SendEncrypted {
     // </copied>
 
     result.wasEncrypted = mail.wasEncrypted;
-    result.signWithKeyFingerprint = mail.signWithKeyFingerprint;
+    result.signWithKey = mail.signWithKey;
     return result;
   }
 }

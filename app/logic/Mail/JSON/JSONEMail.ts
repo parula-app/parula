@@ -6,6 +6,7 @@ import { getFilesDir } from "../../../logic/util/backend-wrapper";
 import { EMailProcessorList } from "../EMailProcessor";
 import { SMLData } from "../SML/SMLData";
 import { EncryptionSystem } from "../Encryption/enums";
+import { getMyKeyByFingerprint } from "../Encryption/KeyUtils";
 import { assert, ensureArray } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { internalError } from "../../util/error";
@@ -79,7 +80,7 @@ export class JSONEMail {
       let e = json.encryption = {} as any;
       e.system = email.system;
       e.signedPublicKeyFingerprint = email.signedKeyFingerprint;
-      e.signWithKeyFingerprint = email.signWithKeyFingerprint;
+      e.signWithKeyFingerprint = email.signWithKey?.fingerprint;
       e.signedPublicKey = this.saveSigner(email);
       e.wasEncrypted = email.wasEncrypted;
       e.mustEncrypt = email.mustEncrypt;
@@ -240,7 +241,7 @@ export class JSONEMail {
     if (e) {
       email.system = sanitize.enum<EncryptionSystem>(e.system, Object.values(EncryptionSystem), null);
       email.signedKeyFingerprint = sanitize.alphanumdash(e.signedPublicKeyFingerprint, null);
-      email.signWithKeyFingerprint = sanitize.alphanumdash(e.signWithKeyFingerprint, null);
+      email.signWithKey = getMyKeyByFingerprint(sanitize.alphanumdash(e.signWithKeyFingerprint, null));
       // Parsed on demand, @see `getPublicKeyByFingerprint()`
       email.signedKeyJSON = e.signedPublicKey ?? null;
       email.wasEncrypted = sanitize.boolean(e.wasEncrypted, false);

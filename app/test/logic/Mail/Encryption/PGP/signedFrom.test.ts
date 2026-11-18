@@ -86,7 +86,7 @@ async function send(signedHeaders: string, encrypt: boolean, sender = alice): Pr
   mail.identity = sender;
   mail.from = findOrCreatePersonUID(sender.emailAddress, sender.realname);
   mail.to.add(userUID);
-  mail.signWithKeyFingerprint = sender.encryptionPrivateKeys.first.fingerprint;
+  mail.signWithKey = sender.encryptionPrivateKeys.first;
   mail.shouldEncrypt = encrypt;
   return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
 }

@@ -380,7 +380,7 @@
     let extra = mail as any;
     if (privateKey) {
       if (!mail.shouldSign && privateKey.useToSign) {
-        mail.signWithKeyFingerprint = privateKey.fingerprint;
+        mail.signWithKey = privateKey;
         extra.signOnlyByDefault = true;
       }
       if (!mail.shouldEncrypt && privateKey.encryptByDefault) {
