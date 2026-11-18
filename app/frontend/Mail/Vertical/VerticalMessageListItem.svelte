@@ -194,6 +194,12 @@
     height: 64%;
     border-left: 3px solid var(--account-color);
     border-radius: 10px;
+    opacity: 30%;
+  }
+  .message.unread::before {
+    top: 8%;
+    height: 84%;
+    opacity: 100%;
   }
 
   .top-row,
@@ -209,7 +215,7 @@
     height: 1.3em;
   }
   .contact {
-    font-weight: 500;
+    font-weight: 400;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -218,7 +224,9 @@
   .date {
     font-weight: 300;
   }
-  .unread .contact,
+  .unread .contact {
+    font-weight: 800;
+  }
   .unread .subject,
   .unread .date {
     font-weight: 700;

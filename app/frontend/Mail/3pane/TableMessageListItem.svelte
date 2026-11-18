@@ -183,7 +183,9 @@
     border-left: 3px solid var(--account-color);
     border-radius: 10px;
     margin-inline-end: 2px;
-    opacity: 80%;
+  }
+  .direction.read:before {
+    opacity: 30%;
   }
   .correspondent,
   .subject,
