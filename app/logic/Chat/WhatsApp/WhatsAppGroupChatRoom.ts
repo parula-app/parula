@@ -78,6 +78,12 @@ export class WhatsAppGroupChatRoom extends WhatsAppChatRoom {
     return key.participant ? this.account.getContact(JID.parse(key.participant)) : this.contact;
   }
 
+  /** Group admins may delete the messages of any member for everyone. */
+  protected async isAdminJID(sender: JID): Promise<boolean> {
+    await this.ensureMetadata().catch(ex => console.error("WhatsApp: group metadata fetch failed:", ex));
+    return this.participants.some(p => p.isAdmin && p.jid.user == sender.user);
+  }
+
   // --- metadata fetch (w:g2) ---
 
   /** Fetches the group metadata once (coalescing concurrent callers), applies it

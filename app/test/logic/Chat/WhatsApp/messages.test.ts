@@ -2,6 +2,7 @@ import { appGlobal } from "../../../../logic/app";
 import { WhatsAppMessage } from "../../../../logic/Chat/WhatsApp/WhatsAppMessage";
 import { WhatsAppChatRoom } from "../../../../logic/Chat/WhatsApp/WhatsAppChatRoom";
 import { WhatsApp1to1ChatRoom } from "../../../../logic/Chat/WhatsApp/WhatsApp1to1ChatRoom";
+import { WhatsAppGroupChatRoom } from "../../../../logic/Chat/WhatsApp/WhatsAppGroupChatRoom";
 import { encodeWAMessage, decodeWAMessage, ProtocolMessageType, type WAMessage } from "../../../../logic/Chat/WhatsApp/Proto/schema";
 import { MediaType, encryptMedia, decryptMedia } from "../../../../logic/Chat/WhatsApp/Crypto/mediaCrypto";
 import { verifyAccountSignature, generateDeviceSignature, verifyDeviceIdentityHMAC }
@@ -17,6 +18,8 @@ import { randomBytes, hmacSHA256, concatBytes, bytesEqual } from "../../../../lo
 import { expect, test } from "vitest";
 
 let peer = JID.parse("412300000000@s.whatsapp.net");
+/** Another device of our own account */
+let ownPhone = JID.parse("491700000000:0@s.whatsapp.net");
 
 /** A dummy account storage that supports attachments (so `newAttachment()` works)
  * but persists nothing. */
@@ -68,7 +71,12 @@ test("unwraps device-sent and ephemeral wrappers", () => {
 /** A room with a stubbed account, for testing the receive/dispatch path. */
 function makeRoom(): WhatsAppChatRoom {
   let saved: any[] = [];
-  let account = { storage: { saveMessage: async (m: any) => saved.push(m) }, errorCallback: () => undefined } as any;
+  let account = {
+    storage: { saveMessage: async (m: any) => saved.push(m) },
+    errorCallback: () => undefined,
+    isOwnJID: (jid: JID) => jid.user == ownPhone.user,
+    getOwnContact: async () => new WhatsAppContact(ownPhone, "Me"),
+  } as any;
   let room = new WhatsApp1to1ChatRoom(account);
   room.contact = new WhatsAppContact(peer, "Alice") as any;
   return room;
@@ -126,6 +134,60 @@ test("a revoke with no type field (REVOKE is the omitted protobuf default) still
   // protocolMessage has no `type` — we must still treat it as a delete.
   await room.receiveMessage(stanza("D1"), { protocolMessage: { key: { id: "M1" } } }, peer);
   expect(target.text).toBe("This message was deleted");
+});
+
+test("in a 1:1, only the author can edit or delete a message", async () => {
+  let room = makeRoom();
+  await room.receiveMessage(stanza("M1"), { conversation: "ours" }, ownPhone, true);
+  let ours = room.messages.first;
+
+  await room.receiveMessage(stanza("E1"),
+    { protocolMessage: { type: ProtocolMessageType.MessageEdit, key: { id: "M1" }, editedMessage: { conversation: "changed by Alice" } } }, peer);
+  await room.receiveMessage(stanza("D1"),
+    { protocolMessage: { type: ProtocolMessageType.Revoke, key: { id: "M1" } } }, peer);
+  expect(ours.text).toBe("ours");
+
+  await room.receiveMessage(stanza("E2"),
+    { protocolMessage: { type: ProtocolMessageType.MessageEdit, key: { id: "M1" }, editedMessage: { conversation: "edited" } } }, ownPhone, true);
+  expect(ours.text).toBe("edited");
+});
+
+test("in a group, only the author can edit a message, and only the author or an admin delete it", async () => {
+  let admin = JID.parse("111@lid");
+  let bob = JID.parse("222:3@lid");
+  let carol = JID.parse("333@lid");
+  // The participants, as the server reports them when the room fetches its metadata
+  let groupNode = new WANode("group", { id: "120363041234567890", subject: "Hikers", addressing_mode: "lid" }, [
+    new WANode("participant", { jid: "111@lid", type: "admin" }),
+    new WANode("participant", { jid: "222@lid" }),
+    new WANode("participant", { jid: "333@lid" }),
+  ]);
+  let account = {
+    storage: storageStub,
+    errorCallback: () => undefined,
+    isOwnJID: (jid: JID) => jid.user == ownPhone.user,
+    getContact: (jid: JID) => new WhatsAppContact(jid),
+    connection: { sendIQ: async () => new WANode("iq", { type: "result" }, [groupNode]) },
+  } as any;
+  let room = new WhatsAppGroupChatRoom(account);
+  room.id = "120363041234567890@g.us";
+  await room.receiveMessage(stanza("M1"), { conversation: "Bob's" }, bob);
+  let message = room.messages.first;
+
+  await room.receiveMessage(stanza("E1"),
+    { protocolMessage: { type: ProtocolMessageType.MessageEdit, key: { id: "M1" }, editedMessage: { conversation: "changed by Carol" } } }, carol);
+  await room.receiveMessage(stanza("D1"),
+    { protocolMessage: { type: ProtocolMessageType.Revoke, key: { id: "M1" } } }, carol);
+  await room.receiveMessage(stanza("E2"),
+    { protocolMessage: { type: ProtocolMessageType.MessageEdit, key: { id: "M1" }, editedMessage: { conversation: "changed by the admin" } } }, admin);
+  expect(message.text).toBe("Bob's");
+
+  await room.receiveMessage(stanza("E3"),
+    { protocolMessage: { type: ProtocolMessageType.MessageEdit, key: { id: "M1" }, editedMessage: { conversation: "Bob's, edited" } } }, bob);
+  expect(message.text).toBe("Bob's, edited");
+  await room.receiveMessage(stanza("D2"),
+    { protocolMessage: { type: ProtocolMessageType.Revoke, key: { id: "M1" } } }, admin);
+  expect(message.text).toBe("This message was deleted");
 });
 
 test("room sends files as media, with the text as the first file's caption", async () => {
