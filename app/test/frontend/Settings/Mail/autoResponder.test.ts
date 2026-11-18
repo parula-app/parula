@@ -79,7 +79,7 @@ async function showPage(type = TestAutoResponder): Promise<TestMailAccount> {
     scheduled: false,
     internalHTML: "<p>Back on Monday</p>",
     externalHTML: "<p>Away</p>",
-    externalAudience: AutoResponderAudience.None,
+    externalAudience: AutoResponderAudience.Internal,
   };
   granted = false;
   responderClass = type;

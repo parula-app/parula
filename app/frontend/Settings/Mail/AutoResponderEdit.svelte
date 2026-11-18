@@ -86,10 +86,10 @@
       <hbox slot="header">{autoResponder.supportsInternal ? $t`Outside My Organization` : $t`Automatic reply`}</hbox>
       {#if autoResponder.supportsInternal}
         <vbox class="options">
-          <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.None}
+          <Checkbox checked={$autoResponder.externalAudience != AutoResponderAudience.Internal}
             disabled={!$autoResponder.isOn || $autoResponder.maxAudience == AutoResponderAudience.Internal}
             label={$t`Auto-reply to people outside my organization`}
-            on:change={ev => { autoResponder.externalAudience = ev.detail ? shownAudience : AutoResponderAudience.None; }} />
+            on:change={ev => { autoResponder.externalAudience = ev.detail ? shownAudience : AutoResponderAudience.Internal; }} />
           {#if autoResponder.supportsContacts}
             <hbox class="audience">
               <label class="radio" class:disabled={!isOutsideOn}>
@@ -157,7 +157,7 @@
   $: $autoResponder && (isChanged = true);
   $: state = !$autoResponder.isOn ? "off" : $autoResponder.scheduled ? "scheduled" : "always";
   $: isTimeRange = state == "scheduled";
-  $: isOutsideOn = $autoResponder.isOn && $autoResponder.externalAudience != AutoResponderAudience.None;
+  $: isOutsideOn = $autoResponder.isOn && $autoResponder.externalAudience != AutoResponderAudience.Internal;
   // Like Outlook, one of the 2 is checked, even while there are no replies outside
   $: shownAudience = $autoResponder.externalAudience == AutoResponderAudience.Contacts || $autoResponder.maxAudience == AutoResponderAudience.Contacts
     ? AutoResponderAudience.Contacts

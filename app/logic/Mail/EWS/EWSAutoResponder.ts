@@ -39,12 +39,11 @@ export class EWSAutoResponder extends ExchangeAutoResponder {
     this.setTimes(this.parseUTC(settings.Duration?.StartTime), this.parseUTC(settings.Duration?.EndTime));
     // `AllowExternalOof` `None` -> `maxAudience` `Internal`.
     // Exchange has only that (`ExternalOofOptions` `InternalOnly`) and `All`.
-    this.maxAudience = json.AllowExternalOof == "None" ? AutoResponderAudience.Internal :
-      this.sanitizeAudience(OOFAudience[json.AllowExternalOof as string], AutoResponderAudience.All);
-    // With `Internal`, Exchange saves the audience as `None`, and doesn't reply outside
+    this.maxAudience = this.sanitizeAudience(OOFAudience[json.AllowExternalOof as string], AutoResponderAudience.All);
+    // With `Internal`, Exchange saves the audience as `Internal`, and doesn't reply outside
     // with an audience that was saved before the admin's change
-    this.externalAudience = this.maxAudience == AutoResponderAudience.Internal ? AutoResponderAudience.None :
-      this.sanitizeAudience(OOFAudience[settings.ExternalAudience as string], AutoResponderAudience.None);
+    this.externalAudience = this.maxAudience == AutoResponderAudience.Internal ? AutoResponderAudience.Internal :
+      this.sanitizeAudience(OOFAudience[settings.ExternalAudience as string], AutoResponderAudience.Internal);
     this.internalHTML = sanitizeHTML(settings.InternalReply?.Message);
     this.externalHTML = sanitizeHTML(settings.ExternalReply?.Message);
   }

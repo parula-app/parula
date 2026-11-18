@@ -54,7 +54,7 @@ export class GraphAutoResponder extends AutoResponder {
     this.setTimes(this.parseTime(json.scheduledStartDateTime), this.parseTime(json.scheduledEndDateTime));
     let audience = sanitize.string(json.externalAudience, "").toLowerCase();
     this.externalAudience = Object.values(AutoResponderAudience)
-      .find(value => value.toLowerCase() == audience) ?? AutoResponderAudience.None;
+      .find(value => value.toLowerCase() == audience) ?? AutoResponderAudience.Internal;
     this.internalHTML = sanitizeHTML(json.internalReplyMessage);
     this.externalHTML = sanitizeHTML(json.externalReplyMessage);
   }
@@ -62,7 +62,7 @@ export class GraphAutoResponder extends AutoResponder {
   toGraph(): TGraphAutoReplies {
     return {
       status: !this.isOn ? "disabled" : this.scheduled ? "scheduled" : "alwaysEnabled",
-      externalAudience: this.externalAudience,
+      externalAudience: this.externalAudience == AutoResponderAudience.Internal ? "none" : this.externalAudience,
       internalReplyMessage: this.stripEmptyParagraph(this.internalHTML),
       externalReplyMessage: this.stripEmptyParagraph(this.externalHTML),
       // JSON omits `undefined`. `null` would go to the server.

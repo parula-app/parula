@@ -39,7 +39,7 @@ export class AutoResponder extends Observable {
   externalHTML = "";
   /** Which senders outside the organization get `externalHTML` */
   @notifyChangedProperty
-  externalAudience = AutoResponderAudience.None;
+  externalAudience = AutoResponderAudience.Internal;
   /** Limit of `externalAudience`, set by the admin.
    * Only EWS reports it. OWA, Graph and ActiveSync don't. */
   @notifyChangedProperty
@@ -128,14 +128,12 @@ export class AutoResponder extends Observable {
  * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders
  * with `externalHTML`, so their audience is `All`.
  *
- * The values are Graph's `externalAudience`, except `Internal`. */
+ * `Contacts` and `All` have Graph's `externalAudience` values. */
 export enum AutoResponderAudience {
-  /** No replies outside the organization */
-  None = "none",
+  /** Only senders inside the organization. No replies outside. */
+  Internal = "internal",
   /** Only senders in the user's addressbook */
   Contacts = "contactsOnly",
   /** Everybody */
   All = "all",
-  /** Only for `maxAudience`: The admin allows replies only inside the organization */
-  Internal = "internal",
 }

@@ -40,7 +40,7 @@ export class ExchangeAutoResponder extends AutoResponder {
   }
 
   protected static readonly kAudiences = [
-    AutoResponderAudience.None,
+    AutoResponderAudience.Internal,
     AutoResponderAudience.Contacts,
     AutoResponderAudience.All,
   ];

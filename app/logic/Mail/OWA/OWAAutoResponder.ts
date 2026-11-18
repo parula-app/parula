@@ -22,7 +22,7 @@ export class OWAAutoResponder extends ExchangeAutoResponder {
   fromOWA(options: any) {
     this.oofState = sanitize.integerRange(options.AutoReplyState, 0, 2, OOFState.Disabled);
     this.setTimes(sanitize.date(options.StartTime, null), sanitize.date(options.EndTime, null));
-    this.externalAudience = this.sanitizeAudience(options.ExternalAudience, AutoResponderAudience.None);
+    this.externalAudience = this.sanitizeAudience(options.ExternalAudience, AutoResponderAudience.Internal);
     this.internalHTML = sanitizeHTML(options.InternalMessage);
     this.externalHTML = sanitizeHTML(options.ExternalMessage);
   }

@@ -177,7 +177,7 @@ test("Unknown values are read as off", async () => {
 
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
-  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Internal);
 });
 
 test("Writes the settings to the server", async () => {
@@ -229,7 +229,7 @@ test("Without time range, there are no times", async () => {
   expect("EndTime" in options).toBe(false);
 
   autoResponder.isOn = false;
-  autoResponder.externalAudience = AutoResponderAudience.None;
+  autoResponder.externalAudience = AutoResponderAudience.Internal;
   await autoResponder.save();
   expect(calls[1].body.Options.AutoReplyState).toBe(0);
   expect(calls[1].body.Options.ExternalAudience).toBe(0);
@@ -278,7 +278,7 @@ test("OWA sends the numbers of the names that EWS sends", () => {
     { isOn: true, scheduled: true, ews: "Scheduled", owa: 2 },
   ];
   let audiences = [
-    { audience: AutoResponderAudience.None, ews: "None", owa: 0 },
+    { audience: AutoResponderAudience.Internal, ews: "None", owa: 0 },
     { audience: AutoResponderAudience.Contacts, ews: "Known", owa: 1 },
     { audience: AutoResponderAudience.All, ews: "All", owa: 2 },
   ];

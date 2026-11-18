@@ -100,7 +100,7 @@ test("Without the admin's OK, there are no replies outside, although Exchange re
   await autoResponder.load();
 
   expect(autoResponder.maxAudience).toBe(AutoResponderAudience.Internal);
-  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Internal);
   expect(autoResponder.externalHTML).toContain("I am out of office.");
 });
 
@@ -129,7 +129,7 @@ test("Unknown values are read as off, without admin limit", async () => {
 
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
-  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Internal);
   expect(autoResponder.maxAudience).toBe(AutoResponderAudience.All);
 });
 
