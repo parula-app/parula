@@ -533,7 +533,12 @@ export class SignalAccount extends ChatAccount {
     // A SyncMessage is sent BY our own account from another device (the sender is us);
     // route on the sync payload — a Sent transcript goes to the DESTINATION's room.
     if (content.syncMessage) {
-      await this.handleSyncMessage(content.syncMessage);
+      // Like the Signal apps, only from our own account. Otherwise, anybody could add messages in our name to any chat.
+      if (senderId.equals(this.aci)) {
+        await this.handleSyncMessage(content.syncMessage);
+      } else {
+        console.warn(`Signal: ignored a sync message from ${senderId.toString()}, which is not our own account`);
+      }
       await this.save(); // decrypting advanced the ratchet
       return;
     }
