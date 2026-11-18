@@ -209,6 +209,46 @@ test("sessions resume after a config save/restore (restart)", async () => {
   expect(textsIn(restoredRoom)).toContain("after restart");
 });
 
+test("the peer can edit and delete only their own messages", async () => {
+  let alice = newAccount("Alice");
+  let bob = newAccount("Bob");
+  alice.peer = bob;
+  bob.peer = alice;
+  let aliceRoom = await roomTo(alice, bob);
+  let bobRoom = await roomTo(bob, alice);
+  for (let [room, text] of [[aliceRoom, "from alice"], [bobRoom, "from bob"]] as const) {
+    let msg = room.newMessage();
+    msg.text = text;
+    msg.outgoing = true; // as the composer does
+    await room.sendMessage(msg);
+  }
+  let find = (room: Signal1to1ChatRoom, text: string) => room.messages.contents.find(
+    (m): m is SignalChatMessage => m instanceof SignalChatMessage && m.text == text)!;
+  let bobsOwn = find(bobRoom, "from bob");
+
+  // Alice tries to change Bob's own message in Bob's history
+  await alice.sendContent([bob.aci!], { editMessage: {
+    targetSentTimestamp: bobsOwn.sentTimestamp,
+    dataMessage: { body: "I owe Alice 1000 EUR", timestamp: Date.now() },
+  } }, Date.now());
+  await alice.sendContent([bob.aci!], { dataMessage: {
+    timestamp: Date.now(),
+    delete: { targetSentTimestamp: bobsOwn.sentTimestamp },
+  } }, Date.now());
+  expect(bobsOwn.text).toBe("from bob");
+  expect(bobsOwn.edited).toBe(false);
+  expect(bobsOwn.deleted).toBe(false);
+
+  // Her own message she can edit and delete
+  let alicesAtBob = find(bobRoom, "from alice");
+  let edit = await find(aliceRoom, "from alice").createEdit();
+  edit.text = "edited by alice";
+  await aliceRoom.sendMessage(edit as SignalChatMessage);
+  expect(alicesAtBob.text).toBe("edited by alice");
+  await find(aliceRoom, "edited by alice").deleteForOthers();
+  expect(alicesAtBob.deleted).toBe(true);
+});
+
 /** Build an unsent outgoing message in a room. */
 function messageWith(room: Signal1to1ChatRoom, text: string): ChatMessage {
   let msg = room.newMessage();
