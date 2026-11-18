@@ -79,6 +79,20 @@ test("An update does not send the UID", async () => {
   expect(sent[0].update.eventID).not.toHaveProperty("uid");
 });
 
+test("A series that no longer repeats is no longer a series on the server", async () => {
+  let json = serverEvent();
+  json.recurrenceOverrides = { "2026-01-12T10:00:00": { excluded: true } } as any;
+  let before = structuredClone(json);
+  let { event, sent } = await listEvents([json]);
+
+  event.recurrenceRule = null;
+  await event.save();
+
+  let stored = applyPatch(before, sent[0].update.eventID);
+  expect(stored.recurrenceRule ?? null).toBeNull();
+  expect(Object.keys(stored.recurrenceOverrides ?? {})).toEqual([]);
+});
+
 test("A new event sends its UID", async () => {
   let { calendar, sent } = setup([]);
   let event = calendar.newEvent();
