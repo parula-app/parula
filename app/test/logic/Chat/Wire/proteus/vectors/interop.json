@@ -1,0 +1,47 @@
+{
+ "comment": "Produced by @wireapp/proteus (Wire's own implementation), see proteusInterop.test.ts",
+ "proteusVersion": "9.13.0",
+ "ourIdentity": {
+  "secretKey": "5vyEFqG1Mw8pJeBQRJslqACVcyrktuKoKbkmcSl+Mtc="
+ },
+ "ourPreKey": {
+  "id": 42,
+  "key": "y1BhLGaHl9LUgtsXjT7Ey5tBvlCEg7+anV5fvKv5BKg="
+ },
+ "ourPreKeyBundle": "pQABARgqAqEAWCAiQZ1kKJiZ/afLwKyUgQBYu4ihCONWwMeGCHH/0+FCxQOhAKEAWCD3XrQ5FJL+h1HMX8qojqijD+pVfAt+y3GKrhWnkH2MLgT2",
+ "theirIdentityKey": "jrlRYxIp9/NlMTaw/kXz0t4YemQTBZJRziz3wcpAMLA=",
+ "messages": [
+  {
+   "envelope": "owABAaEAWCCpRwbQDf8w0oXqCwPYG+bk8AooVF7EaThpAhWK3QzHUQJYoQKkABgqAaEAWCAEag3u+395TglfyaiMkvd6gMcZA2NuICPtywxKOZM9AwKhAKEAWCCOuVFjEin382UxNrD+RfPS3hh6ZBMFklHOLPfBykAwsAOlAFC9NCAuWiKOkdVumemz2J5fAQACAAOhAFggkW8JExV1M/lmT6mj5acA5/IetfR5C+PoF2dna63sQ5IEUQHdLlg391zhSiC5r+JCeubm",
+   "plaintext": "interop message 0"
+  },
+  {
+   "envelope": "owABAaEAWCAbndd7U1KOyS9M69Uz/g/NkVjTlP/eTF4dH7DuhMTxxAJYoQKkABgqAaEAWCAEag3u+395TglfyaiMkvd6gMcZA2NuICPtywxKOZM9AwKhAKEAWCCOuVFjEin382UxNrD+RfPS3hh6ZBMFklHOLPfBykAwsAOlAFC9NCAuWiKOkdVumemz2J5fAQECAAOhAFggkW8JExV1M/lmT6mj5acA5/IetfR5C+PoF2dna63sQ5IEUWiS2iOe+ulhmrExMGhTTfXl",
+   "plaintext": "interop message 1"
+  },
+  {
+   "envelope": "owABAaEAWCAJd7WVrGG4WhqCk0J7UHQ+21lXCUiNBU1VAhhv1hkMqQJYoQKkABgqAaEAWCAEag3u+395TglfyaiMkvd6gMcZA2NuICPtywxKOZM9AwKhAKEAWCCOuVFjEin382UxNrD+RfPS3hh6ZBMFklHOLPfBykAwsAOlAFC9NCAuWiKOkdVumemz2J5fAQICAAOhAFggkW8JExV1M/lmT6mj5acA5/IetfR5C+PoF2dna63sQ5IEUfdyUin9lrfRTB7+gYTsDr6Q",
+   "plaintext": "interop message 2"
+  },
+  {
+   "envelope": "owABAaEAWCBsrjWt/oNrVXjXKi14T6fNnh04CthoW5ptB2LCbut1HAJYoQKkABgqAaEAWCAEag3u+395TglfyaiMkvd6gMcZA2NuICPtywxKOZM9AwKhAKEAWCCOuVFjEin382UxNrD+RfPS3hh6ZBMFklHOLPfBykAwsAOlAFC9NCAuWiKOkdVumemz2J5fAQMCAAOhAFggkW8JExV1M/lmT6mj5acA5/IetfR5C+PoF2dna63sQ5IEUcyijObF2OCq3kFGlqf7VP1Z",
+   "plaintext": "interop message 3"
+  },
+  {
+   "envelope": "owABAaEAWCBSOjDCx9aq7sNCGqjHlr91WYx3vpDIl8WkVLBXtFnXjQJYoQKkABgqAaEAWCAEag3u+395TglfyaiMkvd6gMcZA2NuICPtywxKOZM9AwKhAKEAWCCOuVFjEin382UxNrD+RfPS3hh6ZBMFklHOLPfBykAwsAOlAFC9NCAuWiKOkdVumemz2J5fAQQCAAOhAFggkW8JExV1M/lmT6mj5acA5/IetfR5C+PoF2dna63sQ5IEURSJJxmt9tSphPlacSego1iu",
+   "plaintext": "interop message 4"
+  },
+  {
+   "envelope": "owABAaEAWCBGNGh9mI4Z0sVXbZqjaIKhrJmdaaLh/9truVC0cwJd9wJYoQKkABgqAaEAWCAEag3u+395TglfyaiMkvd6gMcZA2NuICPtywxKOZM9AwKhAKEAWCCOuVFjEin382UxNrD+RfPS3hh6ZBMFklHOLPfBykAwsAOlAFC9NCAuWiKOkdVumemz2J5fAQUCAAOhAFggkW8JExV1M/lmT6mj5acA5/IetfR5C+PoF2dna63sQ5IEUSTMfLTZFM0ADaTjPqyZdj6q",
+   "plaintext": "interop message 5"
+  }
+ ],
+ "deliveryOrder": [
+  0,
+  3,
+  1,
+  5,
+  2,
+  4
+ ]
+}

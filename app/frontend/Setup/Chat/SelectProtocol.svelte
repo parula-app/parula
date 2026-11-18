@@ -22,6 +22,7 @@
   import MatrixLogin from "./MatrixLogin.svelte";
   import WhatsAppLinkDevice from "./WhatsApp/LinkDevice.svelte";
   import SignalLinkDevice from "./Signal/LinkDevice.svelte";
+  import WireLogin from "./WireLogin.svelte";
   import { t } from "../../../l10n/l10n";
 
   /** out */
@@ -41,6 +42,7 @@
     { label: "Matrix", protocolID: "matrix" },
     { label: "WhatsApp", protocolID: "whatsapp" },
     { label: "Signal", protocolID: "signal" },
+    { label: "Wire", protocolID: "wire" },
   ];
 
   function onContinue() {
@@ -53,6 +55,8 @@
       showPage = WhatsAppLinkDevice;
     } else if (selectedProtocol == "signal") {
       showPage = SignalLinkDevice;
+    } else if (selectedProtocol == "wire") {
+      showPage = WireLogin;
     }
   }
 </script>

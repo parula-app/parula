@@ -17,7 +17,7 @@
  * (string/bytes/nested message), and repeated of those. */
 import { ProtoWriter, readProto } from "./ProtobufLite";
 
-export type WireType = "varint" | "varint64" | "bool" | "string" | "bytes" | "message" | "fixed64" | "fixed32";
+export type WireType = "varint" | "varint64" | "bool" | "string" | "bytes" | "message" | "fixed64" | "fixed32" | "float";
 
 export interface Field<T = unknown> {
   id: number;
@@ -45,6 +45,8 @@ export function bytes(id: number): Field<Uint8Array> { return { id, wire: "bytes
 export function fixed64(id: number): Field<bigint> { return { id, wire: "fixed64" }; }
 /** proto `fixed32`/`sfixed32`. */
 export function fixed32(id: number): Field<number> { return { id, wire: "fixed32" }; }
+/** proto `float` — a 32-bit IEEE-754 number, sent as a fixed32. */
+export function float(id: number): Field<number> { return { id, wire: "float" }; }
 export function sub<T>(id: number, ref: () => MessageDef<T>): Field<T> {
   return { id, wire: "message", ref: ref as () => MessageDef };
 }
@@ -87,6 +89,7 @@ function writeField(writer: ProtoWriter, field: Field, value: any) {
     case "message": writer.bytes(field.id, encode(field.ref!(), value)); break;
     case "fixed64": writer.fixed64(field.id, value); break;
     case "fixed32": writer.fixed32(field.id, value); break;
+    case "float": writer.fixed32(field.id, floatToBits(value)); break;
   }
 }
 
@@ -114,5 +117,18 @@ function readField(field: Field, entry: { int?: bigint, data?: Uint8Array }): an
     case "message": return decode(field.ref!(), entry.data ?? new Uint8Array());
     case "fixed64": return entry.int ?? 0n;
     case "fixed32": return Number(entry.int ?? 0n);
+    case "float": return bitsToFloat(Number(entry.int ?? 0n));
   }
+}
+
+let floatBits = new DataView(new ArrayBuffer(4));
+
+function floatToBits(value: number): number {
+  floatBits.setFloat32(0, value);
+  return floatBits.getUint32(0);
+}
+
+function bitsToFloat(bits: number): number {
+  floatBits.setUint32(0, bits);
+  return floatBits.getFloat32(0);
 }
