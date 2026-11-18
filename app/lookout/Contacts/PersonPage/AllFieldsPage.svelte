@@ -9,7 +9,8 @@
     <span class="cell">{item.name}</span>
     {#if item.kind != "address"}
       <input class="value-field" type="text" value={item.entry.value ?? ""} aria-label={item.name}
-        on:input={event => { item.entry.value = event.currentTarget.value; }} />
+        on:input={event => { item.entry.value = event.currentTarget.value; }}
+        on:change={event => onValueChange(item, event)} />
     {:else}
       <span class="cell lo-secondary" title={$t`Edit the address on the General page`}>{addressText(item.entry.value).replace(/\n/g, ", ")}</span>
     {/if}
@@ -17,6 +18,9 @@
       ? $t`This contact has no user-defined fields. Click New… to add one.`
       : $t`This contact has no fields of this kind`}</span>
   </ListView>
+  {#if isWebPageInvalid}
+    <span class="field-error">{$t`This is not a web address`}</span>
+  {/if}
   <hbox class="buttons">
     <DialogButton label={$t`New… *=> Add a new user-defined field`} onClick={() => { isNewOpen = true; }} />
     <DialogButton label={$t`Delete`}
@@ -39,6 +43,7 @@
   import { ContactEntry, type Person } from "../../../logic/Abstract/Person";
   import { allFieldRows, type FieldRow, type FieldSet } from "./AllFields";
   import { addressText } from "../Person/ContactColumns";
+  import { addHTTPSToHostname } from "../../../logic/util/netUtil";
   import ListView from "../../Shared/Form/ListView.svelte";
   import ComboBox from "../../Shared/Form/ComboBox.svelte";
   import FormGrid from "../../Shared/Form/FormGrid.svelte";
@@ -54,6 +59,7 @@
   let selected: FieldRow = null;
   let isNewOpen = false;
   let newName = "";
+  let isWebPageInvalid = false;
   let revision = 0;
 
   $: fieldSets = [
@@ -76,6 +82,13 @@
     revision++;
     await tick();
     selected = rows.find(row => row.entry == entry) ?? null;
+  }
+
+  function onValueChange(item: FieldRow, event: Event & { currentTarget: HTMLInputElement }) {
+    if (item.kind == "web") {
+      item.entry.value = event.currentTarget.value = addHTTPSToHostname(event.currentTarget.value.trim());
+      isWebPageInvalid = !!item.entry.value && !URL.canParse(item.entry.value);
+    }
   }
 
   function onDelete() {
@@ -121,6 +134,9 @@
     outline: none;
     border-color: var(--lo-accent);
     background-color: var(--lo-input-bg);
+  }
+  .field-error {
+    color: var(--lo-danger);
   }
   .buttons {
     gap: 8px;

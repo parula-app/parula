@@ -88,7 +88,11 @@
             <SlotField slots={emailSlots} bind:slot={emailSlot} entries={emailAddresses} type="email" />
             <label for="contact-web">{$t`Web page address`}</label>
             <input id="contact-web" type="url" class="lo-text-field"
-              value={$urls && firstValue(urls)} on:input={event => setFirstValue(urls, event.currentTarget.value, null)} />
+              value={$urls && firstValue(urls)} on:input={event => setFirstValue(urls, event.currentTarget.value, null)}
+              on:change={onWebPageChange} />
+            {#if isWebPageInvalid}
+              <span class="field-error">{$t`This is not a web address`}</span>
+            {/if}
             <label for="contact-im">{$t`IM address`}</label>
             <input id="contact-im" type="text" class="lo-text-field"
               value={$chatAccounts && firstValue(chatAccounts)} on:input={event => setFirstValue(chatAccounts, event.currentTarget.value, "xmpp")} />
@@ -160,6 +164,7 @@
   import { newPerson } from "../../../frontend/Contacts/Person/Selected";
   import { catchErrors } from "../../../frontend/Util/error";
   import { getOSName } from "../../../frontend/Util/util";
+  import { addHTTPSToHostname } from "../../../logic/util/netUtil";
   import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import Ribbon from "../../Shared/Ribbon/Ribbon.svelte";
@@ -211,6 +216,7 @@
   let page: "general" | "details" | "certificates" | "all-fields" = "general";
   let isFullNameOpen = false;
   let isAddressOpen = false;
+  let isWebPageInvalid = false;
 
   $: emailAddresses = person.emailAddresses;
   $: phoneNumbers = person.phoneNumbers;
@@ -234,6 +240,12 @@
 
   function firstValue(entries: ArrayColl<ContactEntry>): string {
     return entries.first?.value ?? "";
+  }
+
+  function onWebPageChange(event: Event & { currentTarget: HTMLInputElement }) {
+    event.currentTarget.value = addHTTPSToHostname(event.currentTarget.value.trim());
+    setFirstValue(urls, event.currentTarget.value, null);
+    isWebPageInvalid = !!event.currentTarget.value && !URL.canParse(event.currentTarget.value);
   }
 
   function setFirstValue(entries: ArrayColl<ContactEntry>, value: string, protocol: string | null) {
@@ -359,6 +371,10 @@
   }
   label {
     color: var(--lo-fg-secondary);
+  }
+  .field-error {
+    grid-column: 2;
+    color: var(--lo-danger);
   }
   .top-aligned {
     align-self: start;
