@@ -4,7 +4,6 @@
       {onSave} {onDelete} {onEditRecurrence} {onSelectAttendees}
       onCheckNames={() => eventForm?.checkNames()}
       onRefreshAvailability={() => schedulingAssistant?.refreshAvailability()}
-      onEditSignatures={() => isSignaturesOpen = true}
       bind:showEmojis bind:isSchedulingSelected bind:isTrackingSelected />
   {/key}
   <vbox flex class="form-card lo-card">
@@ -59,9 +58,6 @@
   <SelectNamesDialog title={$t`Select Attendees and Resources`} persons={attendeesPicks} label={$t`Required *=> Attendees who must attend the meeting`}
     on:ok={() => flow.setAttendees(attendeesPicks.contents)} on:close={() => attendeesPicks = null} />
 {/if}
-{#if isSignaturesOpen}
-  <SignaturesDialog identity={event.calendar?.inviteAs} on:close={() => isSignaturesOpen = false} />
-{/if}
 <EditorToolDialogs {editor} bind:openedTool />
 
 <script lang="ts">
@@ -80,7 +76,6 @@
   import SaveChangesDialog from "./SaveChangesDialog.svelte";
   import SchedulingAssistant from "./SchedulingAssistant.svelte";
   import SelectNamesDialog from "../../Mail/Composer/SelectNamesDialog.svelte";
-  import SignaturesDialog from "../../Mail/Composer/SignaturesDialog.svelte";
   import { EditorTool } from "../../Shared/Editor/EditorTool";
   import EditorToolDialogs from "../../Shared/Editor/EditorToolDialogs.svelte";
   import UndoRedoButtons from "../../Shared/Editor/UndoRedoButtons.svelte";
@@ -109,7 +104,6 @@
   let isSchedulingSelected = false;
   let isTrackingSelected = false;
   let isRecurrenceOpen = false;
-  let isSignaturesOpen = false;
   let showSaveChanges = false;
   let eventForm: EventForm;
   let schedulingAssistant: SchedulingAssistant;
@@ -226,7 +220,7 @@
   }
 
   async function onKey(keyEvent: KeyboardEvent) {
-    if (keyEvent.defaultPrevented || isRecurrenceOpen || showSaveChanges || seriesChoice || attendeesPicks || openedTool || isSignaturesOpen) {
+    if (keyEvent.defaultPrevented || isRecurrenceOpen || showSaveChanges || seriesChoice || attendeesPicks || openedTool) {
       return;
     }
     let key = keyEvent.key.toLowerCase();

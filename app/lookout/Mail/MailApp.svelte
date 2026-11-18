@@ -12,7 +12,7 @@
     {#if $inlineRibbon}
       <ComposerMessageTab mail={$inlineRibbon.draft} editor={$inlineRibbon.editor} isInline
         onSelectNames={$inlineRibbon.onSelectNames} onCheckNames={$inlineRibbon.onCheckNames}
-        onOpenTool={$inlineRibbon.onOpenTool} onEditSignatures={$inlineRibbon.onEditSignatures} />
+        onOpenTool={$inlineRibbon.onOpenTool} />
     {/if}
   </Ribbon>
   <ThreePane bind:messageList
