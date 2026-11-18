@@ -231,7 +231,7 @@ grid[flex] {
 
 /* macOS without title bar: The background of these elements moves the window.
  * The controls in them still get the clicks, and their text values can still be selected.
- * The same for popups that open from them. */
+ * `app-region` is inherited, so also popups that open from them. */
 .no-title-bar .window-drag {
   app-region: drag;
 }
