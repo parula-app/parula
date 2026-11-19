@@ -1,13 +1,15 @@
 import type { PrivateKey } from "../PrivateKey";
 import { SMIMEPublicKey, splitPEM } from "./SMIMEPublicKey";
-import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SubjectPublicKeyInfo, CertificationRequestInfo, DigestInfo, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, algorithmName } from "./SMIMEASN1";
+import { Any, PrivateKeyInfo, EncryptedPrivateKeyInfo, RSAPrivateKey, RSAPublicKey, ECPrivateKey, ECDSASigValue, SubjectPublicKeyInfo, CertificationRequestInfo, DigestInfo, DigestAlgorithm, CertificationRequest, Null, OctetString, Extensions, SubjectAlternativeName, KeyUsage, ExtKeyUsage, AlgorithmIdentifier, KeyAgreementAlgorithm, KeyWrapAlgorithm, algorithmName } from "./SMIMEASN1";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { decrypt, padFF } from "./SMIMERSAES";
-import { sameName } from "./SMIMEVerify";
+import { sameName, isOfKey } from "./SMIMEVerify";
+import { uint8ArrayToHex } from "../../../util/blob";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { notifyChangedProperty } from "../../../util/Observable";
-import { assert } from "../../../util/util";
-import { uint8ArrayToHex } from "../../../util/blob";
+import { assert, NotImplemented } from "../../../util/util";
+import { CannotReadMail } from "../../EMailProcessor";
+import { gt } from "../../../../l10n/l10n";
 import { sha256 } from "@noble/hashes/sha2.js";
 
 export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
@@ -37,15 +39,18 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
   }
 
   async matches(publicKey: SubjectPublicKeyInfo): Promise<boolean> {
-    if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
-      return false;
-    }
-    let key = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-    let rawKey = await this.decryptKey();
-    return key.n == rawKey.n && key.e == rawKey.e;
+    return isOfKey(publicKey, PrivateKeyInfo.decode(await this.decryptKeyPKCS8()));
   }
 
-  /** @param rid as decoded from a `KeyTransRecipientInfo` of the message */
+  /** Our public key, as our certificate has it, from our EC private key */
+  protected ecPublicKey(privateKeyInfo: PrivateKeyInfo): SubjectPublicKeyInfo {
+    let { publicKey } = ECPrivateKey.decode(privateKeyInfo.privateKey);
+    // Optional in RFC 5915, but all common apps write it, and Safari cannot import a key without it
+    assert(publicKey, "Unsupported private key: It does not contain its public key");
+    return { algorithmIdentifier: privateKeyInfo.privateKeyAlgorithm, subjectPublicKey: publicKey };
+  }
+
+  /** @param rid as decoded from a `KeyTransRecipientInfo` or `RecipientEncryptedKey` of the message */
   isRecipient(rid: any): boolean {
     if (!this.certificate) {
       return false;
@@ -59,28 +64,58 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
       let ski = cert.tbsCertificate.extensions?.find(ext => ext.extnID == "subjectKeyIdentifier");
       return !!ski && !indexedDB.cmp(OctetString.decode(ski.extnValue), rid.value);
     }
+    case "rKeyId":
+      return this.isRecipient({ type: "subjectKeyIdentifier", value: rid.value.subjectKeyIdentifier });
     default:
       return false;
     }
   }
 
-  /** Decrypts our private key with our passphrase */
-  async decryptKey(): Promise<RSAPrivateKey> {
-    let pkcs8: Uint8Array;
+  /** Decrypts the content key that the sender encrypted to our EC key with ECDH. RFC 5753 section 3.1.2
+   * @param kari as decoded from a `KeyAgreeRecipientInfo` of the message */
+  async decryptKeyAgreement(kari: any, encryptedKey: Uint8Array): Promise<Uint8Array> {
+    let { originator, ukm, keyEncryptionAlgorithm } = kari;
+    let keyWrapAlgorithm = AlgorithmIdentifier.decode(keyEncryptionAlgorithm.parameters);
+    let hash = sanitize.translate(keyEncryptionAlgorithm.algorithm, KeyAgreementAlgorithm, null);
+    if (!hash || !sanitize.translate(keyWrapAlgorithm.algorithm, KeyWrapAlgorithm, null)) {
+      throw new CannotReadMail(null, gt`The key of this message is encrypted with ECDH using ${algorithmName(keyEncryptionAlgorithm.algorithm)} and ${algorithmName(keyWrapAlgorithm.algorithm)}, which is not supported`);
+    }
+    assert(originator.type == "originatorKey" && originator.value.algorithm.algorithm == "ecPublicKey", "Unsupported ECDH: The key of the sender is missing");
+    // Outlook sends its key without the curve, so it is on the curve of our key
+    let curve = this.curveBits(this.decodedCertificate.tbsCertificate.publicKey);
+    let algorithm = { name: "ECDH", namedCurve: "P-" + curve };
+    let senderKey = await crypto.subtle.importKey("raw", originator.value.publicKey.data as BufferSource, algorithm, false, []);
+    let ourKey = await crypto.subtle.importKey("pkcs8", await this.decryptKeyPKCS8() as BufferSource, algorithm, false, ["deriveBits"]);
+    let secret = await crypto.subtle.deriveBits({ name: "ECDH", public: senderKey }, ourKey, (curve + 7 >> 3) * 8);
+    let keyEncryptionKey = await this.keyEncryptionKey(secret, hash, keyEncryptionAlgorithm.parameters, ukm);
+    try {
+      let key = await crypto.subtle.unwrapKey("raw", encryptedKey as BufferSource, keyEncryptionKey, "AES-KW", "AES-CBC", true, ["decrypt"]);
+      return new Uint8Array(await crypto.subtle.exportKey("raw", key));
+    } catch (ex) {
+      throw new CannotReadMail(null, gt`Could not decrypt this message`);
+    }
+  }
+
+  /** Decrypts our RSA private key with our passphrase */
+  async decryptRSAKey(): Promise<RSAPrivateKey> {
+    let privateKeyInfo = PrivateKeyInfo.decode(await this.decryptKeyPKCS8());
+    if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
+      throw new Error("Unexpected private key algorithm " + algorithmName(privateKeyInfo.privateKeyAlgorithm.algorithm));
+    }
+    return RSAPrivateKey.decode(privateKeyInfo.privateKey);
+  }
+
+  /** Decrypts our private key with our passphrase, in the PKCS#8 form that `crypto.subtle.importKey()` reads */
+  protected async decryptKeyPKCS8(): Promise<Uint8Array> {
     if (this.passphrase) {
       let encryptedKey = EncryptedPrivateKeyInfo.decodePEM(this.privateKeyArmored, { label: "ENCRYPTED PRIVATE KEY" });
       if (encryptedKey.encryptionAlgorithm.algorithm != "pkcs5PBES2") {
         throw new Error("Unsupported private key encryption algorithm " + algorithmName(encryptedKey.encryptionAlgorithm.algorithm));
       }
-      pkcs8 = await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
+      return await decryptPBES2(encryptedKey.encryptedData, encryptedKey.encryptionAlgorithm.parameters, this.passphrase);
     } else {
-      pkcs8 = Any.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
+      return Any.decodePEM(this.privateKeyArmored, { label: "PRIVATE KEY" });
     }
-    let privateKeyInfo = PrivateKeyInfo.decode(pkcs8);
-    if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
-      throw new Error("Unsupported private key algorithm " + algorithmName(privateKeyInfo.privateKeyAlgorithm.algorithm));
-    }
-    return RSAPrivateKey.decode(privateKeyInfo.privateKey);
   }
 
   /** With our certificate and its CAs, which the key needs to decrypt and sign after the user imports the file again */
@@ -96,8 +131,54 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     return publicKey;
   }
 
+  /** The digest algorithm of our signatures. For EC keys, the one that fits the curve, as Thunderbird does. */
+  get digestAlgorithm(): string {
+    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
+    if (publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+      const kCurveDigests: Record<number, string> = { 256: "sha256", 384: "sha384", 521: "sha512" };
+      return kCurveDigests[this.curveBits(publicKey)];
+    }
+    return "sha256";
+  }
+
+  /** Signs the signed attributes of a `SignerInfo` using `digestAlgorithm`, with RSA PKCS#1 v1.5 or, for EC keys, ECDSA */
+  async sign(content: Uint8Array): Promise<{ signatureAlgorithm: AlgorithmIdentifier, signature: Uint8Array }> {
+    let digestAlgorithm = this.digestAlgorithm;
+    let hash = DigestAlgorithm[digestAlgorithm];
+    let publicKey = this.decodedCertificate.tbsCertificate.publicKey;
+    if (publicKey.algorithmIdentifier.algorithm == "ecPublicKey") {
+      const kECDSAAlgorithms: Record<string, string> = { sha256: "ecdsaWithSHA256", sha384: "ecdsaWithSHA384", sha512: "ecdsaWithSHA512" };
+      let key = await crypto.subtle.importKey("pkcs8", await this.decryptKeyPKCS8() as BufferSource, { name: "ECDSA", namedCurve: "P-" + this.curveBits(publicKey) }, false, ["sign"]);
+      // WebCrypto gives r and s one after the other, but CMS wants an `ECDSASigValue`
+      let rs = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash }, key, content as BufferSource));
+      let size = rs.length / 2;
+      return {
+        signatureAlgorithm: { algorithm: kECDSAAlgorithms[digestAlgorithm], parameters: undefined },
+        signature: ECDSASigValue.encode({
+          r: BigInt("0x" + uint8ArrayToHex(rs.subarray(0, size))),
+          s: BigInt("0x" + uint8ArrayToHex(rs.subarray(size))),
+        }),
+      };
+    }
+    let rawKey = await this.decryptRSAKey();
+    let digestInfo = {
+      digestAlgorithm: {
+        algorithm: digestAlgorithm,
+        parameters: Null.encode(),
+      },
+      digest: new Uint8Array(await crypto.subtle.digest(hash, content as BufferSource)),
+    };
+    return {
+      signatureAlgorithm: {
+        algorithm: "rsaEncryption",
+        parameters: Null.encode(),
+      },
+      signature: decrypt(padFF(DigestInfo.encode(digestInfo), rawKey), rawKey),
+    };
+  }
+
   async generateCSRFile(subject: Record<string, string>): Promise<File> {
-    let key = await this.decryptKey();
+    let key = await this.decryptRSAKey();
     let subjectSequence = [];
     for (let attr in attributeTypes) {
       if (subject[attr]) {
@@ -195,18 +276,35 @@ export class SMIMEPrivateKey extends SMIMEPublicKey implements PrivateKey {
     let key = new SMIMEPrivateKey();
     key.privateKeyArmored = splitPEM(privateKey).shift();
     key.passphrase = passphrase;
-    let rawKey = await key.decryptKey();
-    assert(rawKey.n == rawKey.p * rawKey.q, "modulus should be product of primes");
-    assert(rawKey.d * rawKey.e % (rawKey.p - 1n) == 1n, "prime exponents product should equal 1 modulo 1 less than prime 1");
-    assert(rawKey.d * rawKey.e % (rawKey.q - 1n) == 1n, "prime exponents product should equal 1 modulo 1 less than prime 2");
-    assert(rawKey.dP == rawKey.d % (rawKey.p - 1n), "prime 1 exponent does not match private exponent");
-    assert(rawKey.dQ == rawKey.d % (rawKey.q - 1n), "prime 2 exponent does not match private exponent");
-    assert(rawKey.qInv * rawKey.q % rawKey.p == 1n, "inverse does not match primes");
-    let id = sanitize.bigint(rawKey.n).toString(16);
-    key.id = key.keyID(rawKey);
+    let privateKeyInfo = PrivateKeyInfo.decode(await key.decryptKeyPKCS8());
+    let algorithm = privateKeyInfo.privateKeyAlgorithm.algorithm;
+    switch (algorithm) {
+    case "ecPublicKey": {
+      let publicKey = key.ecPublicKey(privateKeyInfo);
+      key.cipher = "EC";
+      key.keyLengthInBits = key.curveBits(publicKey);
+      assert(key.keyLengthInBits, "Unsupported elliptic curve");
+      key.id = key.publicKeyID(publicKey);
+      break;
+    }
+    case "rsaEncryption": {
+      let rawKey = RSAPrivateKey.decode(privateKeyInfo.privateKey);
+      assert(rawKey.n == rawKey.p * rawKey.q, "modulus should be product of primes");
+      assert(rawKey.d * rawKey.e % (rawKey.p - 1n) == 1n, "prime exponents product should equal 1 modulo 1 less than prime 1");
+      assert(rawKey.d * rawKey.e % (rawKey.q - 1n) == 1n, "prime exponents product should equal 1 modulo 1 less than prime 2");
+      assert(rawKey.dP == rawKey.d % (rawKey.p - 1n), "prime 1 exponent does not match private exponent");
+      assert(rawKey.dQ == rawKey.d % (rawKey.q - 1n), "prime 2 exponent does not match private exponent");
+      assert(rawKey.qInv * rawKey.q % rawKey.p == 1n, "inverse does not match primes");
+      let id = sanitize.bigint(rawKey.n).toString(16);
+      key.id = key.keyID(rawKey);
+      key.cipher = "RSA";
+      key.keyLengthInBits = id.length * 4;
+      break;
+    }
+    default:
+      throw new NotImplemented(gt`This secret key uses ${algorithmName(algorithm)}, which is not supported`);
+    }
     key.name = key.defaultName;
-    key.cipher = "RSA";
-    key.keyLengthInBits = id.length * 4;
     key.justCreated = true;
     key.created = new Date();
     key.fingerprint = "--";
