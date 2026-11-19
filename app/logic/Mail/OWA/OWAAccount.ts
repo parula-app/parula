@@ -6,7 +6,6 @@ import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShar
 import { OWAFolder } from "./OWAFolder";
 import { OWASearchEMail } from "./OWASearchEMail";
 import { OWAFilterRule } from "./OWAFilterRule";
-import { OutlookRulesCopy } from "../EWS/OutlookRulesCopy";
 import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
 import { OWAAutoResponder } from "./OWAAutoResponder";
 import { OWATags } from "./OWATags";
@@ -22,7 +21,7 @@ import { newCalendarForProtocol} from "../../Calendar/AccountsList/Calendars";
 import type { OWACalendar } from "../../Calendar/OWA/OWACalendar";
 import { OWARequest } from "./Request/OWARequest";
 import type { OWAOptionsRequest } from "./Request/OWAOptionsRequest";
-import { owaGetInboxRulesRequest, owaNewInboxRuleRequest, owaRemoveInboxRuleRequest, owaSetInboxRuleRequest } from "./Request/OWARulesRequests";
+import { owaFindOutlookRulesCopyRequest, owaGetInboxRulesRequest, owaGetOutlookRulesStreamRequest, owaNewInboxRuleRequest, owaRemoveInboxRuleRequest, owaSetInboxRuleRequest } from "./Request/OWARulesRequests";
 import { OWACreateItemRequest } from "./Request/OWACreateItemRequest";
 import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
 import { OWASubscribeToHierarchyNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
@@ -944,58 +943,10 @@ export class OWAAccount extends ExchangeMailAccount {
   }
 
   protected async fetchOutlookRulesStreams(): Promise<Uint8Array[]> {
-    let result = await this.callOWA(new OWARequest("FindItem", {
-      __type: "FindItemRequest:#Exchange",
-      ItemShape: {
-        __type: "ItemResponseShape:#Exchange",
-        BaseShape: "IdOnly",
-      },
-      ParentFolderIds: [{
-        __type: "DistinguishedFolderId:#Exchange",
-        Id: "inbox",
-      }],
-      Traversal: "Associated",
-      Restriction: {
-        Item: {
-          __type: "IsEqualTo:#Exchange",
-          Item: {
-            __type: "PropertyUri:#Exchange",
-            FieldURI: "item:ItemClass",
-          },
-          FieldURIOrConstant: {
-            __type: "FieldURIOrConstantType:#Exchange",
-            Item: {
-              __type: "Constant:#Exchange",
-              Value: OutlookRulesCopy.kItemClass,
-            },
-          },
-        },
-      },
-      Paging: {
-        __type: "IndexedPageView:#Exchange",
-        BasePoint: "Beginning",
-        Offset: 0,
-        MaxEntriesReturned: 10,
-      },
-    }));
+    let result = await this.callOWA(owaFindOutlookRulesCopyRequest());
     let streams: Uint8Array[] = [];
     for (let item of ensureArray(result?.RootFolder?.Items)) {
-      let response = await this.callOWA(new OWARequest("GetItem", {
-        __type: "GetItemRequest:#Exchange",
-        ItemShape: {
-          __type: "ItemResponseShape:#Exchange",
-          BaseShape: "IdOnly",
-          AdditionalProperties: [{
-            __type: "ExtendedPropertyUri:#Exchange",
-            PropertyTag: OutlookRulesCopy.kPropertyTag,
-            PropertyType: "Binary",
-          }],
-        },
-        ItemIds: [{
-          __type: "ItemId:#Exchange",
-          Id: sanitize.nonemptystring(item?.ItemId?.Id),
-        }],
-      }));
+      let response = await this.callOWA(owaGetOutlookRulesStreamRequest(sanitize.nonemptystring(item?.ItemId?.Id)));
       let value = ensureArray(response?.Items?.[0]?.ExtendedProperty)[0]?.Value;
       streams.push(base64ToUint8Array(sanitize.nonemptystring(value)));
     }
