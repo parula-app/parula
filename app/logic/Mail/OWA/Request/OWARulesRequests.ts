@@ -1,28 +1,5 @@
-import { OWAOptionsRequest } from "./OWAOptionsRequest";
 import { OWARequest } from "./OWARequest";
 import { OutlookRulesCopy } from "../../EWS/OutlookRulesCopy";
-
-export function owaGetInboxRulesRequest(): OWAOptionsRequest {
-  return new OWAOptionsRequest("GetInboxRule");
-}
-
-export function owaRemoveInboxRuleRequest(ruleID: string): OWAOptionsRequest {
-  return new OWAOptionsRequest("RemoveInboxRule", {
-    Identity: { RawIdentity: ruleID },
-  });
-}
-
-export function owaNewInboxRuleRequest(parameters: Record<string, any>): OWAOptionsRequest {
-  return new OWAOptionsRequest("NewInboxRule", {
-    InboxRule: parameters,
-  });
-}
-
-export function owaSetInboxRuleRequest(parameters: Record<string, any>): OWAOptionsRequest {
-  return new OWAOptionsRequest("SetInboxRule", {
-    InboxRule: parameters,
-  });
-}
 
 /** The hidden messages in the Inbox with the copy of the rules that Outlook keeps */
 export function owaFindOutlookRulesCopyRequest(): OWARequest {
