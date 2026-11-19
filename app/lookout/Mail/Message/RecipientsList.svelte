@@ -1,16 +1,19 @@
 <span class="recipient-names">
   {#each shown as recipient, index (recipient)}
-    <span class="entry"><button type="button" class="name" title={recipient.emailAddress}
+    {@const name = displayName(recipient)}
+    <span class="entry" class:with-address={withAddress}><button type="button" class="name" title={recipient.emailAddress}
+      class:address-only={withAddress && recipient.emailAddress && name == recipient.emailAddress}
       on:click|stopPropagation={event => openMenu(recipient, event)}
       on:contextmenu|preventDefault|stopPropagation={event => openMenu(recipient, event)}
-      >{displayName(recipient)}</button>{#if withAddress && recipient.name && recipient.emailAddress}<span class="address">&lt;{recipient.emailAddress}&gt;</span>{/if}{#if index < shown.length - 1 || hiddenCount};{/if}</span>{" "}
+      >{#if withAddress && recipient.emailAddress && name == recipient.emailAddress}<EMailAddress emailAddress={recipient.emailAddress} isUnknown={!recipient.findPerson()} />{:else}{name}{/if}</button
+      >{#if withAddress && recipient.emailAddress && name != recipient.emailAddress}<span class="address"><EMailAddress emailAddress={recipient.emailAddress} isUnknown={!recipient.findPerson()} withBrackets /></span>{/if}{#if index < shown.length - 1 || hiddenCount};{/if}</span>{" "}
   {/each}
   {#if hiddenCount}
     <button type="button" class="more" on:click={() => { isExpanded = true; }}>{$t`+${hiddenCount} more`}</button>
   {/if}
 </span>
 <Menu bind:isMenuOpen anchor={menuAnchor} placement="bottom-start">
-  <MenuItem label={$t`Send Email`} icon={SendIcon} onClick={() => MessageActions.writeMailTo(menuRecipient)} />
+  <MenuItem label={$t`Send Email`} icon={SendIcon} onClick={() => MessageActions.writeMailTo(menuRecipient, message.folder)} />
   <MenuItem label={$t`Copy`} icon={CopyIcon} onClick={() => navigator.clipboard.writeText(clipboardText(menuRecipient))} />
   <MenuDivider />
   <MenuItem label={menuRecipient?.findPerson() ? $t`Open Contact Card` : $t`Add to Contacts`}
@@ -18,8 +21,10 @@
 </Menu>
 
 <script lang="ts">
-  import type { PersonUID } from "../../../logic/Abstract/PersonUID";
+  import type { EMail } from "../../../logic/Mail/EMail";
+  import { type PersonUID, personDisplayName } from "../../../logic/Abstract/PersonUID";
   import { MessageActions } from "../MessageActions";
+  import EMailAddress from "./EMailAddress.svelte";
   import Menu from "../../Shared/Menu/Menu.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
@@ -32,6 +37,7 @@
   import { openPersonFromOtherApp } from "../../../frontend/Contacts/open";
 
   export let recipients: Collection<PersonUID>;
+  export let message: EMail;
   export let withAddress = false;
   export let maxShown = 8;
 
@@ -48,11 +54,14 @@
     isMenuOpen = true;
   }
 
-  /* <copied to="../Composer/MailAutocomplete.svelte"> */
   function displayName(recipient: PersonUID): string {
+    if (!recipient.findPerson()) {
+      return personDisplayName(recipient);
+    }
     return recipient.name || recipient.emailAddress;
   }
 
+  /* <copied to="../Composer/MailAutocomplete.svelte"> */
   function clipboardText(recipient: PersonUID): string {
     return recipient.name && recipient.name != recipient.emailAddress
       ? `${recipient.name} <${recipient.emailAddress}>`
@@ -90,5 +99,27 @@
   }
   .entry {
     white-space: nowrap;
+  }
+  /* If space is short, cuts off the name and the start of the email address, but not the base domain */
+  .entry.with-address {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .with-address .name {
+    flex: 0 1 auto;
+    min-width: 1em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .with-address .name.address-only {
+    display: flex;
+  }
+  .with-address .address {
+    /* The parts of the email address shrink together with the name */
+    display: contents;
+  }
+  .with-address .name:not(.address-only) {
+    margin-inline-end: 4px;
   }
 </style>

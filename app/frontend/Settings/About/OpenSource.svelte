@@ -1,9 +1,9 @@
 <div>
   <T msg={$t`You can find the source code of ${appName} core at # under an #.`}>
     <!-- Slot 1 doesn't need explicit declaration `slot="1"`, it breaks the code. -->
-    <a href="https://github.com/mustang-im/mustang" target="_blank">GitHub</a>
+    <a href="https://github.com/parula-app/parula" target="_blank">GitHub</a>
     <!-- Slot 2 -->
-    <a href="https://raw.githubusercontent.com/mustang-im/mustang/master/LICENSE" target="_blank" slot="2">{$t`Open-Source license`}</a>
+    <a href="https://raw.githubusercontent.com/parula-app/parula/master/LICENSE" target="_blank" slot="2">{$t`Open-Source license`}</a>
   </T>
 </div>
 <div>

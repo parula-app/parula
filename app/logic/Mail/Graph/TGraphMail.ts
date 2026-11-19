@@ -113,3 +113,31 @@ export interface TGraphPersonUID {
 
 export interface TGraphFolderChanges {
 }
+
+/** <https://learn.microsoft.com/en-us/graph/api/resources/automaticrepliessetting>
+ * The server is not consistent in the casing of the values. */
+export interface TGraphAutoReplies {
+  /** "disabled", "alwaysEnabled" or "scheduled" */
+  status: string,
+  /** "none", "contactsOnly" or "all" */
+  externalAudience: string,
+  scheduledStartDateTime?: TGraphDateTimeZone,
+  scheduledEndDateTime?: TGraphDateTimeZone,
+  /** HTML */
+  internalReplyMessage: string,
+  externalReplyMessage: string,
+}
+
+/** <https://learn.microsoft.com/en-us/graph/api/resources/datetimetimezone> */
+export interface TGraphDateTimeZone {
+  /** Without time zone, e.g. "2026-10-05T07:00:00.0000000" */
+  dateTime: string,
+  /** E.g. "UTC" */
+  timeZone: string,
+}
+
+export interface TGraphCategory {
+  id?: UUID,
+  displayName: string,
+  color: string,
+}

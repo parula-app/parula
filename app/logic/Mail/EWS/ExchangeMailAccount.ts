@@ -9,6 +9,7 @@ import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
 import { AbstractFunction, UserError } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../l10n/l10n";
+import { ExchangeTags } from "./ExchangeTags";
 import { ArrayColl, Collection } from "svelte-collections";
 
 export class ExchangeMailAccount extends MailAccount {
@@ -16,6 +17,7 @@ export class ExchangeMailAccount extends MailAccount {
   readonly tls = TLSSocketType.TLS;
   readonly canSendOutgoingInvitations: boolean = false;
   deleteStrategy: DeleteStrategy = DeleteStrategy.MoveToTrash;
+  protected _tags: ExchangeTags;
   /** Outlook can make its copy of the rules again from the server rules. @see `checkOutlookRulesCopy()` */
   protected mayDeleteOutlookRulesCopy = false;
 
@@ -130,6 +132,15 @@ export class ExchangeMailAccount extends MailAccount {
    * Empty, if there is no copy. */
   protected async fetchOutlookRulesStreams(): Promise<Uint8Array[]> {
     throw new AbstractFunction();
+  }
+
+  /** The tags that the server knows, with their colors */
+  get tags(): ExchangeTags {
+    return this._tags ??= this.newTags();
+  }
+
+  newTags(): ExchangeTags {
+    return new ExchangeTags(this);
   }
 
   async deleteIt(): Promise<void> {

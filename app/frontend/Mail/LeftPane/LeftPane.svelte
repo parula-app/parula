@@ -1,13 +1,10 @@
 <vbox flex class="folder-pane">
-    <hbox class="top">
+    <hbox class="top window-drag">
       <vbox class="island">
         <SearchSwitcher bind:active={activeTab} />
       </vbox>
       <hbox flex />
       <hbox class="buttons">
-        {#if activeTab == SearchView.Folder}
-          <GetMailButton folder={selectedFolder ?? selectedAccount?.inbox} />
-        {/if}
         {#if activeTab == SearchView.Folder || activeTab == SearchView.Person}
           <WriteButton account={selectedAccount}
             to={activeTab == SearchView.Person && $selectedPerson ? PersonUID.fromPerson($selectedPerson) : null } />
@@ -40,9 +37,11 @@
     <hbox class="separator" />
     <ViewSwitcher />
   {/if}
+  <GlobalSearchBar />
 </vbox>
 
 <script lang="ts">
+  import GlobalSearchBar from "../../MainWindow/GlobalSearchBar.svelte";
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import { type Folder } from "../../../logic/Mail/Folder";
   import type { EMail } from "../../../logic/Mail/EMail";
@@ -149,12 +148,13 @@
     padding: 8px 12px;
     height: unset;
   }
-  .buttons {
-    margin: 8px 8px 0 8px;
-    align-items: end;
+  .island {
+    margin: 8px 8px 8px 12px;
   }
-  .buttons :global(button) {
-    margin-inline-start: 6px;
+  .buttons {
+    margin: 8px 8px 0px 0px;
+    align-items: end;
+    gap: 6px;
   }
   .buttons :global(.icon) {
     padding: 4px;
@@ -162,7 +162,10 @@
   .buttons :global(.get-mail) {
     height: 22px;
   }
-  .island {
-    margin: 8px 12px;
+  .folder-pane :global(.global-search-bar) {
+    /* Same height and background as the `FolderFooter` next to it */
+    height: 32px;
+    padding-block: 2px;
+    background-color: var(--main-bg);
   }
 </style>

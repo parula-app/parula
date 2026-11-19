@@ -7,6 +7,8 @@ import { EWSSearchEMail } from "./EWSSearchEMail";
 import { EWSFilterRule } from "./EWSFilterRule";
 import { OutlookRulesCopy } from "./OutlookRulesCopy";
 import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
+import { EWSAutoResponder } from "./EWSAutoResponder";
+import { EWSTags } from "./EWSTags";
 import { deleteExchangePermissions, setExchangePermissions } from "./ExchangePermission";
 import { EWSCreateItemRequest } from "./Request/EWSCreateItemRequest";
 import type { EWSDeleteItemRequest } from "./Request/EWSDeleteItemRequest";
@@ -84,6 +86,14 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     return new EWSSearchEMail();
   }
 
+  newAutoResponder(): EWSAutoResponder {
+    return new EWSAutoResponder(this);
+  }
+
+  newTags(): EWSTags {
+    return new EWSTags(this);
+  }
+
   get folderID(): string {
     return this.inbox.id;
   }
@@ -158,6 +168,8 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         // `listFolders()` will subscribe to new user-added addressbooks and calendars
 
         await this.subscribeToNotifications();
+        this.tags.load()
+          .catch(logErrorToServer);
       } finally { // Even when the mail folders failed, so that calendar and addressbook still work
         await this.startupDependentAccounts();
       }
@@ -292,6 +304,15 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         throw new EWSItemError(message, aRequest);
       }
       return message;
+    }
+    // OOF has a single `ResponseMessage` without `ResponseMessages`
+    let oof = responseXML.querySelector("GetUserOofSettingsResponse, SetUserOofSettingsResponse");
+    if (oof) {
+      let response = XML2JSON(oof) as Record<string, any>;
+      if (response.ResponseMessage?.ResponseClass == "Error") {
+        throw new EWSItemError(response.ResponseMessage, aRequest);
+      }
+      return response;
     }
     let messages = responseXML.querySelector("ResponseMessages");
     if (!messages) {
@@ -1198,7 +1219,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     };
     try {
       let result = await this.callEWS(request);
-      return result.filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
+      return ensureArray(result).filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
     } catch (ex) {
       return [];
     }

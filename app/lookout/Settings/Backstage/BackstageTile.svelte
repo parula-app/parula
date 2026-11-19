@@ -1,4 +1,4 @@
-<hbox class="backstage-tile">
+<hbox class="backstage-tile" class:highlight>
   <button class="tile-button" bind:this={buttonEl}
     disabled={!!disabled}
     title={typeof disabled == "string" ? disabled : label}
@@ -33,6 +33,8 @@
   export let title: string;
   export let description: string;
   export let disabled: boolean | string = false;
+  /** Something is on that the user should know about, e.g. automatic replies */
+  export let highlight = false;
   export let onClick: () => void | Promise<void> = null;
 
   let buttonEl: HTMLButtonElement;
@@ -59,6 +61,11 @@
     padding-block: 12px;
     border-block-end: 1px solid var(--lo-divider);
   }
+  .backstage-tile.highlight {
+    margin-inline: -8px;
+    padding-inline: 8px;
+    background-color: var(--lo-infobar-bg);
+  }
   .tile-button {
     flex-shrink: 0;
     display: flex;
@@ -66,7 +73,8 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    width: 104px;
+    width: min-content; /* wider for a long word, e.g. in German */
+    min-width: 104px;
     height: 96px;
     padding: 8px 4px;
     border: 1px solid var(--lo-border);

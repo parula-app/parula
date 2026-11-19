@@ -47,7 +47,7 @@
   <hbox flex />
   <hbox class="tags" class:tagged={$tags.hasItems}>
     {#if $tags.hasItems}
-      <TagSelector tags={$tags} object={message} canAdd={false} />
+      <TagSelector tags={$tags} object={message} canAdd={false} compact />
     {/if}
   </hbox>
   <hbox class="star button" class:starred={$message.isStarred}>
@@ -204,7 +204,7 @@
     justify-content: start;
     min-width: 8em;
     font-size: 12px !important;
-    font-family: Helvetica, Arial, sans-serif;
+    font-family: Helvetica, Arial, Constr-Klingon, sans-serif;
     height: 19px; /* make up for smaller font size, minus padding (below), when selected */
     max-height: 19px;
     padding-block-start: 2px; /* vertical center */
@@ -329,11 +329,6 @@
   }
   .unread-dot.unread :global(svg) {
     fill: green;
-  }
-  .tags :global(.tag) {
-    margin: 0 2px;
-    min-height: unset;
-    border: none;
   }
   /* </copied> */
 </style>

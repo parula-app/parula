@@ -101,7 +101,6 @@ async function queryWKD(emailAddress: string): Promise<KeyWithSource> {
 
   let advancedURL = `https://openpgpkey.${domain}/.well-known/openpgpkey/${domain}/hu/${hash}?l=${encodeURIComponent(localPart)}`;
   let directURL = `https://${domain}/.well-known/openpgpkey/hu/${hash}?l=${encodeURIComponent(localPart)}`;
-  console.log("direct", directURL, "advanced", advancedURL);
 
   let binary = await new PriorityAbortable(new AbortController(), [
     fetchBinary(advancedURL),

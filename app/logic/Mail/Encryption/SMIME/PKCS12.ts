@@ -1,4 +1,5 @@
-import { Any, AuthenticatedSafe, CertBag, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, SafeContents, type AlgorithmIdentifier } from "./SMIMEASN1";
+import { Any, AuthenticatedSafe, CertBag, Certificate, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SafeContents, type AlgorithmIdentifier } from "./SMIMEASN1";
+import { sameName } from "./SMIMEVerify";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { rc2Decrypt, rc4Decrypt, tripleDESDecrypt } from "./legacyCiphers";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
@@ -16,7 +17,7 @@ import { sha256, sha384, sha512 } from "@noble/hashes/sha2.js";
  */
 export class PKCS12 {
   /** The private keys in the file, in PKCS#8 form */
-  keys: Uint8Array[] = [];
+  keys: Uint8Array<ArrayBuffer>[] = [];
   /** The certificates in the file, in X.509 DER form.
    * Typically the certificate of the key, and the CAs that signed it. */
   certificates: Uint8Array[] = [];
@@ -37,6 +38,9 @@ export class PKCS12 {
     let authSafe = OctetString.decode(pfx.authSafe.content);
     if (pfx.macData) {
       this.verifyMAC(pfx.macData, authSafe);
+    } else {
+      // Whoever changed the file could also have removed the MAC. Without passphrase, anybody could make the MAC anyway.
+      assert(!this.passphrase, gt`This file has no MAC, which would show that nobody changed it`);
     }
     for (let safe of AuthenticatedSafe.decode(authSafe, { berToDER: true })) {
       await this.readSafeContents(await this.decryptSafe(safe));
@@ -45,7 +49,8 @@ export class PKCS12 {
 
   /**
    * Converts what we read to the PEM format that our S/MIME code reads:
-   * first the private key, then the certificates. The key is encrypted
+   * first the private key, then its certificate, then the CA that issued
+   * that, and so on, whatever their order in the file. The key is encrypted
    * again with the same passphrase, so that it is never stored in the clear.
    * A file with an empty passphrase gives an unencrypted key, which is the
    * form that `SMIMEPrivateKey` expects when there is no passphrase.
@@ -59,10 +64,31 @@ export class PKCS12 {
     let parts = [this.passphrase
       ? await encryptPrivateKey(this.keys[0], this.passphrase)
       : Any.encodePEM(this.keys[0], { label: "PRIVATE KEY" })];
-    for (let certificate of this.certificates) {
-      parts.push(Any.encodePEM(certificate, { label: "CERTIFICATE" }));
+    for (let certificate of this.certificatesSortedByChain()) {
+      parts.push(Certificate.encodePEM(certificate, { label: "CERTIFICATE" }));
     }
     return parts.join("\n") + "\n";
+  }
+
+  /** The certificate that matches the private key first, then its issuer, and so on up to the root,
+   * then the rest in file order (all of them, for a key that is not RSA). `addCertificate()` takes
+   * the first as the key's own and the rest as its chain, which `keyStatus()` checks in this order. */
+  protected certificatesSortedByChain(): Certificate[] {
+    let unsorted = this.certificates.map(der => Certificate.decode(der));
+    let privateKeyInfo = PrivateKeyInfo.decode(this.keys[0]);
+    if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
+      return unsorted;
+    }
+    let { n } = RSAPrivateKey.decode(privateKeyInfo.privateKey);
+    let sorted: Certificate[] = [];
+    let next = unsorted.find(cert => RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data).n == n);
+    while (next) {
+      sorted.push(next);
+      unsorted.splice(unsorted.indexOf(next), 1);
+      let issuer = next.tbsCertificate.issuer;
+      next = unsorted.find(cert => sameName(cert.tbsCertificate.subject, issuer));
+    }
+    return sorted.concat(unsorted);
   }
 
   /** Checks that the file was not modified, using the MAC over its contents.
@@ -129,7 +155,7 @@ export class PKCS12 {
    * defines itself. Which cipher and key length to use is part of the
    * algorithm OID, so the parameters hold only the salt and iterations.
    */
-  protected async decrypt(algorithm: AlgorithmIdentifier, data: Uint8Array): Promise<Uint8Array> {
+  protected async decrypt(algorithm: AlgorithmIdentifier, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
     if (algorithm.algorithm == "pkcs5PBES2") {
       return await decryptPBES2(data, algorithm.parameters, this.passphrase);
     }

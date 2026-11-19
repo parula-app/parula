@@ -1,9 +1,11 @@
 <vbox class="time-options-editor">
-  <hbox class="row">
-    <span class="row-label">{$t`Duration`}</span>
-    <ComboBox options={durationOptions} value={poll.duration} label={$t`Duration`} width="132px"
-      on:change={event => setDuration(event.detail)} />
-  </hbox>
+  {#if showDuration}
+    <hbox class="row">
+      <span class="row-label">{$t`Duration`}</span>
+      <ComboBox options={durationOptions} value={poll.duration} label={$t`Duration`} width="132px"
+        on:change={event => setDuration(event.detail)} />
+    </hbox>
+  {/if}
   <span class="field-label">{$t`Proposed times`}</span>
   <DisplayList {options} duration={poll.duration}
     emptyText={$t`Add the times that you propose`} let:time>
@@ -39,6 +41,8 @@
   import { t } from "../../../../l10n/l10n";
 
   export let sml: SMLData;
+  /** false: The poll is for a meeting, which has its duration already */
+  export let showDuration = true;
 
   $: poll = $sml.sml as TSMLTimePoll;
   $: options = new ArrayColl(poll.options ?? []);

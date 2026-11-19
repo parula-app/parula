@@ -8,8 +8,9 @@ import { ContactEntry } from "../Abstract/Person";
 import type { PersonUID } from "../Abstract/PersonUID";
 import { FilterRuleAction } from "./FilterRules/FilterRuleAction";
 import type { ServerFilterRule } from "./FilterRules/ServerFilterRule";
+import { AutoResponder } from "./AutoResponder";
 import { OAuth2 } from "../Auth/OAuth2";
-import { getProvider } from "../Auth/OAuth2Util";
+import { getOAuth2BuiltIn, getProvider } from "../Auth/OAuth2Util";
 import type { Provider } from "../Auth/OAuth2URLs";
 import type { AttachmentStorage } from "../Abstract/Attachment";
 import type { Calendar } from "../Calendar/Calendar";
@@ -60,6 +61,7 @@ export class MailAccount extends TCPAccount {
 
   readonly rootFolders: Collection<Folder> = new ArrayColl<Folder>();
   readDBRunOnce = new RunOnce();
+  protected _autoResponder: AutoResponder;
 
   async syncOnStartup() {
     await super.syncOnStartup();
@@ -158,6 +160,37 @@ export class MailAccount extends TCPAccount {
     return new MailIdentity(this);
   }
 
+  /** Automatic replies, e.g. during vacation.
+   * Check `autoResponder.supported`. */
+  get autoResponder(): AutoResponder {
+    return this._autoResponder ??= this.newAutoResponder();
+  }
+
+  newAutoResponder(): AutoResponder {
+    return new AutoResponder(this);
+  }
+
+  /** Logins from older app versions have only the scopes of that time.
+   * Asks the user to log in again with the current scopes.
+   * For `PermissionMissing`. */
+  async upgradeScopes(): Promise<void> {
+    let oAuth2 = this.oAuth2 as OAuth2;
+    let newScope = (getOAuth2BuiltIn(this) as OAuth2)?.scope;
+    assert(oAuth2 && newScope, this.name + `: ` + gt`Need OAuth2 configuration`);
+    let oldScope = oAuth2.scope;
+    if (oldScope == newScope) {
+      return; // A new login would not get more
+    }
+    oAuth2.scope = newScope;
+    try {
+      await oAuth2.loginWithUI();
+    } catch (ex) {
+      oAuth2.scope = oldScope;
+      throw ex;
+    }
+    await this.save();
+  }
+
   /** Lets the server search this account, also emails that we did not download.
    * @returns null, if this protocol has no server-side search */
   newSearch(): SearchEMail | null {
@@ -168,6 +201,7 @@ export class MailAccount extends TCPAccount {
     let folder = this.getSpecialFolder(SpecialFolder.Sent);
     let email = folder.newEMail();
     email.compose.generateMessageID();
+    email.compose.needsFooter = true;
     email.loadedBody = true;
     email.from.emailAddress = this.emailAddress;
     email.from.name = this.realname;

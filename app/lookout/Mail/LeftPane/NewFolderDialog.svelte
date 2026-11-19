@@ -13,15 +13,9 @@
   </vbox>
 </Dialog>
 
-<script lang="ts" context="module">
+<script lang="ts">
   import type { Folder } from "../../../logic/Mail/Folder";
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
-  import { writable } from "svelte/store";
-
-  export const openNewFolder = writable<{ account: MailAccount, parent: Folder | null } | null>(null);
-</script>
-
-<script lang="ts">
   import { selectedAccount, selectedFolder } from "../../../frontend/Mail/Selected";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import Dialog from "../../Shared/Dialog/Dialog.svelte";
@@ -29,6 +23,9 @@
   import TextField from "../../Shared/Form/TextField.svelte";
   import { assert } from "../../../logic/util/util";
   import { t } from "../../../l10n/l10n";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+
+  const appWindow = AppWindow.current();
 
   export let account: MailAccount;
   export let parent: Folder | null = null;
@@ -52,8 +49,8 @@
       onCreated(folder);
       return;
     }
-    $selectedAccount = folder.account;
-    $selectedFolder = folder;
+    appWindow.uiState(selectedAccount).set(folder.account);
+    appWindow.uiState(selectedFolder).set(folder);
   }
 
 </script>

@@ -61,15 +61,15 @@
     {/if}
   </RibbonGroup>
   <RibbonGroup label={$t`Scope *=> Ribbon group to choose where to search`}>
-    <RibbonToggleButton label={scopeLabel(SearchScope.AllAccounts)} shortLabel={scopeShortLabel(SearchScope.AllAccounts)} icon={AllAccountsIcon}
+    <RibbonToggleButton label={scopeLabel(SearchScope.AllAccounts)} shortLabel={scopeShortLabel(SearchScope.AllAccounts)} icon={scopeIcon(SearchScope.AllAccounts)}
       selected={scope == SearchScope.AllAccounts}
       onClick={() => { $searchOptions = { ...$searchOptions, scope: SearchScope.AllAccounts }; }}
       shortCutInfo={$t`Ctrl+Alt+A *=> Keyboard shortcut`} />
-    <RibbonToggleButton label={scopeLabel(SearchScope.CurrentAccount)} shortLabel={scopeShortLabel(SearchScope.CurrentAccount)} icon={AccountIcon}
+    <RibbonToggleButton label={scopeLabel(SearchScope.CurrentAccount)} shortLabel={scopeShortLabel(SearchScope.CurrentAccount)} icon={scopeIcon(SearchScope.CurrentAccount)}
       selected={scope == SearchScope.CurrentAccount}
       disabled={!isScopeAvailable(SearchScope.CurrentAccount, account, folder) && $t`Select a folder of an account first`}
       onClick={() => { $searchOptions = { ...$searchOptions, scope: SearchScope.CurrentAccount }; }} />
-    <RibbonToggleButton label={scopeLabel(SearchScope.CurrentFolder)} shortLabel={scopeShortLabel(SearchScope.CurrentFolder)} icon={FolderIcon} size="small"
+    <RibbonToggleButton label={scopeLabel(SearchScope.CurrentFolder)} shortLabel={scopeShortLabel(SearchScope.CurrentFolder)} icon={scopeIcon(SearchScope.CurrentFolder)} size="small"
       selected={scope == SearchScope.CurrentFolder}
       disabled={!isScopeAvailable(SearchScope.CurrentFolder, account, folder) && $t`Select a folder of an account first`}
       onClick={() => { $searchOptions = { ...$searchOptions, scope: SearchScope.CurrentFolder }; }}
@@ -101,12 +101,9 @@
   import type { Person } from "../../../logic/Abstract/Person";
   import type { SearchEMail } from "../../../logic/Mail/Store/SearchEMail";
   import { availableTags } from "../../../logic/Abstract/Tag";
-  import { isRealFolder, isRealAccount, isScopeAvailable, effectiveScope, scopeLabel, scopeShortLabel, SearchScope } from "../Search/MailSearch";
-  import { isAdvancedSearchOpen, searchOptions } from "../Selected";
+  import { isRealFolder, isRealAccount, isScopeAvailable, effectiveScope, scopeLabel, scopeShortLabel, scopeIcon, SearchScope } from "../Search/MailSearch";
+  import { isAdvancedSearchOpen, searchOptions, openSearchPerson, openSaveSearch, openRulesFromSearch } from "../Selected";
   // import { ReceivedRange, receivedRangeLabel } from "../Search/SearchRanges";
-  import { openSearchPerson } from "../Search/SearchPersonDialog.svelte";
-  import { openSaveSearch } from "../Search/SavedSearchUI.svelte";
-  import { openRulesFromSearch } from "../Search/RulesFromSearchUI.svelte";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
   import RibbonButton from "../../Shared/Ribbon/RibbonButton.svelte";
@@ -128,9 +125,6 @@
   import MoreIcon from "lucide-svelte/icons/plus";
   import AdvancedIcon from "lucide-svelte/icons/sliders-horizontal";
   import ConversationIcon from "lucide-svelte/icons/messages-square";
-  import AllAccountsIcon from "lucide-svelte/icons/mails";
-  import AccountIcon from "lucide-svelte/icons/inbox";
-  import FolderIcon from "lucide-svelte/icons/folder";
   import SearchToolsIcon from "lucide-svelte/icons/wrench";
   import SaveSearchIcon from "lucide-svelte/icons/folder-search";
   import CreateRuleIcon from "lucide-svelte/icons/list-plus";

@@ -3,7 +3,8 @@
     <button type="button" class="dialog-tab" class:selected={tab.id == selected}
       role="tab" aria-selected={tab.id == selected}
       tabindex={tab.id == selected ? 0 : -1}
-      disabled={tab.disabled}
+      disabled={!!tab.disabled}
+      title={typeof tab.disabled == "string" ? tab.disabled : null}
       on:click={() => select(tab.id)}>
       {tab.label}
     </button>
@@ -13,7 +14,8 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
 
-  export let tabs: { id: string, label: string, disabled?: boolean }[];
+  /** `disabled`: true, or the reason why the tab is disabled */
+  export let tabs: { id: string, label: string, disabled?: boolean | string }[];
   export let selected: string = tabs[0]?.id;
 
   const dispatch = createEventDispatcher<{ select: string }>();

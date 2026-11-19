@@ -1,4 +1,5 @@
 <hbox class="account" title={errorMsg}
+  protocol={account.protocol}
   on:contextmenu={contextMenu.onContextMenu} {iconSize}>
   {#if $account.isLoggedIn}
     <hbox class="icon">
@@ -124,5 +125,9 @@
   .buttons :global(.get-mail button) {
     padding: 2px;
     border: 1px solid transparent;
+  }
+  .account[protocol="all"] .buttons {
+    display: inherit;
+    opacity: 70%;
   }
 </style>

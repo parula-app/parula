@@ -8,7 +8,7 @@
 
 <script lang="ts">
   import type { SettingsCategory } from "../../../frontend/Settings/SettingsCategory";
-  import { selectedAccount } from "./selected";
+  import { selectedAccount } from "../../../frontend/Settings/Window/selected";
 
   export let category: SettingsCategory;
 </script>

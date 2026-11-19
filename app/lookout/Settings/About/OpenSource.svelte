@@ -1,8 +1,8 @@
 <vbox class="open-source">
   <span>
     <T msg={$t`You can find the source code of ${appName} core at # under an #`}>
-      <a href="https://github.com/mustang-im/mustang" target="_blank">GitHub</a>
-      <a href="https://raw.githubusercontent.com/mustang-im/mustang/master/LICENSE" target="_blank" slot="2">{$t`Open-Source license`}</a>
+      <a href="https://github.com/parula-app/parula" target="_blank">GitHub</a>
+      <a href="https://raw.githubusercontent.com/parula-app/parula/master/LICENSE" target="_blank" slot="2">{$t`Open-Source license`}</a>
     </T>
   </span>
   <span class="lo-secondary">{$t`${appName} is built using the following Open-Source components. We sincerely thank those authors and contributors.`}</span>

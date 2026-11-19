@@ -42,7 +42,7 @@ Folder pane, message list, reading pane, and the Home, Send / Receive, Folder, V
 | Low importance | Message list; reading pane; composer | A three-state importance in `EMail` (today the boolean `isImportant`) |
 | Follow-up flags with dates (Today, Tomorrow, This Week, Next Week, Custom), reminders, Mark Complete, the "Follow up" InfoBar | Home tab > Follow Up; flag on hover | Flag start, due and completed dates and reminders in `EMail`. Lookout's Follow Up menu offers No Date and Clear Flag (`markStarred`). |
 | Pin, Snooze | Hover actions (new Outlook) | A pinned state and a snooze time per message |
-| Block Sender, Never Block Sender / Domain, Safe Senders, always download pictures from a sender, Report Phishing | Home tab > Junk; Report; Pictures InfoBar | Blocked and safe sender lists, ideally synced with the server; a reporting service. Lookout's Junk menu offers Mark as Junk / Not Junk, and "Download pictures" for the shown message. |
+| Block Sender, Never Block Sender / Domain, Safe Senders, always download pictures from a sender, Report Phishing | Home tab > Junk; Report; Pictures InfoBar | Blocked and safe sender lists, ideally synced with the server; a reporting service. Lookout offers a button that toggles between Mark as Junk and Not Junk, and "Download pictures" for the shown message. |
 | Quick Steps, Sweep | Home tab | Stored action macros; bulk actions by sender |
 | Rename categories, category shortcut keys, Quick Click | Categorize > All Categories | Renaming tags, which the servers store by name; a shortcut key per tag. Lookout's Color Categories dialog adds, deletes and recolors categories. |
 | "You replied to this message on *date*", and a click on it opens the reply | Reading pane InfoBar | Finding the user's reply to a message: `EMail.findMyReply()` and `SearchEMail.inReplyTo`, PR #1497. Lookout's code for it is commented out until #1497 is in master. Until then, Lookout shows "You replied to this message." without a date, from `isReplied`. |
@@ -83,7 +83,7 @@ New message, reply and forward, with the Message, Insert, Options and Format Tex
 | Direct Replies To, Save Sent Item To | Options tab > More Options | A per-message `replyTo` and sent folder in `send()` |
 | Sensitivity (Private, Confidential), Do Not Forward, sensitivity labels | Options tab; Message tab | A sensitivity header; rights management |
 | HTML / Plain Text / Rich Text per message | Format Text tab > Format | A per-message override of the `mail.send.format` setting in `CreateMIME` and the protocol senders; RTF / TNEF for Rich Text |
-| Several named signatures per account (New, Rename, Delete), "Choose default signature" for new messages and for replies / forwards, the own signature visible in the editor, Personal Stationery | Signature menu > Signatures… | Named signatures per `MailIdentity` with defaults for new mail and replies, inserted when composing. Today each identity has one `signatureHTML`, appended when sending. Lookout's Signature menu lists one signature per identity and inserts the others; Signatures… edits them. |
+| Signature names, "Choose default signature" for replies / forwards apart from new messages, Personal Stationery | Signature menu > Signatures… | Names for the signatures of a `MailIdentity`, and a separate default for replies. Today each identity has a default `signatureHTML` and more `altSignatures`. The Signature menu lists them by their text and swaps the picked one in; Signatures… opens the Identities page of the account settings. |
 | Font family, color, highlight, alignment, paragraph indent, line spacing | Message tab > Basic Text; Format Text tab | Editor extensions (`@tiptap/extension-text-style` is installed), and a sanitizer that keeps these styles |
 | Tables, online pictures, shapes, icons, screenshots, Quick Parts, equations | Insert tab | Editor features. Lookout offers Attach File, Pictures, Link, Date & Time, Symbol, Horizontal Line and Emoji. |
 | Attach Item: a message, a business card, a calendar | Insert tab > Include | Attaching an `EMail` as `.eml`, a `Person` as vCard, a calendar range as iCalendar |
@@ -113,12 +113,11 @@ Rules and Alerts and Create Rule. All Mustang rules are client rules that run wh
 
 ## Automatic Replies (Out of Office)
 
-Not built: Mustang has no automatic-reply logic for any protocol.
-
 | Outlook feature | Where in Outlook | What the logic would need |
 |---|---|---|
-| Automatic replies on / off, messages for inside and outside the organization, time range, "My contacts only" | File > Info > Automatic Replies | Server auto-reply settings per protocol: EWS `GetUserOofSettings` / `SetUserOofSettings`, Graph `automaticRepliesSetting`, JMAP `VacationResponse`, ManageSieve `vacation` for IMAP |
-| "Automatic replies are being sent for this account" InfoBar with Turn Off | Below the ribbon | Reading the state above at start and periodically |
+| Automatic replies for IMAP accounts | File > Info > Automatic Replies | ManageSieve `vacation`, as an `AutoResponder` subclass |
+| Font, size, color, underline and indent for the messages | Automatic Replies dialog | More buttons in the editor toolbar, which has bold, italic, strike-through, lists, headings and links. Underline works with Ctrl+U. |
+| Updating the bar while the app runs | Below the ribbon | A periodic `autoResponder.load()`. Lookout reads the state when you go to the account. |
 | Automatic Reply Rules | Automatic Replies > Rules | Exchange OOF rules |
 | Block my calendar, decline new invitations, cancel my meetings during the period | Automatic replies (new Outlook) | Calendar integration of the above |
 | Auto reply for IMAP and POP accounts without server support | Rules Wizard: "reply using a specific template" | A reply action in rules |

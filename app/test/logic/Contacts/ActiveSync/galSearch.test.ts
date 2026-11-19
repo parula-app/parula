@@ -5,10 +5,12 @@ import { ActiveSyncGAL } from "../../../../logic/Contacts/ActiveSync/ActiveSyncG
 import type { ActiveSyncPerson } from "../../../../logic/Contacts/ActiveSync/ActiveSyncPerson";
 import { request2WBXML, WBXML2JSON } from "../../../../logic/Mail/ActiveSync/WBXML";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { kCertificate, kCertificateEmailAddress } from "../testCertificate";
+import { kCertificate, kCertificateEmailAddress, trustTestCAs } from "../testCertificate";
 import { addSMIMEIdentities } from "../smimeIdentities";
 import { ArrayColl } from "svelte-collections";
 import { expect, test } from "vitest";
+
+trustTestCAs();
 
 const kPersons = [{
   DisplayName: "Ben Bucksch",

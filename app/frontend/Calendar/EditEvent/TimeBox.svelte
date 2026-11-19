@@ -191,11 +191,13 @@
     event.notifyObservers();
   }
 
+  // <copied to="Availability/FreeSlots.svelte, Availability/ParticipantsDayView.svelte, ../../../lookout/Calendar/EditEvent/EventTimeEditor.ts">
   function onStartTimeChanged(newTime: Date) {
     let duration = event.duration;
     event.startTime = newTime;
     event.duration = duration;
   }
+  // </copied>
 
   function checkEndTime() {
     if (event.endTime.getTime() <= event.startTime.getTime()) {

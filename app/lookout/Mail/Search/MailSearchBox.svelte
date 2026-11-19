@@ -1,9 +1,10 @@
 <vbox class="mail-search-box" bind:this={boxEl}>
   <hbox class="search" class:has-search={!!typed}>
     <button type="button" class="scope" bind:this={scopeButton}
-      title={$t`Choose where to search`}
+      title={$t`Choose where to search`} aria-label={scopeLabel(scope)}
       aria-haspopup="menu" aria-expanded={isScopeOpen}
       on:click|stopPropagation={() => isScopeOpen = !isScopeOpen}>
+      <svelte:component this={scopeIcon(scope)} size={16} class="scope-icon" />
       <span class="scope-label">{scopeLabel(scope)}</span>
       <ChevronIcon size={14} />
     </button>
@@ -13,8 +14,8 @@
       placeholder={$t`Search`} spellcheck={false}
       role="combobox" aria-expanded={suggestions.length > 0} aria-autocomplete="list"
       on:input={onInput} on:keydown={onKeyDown}
-      on:focus={() => { isInputFocused = true; }}
-      on:blur={() => { isInputFocused = false; }} />
+      on:focus={() => { isInputFocused = true; $isMailSearchFocused = true; }}
+      on:blur={() => { isInputFocused = false; $isMailSearchFocused = false; }} />
     {#if typed}
       <button type="button" class="icon-button" title={$t`Clear`} aria-label={$t`Clear`}
         on:click={onClear}>
@@ -59,19 +60,13 @@
     </vbox>
   {/if}
 </vbox>
-<svelte:window on:mousedown={onClickOutside} />
-
-<script lang="ts" context="module">
-  import { writable } from "svelte/store";
-
-  export const mailSearchInput = writable<HTMLInputElement | null>(null);
-</script>
+<AppWindowEvents on:mousedown={onClickOutside} />
 
 <script lang="ts">
   import { globalSearchTerm } from "../../../frontend/AppsBar/selectedApp";
   import { selectedAccount, selectedFolder } from "../../../frontend/Mail/Selected";
-  import { isScopeAvailable, effectiveScope, scopeLabel, SearchScope } from "./MailSearch";
-  import { isAdvancedSearchOpen, searchOptions } from "../Selected";
+  import { isScopeAvailable, effectiveScope, scopeLabel, scopeIcon, SearchScope } from "./MailSearch";
+  import { isAdvancedSearchOpen, isMailSearchFocused, mailSearchInput, searchOptions } from "../Selected";
   import { AdvancedSearchDraft } from "./AdvancedSearchDraft";
   import SearchCriteria from "./SearchCriteria.svelte";
   import { searchPersons } from "../Composer/SelectNames";
@@ -80,6 +75,7 @@
   import PersonCircle from "../../Contacts/Person/PersonCircle.svelte";
   import Menu from "../../Shared/Menu/Menu.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import SearchIcon from "lucide-svelte/icons/search";
   import ClearIcon from "lucide-svelte/icons/x";
   import ChevronIcon from "lucide-svelte/icons/chevron-down";
@@ -87,14 +83,19 @@
   import { get } from "svelte/store";
   import { onDestroy } from "svelte";
   import { t } from "../../../l10n/l10n";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
 
+  const appWindow = AppWindow.current();
   const scopes = [SearchScope.AllAccounts, SearchScope.CurrentAccount, SearchScope.CurrentFolder];
   $: scope = effectiveScope($searchOptions, $selectedAccount, $selectedFolder);
 
   let boxEl: HTMLElement;
   let inputEl: HTMLInputElement;
   $: $mailSearchInput = inputEl ?? null;
-  onDestroy(() => $mailSearchInput = null);
+  onDestroy(() => {
+    appWindow.uiState(mailSearchInput).set(null);
+    appWindow.uiState(isMailSearchFocused).set(false);
+  });
   let scopeButton: HTMLButtonElement;
   let isScopeOpen = false;
   let draft: AdvancedSearchDraft = null;
@@ -234,6 +235,10 @@
   .scope-label {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .scope :global(.scope-icon) {
+    display: none;
+    flex-shrink: 0;
   }
   .divider {
     align-self: stretch;

@@ -12,7 +12,7 @@
       icon={$messages.first.isSpam ? NotSpamIcon : SpamIcon}
       />
     <Button plain
-      label={$t`Archive`}
+      label={$t`Archive *=> Move the message to the Archive folder`}
       tooltip={$t`Move this email to the archive folder`}
       onClick={onArchive}
       icon={ArchiveIcon}

@@ -18,13 +18,14 @@
     </RibbonMenuButton>
   </RibbonGroup>
   <RibbonGroup label={$t`Delete`}>
-    <RibbonMenuButton label={$t`Junk *=> Menu to mark the selected emails as junk or not junk`} icon={JunkIcon} size="small" disabled={noSelection}>
-      <JunkMenuItems {messages} />
-    </RibbonMenuButton>
+    <RibbonButton label={isJunk ? $t`Not Junk` : $t`Mark as Junk`} icon={isJunk ? NotJunkIcon : JunkIcon} size="small"
+      tooltip={isJunk ? $t`Move back to the Inbox, and train the junk filter` : $t`Move to the Junk folder, and train the junk filter`}
+      onClick={() => MessageActions.toggleJunk(messages)}
+      disabled={noSelection} shortCutInfo={isJunk ? $t`Ctrl+Alt+J *=> Keyboard shortcut` : $t`Ctrl+J *=> Keyboard shortcut`} />
     <RibbonButton label={$t`Delete`} icon={DeleteIcon}
       onClick={async () => { await Promise.all(messages.map(message => message.deleteMessage())); }}
       disabled={noSelection} shortCutInfo={$t`Del *=> Delete key`} />
-    <RibbonButton label={$t`Archive`} icon={ArchiveIcon}
+    <RibbonButton label={$t`Archive *=> Move the message to the Archive folder`} icon={ArchiveIcon}
       onClick={() => MessageActions.archive(messages)}
       disabled={noSelection} shortCutInfo={$t`Backspace *=> Backspace key`} />
   </RibbonGroup>
@@ -117,7 +118,7 @@
   import type { MailAccount } from "../../../logic/Mail/MailAccount";
   import { appGlobal } from "../../../logic/app";
   import { MessageActions } from "../MessageActions";
-  import { openMoveMessages } from "../Message/MessageMovePopup.svelte";
+  import { openMoveMessages } from "../Selected";
   import RibbonTab from "../../Shared/Ribbon/RibbonTab.svelte";
   import RibbonGroup from "../../Shared/Ribbon/RibbonGroup.svelte";
   import RibbonButton from "../../Shared/Ribbon/RibbonButton.svelte";
@@ -128,7 +129,6 @@
   import { searchPersons } from "../Composer/SelectNames";
   import type { Person } from "../../../logic/Abstract/Person";
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
-  import JunkMenuItems from "../Message/JunkMenuItems.svelte";
   import FollowUpMenuItems from "../Message/FollowUpMenuItems.svelte";
   import RulesMenuItems from "../Rules/RulesMenuItems.svelte";
   import CategorizeMenuItems from "../Message/CategorizeMenuItems.svelte";
@@ -145,6 +145,7 @@
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import ArchiveIcon from "lucide-svelte/icons/archive";
   import JunkIcon from "lucide-svelte/icons/shield-x";
+  import NotJunkIcon from "lucide-svelte/icons/shield-check";
   import ReplyIcon from "lucide-svelte/icons/reply";
   import ReplyAllIcon from "lucide-svelte/icons/reply-all";
   import ForwardIcon from "lucide-svelte/icons/forward";

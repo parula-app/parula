@@ -4,11 +4,13 @@ import { appGlobal } from "../../../../logic/app";
 import { EWSGAL } from "../../../../logic/Contacts/EWS/EWSGAL";
 import type { EWSPerson } from "../../../../logic/Contacts/EWS/EWSPerson";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
-import { kCertificate, kCertificateEmailAddress, kSMIMECertificate, kSMIMECertificateEmailAddress } from "../testCertificate";
+import { kCertificate, kCertificateEmailAddress, kSMIMECertificate, kSMIMECertificateEmailAddress, trustTestCAs } from "../testCertificate";
 import { addSMIMEIdentities } from "../smimeIdentities";
 import { errorsForServer } from "../../../../logic/util/error";
 import { ArrayColl } from "svelte-collections";
 import { expect, test, vi } from "vitest";
+
+trustTestCAs();
 
 const kPersons = [{
   name: "Ben Bucksch",

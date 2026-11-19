@@ -1,9 +1,10 @@
-<vbox class="message-header"
+<vbox class="message-header window-drag"
   class:outgoing={$message.outgoing}
   on:swipeleft={onPreviousMessage}
   on:swiperight={onNextMessage}
   >
   <hbox>
+    <SecondaryWindowButtons />
     {#if $message.contact instanceof Person && $message.contact.picture}
       <PersonPicture person={$message.contact} />
     {/if}
@@ -99,6 +100,7 @@
   import RecipientsList from "./RecipientsList.svelte";
   import Recipient from "./Recipient.svelte";
   import PersonPicture from "../../Contacts/Person/PersonPicture.svelte";
+  import SecondaryWindowButtons from "../../MainWindow/SecondaryWindowButtons.svelte";
   import DisplayModeSwitcher from "./DisplayModeSwitcher.svelte";
   import TagSelector from "../../Shared/Tag/TagSelector.svelte";
   import EncryptionButtons from "./EncryptionButtons.svelte";

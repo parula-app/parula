@@ -6,8 +6,13 @@ import { findOrCreatePersonUID } from "../../../../../logic/Abstract/PersonUID";
 import { SMIMESend } from "../../../../../logic/Mail/Encryption/SMIME/SMIMESend";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { SMIMEPublicKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
+import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
+import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
-import type { Folder } from "../../../../../logic/Mail/Folder";
+import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
+import { ContentInfo, AuthEnvelopedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { kP256Certificate } from "./ellipticCurves";
+import { kAlice } from "./certificateChains";
 import { expect, test, describe, beforeAll } from "vitest";
 
 // The browser has these, but Node does not.
@@ -31,8 +36,9 @@ let key: SMIMEPrivateKey;
 beforeAll(async () => {
   ({ folder } = await setupTestFolder({
     // Stands in for nodemailer in the backend, which writes a message in
-    // plain text, without attachments, as a single quoted-printable part.
-    getMIMENodemailer: async () => new TextEncoder().encode(kPlainTextMIME.replace(/\n/g, "\r\n")),
+    // plain text, without attachments, as a single quoted-printable part,
+    // and a `raw` message as it is.
+    getMIMENodemailer: async (mail: any) => new TextEncoder().encode(mail.raw ?? kPlainTextMIME.replace(/\n/g, "\r\n")),
     getCACertificates: async () => [],
   }));
   identity = new MailIdentity(folder.account);
@@ -52,11 +58,12 @@ async function sendAndReceive(sign: boolean, encrypt: boolean): Promise<EMail> {
   mail.identity = identity;
   mail.from = findOrCreatePersonUID("user@example.com", "User");
   mail.to.add(mail.from);
-  mail.signedByKeyID = sign ? key.id : null;
+  mail.signPrivateKey = sign ? key : null;
   mail.shouldEncrypt = encrypt;
   let sent = await SMIMESend.encryptAndSign(mail);
 
   let received = newTestEMail(folder, "plain-text@example.com");
+  received.from = mail.from; // as the server reports it
   received.mime = new TextEncoder().encode(sent.sendRawMIME);
   await received.parseMIME();
   return received;
@@ -66,7 +73,7 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
   test("signed", async () => {
     let email = await sendAndReceive(true, false);
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
-    expect(email.signedByKeyID).toBe(key.id);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
   });
 
   test("encrypted", async () => {
@@ -79,8 +86,131 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
     let email = await sendAndReceive(true, true);
     expect(email.wasEncrypted).toBe(true);
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
-    expect(email.signedByKeyID).toBe(key.id);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
   });
+});
+
+/** The CMS blob of a message from `SMIMESend` */
+function cmsOf(sendRawMIME: string): Uint8Array {
+  return new Uint8Array(Buffer.from(sendRawMIME.split("\r\n\r\n")[1], "base64"));
+}
+
+test("A message only to ourselves is encrypted with AES-GCM, so that nobody can change it unnoticed", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  mail.to.add(mail.from);
+  mail.shouldEncrypt = true;
+  let sent = await SMIMESend.encryptAndSign(mail);
+  let [headers] = sent.sendRawMIME.split("\r\n\r\n");
+  let cms = AuthEnvelopedData.decode(cmsOf(sent.sendRawMIME));
+  expect(cms.contentType).toBe("authEnvelopedData");
+
+  // Without the authentication, this would change only the last character of the text
+  let encrypted = cms.content.authEncryptedContentInfo.encryptedContent;
+  encrypted[encrypted.length - 1] ^= 1;
+  let received = newTestEMail(folder, "changed@example.com");
+  received.from = mail.from;
+  received.mime = new TextEncoder().encode(headers + "\r\n\r\n" + Buffer.from(AuthEnvelopedData.encode(cms)).toString("base64") + "\r\n");
+  await received.parseMIME();
+  expect(received.text ?? "").not.toContain("Köln");
+});
+
+test("A message to others is encrypted with AES-CBC, because many of them can't read AES-GCM yet", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  let recipient = findOrCreatePersonUID("alice@example.com", "Alice");
+  recipient.encryptionPublicKey = await SMIMEPublicKey.importPublicKey(kAlice);
+  mail.to.add(recipient);
+  mail.shouldEncrypt = true;
+  let sent = await SMIMESend.encryptAndSign(mail);
+  expect(ContentInfo.decode(cmsOf(sent.sendRawMIME)).contentType).toBe("envelopedData");
+
+  // We can read it, too, e.g. in the Sent folder
+  let received = newTestEMail(folder, "to-alice@example.com");
+  received.from = mail.from;
+  received.mime = new TextEncoder().encode(sent.sendRawMIME);
+  await received.parseMIME();
+  expect(received.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
+});
+
+test("Encrypting to a recipient with an EC certificate says that we can't", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  let recipient = findOrCreatePersonUID("ec256@example.com", "EC 256");
+  recipient.encryptionPublicKey = await SMIMEPublicKey.importPublicKey(kP256Certificate);
+  mail.to.add(recipient);
+  mail.shouldEncrypt = true;
+  await expect(SMIMESend.encryptAndSign(mail)).rejects.toThrow("ec256@example.com");
+});
+
+describe("A draft", () => {
+  let drafts: Folder;
+  let savedMIME: Uint8Array;
+
+  beforeAll(() => {
+    drafts = new Folder(folder.account);
+    drafts.specialFolder = SpecialFolder.Drafts;
+    // Keeps what an IMAP server would get
+    drafts.addMessage = async (message: EMail) => {
+      savedMIME = message.mime ?? await CreateMIME.getMIME(message);
+    };
+    folder.account.rootFolders.add(drafts);
+  });
+
+  /** To a recipient whose certificate we don't have yet */
+  async function saveDraft(encrypt: boolean): Promise<Uint8Array> {
+    let mail = folder.newEMail();
+    mail.identity = identity;
+    mail.from = findOrCreatePersonUID("user@example.com", "User");
+    mail.to.add(findOrCreatePersonUID("no-certificate@example.com", "No Certificate"));
+    mail.shouldEncrypt = encrypt;
+    await mail.compose.saveAsDraft();
+    return savedMIME;
+  }
+
+  test("that is encrypted uses AES-GCM, because only we read it", async () => {
+    let mime = new TextDecoder().decode(await saveDraft(true));
+    expect(ContentInfo.decode(cmsOf(mime)).contentType).toBe("authEnvelopedData");
+  });
+
+  test("that is encrypted is saved without the text in clear", async () => {
+    let mime = new TextDecoder().decode(await saveDraft(true));
+    expect(mime).not.toContain("K=C3=B6ln");
+    expect(mime).not.toContain("Zeile");
+  });
+
+  test("that is encrypted reopens with its text, and must stay encrypted", async () => {
+    let draft = drafts.newEMail();
+    draft.mime = await saveDraft(true);
+    await draft.parseMIME(); // as the download does
+    await draft.compose.editDraft();
+    expect(draft.system).toBe(EncryptionSystem.SMIME);
+    expect(draft.wasEncrypted).toBe(true);
+    expect(draft.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
+    expect(draft.shouldEncrypt).toBe(true);
+    expect(draft.mustEncrypt).toBe(true);
+  });
+
+  test("that is not encrypted reopens with encryption optional", async () => {
+    let draft = drafts.newEMail();
+    draft.mime = await saveDraft(false);
+    await draft.parseMIME();
+    await draft.compose.editDraft();
+    expect(draft.wasEncrypted).toBe(false);
+    expect(draft.mustEncrypt).toBe(false);
+  });
+});
+
+test("Encrypting to a recipient whose certificate we don't have says so", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  mail.to.add(findOrCreatePersonUID("no-certificate@example.com", "No Certificate"));
+  mail.shouldEncrypt = true;
+  await expect(SMIMESend.encryptAndSign(mail)).rejects.toThrow("recipients");
 });
 
 const kText = "Grüße aus Köln!\nEine sehr lange Zeile, eine sehr lange Zeile, eine sehr lange Zeile, eine sehr lange Zeile.";

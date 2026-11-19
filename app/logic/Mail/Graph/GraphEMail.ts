@@ -57,14 +57,19 @@ export class GraphEMail extends EMail {
     this.isDraft = sanitize.boolean(json.isDraft, false);
     this.isStarred = json.flag?.flagStatus && json.flag.flagStatus != "notFlagged";
 
-    for (let customTag in json.categories) {
+    if (!Array.isArray(json.categories)) {
+      return;
+    }
+    let tags: Tag[] = [];
+    for (let customTag of json.categories) {
       if (!customTag ||
           customTag.startsWith("$") ||
           ["nonjunk", "junk"].includes(customTag.toLowerCase())) {
         continue;
       }
-      this.tags.add(getTagByName(sanitize.string(customTag)));
+      tags.push(getTagByName(sanitize.string(customTag)));
     }
+    this.tags.replaceAll(tags);
   }
 
   fromHeaders(headers: TGraphEMailHeader[]) {
@@ -247,6 +252,9 @@ export class GraphEMail extends EMail {
 
   async addTagOnServer(tag: Tag) {
     await this.setFlagServer(tag.name, true);
+    let account = this.folder.account;
+    account.tags.add(tag)
+      .catch(account.errorCallback);
   }
 
   async removeTagOnServer(tag: Tag) {
