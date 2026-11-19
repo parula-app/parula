@@ -20,7 +20,12 @@ export class SMIMEReadProcessor extends EMailProcessor {
     // itself, but we don't have that here. And to get the headers in the
     // EMail object requires an extra parse, which seems wasteful. So
     // let's fish the header out of the PostalEmail object...
-    let contentTypeHeader = sanitize.string(postal.headers.find(header => header.key == "content-type")?.value, "");
+    let contentTypeHeaders = postal.headers.filter(header => header.key == "content-type");
+    // RFC 2045 allows only one. Mailers differ in which one they use, so we can't tell what the sender signed or encrypted.
+    if (contentTypeHeaders.length > 1) {
+      return;
+    }
+    let contentTypeHeader = sanitize.string(contentTypeHeaders[0]?.value, "");
     let contentType = parseHeaderParameters(contentTypeHeader).$main;
     if (contentType == "application/pkcs7-mime" ||
         contentType == "application/x-pkcs7-mime" || // legacy type name, used by Outlook
