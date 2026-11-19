@@ -13,7 +13,7 @@ import { k1HourMS } from "../../../util/date";
 import { assert } from "../../../util/util";
 import { gt } from "../../../../l10n/l10n";
 import { ArrayColl, Collection } from "svelte-collections";
-import type { Email as MIME } from "postal-mime";
+import PostalMIME, { type Email as MIME } from "postal-mime";
 import type OpenPGP from "openpgp";
 
 /*
@@ -93,9 +93,13 @@ export class PGPReadProcessor extends EMailProcessor {
         // date: email.sent, // TODO plus a few minutes. Getting "Signature creation time is in the future"
       });
       let signer = await this.checkSignatures(verificationResult.signatures, senderPublicKeys, email.sent, openPGP);
-      let innerFrom = (await EMail.getHeadersFromMIME(signedBinary)).from;
-      email.rememberSigner(!innerFrom || innerFrom.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
+      let signed = await PostalMIME.parse(signedBinary);
+      email.rememberSigner(!signed.from || signed.from.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
       email.attachments.remove(detachedSignaturePart);
+      if (email.signedPublicKey) {
+        // Show exactly what was signed. postal-mime may find other parts in the whole mail than our splitter.
+        await email.setBodyAndAttachments(signed);
+      }
     }
   }
 
