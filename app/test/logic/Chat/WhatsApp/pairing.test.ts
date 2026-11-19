@@ -21,6 +21,7 @@ import { encodeNode } from "../../../../logic/Chat/WhatsApp/Binary/encoder";
 import { decodeNode } from "../../../../logic/Chat/WhatsApp/Binary/decoder";
 import { JID } from "../../../../logic/Chat/WhatsApp/Binary/JID";
 import { getLoginPayload } from "../../../../logic/Chat/WhatsApp/clientInfo";
+import { verifyDeviceIdentityHMAC } from "../../../../logic/Chat/WhatsApp/Crypto/adv";
 import { expect, test } from "vitest";
 
 appGlobal.me = new Person(); // as `startup.ts` does
@@ -304,6 +305,16 @@ test("rejects a pair-success whose HMAC does not match the advSecret", async () 
   pairing.connection.rootCertKey = root.publicKey;
 
   await expect(pairing.register(clientChannel)).rejects.toThrow(/HMAC mismatch/);
+});
+
+test("rejects a device identity whose HMAC is empty or truncated", () => {
+  let advSecret = WhatsAppPairing.newCredentials().advSecret;
+  let details = encode(ADVSignedDeviceIdentity, { details: new Uint8Array([1, 2, 3]) });
+  let hmac = hmacSHA256(advSecret, details);
+  expect(verifyDeviceIdentityHMAC(advSecret, details, hmac)).toBe(true);
+  expect(verifyDeviceIdentityHMAC(advSecret, details, new Uint8Array())).toBe(false);
+  expect(verifyDeviceIdentityHMAC(advSecret, details, hmac.subarray(0, 1))).toBe(false);
+  expect(verifyDeviceIdentityHMAC(advSecret, details, hmac.subarray(0, 16))).toBe(false);
 });
 
 test("the login payload carries the paired phone number and device id", () => {

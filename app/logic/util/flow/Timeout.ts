@@ -1,3 +1,5 @@
+import { waitTime } from "../util";
+
 /**
  * Runs a function, if something takes too long.
  * Create it when you start to wait, and call `fulfilled()` once it happened.
@@ -10,7 +12,7 @@ export class Timeout {
   constructor(seconds: number, onTimeout: () => void) {
     this.seconds = seconds;
     this.onTimeout = onTimeout;
-    this.timer = setTimeout(onTimeout, seconds * 1000);
+    this.timer = setTimeout(onTimeout, seconds * 1000 * waitTime.factor); // tests wait less
   }
 
   /** It happened in time, so do not run `onTimeout()` */
@@ -24,6 +26,6 @@ export class Timeout {
   restart(seconds = this.seconds): void {
     this.seconds = seconds;
     clearTimeout(this.timer);
-    this.timer = setTimeout(this.onTimeout, seconds * 1000);
+    this.timer = setTimeout(this.onTimeout, seconds * 1000 * waitTime.factor); // tests wait less
   }
 }

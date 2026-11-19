@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { appGlobal } from "../../../../logic/app.ts"; // defeats circular import
 import { OWAAccount } from "../../../../logic/Mail/OWA/OWAAccount";
+import { OWAError } from "../../../../logic/Mail/OWA/OWAError";
 import { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
 import { Person } from "../../../../logic/Abstract/Person";
 import { expect, test } from "vitest";
@@ -140,7 +141,9 @@ test("OWA: Create and delete server rules", async () => {
 test("OWA: The error that the server gives for a rule", async () => {
   let account = newTestAccount();
   await account.refreshServerFilterRules();
-  account.callOWA = async () => ({ WasSuccessful: false, ErrorMessage: "The folder doesn't exist." });
+  account.callOWA = async () => {
+    throw new OWAError({ json: { WasSuccessful: false, ErrorMessage: "The folder doesn't exist." } });
+  };
 
   rule(account, "Invoices").markAsRead = null;
 
@@ -176,9 +179,12 @@ test("OWA: While Outlook keeps its own copy of the rules, the server rules becom
   let account = newTestAccount();
   await account.refreshServerFilterRules();
   let callOWA = account.callOWA.bind(account);
-  account.callOWA = async (request: any) => request.action == "SetInboxRule"
-    ? { WasSuccessful: false, ErrorCode: 4, UserPrompt: "Using Outlook Web App to modify your rules will delete any rules that were previously created using Outlook." }
-    : await callOWA(request);
+  account.callOWA = async (request: any) => {
+    if (request.action == "SetInboxRule") {
+      throw new OWAError({ json: { WasSuccessful: false, ErrorCode: 4, UserPrompt: "Using Outlook Web App to modify your rules will delete any rules that were previously created using Outlook." } });
+    }
+    return await callOWA(request);
+  };
 
   rule(account, "Invoices").markAsRead = null;
 

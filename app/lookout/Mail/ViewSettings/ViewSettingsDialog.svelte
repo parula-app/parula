@@ -32,14 +32,8 @@
     on:close={closeSub} />
 {/if}
 
-<script lang="ts" context="module">
-  import type { Folder } from "../../../logic/Mail/Folder";
-  import { writable } from "svelte/store";
-
-  export const openViewSettings = writable<{ folder: Folder | null } | null>(null);
-</script>
-
 <script lang="ts">
+  import type { Folder } from "../../../logic/Mail/Folder";
   import { quickSearch } from "../../../frontend/Mail/Selected";
   import { arrangeFieldLabel, ColumnInfo, viewSettingsOf, replaceViewSettings, viewTypeLabel, defaultViewSettings, type ViewSettings } from "./ViewSettings";
   import { MessageGrouping } from "../3pane/MessageGrouping";
@@ -89,7 +83,7 @@
 <style>
   .rows {
     display: grid;
-    grid-template-columns: 168px minmax(0, 1fr);
+    grid-template-columns: minmax(168px, max-content) minmax(0, 1fr);
     align-items: center;
     gap: 8px 12px;
   }

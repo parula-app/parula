@@ -119,7 +119,7 @@ export function initiatePqxdhSession(store: SignalStore, address: string, bundle
   state.pendingPreKey = { preKeyID: bundle.preKeyID, signedPreKeyID: bundle.signedPreKeyID, baseKey: djbEncode(baseKey.publicKey) };
   state.pendingKyber = { kyberPreKeyID: kyberPreKey.keyID, ciphertext: kyberCiphertext };
   store.sessions.set(address, state);
-  store.identities.set(address, bundle.identityKey);
+  store.saveIdentity(address, bundle.identityKey);
   return { state, pqrKey };
 }
 
@@ -182,6 +182,9 @@ export async function decryptPqxdhPreKeyMessage(store: SignalStore, address: str
   }
   try {
     let plaintext = await decryptSignalMessage(store, address, pkmsg.message, pad, pqr);
+    if (!sameSession) {
+      store.saveIdentity(address, djbDecode(pkmsg.identityKey)); // after the MAC: a forged pkmsg must not replace the known key
+    }
     if (!sameSession && pkmsg.preKeyID != null) {
       store.preKeys.delete(pkmsg.preKeyID); // confirmed: consume the one-time prekey
     }
@@ -230,7 +233,6 @@ function createPqxdhSessionFromPreKey(store: SignalStore, address: string, pkmsg
   state.localIdentityKey = djbEncode(store.identityKeyPair.publicKey);
   state.establishingBaseKey = pkmsg.baseKey;
   store.sessions.set(address, state);
-  store.identities.set(address, theirIdentity);
   return { state, pqrKey };
 }
 

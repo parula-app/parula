@@ -6,6 +6,7 @@ import { PersonUID } from "../../Abstract/PersonUID";
 import { appGlobal } from "../../app";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../l10n/l10n";
+import { ExchangeTags } from "./ExchangeTags";
 import { ArrayColl, Collection } from "svelte-collections";
 
 export class ExchangeMailAccount extends MailAccount {
@@ -13,6 +14,7 @@ export class ExchangeMailAccount extends MailAccount {
   readonly tls = TLSSocketType.TLS;
   readonly canSendOutgoingInvitations: boolean = false;
   deleteStrategy: DeleteStrategy = DeleteStrategy.MoveToTrash;
+  protected _tags: ExchangeTags;
 
   get calendarsAvailable(): Collection<Calendar> {
     let mailboxCalendars = this.calendarsOfMailbox(this.username);
@@ -71,6 +73,15 @@ export class ExchangeMailAccount extends MailAccount {
     this.serverFilterRulesReadOnlyReason = exist
       ? gt`Classic Outlook keeps its own copy of the rules for this account. Exchange would delete it when the rules change here, and the rules in Outlook for sent mail and the rules that are turned off in Outlook would be lost. You can change the rules in Outlook.`
       : null;
+  }
+
+  /** The tags that the server knows, with their colors */
+  get tags(): ExchangeTags {
+    return this._tags ??= this.newTags();
+  }
+
+  newTags(): ExchangeTags {
+    return new ExchangeTags(this);
   }
 
   async deleteIt(): Promise<void> {

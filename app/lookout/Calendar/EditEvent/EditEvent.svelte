@@ -1,7 +1,10 @@
 <vbox flex class="event-form-page" on:keydown={keyEvent => catchErrors(() => onKey(keyEvent))}>
   {#key ribbonKey}
-    <EventFormRibbon {event} {flow} {editor} bind:openedTool {canSchedule} {schedulingLabel} {trackingLabel}
-      {onSave} {onDelete} bind:showEmojis bind:isSchedulingSelected bind:isTrackingSelected />
+    <EventFormRibbon {event} {flow} {editor} bind:openedTool {schedulingLabel} {trackingLabel}
+      {onSave} {onDelete} {onEditRecurrence} {onSelectAttendees}
+      onCheckNames={() => eventForm?.checkNames()}
+      onRefreshAvailability={() => schedulingAssistant?.refreshAvailability()}
+      bind:showEmojis bind:isSchedulingSelected bind:isTrackingSelected />
   {/key}
   <vbox flex class="form-card lo-card">
     <hbox class="title-row">
@@ -24,17 +27,18 @@
     {#if isIncoming}
       <InvitationInCalendar {event} {flow} {messages} />
     {:else if showScheduling}
-      <SchedulingAssistant {event} {flow} {timeEditor} {sendLabel} {sendDisabled} onSend={onSave} />
+      <SchedulingAssistant {event} {flow} {timeEditor} {sendLabel} {sendDisabled} onSend={onSave}
+        {onEditRecurrence} bind:this={schedulingAssistant} />
     {:else if showTracking}
       <TrackingView {event} />
     {:else}
       <EventForm {event} {flow} {timeEditor} {messages} bind:editor bind:showEmojis
-        {sendLabel} {sendDisabled} onSend={onSave} />
+        {sendLabel} {sendDisabled} onSend={onSave} {onEditRecurrence} {onSelectAttendees} bind:this={eventForm} />
     {/if}
   </vbox>
 </vbox>
 
-{#if $openRecurrence == event}
+{#if isRecurrenceOpen}
   <RecurrenceDialog {event} {flow} {timeEditor} on:close={onRecurrenceClosed} />
 {/if}
 {#if seriesChoice}
@@ -52,21 +56,12 @@
 {/if}
 {#if attendeesPicks}
   <SelectNamesDialog title={$t`Select Attendees and Resources`} persons={attendeesPicks} label={$t`Required *=> Attendees who must attend the meeting`}
-    on:ok={() => flow.setAttendees(attendeesPicks.contents)} on:close={() => $openSelectAttendees = null} />
-{/if}
-{#if $openSignatures == event}
-  <SignaturesDialog identity={event.calendar?.inviteAs} on:close={() => $openSignatures = null} />
+    on:ok={() => flow.setAttendees(attendeesPicks.contents)} on:close={() => attendeesPicks = null} />
 {/if}
 <EditorToolDialogs {editor} bind:openedTool />
 
-<script lang="ts" context="module">
-  import type { Event } from "../../../logic/Calendar/Event";
-  import { writable } from "svelte/store";
-
-  export const openSelectAttendees = writable<Event | null>(null);
-</script>
-
 <script lang="ts">
+  import type { Event } from "../../../logic/Calendar/Event";
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import { UserError } from "../../../logic/util/util";
   import { EventEditFlow, type SeriesChoice } from "./EventEditFlow";
@@ -76,13 +71,11 @@
   import EventForm from "./EventForm.svelte";
   import InvitationInCalendar from "../Invitation/InvitationInCalendar.svelte";
   import TrackingView from "./TrackingView.svelte";
-  import RecurrenceDialog, { openRecurrence } from "./RecurrenceDialog.svelte";
+  import RecurrenceDialog from "./RecurrenceDialog.svelte";
   import SeriesChoiceDialog from "./SeriesChoiceDialog.svelte";
   import SaveChangesDialog from "./SaveChangesDialog.svelte";
   import SchedulingAssistant from "./SchedulingAssistant.svelte";
   import SelectNamesDialog from "../../Mail/Composer/SelectNamesDialog.svelte";
-  import SignaturesDialog, { openSignatures } from "../../Mail/Composer/SignaturesDialog.svelte";
-  import { FreeBusy } from "./FreeBusy";
   import { EditorTool } from "../../Shared/Editor/EditorTool";
   import EditorToolDialogs from "../../Shared/Editor/EditorToolDialogs.svelte";
   import UndoRedoButtons from "../../Shared/Editor/UndoRedoButtons.svelte";
@@ -110,7 +103,10 @@
   let showEmojis = false;
   let isSchedulingSelected = false;
   let isTrackingSelected = false;
+  let isRecurrenceOpen = false;
   let showSaveChanges = false;
+  let eventForm: EventForm;
+  let schedulingAssistant: SchedulingAssistant;
   let seriesChoice: {
     title: string,
     okLabel: string,
@@ -125,11 +121,10 @@
   $: isIncoming = $event.isIncomingMeeting;
   $: isSaved = $event && flow.isSaved;
   $: isSent = isMeeting && $event.isOutgoingMeeting && isSaved;
-  $: ribbonKey = `${isMeeting}-${isSent}-${isIncoming}-${canSchedule}`;
-  $: isMeeting && !isIncoming && checkScheduling();
+  $: ribbonKey = `${isMeeting}-${isSent}-${isIncoming}`;
   $: kindLabel = $event && $participants && eventTabLabel(event);
-  $: ribbonKey, isSchedulingSelected = isTrackingSelected = false;
-  $: showScheduling = canSchedule && isMeeting && !isIncoming && isSchedulingSelected;
+  $: isSent, isIncoming, isSchedulingSelected = isTrackingSelected = false;
+  $: showScheduling = !isIncoming && isSchedulingSelected;
   $: showTracking = isSent && isTrackingSelected;
   $: showsEditor = !isIncoming && !showScheduling && !showTracking;
   $: $event, $participants, $parentEvent, $shownCalendarEvents, updateState(editor);
@@ -146,18 +141,9 @@
     saveDisabled = flow.missingPropsReason ?? false;
   }
 
-  let canSchedule = false;
-  async function checkScheduling() {
-    try {
-      canSchedule = await FreeBusy.isSupported(event.calendar, event.participants.contents);
-    } catch (ex) {
-      canSchedule = true;
-    }
-  }
-
   onMount(() => {
     if (event.isNew && event.recurrenceRule && !event.parentEvent) {
-      $openRecurrence = event;
+      isRecurrenceOpen = true;
     }
   });
 
@@ -212,13 +198,16 @@
   }
 
   let attendeesPicks: ArrayColl<PersonUID> = null;
-  $: pickAttendees($openSelectAttendees);
-  function pickAttendees(pickedEvent: Event | null) {
-    attendeesPicks = pickedEvent == event ? new ArrayColl<PersonUID>(flow.attendees) : null;
+  function onSelectAttendees() {
+    attendeesPicks = new ArrayColl<PersonUID>(flow.attendees);
+  }
+
+  function onEditRecurrence() {
+    isRecurrenceOpen = true;
   }
 
   function onRecurrenceClosed() {
-    $openRecurrence = null;
+    isRecurrenceOpen = false;
     event.notifyObservers();
   }
 
@@ -231,7 +220,7 @@
   }
 
   async function onKey(keyEvent: KeyboardEvent) {
-    if (keyEvent.defaultPrevented || $openRecurrence == event || showSaveChanges || seriesChoice || attendeesPicks || openedTool || $openSignatures == event) {
+    if (keyEvent.defaultPrevented || isRecurrenceOpen || showSaveChanges || seriesChoice || attendeesPicks || openedTool) {
       return;
     }
     let key = keyEvent.key.toLowerCase();
@@ -255,7 +244,7 @@
       if (key == "g" && !isIncoming) {
         keyEvent.preventDefault();
         keyEvent.stopPropagation();
-        $openRecurrence = event;
+        onEditRecurrence();
         return;
       } else if (key == "d" && !event.parentEvent) {
         keyEvent.preventDefault();

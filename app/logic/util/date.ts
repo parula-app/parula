@@ -79,6 +79,20 @@ export function getTimeString(date: Date): string {
   return date.toLocaleString(getDateTimeLocale(), { hour: "numeric", minute: "numeric" });
 }
 
+/** @returns Time without AM/PM, e.g. "3:23" or "15:23".
+ * For where the hour labels next to it already show AM/PM. */
+export function getTimeStringWithoutAMPM(date: Date): string {
+  if (!date) {
+    return "";
+  }
+  return new Intl.DateTimeFormat(getDateTimeLocale(), { hour: "numeric", minute: "numeric" })
+    .formatToParts(date)
+    .filter(part => part.type != "dayPeriod")
+    .map(part => part.value)
+    .join("")
+    .trim();
+}
+
 /**
  * @param weekday day of the week
  * @param form How long the name should be
@@ -120,21 +134,31 @@ export function isSameTimezone(ianaTimezone: string, time: Date) {
 }
 
 export function getToday() {
-  const today = new Date();
-  today.setHours(0);
-  today.setMinutes(0);
-  today.setSeconds(0);
-  today.setMilliseconds(0);
-  return today;
+  return getDayStart(new Date());
+}
+
+/** @returns The day that contains `date`, at 00:00 */
+export function getDayStart(date: Date): Date {
+  let startTime = new Date(date);
+  startTime.setHours(0, 0, 0, 0);
+  return startTime;
 }
 
 /** @returns The Monday of the week that contains `date`, at 00:00 */
 export function getWeekStart(date: Date): Date {
-  let startTime = new Date(date);
+  let startTime = getDayStart(date);
   // `getDay()` is 0 on Sunday, which still belongs to the Monday before it
   startTime.setDate(startTime.getDate() - (startTime.getDay() + 6) % 7);
-  startTime.setHours(0, 0, 0, 0);
   return startTime;
+}
+
+/** @returns The same day of the month and time as `date`, but in the month of `month`.
+ * If that month is shorter, its last day, e.g. Feb 28 for Jan 31. */
+export function changeMonth(date: Date, month: Date): Date {
+  let lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  let result = new Date(date);
+  result.setFullYear(month.getFullYear(), month.getMonth(), Math.min(date.getDate(), lastDay));
+  return result;
 }
 
 /** @returns Mon-Sun around `start` */
@@ -146,6 +170,13 @@ export function getWeekDays(start: Date): Date[] {
     startTime.setDate(startTime.getDate() + 1)
   }
   return weekDays;
+}
+
+export function getWeekNumber(day: Date): number {
+  let thursday = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 3 - (day.getDay() + 6) % 7);
+  let firstThursday = new Date(thursday.getFullYear(), 0, 4);
+  firstThursday.setDate(firstThursday.getDate() + 3 - (firstThursday.getDay() + 6) % 7);
+  return 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / (7 * k1DayMS));
 }
 
 export function getDurationString(durationInMS: number): string {
@@ -176,3 +207,8 @@ export const k1HourMS = k1HourS * 1000;
 export const k1DayMS = k1DayS * 1000;
 export const k1WeekMS = k1WeekS * 1000;
 export const k1MonthMS = k1MonthS * 1000;
+
+export interface TimeInterval {
+  startTime: Date;
+  endTime: Date;
+}

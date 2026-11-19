@@ -9,6 +9,7 @@ import { checkChangeError } from "./JMAPError";
 import { CreateMIME } from "../SMTP/CreateMIME";
 import { Semaphore } from "../../util/flow/Semaphore";
 import { PromiseAllDone } from "../../util/flow/PromiseAllDone";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { retryOnTransientError } from "../../util/netUtil";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../util/util";
@@ -63,34 +64,32 @@ export class JMAPFolder extends Folder {
   /** Lists all messages in this folder.
    * But doesn't download their contents. @see downloadMessages() */
   protected async listAllMessages(): Promise<ArrayColl<JMAPEMail>> {
-    const batchSize = 200;
+    const batchSize = Math.min(500, this.account.maxObjectsInGet);
     let state: string;
     let allNewMessages = new ArrayColl<JMAPEMail>();
     let position = 0;
-    const kMaxRounds = 5000; // 1,000,000 emails
-    let previousIDs: string | null = null;
-    let isComplete = false;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let saving = Promise.resolve();
+    const kMaxRounds = Math.min(5000, 1000000 / batchSize);
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
+    while (loop.nextRound()) {
       let { newMessages, syncState, ids, limit } = await retryOnTransientError(() =>
         this.fetchMessageList(position, batchSize));
-      let pageIDs = ids.join(" ");
-      if (pageIDs == previousIDs) {
+      await saving; // Save the last page and fetch this one at the same time
+      if (loop.isSameAsLastRound(ids.join(" "))) {
         break;
       }
-      previousIDs = pageIDs;
       state ??= syncState;
       this.messages.addAll(newMessages);
-      await this.saveNewMsgs(newMessages);
+      saving = this.saveNewMsgs(newMessages)
+        .catch(this.account.errorCallback);
       allNewMessages.addAll(newMessages);
       position += ids.length;
       if (ids.length < limit) {
-        isComplete = true;
         break;
       }
     }
-    if (!isComplete) {
-      this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`));
-    }
+    await saving;
     if (state) {
       this.account.syncState.set("Email", state);
     }
@@ -172,10 +171,15 @@ export class JMAPFolder extends Folder {
     assert(this.account.syncState.has("Email"), "No sync state");
     let newMessagesOfThisFolder = new ArrayColl<JMAPEMail>();
     const kMaxRounds = 1000;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.account.errorCallback(new Error("Email changes: The server keeps reporting more changes. Stopped.")));
+    while (loop.nextRound()) {
       let lock = await this.account.stateLock.lock();
       try {
         let sinceState = this.account.syncState.get("Email");
+        if (loop.isSameAsLastRound(sinceState)) {
+          break;
+        }
         //console.log("JMAP fetching changes for folder", this.name);
         // <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
         let response = await retryOnTransientError(() => this.account.makeCombinedCall([
@@ -272,14 +276,10 @@ export class JMAPFolder extends Folder {
         if (!changes.hasMoreChanges) {
           return newMessagesOfThisFolder;
         }
-        if (changes.newState == sinceState) {
-          break;
-        }
       } finally {
         lock.release();
       }
     }
-    this.account.errorCallback(new Error("Email changes: The server keeps reporting more changes. Stopped."));
     return newMessagesOfThisFolder;
   }
 
@@ -395,16 +395,11 @@ export class JMAPFolder extends Folder {
   }
 
   protected async saveNewMsgs(msgs: Collection<JMAPEMail>) {
-    let startTime = Date.now();
-    for (let email of msgs) {
-      try {
-        if (email.subject) {
-          await email.saveMetadataLocally();
-        }
-      } catch (ex) {
-        this.account.errorCallback(ex);
-      }
+    if (msgs.isEmpty) {
+      return;
     }
+    let startTime = Date.now();
+    await this.storage.saveMessages(msgs);
     let saveTime = Date.now() - startTime;
     console.log("  Saved", msgs.length, "msgs in", saveTime, "ms =", saveTime / msgs.length, "ms/msg");
   }
@@ -592,9 +587,9 @@ export class JMAPFolder extends Folder {
     await super.markAllRead();
     let batchSize = Math.max(1, sanitize.integer(this.account.session?.capabilities?.["urn:ietf:params:jmap:core"]?.maxObjectsInSet, 500));
     const kMaxEMails = 1000000;
-    let maxRounds = Math.ceil(kMaxEMails / batchSize);
-    let previousIDs: string | null = null;
-    for (let round = 1; round <= maxRounds; round++) {
+    let loop = new LoopGuard(Math.ceil(kMaxEMails / batchSize), () =>
+      this.account.errorCallback(new Error(`${this.name}: Mark all as read: The server keeps returning unread emails. Stopped.`)));
+    while (loop.nextRound()) {
       let query = await this.account.makeSingleCall("Email/query", {
         accountId: this.account.accountID,
         filter: {
@@ -606,11 +601,9 @@ export class JMAPFolder extends Folder {
       if (!query.ids.length) {
         return;
       }
-      let ids = query.ids.join(" ");
-      if (ids == previousIDs) {
+      if (loop.isSameAsLastRound(query.ids.join(" "))) {
         break;
       }
-      previousIDs = ids;
       let update: Record<string, Record<string, boolean>> = {};
       for (let id of query.ids) {
         update[id] = { "keywords/$seen": true };
@@ -621,7 +614,6 @@ export class JMAPFolder extends Folder {
       }) as TJMAPChangeResponse<TJMAPEMailHeaders>;
       checkChangeError(response);
     }
-    this.account.errorCallback(new Error(`${this.name}: Mark all as read: The server keeps returning unread emails. Stopped.`));
   }
 
   /** @param specialUse From RFC 6154, e.g. `\Sent`

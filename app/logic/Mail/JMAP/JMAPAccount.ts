@@ -2,6 +2,8 @@ import { MailAccount, DeleteStrategy } from "../MailAccount";
 import { JMAPFolder } from "./JMAPFolder";
 import { JMAPIdentity } from "./JMAPIdentity";
 import { JMAPSearchEMail } from "./JMAPSearchEMail";
+import { JMAPAutoResponder } from "./JMAPAutoResponder";
+import { StalwartAutoResponder } from "./StalwartAutoResponder";
 import type { EMail } from "../EMail";
 import { newAccountForProtocol } from "../AccountsList/MailAccounts";
 import { PersonUID } from "../../Abstract/PersonUID";
@@ -28,6 +30,7 @@ import { Semaphore } from "../../util/flow/Semaphore";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { Throttle } from "../../util/flow/Throttle";
 import { Timeout } from "../../util/flow/Timeout";
+import { LoopGuard } from "../../util/flow/LoopGuard";
 import { waitUntilOnline, isNetworkError, isTransientError, HTTPError } from "../../util/netUtil";
 import { assert } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
@@ -217,10 +220,21 @@ export class JMAPAccount extends MailAccount {
     let serverMax = sanitize.integer(this.session?.capabilities?.["urn:ietf:params:jmap:core"]?.maxObjectsInSet, null);
     return serverMax > 0 ? serverMax : 500;
   }
+  /** @see <https://www.rfc-editor.org/rfc/rfc8620#section-2> `maxObjectsInGet` */
+  get maxObjectsInGet(): number {
+    let serverMax = sanitize.integer(this.session?.capabilities?.["urn:ietf:params:jmap:core"]?.maxObjectsInGet, null);
+    return serverMax > 0 ? serverMax : 500;
+  }
   // <compat for="Cyrus">
   // Cyrus announces its core extension always, even when its non-standard extensions are off.
   get isCyrus(): boolean {
     return this.hasCapability("https://cyrusimap.org/ns/jmap/core");
+  }
+  // </compat>
+  // <compat for="Stalwart">
+  // Stalwart names itself only as the Sieve implementation, e.g. "Stalwart v1.0.0"
+  get isStalwart(): boolean {
+    return sanitize.string(this.getCapability("urn:ietf:params:jmap:sieve")?.implementation, "").startsWith("Stalwart");
   }
   // </compat>
 
@@ -283,7 +297,8 @@ export class JMAPAccount extends MailAccount {
   async makeCalls(calls: [string, Record<string, any>, string?][]): Promise<TJMAPMethodResponse[]> {
     await this.ensureLoggedIn();
     const kOurCapabilities = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:submission",
-      "urn:ietf:params:jmap:contacts", "urn:ietf:params:jmap:calendars", "urn:ietf:params:jmap:principals"];
+      "urn:ietf:params:jmap:contacts", "urn:ietf:params:jmap:calendars", "urn:ietf:params:jmap:principals",
+      "urn:ietf:params:jmap:vacationresponse", "urn:ietf:params:jmap:sieve", "urn:ietf:params:jmap:blob"];
     let using = kOurCapabilities.filter(capability => this.hasCapability(capability));
     let requestJSON: TJMAPAPIRequest = {
       using: using,
@@ -421,17 +436,23 @@ export class JMAPAccount extends MailAccount {
   /** @throws an appropriate exception (always throws) */
   protected async httpError(ex: Error) {
     if (ex.name == "HTTPError") {
-      // HTTPFetchError from backend.ts, which has only scalar properties, not the HTTP response body
+      // HTTPFetchError from backend.ts
       let ext = ex as any;
+      let msg: string;
+      try {
+        // Problem details <https://www.rfc-editor.org/rfc/rfc8620#section-3.6.1>
+        msg = sanitize.nonemptylabel(JSON.parse(ext.responseBody).detail, null);
+      } catch (ex2) { // not JSON, e.g. from a proxy
+      }
       if (ext.httpCode == 401) {
-        throw new LoginError(ex, null);
+        throw new LoginError(ex, msg);
       } else {
         if (isTransientError(ext)) {
           const kDefaultBackoffSec = 5;
           const kMaxBackoffSec = 20; // Sensible upper limit
           this.throttle.waitForSecond(Math.min(ext.retryAfterSeconds ?? kDefaultBackoffSec, kMaxBackoffSec));
         }
-        throw new ConnectError(ex, null);
+        throw new ConnectError(ex, msg);
       }
     }
     throw ex;
@@ -458,11 +479,16 @@ export class JMAPAccount extends MailAccount {
    * <https://www.rfc-editor.org/rfc/rfc8621.html#section-2.2> */
   async fetchChangedFolders(): Promise<void> {
     const kMaxRounds = 1000;
-    for (let round = 1; round <= kMaxRounds; round++) {
+    let loop = new LoopGuard(kMaxRounds, () =>
+      this.errorCallback(new Error(`${this.name}: Folder changes: The server keeps reporting more changes. Stopped.`)));
+    while (loop.nextRound()) {
       let sinceState = this.syncState.get("Mailbox");
       if (!sinceState) {
         await this.listFolders();
         return;
+      }
+      if (loop.isSameAsLastRound(sinceState)) {
+        break;
       }
       let response: Record<string, any>;
       try {
@@ -515,11 +541,7 @@ export class JMAPAccount extends MailAccount {
       if (!changes.hasMoreChanges) {
         return;
       }
-      if (changes.newState == sinceState) {
-        break;
-      }
     }
-    this.errorCallback(new Error(`${this.name}: Folder changes: The server keeps reporting more changes. Stopped.`));
   }
 
   async listFolders(): Promise<void> {
@@ -999,6 +1021,11 @@ export class JMAPAccount extends MailAccount {
     await this.getSession(); // The new account appears in the session only now
     for (let notification of notifications) {
       let granted = Object.values(notification.newRights ?? {}).some(right => right);
+      let known = this.accountForID(notification.objectAccountId);
+      if (known && known != this) {
+        await known.updateSharedAccount();
+        continue;
+      }
       let shared = this.session.accounts[notification.objectAccountId];
       let ownerEMail = shared && this.sharedAccountOwner(shared);
       if (!granted || !ownerEMail || shared.isPersonal || this.accountForID(notification.objectAccountId)) {
@@ -1006,6 +1033,17 @@ export class JMAPAccount extends MailAccount {
       }
       await this.addSharedFolders(new PersonUID(ownerEMail, sanitize.nonemptystring(shared.name)), "msgfolderroot");
     }
+  }
+
+  /** The other user shared more with us, or less */
+  protected async updateSharedAccount() {
+    if (this.haveContacts) {
+      await this.listAddressbooks();
+    }
+    if (this.haveCalendar) {
+      await this.listCalendars();
+    }
+    await this.startupDependentAccounts();
   }
 
   async findSharedFolders(person: PersonUID, distinguishedIDs: string[]): Promise<string[]> {
@@ -1249,5 +1287,19 @@ export class JMAPAccount extends MailAccount {
 
   newSearch(): JMAPSearchEMail {
     return new JMAPSearchEMail();
+  }
+
+  /** Its class depends on the server, which we know only after the login */
+  get autoResponder(): JMAPAutoResponder {
+    if (!(this._autoResponder instanceof StalwartAutoResponder) && this.isStalwart) {
+      this._autoResponder = null;
+    }
+    return super.autoResponder as JMAPAutoResponder;
+  }
+
+  newAutoResponder(): JMAPAutoResponder {
+    return this.isStalwart
+      ? new StalwartAutoResponder(this)
+      : new JMAPAutoResponder(this);
   }
 }

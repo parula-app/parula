@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { EWSAccount } from "../../../../logic/Mail/EWS/EWSAccount";
 import { AuthMethod } from "../../../../logic/Abstract/Account";
+import { waitTime } from "../../../../logic/util/util";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 /** Exchange sends a heartbeat every 45 s */
@@ -164,6 +165,7 @@ function newTestAccount(): TestEWSAccount {
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  waitTime.factor = 1; // fake timers don't wait anyway, and the tests check the real intervals
 });
 
 afterEach(() => {

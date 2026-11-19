@@ -247,6 +247,33 @@ test("group DataMessage from A is routed to the group room on B (not the 1:1 roo
   expect(textsIn(carolGroupRoom)).toContain("hello group");
 });
 
+test("in a group, only the author can edit or delete a message", async () => {
+  let bob = newAccount("Bob");
+  let alice = bob.getContact(ServiceId.aci(randomBytes(16)), "Alice");
+  let mallory = bob.getContact(ServiceId.aci(randomBytes(16)), "Mallory");
+  let room = groupRoom(bob, randomBytes(32), []);
+  let groupV2 = room.groupContext();
+  let alices = SignalChatMessage.processMessage(room, { dataMessage: { body: "lunch at 12", timestamp: 1000, groupV2 } }, alice, false)!;
+
+  SignalChatMessage.processMessage(room, { editMessage: { targetSentTimestamp: 1000, dataMessage: { body: "lunch is cancelled", timestamp: 2000, groupV2 } } }, mallory, false);
+  SignalChatMessage.processMessage(room, { dataMessage: { timestamp: 3000, groupV2, delete: { targetSentTimestamp: 1000 } } }, mallory, false);
+  expect(alices.text).toBe("lunch at 12");
+  expect(alices.edited).toBe(false);
+  expect(alices.deleted).toBe(false);
+
+  // A message of Mallory's with the same timestamp: her edit changes only hers
+  let mallorys = SignalChatMessage.processMessage(room, { dataMessage: { body: "hi", timestamp: 1000, groupV2 } }, mallory, false)!;
+  SignalChatMessage.processMessage(room, { editMessage: { targetSentTimestamp: 1000, dataMessage: { body: "hi all", timestamp: 4000, groupV2 } } }, mallory, false);
+  expect(mallorys.text).toBe("hi all");
+  expect(alices.text).toBe("lunch at 12");
+
+  SignalChatMessage.processMessage(room, { editMessage: { targetSentTimestamp: 1000, dataMessage: { body: "lunch at 1", timestamp: 5000, groupV2 } } }, alice, false);
+  SignalChatMessage.processMessage(room, { dataMessage: { timestamp: 6000, groupV2, delete: { targetSentTimestamp: 1000 } } }, alice, false);
+  expect(alices.edited).toBe(true);
+  expect(alices.deleted).toBe(true);
+  expect(mallorys.deleted).toBe(false);
+});
+
 function textsIn(room: { messages: { contents: any[] } }): string[] {
   return room.messages.contents
     .filter((m): m is SignalChatMessage => m instanceof SignalChatMessage)

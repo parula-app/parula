@@ -6,7 +6,7 @@ import { SignedPreKey, PreKey } from "./Identity";
 import { SessionState } from "./SessionCipher";
 import { SenderKeyState } from "./GroupCipher";
 import { generateRegistrationID, generateSignedPreKey, generatePreKeys } from "./Identity";
-import { base64Encode, base64Decode } from "./primitives";
+import { base64Encode, base64Decode, bytesEqual } from "./primitives";
 
 export class SignalStore {
   identityKeyPair: KeyPair;
@@ -20,8 +20,16 @@ export class SignalStore {
   sessions = new Map<string, SessionState>();
   /** Keyed by `${groupJID}|${senderAddress}` */
   senderKeys = new Map<string, SenderKeyState>();
-  /** Trusted remote identity keys, keyed by peer address (32-byte) */
+  /** Trusted remote identity keys (32-byte), keyed by peer address, or by
+   * account with `identityPerAccount` */
   identities = new Map<string, Uint8Array>();
+  /** Signal: all devices of an account share one identity key, so we trust it per
+   * account ("<serviceId>"). WhatsApp and OMEMO devices each have their own key. */
+  identityPerAccount = false;
+  /** Called when a peer has a different identity key than the one we knew: they
+   * reinstalled, or someone, e.g. the server, put in their own keys to read along.
+   * Gets the `identities` key of the peer. */
+  onIdentityChange: ((name: string) => void) | null = null;
 
   static createNew(): SignalStore {
     let store = new SignalStore();
@@ -50,6 +58,20 @@ export class SignalStore {
   replenishPreKeys(target = kPreKeyTarget): PreKey[] {
     let need = target - this.preKeys.size;
     return need > 0 ? this.generateMorePreKeys(need) : [];
+  }
+
+  /** Remembers the identity key of the peer at `address`, once a session with it
+   * is set up (libsignal `saveIdentity`). A key other than the known one replaces
+   * it, as Signal does for unverified contacts, and is reported to `onIdentityChange`. */
+  saveIdentity(address: string, identityKey: Uint8Array): void {
+    let name = this.identityPerAccount ? address.substring(0, address.lastIndexOf(".")) : address;
+    // Signal stores from before `identityPerAccount` have the key per device: take it over
+    let known = this.identities.get(name) ?? this.identities.get(address);
+    this.identities.delete(address);
+    this.identities.set(name, identityKey);
+    if (known && !bytesEqual(known, identityKey)) {
+      this.onIdentityChange?.(name);
+    }
   }
 
   /** Serializes the whole store to plain JSON for the account config: the static

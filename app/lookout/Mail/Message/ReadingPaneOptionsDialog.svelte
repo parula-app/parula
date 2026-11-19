@@ -13,12 +13,6 @@
   </vbox>
 </Dialog>
 
-<script lang="ts" context="module">
-  import { writable } from "svelte/store";
-
-  export const openReadingPaneOptions = writable(false);
-</script>
-
 <script lang="ts">
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import Dialog from "../../Shared/Dialog/Dialog.svelte";

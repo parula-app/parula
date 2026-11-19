@@ -40,7 +40,7 @@
                 {highlight}
                 on:toggleThread={() => toggleThread(row.message)}
                 on:click={event => onClickMessage(row.message, event)}
-                on:dblclick={() => catchErrors(() => MessageActions.openDraft(row.message))}
+                on:dblclick={event => catchErrors(() => onDoubleClick(row.message, event))}
                 on:contextmenu={event => onContextMenu(row.message, event)} />
             {:else}
               <VerticalMessageListItem message={row.message}
@@ -56,7 +56,7 @@
                 {showFolder}
                 on:toggleThread={() => toggleThread(row.message)}
                 on:click={event => onClickMessage(row.message, event)}
-                on:dblclick={() => catchErrors(() => MessageActions.openDraft(row.message))}
+                on:dblclick={event => catchErrors(() => onDoubleClick(row.message, event))}
                 on:contextmenu={event => onContextMenu(row.message, event)} />
             {/if}
           </div>
@@ -94,6 +94,10 @@
   import { catchErrors, minorError } from "../../../frontend/Util/error";
   import { tick } from "svelte";
   import { t } from "../../../l10n/l10n";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import MessageWindow from "../Message/MessageWindow.svelte";
+
+  const appWindow = AppWindow.current();
 
   export let messages: Collection<EMail>;
   export let folder: Folder | null;
@@ -344,6 +348,17 @@
     toggleGroup(group.id);
   }
 
+  async function onDoubleClick(message: EMail, event: MouseEvent) {
+    if ((event.target as Element).closest("button")) {
+      return;
+    }
+    if (message.isDraft || message.folder?.specialFolder == SpecialFolder.Drafts) {
+      await MessageActions.openDraft(message);
+      return;
+    }
+    await appWindow.open(MessageWindow, { message }, 1000);
+  }
+
   let anchor: EMail | null = null;
 
   function select(chosen: EMail[], primary: EMail) {
@@ -396,6 +411,11 @@
     let pageSize = Math.max(Math.floor(viewHeight / messageHeight) - 1, 1);
     let newPos: number = null;
     if (event.altKey) {
+      return;
+    }
+    if (!event.ctrlKey && !event.metaKey && onMessageKey(event)) {
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
     if (event.key == "ArrowDown") {
@@ -451,6 +471,28 @@
       anchor = target;
     }
     scrollIntoView(target);
+  }
+
+  /** Single-key shortcuts for the selected messages, like `frontend/Mail/Message/MessageKeyboard.ts`
+   * @returns whether the key was handled */
+  function onMessageKey(event: KeyboardEvent): boolean {
+    let messages = selectedMessages.contents;
+    if (!messages.length) {
+      return false;
+    }
+    if (event.key == "j" && !event.shiftKey) { // Thunderbird
+      // The list then selects the next message, when the junk is gone
+      catchErrors(() => Promise.all(messages.map(message => message.treatSpam(true))));
+      return true;
+    } else if (event.key == "J" && event.shiftKey) { // Thunderbird
+      catchErrors(() => Promise.all(messages.map(message => message.treatSpam(false))));
+      return true;
+    } else if (event.key == "m" && !event.shiftKey) { // Thunderbird
+      let mostAreRead = messages.filter(message => message.isRead).length > messages.length / 2;
+      catchErrors(() => Promise.all(messages.map(message => message.markRead(!mostAreRead))));
+      return true;
+    }
+    return false;
   }
 
   let lastPosition = 0;

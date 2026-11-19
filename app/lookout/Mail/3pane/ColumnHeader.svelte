@@ -52,17 +52,18 @@
   <MenuDivider />
   <MenuItem label={$t`View Settings…`} icon={SettingsIcon} onClick={() => { $openViewSettings = { folder }; }} />
 </ContextMenu>
+<AppWindowEvents on:mousemove={onResizeMove} on:mouseup={onResizeEnd} />
 
 <script lang="ts">
   import type { Folder } from "../../../logic/Mail/Folder";
   import { Column, ColumnInfo, viewSettingsOf, changeViewSettings, ViewType, type ViewSettings } from "../ViewSettings/ViewSettings";
-  import { openViewSettings } from "../ViewSettings/ViewSettingsDialog.svelte";
-  import { openShowColumns } from "../ViewSettings/ShowColumnsDialog.svelte";
+  import { openViewSettings, openShowColumns } from "../Selected";
   import { arrangeFolderBy, sortFolderByColumn } from "../ViewSettings/ViewCommands";
   import { ArrangeBy, MessageGrouping } from "./MessageGrouping";
   import ContextMenu from "../../Shared/Menu/ContextMenu.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
   import ImportantIcon from "lucide-svelte/icons/circle-alert";
   import IconIcon from "lucide-svelte/icons/mail";
   import AttachmentIcon from "lucide-svelte/icons/paperclip";
@@ -130,30 +131,43 @@
     contextMenu.onContextMenu(event);
   }
 
+  let resizingColumn: Column | null = null;
+  let resizeStartX: number;
+  let resizeStartWidth: number;
+  let isResizeRTL = false;
+  let resizedWidth: number;
+
   function onResizeStart(column: Column, event: MouseEvent) {
-    const kMinWidth = 40;
     event.preventDefault();
     event.stopPropagation();
     let cell = (event.target as HTMLElement).closest(".header-cell") as HTMLElement;
-    let startX = event.clientX;
-    let startWidth = cell.getBoundingClientRect().width;
-    let isRTL = getComputedStyle(cell).direction == "rtl";
-    let width = startWidth;
-    function onMove(moveEvent: MouseEvent) {
-      let delta = (moveEvent.clientX - startX) * (isRTL ? -1 : 1);
-      width = Math.max(kMinWidth, startWidth + delta);
-      liveWidths[column] = width;
-      liveWidths = liveWidths;
+    resizingColumn = column;
+    resizeStartX = event.clientX;
+    resizeStartWidth = cell.getBoundingClientRect().width;
+    resizedWidth = resizeStartWidth;
+    isResizeRTL = getComputedStyle(cell).direction == "rtl";
+  }
+
+  function onResizeMove(event: MouseEvent) {
+    const kMinWidth = 40;
+    if (!resizingColumn) {
+      return;
     }
-    function onUp() {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      delete liveWidths[column];
-      liveWidths = liveWidths;
-      changeViewSettings(folder, { columnWidths: { ...viewSettingsOf(folder).columnWidths, [column]: Math.round(width) } });
+    let delta = (event.clientX - resizeStartX) * (isResizeRTL ? -1 : 1);
+    resizedWidth = Math.max(kMinWidth, resizeStartWidth + delta);
+    liveWidths[resizingColumn] = resizedWidth;
+    liveWidths = liveWidths;
+  }
+
+  function onResizeEnd() {
+    if (!resizingColumn) {
+      return;
     }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    let column = resizingColumn;
+    resizingColumn = null;
+    delete liveWidths[column];
+    liveWidths = liveWidths;
+    changeViewSettings(folder, { columnWidths: { ...viewSettingsOf(folder).columnWidths, [column]: Math.round(resizedWidth) } });
   }
 </script>
 

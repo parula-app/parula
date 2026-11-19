@@ -1,5 +1,5 @@
 <hbox class="tell-me" class:expanded={isExpanded} class:active={isActive} bind:this={fieldEl}>
-  <button class="tell-me-button"
+  <button class="tell-me-button" bind:this={buttonEl}
     title={$t`Tell me what you want to do`}
     aria-label={$t`Tell me what you want to do`}
     aria-expanded={isExpanded}
@@ -42,6 +42,7 @@
     <MenuItem label={$t`No matching commands`} disabled />
   {/each}
 </Menu>
+<AppWindowEvents on:keydown={onKeyOnWindow} />
 
 <script lang="ts">
   import { searchRibbonCommands, type RibbonCommandEntry } from "./RibbonCommands";
@@ -49,34 +50,41 @@
   import MenuItem from "../Menu/MenuItem.svelte";
   import MenuLabel from "../Menu/MenuLabel.svelte";
   import TellMeIcon from "lucide-svelte/icons/lightbulb";
+  import type { RibbonState } from "./RibbonGroup";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+  import AppWindowEvents from "../../../frontend/MainWindow/AppWindowEvents.svelte";
+  import { getOSName } from "../../../frontend/Util/util";
+  import { get } from "svelte/store";
   import { tick } from "svelte";
   import { t } from "../../../l10n/l10n";
 
-  export let ribbonEl: HTMLElement;
+  export let ribbon: RibbonState;
 
+  const appWindow = AppWindow.current();
 
   let fieldEl: HTMLElement;
+  let buttonEl: HTMLButtonElement;
   let inputEl: HTMLInputElement;
   let menu: Menu;
   let searchTerm = "";
   let isMenuOpen = false;
   let isExpanded = false;
   let isActive = false;
-  export let isSurveying = false;
+  $: isSurveying = ribbon.isTellMeSurveying;
   let entries: RibbonCommandEntry[] = [];
   let results: RibbonCommandEntry[] = [];
 
   async function startSurvey() {
-    if (!isSurveying) {
-      isSurveying = true;
+    if (!$isSurveying) {
+      $isSurveying = true;
     }
     await tick();
-    entries = collect(ribbonEl);
+    entries = collect(ribbon.ribbonEl);
   }
 
   function endSurvey() {
-    if (isSurveying) {
-      isSurveying = false;
+    if ($isSurveying) {
+      $isSurveying = false;
     }
   }
 
@@ -84,6 +92,23 @@
     isExpanded = true;
     await tick();
     inputEl?.focus();
+  }
+
+  function onKeyOnWindow(event: KeyboardEvent) {
+    // <copied from="../../MainWindow/MainWindow.svelte">
+    let target = event.target as HTMLElement;
+    if (event.defaultPrevented || event.cancelBubble || appWindow.window.document.querySelector("dialog:modal") ||
+        target?.closest?.("[contenteditable]:not([contenteditable='false'])")) {
+      return;
+    }
+    // </copied>
+    // Option+Q types a character on macOS
+    if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.code == "KeyQ" &&
+        getOSName() != "macintosh" && buttonEl?.getClientRects().length) {
+      event.preventDefault();
+      event.stopPropagation();
+      buttonEl.click();
+    }
   }
 
   async function onFocus() {
@@ -94,7 +119,7 @@
 
   function onBlur(event: FocusEvent) {
     let target = event.relatedTarget as Node;
-    if (target && document.querySelector(".lo-menu")?.contains(target)) {
+    if (target && appWindow.window.document.querySelector(".lo-menu")?.contains(target)) {
       return;
     }
     if (!isMenuOpen) {
@@ -103,7 +128,7 @@
   }
 
   async function onInput() {
-    if (!isSurveying) {
+    if (!$isSurveying) {
       await startSurvey();
     }
     updateResults();
@@ -134,7 +159,7 @@
   }
 
   function onMenuClosed() {
-    if (document.activeElement != inputEl) {
+    if (appWindow.window.document.activeElement != inputEl) {
       close();
     }
   }
@@ -143,7 +168,7 @@
     isMenuOpen = false;
     isActive = false;
     endSurvey();
-    if (document.activeElement != inputEl) {
+    if (appWindow.window.document.activeElement != inputEl) {
       searchTerm = "";
       isExpanded = false;
     }
@@ -152,15 +177,14 @@
   async function run(entry: RibbonCommandEntry) {
     isMenuOpen = false;
     searchTerm = "";
-    let tabEl = Array.from(ribbonEl.querySelectorAll<HTMLElement>(".tabs [role=tab]"))
-      .find(candidate => candidate.textContent.trim() == entry.tabLabel);
-    if (tabEl && tabEl.getAttribute("aria-selected") != "true") {
-      tabEl.click();
+    let tab = get(ribbon.shownTabs).find(candidate => candidate.label == entry.tabLabel);
+    if (tab && tab != get(ribbon.selectedTab)) {
+      ribbon.onSelectTab(tab);
     }
     await tick();
     close();
     await tick();
-    let el = entry.el.isConnected ? entry.el : collect(ribbonEl)
+    let el = entry.el.isConnected ? entry.el : collect(ribbon.ribbonEl)
       .find(candidate => candidate.tabLabel == entry.tabLabel && candidate.groupLabel == entry.groupLabel && candidate.label == entry.label)?.el;
     if (!el) {
       return;
@@ -217,13 +241,15 @@
 <style>
   .tell-me {
     flex: 0 0 auto;
+    align-self: center;
     align-items: center;
     gap: 2px;
-    height: 28px;
-    margin-inline-end: 4px;
+    height: 30px;
+    margin-inline: 4px;
     border: 1px solid transparent;
     border-radius: var(--lo-radius-small);
     color: var(--lo-fg-secondary);
+    app-region: no-drag;
   }
   .tell-me.expanded {
     flex: 0 1 240px;

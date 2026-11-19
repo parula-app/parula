@@ -6,8 +6,12 @@ import { findOrCreatePersonUID } from "../../../../../logic/Abstract/PersonUID";
 import { PGPSend } from "../../../../../logic/Mail/Encryption/PGP/PGPSend";
 import { PGPPrivateKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPrivateKey";
 import { PGPPublicKey } from "../../../../../logic/Mail/Encryption/PGP/PGPPublicKey";
+import { readAutoCryptKeys } from "../../../../../logic/Mail/Encryption/PGP/AutoCrypt";
+import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
+import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
+import { JSONEMail } from "../../../../../logic/Mail/JSON/JSONEMail";
 import type { EMail } from "../../../../../logic/Mail/EMail";
-import type { Folder } from "../../../../../logic/Mail/Folder";
+import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
 import { expect, test, describe, beforeAll } from "vitest";
 
 let folder: Folder;
@@ -16,8 +20,8 @@ let key: PGPPrivateKey;
 
 beforeAll(async () => {
   ({ folder } = await setupTestFolder({
-    // Stands in for nodemailer in the backend
-    getMIMENodemailer: async () => new TextEncoder().encode(kMIME.replace(/\n/g, "\r\n")),
+    // Stands in for nodemailer in the backend, which writes a `raw` message as it is
+    getMIMENodemailer: async (mail: any) => new TextEncoder().encode(mail.raw ?? kMIME.replace(/\n/g, "\r\n")),
   }));
   identity = new MailIdentity(folder.account);
   identity.emailAddress = "user@example.com";
@@ -38,7 +42,7 @@ async function send(encrypt: boolean): Promise<string> {
   mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
   mail.to.add(mail.from);
   mail.subject = kSubject;
-  mail.signedByKeyID = key.id;
+  mail.signPrivateKey = key;
   mail.shouldEncrypt = encrypt;
   return (await PGPSend.encryptAndSign(mail)).sendRawMIME;
 }
@@ -68,7 +72,7 @@ describe("PGP message with non-ASCII sender name and a long subject", () => {
     let email = await receive(await send(false));
     expect(email.subject).toBe(kSubject);
     expect(email.from.name).toBe("User Müller");
-    expect(email.signedByKeyID).toBe(key.id);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
   });
 
   test("encrypted: the recipient sees the subject and sender as written", async () => {
@@ -76,7 +80,118 @@ describe("PGP message with non-ASCII sender name and a long subject", () => {
     expect(email.wasEncrypted).toBe(true);
     expect(email.subject).toBe(kSubject);
     expect(email.from.name).toBe("User Müller");
-    expect(email.signedByKeyID).toBe(key.id);
+    expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
+  });
+});
+
+describe("PGP message with our key in the AutoCrypt header", () => {
+  test("gives the recipient our whole public key, although the header spans several lines", async () => {
+    let email = await receive(await send(false));
+    let headerKey = await readAutoCryptKeys(email);
+    expect(headerKey?.fingerprint).toBe(key.fingerprint);
+  });
+});
+
+describe("PGP message signed with the key that the composer chose", () => {
+  test("is signed with that key, not with our default key", async () => {
+    let defaultKey = await PGPPrivateKey.createNewPrivateKey({ realname: "User Müller", emailAddress: "user@example.com" });
+    defaultKey.useToSign = true;
+    identity.encryptionPrivateKeys.add(defaultKey);
+    try {
+      let email = await receive(await send(false)); // `send()` chooses `key`
+      expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
+    } finally {
+      identity.encryptionPrivateKeys.remove(defaultKey);
+    }
+  });
+});
+
+describe("A draft", () => {
+  let drafts: Folder;
+  let savedMIME: Uint8Array;
+
+  beforeAll(() => {
+    drafts = new Folder(folder.account);
+    drafts.specialFolder = SpecialFolder.Drafts;
+    // Keeps what an IMAP server would get
+    drafts.addMessage = async (message: EMail) => {
+      savedMIME = message.mime ?? await CreateMIME.getMIME(message);
+    };
+    folder.account.rootFolders.add(drafts);
+  });
+
+  /** To a recipient whose key we don't have yet */
+  async function saveDraft(encrypt: boolean): Promise<Uint8Array> {
+    let mail = folder.newEMail();
+    mail.identity = identity;
+    mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
+    mail.to.add(findOrCreatePersonUID("no-key@example.com", "No Key"));
+    mail.subject = kSubject;
+    mail.shouldEncrypt = encrypt;
+    await mail.compose.saveAsDraft();
+    return savedMIME;
+  }
+
+  test("that we sign is saved with the fingerprint of the key that signs, not the key, and reads back with that key", async () => {
+    let mail = folder.newEMail();
+    mail.identity = identity;
+    mail.from = findOrCreatePersonUID("user@example.com", "User Müller");
+    mail.sent = mail.received = new Date();
+    mail.signPrivateKey = key; // as the composer does
+    let saved = JSON.stringify(JSONEMail.save(mail));
+    expect(saved).toContain(key.fingerprint);
+    expect(saved).not.toContain("PRIVATE KEY");
+    expect(saved).not.toContain(key.passphrase);
+
+    let reread = folder.newEMail();
+    JSONEMail.readExtraData(reread, JSON.parse(saved));
+    expect(reread.signPrivateKey).toBe(key);
+  });
+
+  test("that is encrypted is saved without the text in clear", async () => {
+    let mime = new TextDecoder().decode(await saveDraft(true));
+    expect(mime).not.toContain("K=C3=B6ln");
+  });
+
+  test("that is encrypted reopens with its subject and text, and must stay encrypted and signed", async () => {
+    let draft = drafts.newEMail();
+    draft.mime = await saveDraft(true);
+    await draft.parseMIME(); // as the download does
+    await draft.compose.editDraft();
+    expect(draft.system).toBe(EncryptionSystem.PGP);
+    expect(draft.wasEncrypted).toBe(true);
+    expect(draft.subject).toBe(kSubject);
+    expect(draft.text.trim()).toBe("Grüße aus Köln!");
+    expect(draft.shouldEncrypt).toBe(true);
+    expect(draft.mustEncrypt).toBe(true);
+    expect(draft.signPrivateKey).toBe(key);
+  });
+
+  test("that is not encrypted reopens with encryption optional", async () => {
+    let draft = drafts.newEMail();
+    draft.mime = await saveDraft(false);
+    await draft.parseMIME();
+    await draft.compose.editDraft();
+    expect(draft.wasEncrypted).toBe(false);
+    expect(draft.mustEncrypt).toBe(false);
+  });
+
+  test("of an encrypted message that the user redirects must be encrypted, and is saved without the text in clear", async () => {
+    let original = await receive(await send(true));
+    let redirect = await original.compose.redirect();
+    expect(redirect.mustEncrypt).toBe(true);
+    redirect.identity = identity; // as the composer does
+    await redirect.compose.saveAsDraft();
+    expect(new TextDecoder().decode(savedMIME)).not.toContain("K=C3=B6ln");
+  });
+
+  test("of an encrypted message that the user edits as new must be encrypted, and is saved without the text in clear", async () => {
+    let original = await receive(await send(true));
+    let clone = await original.compose.editAsNew();
+    expect(clone.mustEncrypt).toBe(true);
+    clone.identity = identity; // as the composer does
+    await clone.compose.saveAsDraft();
+    expect(new TextDecoder().decode(savedMIME)).not.toContain("K=C3=B6ln");
   });
 });
 

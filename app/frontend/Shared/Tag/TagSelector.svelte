@@ -1,7 +1,8 @@
 <vbox>
-  <hbox class="tag-list">
+  <hbox class="tag-list" class:compact>
     {#each $tags.each as tag}
-      <TagBubble {tag}
+      <TagBubble {tag} {compact}
+        circle={compact && $tags.length > 2}
         selected={$partialTags?.contains(tag) ? null : $selectedTags?.contains(tag)}
         on:click={() => catchErrors(() => onSelectToggle(tag))}
         >
@@ -48,6 +49,8 @@
   export let partialTags: SetColl<Tag> = undefined;
   export let object: TaggableObject | undefined = undefined;
   export let canAdd = true;
+  /** For message lists: In one line, with short names, and only colored circles when there are many tags */
+  export let compact = false;
 
   async function onSelectToggle(tag: Tag) {
     if (!selectedTags) {
@@ -88,6 +91,9 @@
 <style>
   .tag-list {
     flex-wrap: wrap;
+  }
+  .tag-list.compact {
+    flex-wrap: nowrap;
   }
   .buttons {
     margin-inline-start: 6px;

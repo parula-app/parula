@@ -115,7 +115,7 @@
     .flatMap(account => account.identities.contents)
     .filter(listed => !listed.isCatchAll);
   // <copied from="../../../frontend/Settings/Mail/Account/EncryptionKey.svelte">
-  const acceptFileTypes = [ "application/x-x509-email-cert", "application/x-x509-ca-cert", "application/pkix-cert", ".crt", "application/x-pem-file", ".pem" ];
+  const acceptFileTypes = [ "application/x-x509-email-cert", "application/x-x509-ca-cert", "application/pkix-cert", ".crt", "application/x-pem-file", ".pem", ".p7b", ".p7c" ];
   // </copied>
 
   let identity: MailIdentity = identities.find(listed => listed == $selectedIdentity) ?? identities[0] ?? null;

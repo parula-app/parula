@@ -87,7 +87,7 @@
       {#if $message.invitationMessage}
         <span title={$t`Meeting request`}><MeetingIcon size={14} /></span>
       {/if}
-      {#if $message.wasEncrypted || $message.signedByKeyID}
+      {#if $message.wasEncrypted || $message.signedPublicKeyFingerprint}
         <span title={$message.wasEncrypted ? $t`Encrypted *=> The email was sent encrypted` : $t`Signed`}><SecureIcon size={14} /></span>
       {/if}
       {#if $message.hasVisibleAttachments}

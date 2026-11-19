@@ -1,6 +1,7 @@
 import './app.css';
 import { mount } from 'svelte';
 import MainWindow from './MainWindow/MainWindow.svelte';
+import { AppWindow } from './MainWindow/AppWindow';
 import { appName, appVersion, production } from '../logic/build';
 import { getLocalStorage } from './Util/LocalStorage';
 import { sanitize } from '../../lib/util/sanitizeDatatypes';
@@ -15,12 +16,19 @@ if (production) {
     release: appName + "@" + appVersion,
     // An array here would *add* to the default integrations, not replace them.
     // `BrowserSession` sends a session to the server on every navigation.
-    integrations: defaults => defaults.filter(integration => integration.name != "BrowserSession"),
+    // The console breadcrumbs would send what we logged before the error,
+    // e.g. an account with its password, or an email.
+    integrations: defaults => defaults
+      .filter(integration => integration.name != "BrowserSession" && integration.name != "Breadcrumbs")
+      .concat(Sentry.breadcrumbsIntegration({ console: false })),
   });
 }
 
+AppWindow.init();
+
 const app = mount(MainWindow, {
   target: document.getElementById('app'),
+  context: new Map([["appWindow", AppWindow.main]]),
 });
 
 export default app;

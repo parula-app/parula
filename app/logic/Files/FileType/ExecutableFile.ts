@@ -286,7 +286,9 @@ const kExecutableFileTypes: { kind: ExecutableKind, extensions: string[], mimeTy
 
 /** Direction overrides, zero-width and control characters, which make the
  * displayed filename differ from the real one */
+// <copied to="../../Mail/Encryption/SMIME/SMIMEPublicKey.ts">
 const kFilenameTrickCharacters = /[\u0000-\u001F\u007F\u00AD\u200B-\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/;
+// </copied>
 
 /** Long enough for the longest signature below, plus 3 bytes for UTF-8 BOM */
 const kHeaderLength = 30;

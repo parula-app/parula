@@ -2,6 +2,7 @@
 // app first, to resolve the import cycle around Abstract/Account.ts
 import "../../../../logic/app";
 import { ActiveSyncAccount, type ActiveSyncPingable } from "../../../../logic/Mail/ActiveSync/ActiveSyncAccount";
+import { waitTime } from "../../../../logic/util/util";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 /** Answers the Ping requests with `responses`, in order. An `Error` fails the request. */
@@ -51,6 +52,7 @@ const kChanged = { Status: "2", Folders: { Folder: "inbox" } };
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  waitTime.factor = 1; // fake timers don't wait anyway, and the tests check the real intervals
 });
 
 afterEach(() => {

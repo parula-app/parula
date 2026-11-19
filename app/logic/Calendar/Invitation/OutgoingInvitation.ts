@@ -3,6 +3,8 @@ import { Participant } from "../Participant";
 import { InvitationResponse, type iCalMethod } from "./InvitationStatus";
 import { findIdentityForEMailAddress, type MailIdentity} from "../../Mail/MailIdentity";
 import type { EMail } from "../../Mail/EMail";
+import type { SMLData } from "../../Mail/SML/SMLData";
+import type { TSMLMeetingTimePoll } from "../../Mail/SML/TSML";
 import type { Calendar } from "../Calendar";
 import { MailAccount } from "../../Mail/MailAccount";
 import { appGlobal } from "../../app";
@@ -137,6 +139,21 @@ export class OutgoingInvitation {
       event.recurrenceRule != unedited.recurrenceRule ||
       event.exclusions.length != unedited.exclusions.length
     );
+  }
+
+  /**
+   * Asks the participants by email which of the proposed times suit them.
+   * @param poll A `MeetingTimePoll`
+   */
+  meetingTimePollMail(participants: Collection<Participant>, poll: SMLData): EMail {
+    let timePoll = poll.sml as TSMLMeetingTimePoll;
+    timePoll.name = this.event.title;
+    timePoll.duration = this.event.durationMinutes;
+    let email = this.event.calendar.inviteAs.newEMailFrom();
+    email.to.addAll(participants);
+    email.subject = this.event.title;
+    email.sml = poll;
+    return email;
   }
 }
 

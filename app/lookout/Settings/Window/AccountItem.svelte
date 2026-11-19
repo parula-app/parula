@@ -14,9 +14,8 @@
 <script lang="ts">
   import type { Account } from "../../../logic/Abstract/Account";
   import type { SettingsCategory } from "../../../frontend/Settings/SettingsCategory";
-  import { MailAccount } from "../../../logic/Mail/MailAccount";
   import { accountSettings } from "../SettingsCategories";
-  import { selectedCategory, selectedAccount } from "./selected";
+  import { selectedCategory, selectedAccount } from "../../../frontend/Settings/Window/selected";
   import { getAccountIcon } from "../../../frontend/Settings/Shared/accountUIHelper";
   import SubCategoriesList from "./SubCategoriesList.svelte";
   import AppIcon from "../../../frontend/AppsBar/AppIcon.svelte";
@@ -27,16 +26,7 @@
   $: accountSelected = account == $selectedAccount;
   $: itemSelected = accountSelected && $selectedCategory == mainAccountCategory;
   $: mainAccountCategory = accountSettings.find(cat => account instanceof cat.type && cat.isMain);
-  $: subCategories = accountSettings.filterObservable(cat => account instanceof cat.type && !cat.isMain && showCat(cat, account));
-
-  // <copied from="../../../frontend/Settings/Window/AccountItem.svelte">
-  function showCat(category: SettingsCategory, account: Account): boolean {
-    if (category.id == "mail-sharing" && account instanceof MailAccount) {
-      return account.canShareWithPersons();
-    }
-    return true;
-  }
-  // </copied>
+  $: subCategories = accountSettings.filterObservable(cat => account instanceof cat.type && !cat.isMain && cat.isAvailable(account));
 
   function onSelect() {
     $selectedAccount = account;
