@@ -115,6 +115,7 @@ export class XMPPAccount extends ChatAccount {
       },
     });
     registerXMPPExtensions(this.client);
+    this.client.disco.addFeature("urn:xmpp:styling:0"); // We show Message Styling (XEP-0393)
     this.addListeners();
     await this.connectAndWaitForSession();
     this.client.updateConfig({ autoReconnect: true });

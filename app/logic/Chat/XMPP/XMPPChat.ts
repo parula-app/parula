@@ -7,6 +7,7 @@ import type { XMPPPerson } from "./XMPPPerson";
 import { ChatMessage, DeliveryStatus, type RoomMessage } from "../ChatMessage";
 import { SQLChatMessage } from "../SQL/SQLChatMessage";
 import { isFileURL } from "./XMPPMedia";
+import { messageStylingToHTML } from "./XMPPMessageStyling";
 import type { Group } from "../../Abstract/Group";
 import { Lock } from "../../util/flow/Lock";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
@@ -204,10 +205,7 @@ export class XMPPChat extends ChatRoom {
         target.from != this.messageSender(json) || target.encrypted && !encrypted) {
       return false;
     }
-    target.text = sanitize.string(json.body, "");
-    if (json.html?.body) {
-      target.fromHTML(json.html.body);
-    }
+    target.fromBody(json);
     target.edited = true;
     target.save()
       .catch(this.account.errorCallback);
@@ -282,6 +280,10 @@ export class XMPPChat extends ChatRoom {
         html: message.hasHTML ? { body: message.html } : undefined,
         reply: message.inReplyTo,
       });
+      if (this.encryption == Encryption.OMEMO) {
+        // OMEMO sends only the body, so show it as the others see it
+        message.html = messageStylingToHTML(message.text);
+      }
     }
     message.sent = new Date();
     message.received = new Date();

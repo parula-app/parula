@@ -22,6 +22,7 @@ OMEMO *crypto*, reactions, retraction and replies.
 | Feature | XEP | Notes |
 |---|---|---|
 | 1:1 chat | RFC 6121 | text + XHTML-IM (XEP-0071) |
+| Formatting | XEP-0393 Message Styling | `*bold*` etc. in a body without XHTML-IM, also in OMEMO |
 | History sync | XEP-0313 MAM | batched, incremental via `syncState` |
 | Group chat | XEP-0045 MUC | bookmarks XEP-0048/0402, occupants from presence, MUC-MAM |
 | End-to-end encryption | XEP-0384 OMEMO | legacy `eu.siacs.conversations.axolotl` |
