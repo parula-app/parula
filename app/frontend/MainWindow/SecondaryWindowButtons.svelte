@@ -25,7 +25,7 @@
     margin-inline-end: 12px;
   }
   .window-buttons.mac {
-    /* The traffic lights are at x 5 and up to 61px wide, see `trafficLightPosition` in desktop/src/main/index.ts.
+    /* The traffic lights end at x 59 (macOS 15) or 65 (macOS 26), see `trafficLightPosition` in desktop/src/main/index.ts.
      * The padding of the header is before this. */
     width: 48px;
   }
