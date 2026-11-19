@@ -1,6 +1,6 @@
 {
   "name": "mustang",
-  "version": "0.9.42-dev",
+  "version": "0.9.42",
   "description": "Parula - Video conference, chat, mail, calendar, files, contacts",
   "main": "./out/main/index.js",
   "type": "module",
