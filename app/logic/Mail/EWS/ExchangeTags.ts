@@ -73,6 +73,9 @@ export class ExchangeTags {
       }
       await this.addOnServer(tag);
       this.names.add(name);
+      // The server has only the colors in `kColors`, so show the tag now in the one that `load()` will read
+      tag.color = this.colorFromServer(this.colorToServer(tag.color)) ?? tag.color;
+      await saveTagsList();
     } finally {
       lock.release();
     }
