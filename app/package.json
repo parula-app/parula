@@ -2,7 +2,7 @@
   "name": "mustang-frontend",
   "description": "Parula UI",
   "private": true,
-  "version": "0.9.42",
+  "version": "0.9.43-dev",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
