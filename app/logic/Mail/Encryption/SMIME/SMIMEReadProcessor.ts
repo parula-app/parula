@@ -7,7 +7,7 @@ import { ContentInfo, EnvelopedData, AuthEnvelopedData, OctetString, SignedData,
 import { decryptAuthEnveloped } from "./SMIMEDecrypt";
 import { BlockType, unpadPKCS, decrypt } from "./SMIMERSAES";
 import { verifySignedData } from "./SMIMEVerify";
-import { parseMIMEDirectSubpartsBytes, parseHeaderParameters } from "../MIME";
+import { parseMIMEDirectSubpartsBytes, parseHeaderParameters, showsSignedPart } from "../MIME";
 import { assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../../l10n/l10n";
@@ -49,7 +49,7 @@ export class SMIMEReadProcessor extends EMailProcessor {
         await this.readAuthEncrypted(email, blob);
       }
     } else if (contentType == "multipart/signed") {
-      await this.readClearSigned(email, contentTypeHeader);
+      await this.readClearSigned(email, contentTypeHeader, postal);
     }
   }
 
@@ -131,8 +131,9 @@ export class SMIMEReadProcessor extends EMailProcessor {
   }
 
   /** Verifies a cleartext message with a detached signature
-   * (`multipart/signed`). */
-  protected async readClearSigned(email: EMail, contentTypeHeader: string) {
+   * (`multipart/signed`).
+   * @param postal What the reader shows */
+  protected async readClearSigned(email: EMail, contentTypeHeader: string, postal: PostalEmail) {
     let signatureMimeType = email.attachments.last?.mimeType.toLowerCase();
     if (signatureMimeType != "application/pkcs7-signature" &&
         signatureMimeType != "application/x-pkcs7-signature") { // legacy type name
@@ -142,6 +143,10 @@ export class SMIMEReadProcessor extends EMailProcessor {
     let parts = parseMIMEDirectSubpartsBytes(email.mime, contentTypeHeader);
     assert(parts.length == 2, "multipart/signed must have exactly 2 subparts: cleartext and signature, but got " + parts.length);
     let [clearText, signature] = parts;
+    if (!await showsSignedPart(postal, clearText)) {
+      console.warn("S/MIME signature ignored, because the mail shows other content than what was signed");
+      return;
+    }
     let signatureBase64 = new TextDecoder().decode(signature).split("\r\n\r\n")[1];
     if (!signatureBase64) {
       console.warn("signature part has no content");

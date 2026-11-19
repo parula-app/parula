@@ -5,7 +5,7 @@ import { PGPPublicKey, type OpenPGPModule } from "./PGPPublicKey";
 import { readAutoCryptKeys } from "./AutoCrypt";
 import { mayUseKeyOf } from "../KeyUtils";
 import { EncryptionSystem } from "../enums";
-import { parseMIMEDirectSubparts, parseHeaderParameters, toCRLF } from "../MIME";
+import { parseMIMEDirectSubparts, parseHeaderParameters, showsSignedPart, toCRLF } from "../MIME";
 import { MailIdentity, findIdentityForEMailAddress } from "../../MailIdentity";
 import type { PersonUID } from "../../../Abstract/PersonUID";
 import type { Attachment } from "../../../Abstract/Attachment";
@@ -81,6 +81,10 @@ export class PGPReadProcessor extends EMailProcessor {
       }
       signedPart = toCRLF(signedPart);
       let signedBinary = new TextEncoder().encode(signedPart);
+      if (!await showsSignedPart(mime, signedBinary)) {
+        console.warn("PGP signature ignored, because the mail shows other content than what was signed");
+        return;
+      }
       let signedContent = await openPGP.createMessage({ binary: signedBinary });
       let signature = await openPGP.readSignature({
         armoredSignature: await detachedSignature.text(),
