@@ -154,8 +154,8 @@ export interface TJMAPSetError extends TJMAPError {
 export type TJMAPMethodCall = [string, Record<string, any>, string];
 /** Contents: method name, arguments, call number */
 export type TJMAPMethodResponse = [string, Record<string, any>, string];
-export type TJMAPObjectType = "Mailbox" | "Email" | "Identity" | "EmailSubmission" | "Thread" | "AddressBook" | "ContactCard" | "Calendar" | "CalendarEvent" | "CalendarEventNotification" | "ParticipantIdentity" | "ShareNotification";
-export const TJMAPObjectTypes = ["Mailbox", "Email", "Identity", "EmailSubmission", "Thread", "AddressBook", "ContactCard", "Calendar", "CalendarEvent", "CalendarEventNotification", "ParticipantIdentity", "ShareNotification" ];
+export type TJMAPObjectType = "Mailbox" | "Email" | "Identity" | "EmailSubmission" | "Thread" | "AddressBook" | "ContactCard" | "Calendar" | "CalendarEvent" | "CalendarEventNotification" | "ParticipantIdentity" | "ShareNotification" | "FileNode";
+export const TJMAPObjectTypes = ["Mailbox", "Email", "Identity", "EmailSubmission", "Thread", "AddressBook", "ContactCard", "Calendar", "CalendarEvent", "CalendarEventNotification", "ParticipantIdentity", "ShareNotification", "FileNode" ];
 
 
 /** <https://www.rfc-editor.org/rfc/rfc8620.html#section-6.1> */

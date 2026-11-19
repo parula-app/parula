@@ -12,6 +12,7 @@ export class SQLDirectory {
     assert(account?.dbID, "Need account dbID to save directory");
     let parentID = dir.parent?.dbID ?? null;
     let lastMod = Math.floor(dir.lastMod.getTime() / 1000);
+    let jsonStr = JSON.stringify(dir.toExtraJSON(), null, 2);
 
     if (!dir.dbID) {
       let existing = await (await getDatabase()).get(sql`
@@ -25,9 +26,9 @@ export class SQLDirectory {
     if (!dir.dbID) {
       let insert = await (await getDatabase()).run(sql`
         INSERT INTO directory (
-          accountID, parentID, name, path, lastMod, syncState
+          accountID, parentID, name, path, lastMod, syncState, json
         ) VALUES (
-          ${account.dbID}, ${parentID}, ${dir.name}, ${dir.path}, ${lastMod}, ${dir.syncState}
+          ${account.dbID}, ${parentID}, ${dir.name}, ${dir.path}, ${lastMod}, ${dir.syncState}, ${jsonStr}
         )`);
       dir.dbID = insert.lastInsertRowid;
     } else {
@@ -37,7 +38,8 @@ export class SQLDirectory {
           name = ${dir.name},
           path = ${dir.path},
           lastMod = ${lastMod},
-          syncState = ${dir.syncState}
+          syncState = ${dir.syncState},
+          json = ${jsonStr}
         WHERE id = ${dir.dbID}
         `);
     }
@@ -68,6 +70,7 @@ export class SQLDirectory {
     dir.syncState = typeof(row.syncState) == "number"
       ? sanitize.integer(row.syncState, null)
       : sanitize.string(row.syncState, null);
+    dir.fromExtraJSON(sanitize.json(row.json, {}) as any);
     return dir;
   }
 
