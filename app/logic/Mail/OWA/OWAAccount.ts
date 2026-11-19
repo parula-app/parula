@@ -20,7 +20,8 @@ import type { OWAAddressbook } from "../../Contacts/OWA/OWAAddressbook";
 import { newCalendarForProtocol} from "../../Calendar/AccountsList/Calendars";
 import type { OWACalendar } from "../../Calendar/OWA/OWACalendar";
 import { OWARequest } from "./Request/OWARequest";
-import { OWAOptionsRequest } from "./Request/OWAOptionsRequest";
+import type { OWAOptionsRequest } from "./Request/OWAOptionsRequest";
+import { owaGetInboxRulesRequest, owaNewInboxRuleRequest, owaRemoveInboxRuleRequest, owaSetInboxRuleRequest } from "./Request/OWARulesRequests";
 import { OWACreateItemRequest } from "./Request/OWACreateItemRequest";
 import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
 import { OWASubscribeToHierarchyNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
@@ -931,7 +932,7 @@ export class OWAAccount extends ExchangeMailAccount {
   }
 
   protected async fetchServerFilterRules(): Promise<FilterRuleAction[]> {
-    let response = await this.callOWAOptions(new OWAOptionsRequest("GetInboxRule"));
+    let response = await this.callOWAOptions(owaGetInboxRulesRequest());
     return ensureArray(response.InboxRuleCollection?.InboxRules)
       .map(json => this.newServerFilterRule(json))
       .sort((a, b) => a.priority - b.priority)
@@ -939,18 +940,17 @@ export class OWAAccount extends ExchangeMailAccount {
   }
 
   protected async uploadServerFilterRules(rules: FilterRuleAction[], deletedIDs: string[]): Promise<void> {
-    const kKeepOutlookRules = { AlwaysDeleteOutlookRulesBlob: false, Force: false };
     for (let id of deletedIDs) {
-      await this.callOWAOptions(new OWAOptionsRequest("RemoveInboxRule", { Identity: { RawIdentity: id }, ...kKeepOutlookRules }));
+      await this.callOWAOptions(owaRemoveInboxRuleRequest(id));
     }
     for (let [i, rule] of rules.entries()) {
       let serverRule = this.newServerFilterRule(rule.serverJSON);
       let changed = serverRule.withChangesFrom(rule, i + 1) as OWAFilterRule;
       if (!rule.serverID) {
-        let response = await this.callOWAOptions(new OWAOptionsRequest("NewInboxRule", { InboxRule: changed.newParameters, ...kKeepOutlookRules }));
+        let response = await this.callOWAOptions(owaNewInboxRuleRequest(changed.newParameters));
         rule.serverID = this.newServerFilterRule(response.InboxRule).id;
       } else if (changed.isChangedFrom(serverRule)) {
-        await this.callOWAOptions(new OWAOptionsRequest("SetInboxRule", { InboxRule: changed.setParameters(serverRule), ...kKeepOutlookRules }));
+        await this.callOWAOptions(owaSetInboxRuleRequest(changed.setParameters(serverRule)));
       }
     }
   }
