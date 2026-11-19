@@ -24,18 +24,23 @@ export class POP3EMail extends EMail {
   /** If the locally saved content got lost, get it from the server again */
   async download() {
     await this.downloadRunOnce.runOnce(async () => {
-      assert(this.uidl && this.folder.isOnServer, gt`This mail is not on the server anymore`);
-      let conn = await this.folder.account.connect();
-      try {
-        let number = (await conn.uidlAll()).getKeyForValue(this.uidl);
-        assert(number, gt`This mail is not on the server anymore`);
-        this.mime = await conn.retr(number);
-        await conn.quit();
-      } finally {
-        await conn.close();
-      }
+      this.mime = await this.downloadMIME();
       await this.parseMIME();
     });
+  }
+
+  async downloadMIME(): Promise<Uint8Array> {
+    assert(this.uidl && this.folder.isOnServer, gt`This mail is not on the server anymore`);
+    let conn = await this.folder.account.connect();
+    try {
+      let number = (await conn.uidlAll()).getKeyForValue(this.uidl);
+      assert(number, gt`This mail is not on the server anymore`);
+      let mime = await conn.retr(number);
+      await conn.quit();
+      return mime;
+    } finally {
+      await conn.close();
+    }
   }
 
   async markRead(read = true) {

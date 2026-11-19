@@ -208,10 +208,12 @@ export class Folder extends Observable {
       if (action == "move") {
         sourceFolder.messages.removeAll(messages);
       }
+      // Our decrypted copy must never go to a server, also not for a move or copy on the same server
+      let uploads = await Promise.all(messages.contents.map(message => message.forServer()));
       if (!sameServer) {
-        for (let message of messages) {
-          await message.loadMIME();
-          await this.addMessage(message);
+        for (let [i, message] of messages.contents.entries()) {
+          await uploads[i].loadMIME();
+          await this.addMessage(uploads[i]);
           if (action == "move") {
             await message.deleteMessage();
           }
@@ -221,7 +223,7 @@ export class Folder extends Observable {
 
       this.countTotal += messages.length;
 
-      await this.moveOrCopyMessagesOnServer(action, messages);
+      await this.moveOrCopyMessagesOnServer(action, new ArrayColl(uploads));
 
       if (action == "move") {
         sourceFolder.countTotal -= messages.length;

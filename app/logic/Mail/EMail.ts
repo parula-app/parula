@@ -687,8 +687,31 @@ export class EMail extends Message {
 
   readonly downloadRunOnce = new RunOnce<void>();
   async download() {
+    await this.downloadRunOnce.runOnce(async () => {
+      this.mime = await this.downloadMIME();
+      await this.parseMIME();
+      await this.saveCompleteMessage();
+    });
+  }
+
+  /** What may go to a server: this mail, or if we decrypted it, a clone with the encrypted original and without the decrypted text, HTML and attachments.
+   * The clone keeps the server's ID, and this mail keeps the decrypted copy, e.g. in case the user loses the key. */
+  async forServer(): Promise<EMail> {
+    if (!this.wasEncrypted) {
+      return this;
+    }
+    let clone = this.folder.newEMail();
+    clone.copyFrom(this);
+    clone.pID = this.pID; // for the protocols, e.g. the IMAP UID
+    clone.text = "";
+    clone.attachments.clear();
+    clone.mime = await this.downloadMIME();
+    return clone;
+  }
+
+  /** @returns The MIME source as it is on the server, i.e. still encrypted, without parsing or saving it */
+  async downloadMIME(): Promise<Uint8Array> {
     throw new AbstractFunction();
-    //this.mime = await SMTPAccount.getMIME(this);
   }
 
   /**
@@ -749,47 +772,47 @@ export class EMail extends Message {
   copyFrom(other: EMail): void {
     super.copyFrom(other, true);
     // <copied to="SendEncrypted.cloneEMail()">
-    other.folder = this.folder;
-    other.identity = this.identity;
-    other.from = this.from;
-    other.replyTo = this.replyTo;
-    other.to.replaceAll(this.to);
-    other.cc.replaceAll(this.cc);
+    this.folder = other.folder;
+    this.identity = other.identity;
+    this.from = other.from;
+    this.replyTo = other.replyTo;
+    this.to.replaceAll(other.to);
+    this.cc.replaceAll(other.cc);
     // </copied>
-    other.bcc.replaceAll(this.bcc);
-    other.tags.replaceAll(this.tags);
-    //other.headers.replaceAll(this.headers);
-    other.headers.clear();
-    for (let name of this.headers.keys()) {
-      other.headers.set(name, this.headers.get(name));
+    this.bcc.replaceAll(other.bcc);
+    this.tags.replaceAll(other.tags);
+    //this.headers.replaceAll(other.headers);
+    this.headers.clear();
+    for (let name of other.headers.keys()) {
+      this.headers.set(name, other.headers.get(name));
     }
-    other.size = this.size;
-    if (this.references) {
-      other.references = this.references.slice();
+    this.size = other.size;
+    if (other.references) {
+      this.references = other.references.slice();
     }
-    other.threadID = this.threadID;
-    other.isSpam = this.isSpam;
-    other.isReplied = this.isReplied;
-    other.isForwarded = this.isForwarded;
-    other.isImportant = this.isImportant;
-    other.isDraft = this.isDraft;
-    other.isDeleted = this.isDeleted;
-    other.mime = this.mime;
-    other.invitationMessage = this.invitationMessage;
-    other.event = this.event;
-    other.sml = this.sml;
-    //other.extraData.replaceAll(this.extraData);
-    other.extraData.clear();
-    for (let name of this.extraData.keys()) {
-      other.extraData.set(name, this.extraData.get(name));
+    this.threadID = other.threadID;
+    this.isSpam = other.isSpam;
+    this.isReplied = other.isReplied;
+    this.isForwarded = other.isForwarded;
+    this.isImportant = other.isImportant;
+    this.isDraft = other.isDraft;
+    this.isDeleted = other.isDeleted;
+    this.mime = other.mime;
+    this.invitationMessage = other.invitationMessage;
+    this.event = other.event;
+    this.sml = other.sml;
+    //this.extraData.replaceAll(other.extraData);
+    this.extraData.clear();
+    for (let name of other.extraData.keys()) {
+      this.extraData.set(name, other.extraData.get(name));
     }
 
-    other.mustEncrypt = this.mustEncrypt;
-    other.shouldEncrypt = this.shouldEncrypt;
-    other.wasEncrypted = this.wasEncrypted;
-    other.signPrivateKey = this.signPrivateKey;
-    other.signedPublicKeyFingerprint = this.signedPublicKeyFingerprint;
-    other.system = this.system;
+    this.mustEncrypt = other.mustEncrypt;
+    this.shouldEncrypt = other.shouldEncrypt;
+    this.wasEncrypted = other.wasEncrypted;
+    this.signPrivateKey = other.signPrivateKey;
+    this.signedPublicKeyFingerprint = other.signedPublicKeyFingerprint;
+    this.system = other.system;
   }
 
   /**

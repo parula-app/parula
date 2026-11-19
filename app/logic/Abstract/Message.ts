@@ -194,21 +194,21 @@ export class Message extends Observable {
   }
 
   copyFrom(other: Message, withAttachments: boolean = false): void {
-    other.outgoing = this.outgoing;
-    other.contact = this.contact;
-    other.sent.setTime(this.sent.getTime());
-    other.received.setTime(this.received.getTime());
-    other.isNewArrived = this.isNewArrived;
-    other.isRead = this.isRead;
-    other.isStarred = this.isStarred;
-    other.inReplyTo = this.inReplyTo;
-    other.subject = this.subject;
-    other._text = this._text;
-    other._rawHTML = this._rawHTML;
+    this.outgoing = other.outgoing;
+    this.contact = other.contact;
+    this.sent = other.sent ? new Date(other.sent) : null;
+    this.received = other.received ? new Date(other.received) : null;
+    this.isNewArrived = other.isNewArrived;
+    this.isRead = other.isRead;
+    this.isStarred = other.isStarred;
+    this.inReplyTo = other.inReplyTo;
+    this.subject = other.subject;
+    this._text = other._text;
+    this._rawHTML = other._rawHTML;
     // _sanitizedHTML and _loadExternalImages not copied
     if (withAttachments) {
       // TODO Clone `Attachment` objects
-      other.attachments.replaceAll(this.attachments);
+      this.attachments.replaceAll(other.attachments);
     }
   }
 }

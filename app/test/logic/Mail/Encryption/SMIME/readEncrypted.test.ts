@@ -4,6 +4,8 @@ import { appGlobal } from "../../../../../logic/app";
 import { MailIdentity } from "../../../../../logic/Mail/MailIdentity";
 import { SMIMEPrivateKey } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { SQLMailStorage } from "../../../../../logic/Mail/SQL/SQLMailStorage";
+import { MailAccount } from "../../../../../logic/Mail/MailAccount";
+import { Folder } from "../../../../../logic/Mail/Folder";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { describe, expect, test, vi } from "vitest";
 
@@ -118,6 +120,27 @@ describe("Opening the message", () => {
     expect(parse).toHaveBeenCalledTimes(1);
     expect(errors).toEqual([]);
   });
+});
+
+test("Copying an encrypted message to another account uploads it still encrypted, and keeps our decrypted copy", async () => {
+  let { email } = await newMailToBob(kEncryptedAsFile);
+  let original = email.mime;
+  email.downloadMIME = async () => original; // the server
+  await email.parseMIME();
+  expect(email.text.trim()).toBe("Hello Bob");
+
+  let uploaded: Uint8Array;
+  let otherAccount = new Folder(new MailAccount());
+  otherAccount.addMessage = async (message: EMail) => {
+    uploaded = message.mime;
+  };
+  await otherAccount.copyMessageHere(email);
+
+  let uploadedText = new TextDecoder().decode(uploaded);
+  expect(uploadedText).toContain("smime.p7m");
+  expect(uploadedText).not.toContain("Hello Bob");
+  expect(new TextDecoder().decode(email.mime)).toContain("Hello Bob");
+  expect(email.text).toContain("Hello Bob");
 });
 
 /** Reads the CMS blob as a message to Bob, whose private key we have.
