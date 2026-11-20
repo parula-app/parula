@@ -51,6 +51,11 @@
   export let sessionID: string;
   export let withURLbar = true;
   export let autofill: string;
+  /**
+   * When the browser navigates or gets redirected to a URL starting with this,
+   * abort loading that page, and report it as `page-change` event.
+   * E.g. the OAuth2 redirect URL, which may be a real server that we don't want to load. */
+  export let stopAtURL: URLString | null = null;
 
   $: partition = sessionID ? "persist:" + sessionID : undefined;
 
@@ -71,6 +76,8 @@
       currentURL = webviewE.src;
       dispatch("page-change", webviewE.src);
     });
+    webviewE.addEventListener("did-start-navigation", onNavigation);
+    webviewE.addEventListener("did-redirect-navigation", onNavigation);
     webviewE.addEventListener("did-start-loading", () => {
       isLoading = true;
     });
@@ -81,6 +88,16 @@
           .catch(logErrorToServer); // Some login pages refuse our script. TODO log getDomain()?
       }
     });
+  }
+
+  function onNavigation(event: Event & { url: URLString, isMainFrame: boolean }) {
+    if (!stopAtURL || !event.isMainFrame || !event.url?.startsWith(stopAtURL)) {
+      return;
+    }
+    webviewE.stop();
+    isLoading = false;
+    currentURL = event.url;
+    dispatch("page-change", event.url);
   }
 
   function onClose() {
