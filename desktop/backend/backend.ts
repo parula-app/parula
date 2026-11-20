@@ -691,7 +691,7 @@ function maximizeMainWindow() {
  * @param onClosed Called when the window closed, also when the user closed it. It's in the frontend.
  * @returns Closes the window
  */
-function openBrowserWindow(url: string, sessionID: string, onNavigate: (url: string) => Promise<void>, onClosed: () => Promise<void>): () => void {
+async function openBrowserWindow(url: string, sessionID: string, onNavigate: (url: string) => Promise<void>, onClosed: () => Promise<void>): () => void {
   url = sanitize.url(url, undefined, ["https"]);
   sessionID = sanitize.alphanumdash(sessionID);
   let browserWindow = new BrowserWindow({
@@ -709,8 +709,12 @@ function openBrowserWindow(url: string, sessionID: string, onNavigate: (url: str
     onNavigate(url)
       .catch(console.error);
   });
-  browserWindow.loadURL(url)
-    .catch(console.error);
+  try {
+    await browserWindow.loadURL(url);
+  } catch (ex) {
+    browserWindow.close();
+    throw ex;
+  }
   return () => {
     if (!browserWindow.isDestroyed()) {
       browserWindow.close();
