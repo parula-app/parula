@@ -1,5 +1,5 @@
 <Scroll>
-  <grid class="files-list">
+  <grid class="files-list" class:show-folder={showFolder}>
     <hbox class="name header">
       {$t`File name`}
       <RoundButton
@@ -9,6 +9,11 @@
         icon={SortDownIcon}
         iconSize="14px" border={false} classes="sort smallest" />
     </hbox>
+    {#if showFolder}
+      <hbox class="folder header">
+        {$t`Folder`}
+      </hbox>
+    {/if}
     <hbox class="type header">
       {$t`File type`}
       <RoundButton
@@ -37,7 +42,7 @@
         iconSize="14px" border={false} classes="sort smallest" />
     </hbox>
 
-    <FileOrDirLines files={filesSorted} dirs={dirsSorted} />
+    <FileOrDirLines files={filesSorted} dirs={dirsSorted} {showFolder} />
   </grid>
 </Scroll>
 
@@ -65,6 +70,7 @@
 
   export let files: Collection<File>;
   export let dirs: Collection<Directory>;
+  export let showFolder = false;
 
   let sortSetting = getLocalStorage("files.sort", SortCriteria.Name);
   $: sortBy = $sortSetting.value;
@@ -83,6 +89,9 @@
   .files-list {
     display: grid;
     grid-template-columns: auto max-content max-content max-content;
+  }
+  .files-list.show-folder {
+    grid-template-columns: auto auto max-content max-content max-content;
   }
   .header {
     align-items: center;

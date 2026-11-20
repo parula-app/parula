@@ -6,17 +6,12 @@
         placeholder={$t`File name or content`} />
     </hbox>
   {/if}
-  <Checkbox bind:checked={search.isStarred} allowIndetermined={true}
-    label={$t`Starred`}
-    classes="star {search.isStarred ? "starred" : ""}">
-    <StarIcon size="16px" slot="icon" />
-  </Checkbox>
   <Checkbox bind:checked={search.hasMIMETypesOn} allowIndetermined={true}
     on:change={updateTypes}
-    label={$t`Attachment`}>
+    label={$t`File type`}>
     <TypesIcon size="16px" slot="icon" />
   </Checkbox>
-  {#if search.hasMIMETypes}
+  {#if search.hasMIMETypesOn}
     <vbox flex class="listbox">
       <GenericFileTypesList bind:selectedMIMETypes={search.hasMIMETypes} />
     </vbox>
@@ -85,8 +80,7 @@
   import FolderList from "../FolderLeftPane/FolderList.svelte";
   import TagSelector from "../../Shared/Tag/TagSelector.svelte";
   import Checkbox from "../../Shared/Checkbox.svelte";
-  import StarIcon from "lucide-svelte/icons/star";
-  import TypesIcon from "lucide-svelte/icons/paperclip";
+  import TypesIcon from "lucide-svelte/icons/file-type";
   import AccountIcon from "lucide-svelte/icons/cloudy";
   import FolderIcon from "lucide-svelte/icons/folder";
   import TagIcon from "lucide-svelte/icons/tag";
@@ -170,9 +164,6 @@
   }
   .term :global(input) {
     font-size: 16px;
-  }
-  .search-criteria :global(.star.starred svg) {
-    fill: orange;
   }
   .search-criteria :global(.unread.is-unread svg) {
     fill: green;

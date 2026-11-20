@@ -18,6 +18,11 @@
         {$dir?.name}
       </hbox>
     </hbox>
+    {#if showFolder}
+      <hbox class="folder">
+        {$dir.parentDirs.contents.map(parent => parent.name).join(" / ")}
+      </hbox>
+    {/if}
     <hbox class="type">
       {$t`Folder`}
     </hbox>
@@ -33,7 +38,7 @@
 </Clickable>
 
 {#if open}
-  <FileOrDirLines {files} dirs={subDirs} indent={indent + 1} />
+  <FileOrDirLines {files} dirs={subDirs} indent={indent + 1} {showFolder} />
 {/if}
 
 <script lang="ts">
@@ -50,6 +55,7 @@
 
   export let dir: Directory;
   export let indent = 0;
+  export let showFolder = false;
 
   let open = false;
   $: subDirs = dir?.subDirs;
@@ -81,7 +87,7 @@
     background-color: var(--selected-bg);
     color: var(--selected-fg);
   }
-  .name, .type, .size, .time {
+  .name, .folder, .type, .size, .time {
     padding-inline-start: 8px;
     padding-inline-end: 8px;
   }
@@ -115,7 +121,7 @@
     justify-content: end;
     min-width: 5em;
   }
-  .type, .size, .time {
+  .folder, .type, .size, .time {
     color: #91939D;
     font-size: 90%;
     font-weight: 300;
