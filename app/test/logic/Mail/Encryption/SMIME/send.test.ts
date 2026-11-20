@@ -10,8 +10,10 @@ import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
 import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
-import { ContentInfo, AuthEnvelopedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { SignedData, ContentInfo, AuthEnvelopedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
+import { parseHeaderParameters } from "../../../../../logic/Mail/Encryption/MIME";
 import { kP256Certificate } from "./ellipticCurves";
+import { kOwnP256, kOwnP384, kOwnP521 } from "./ownECKeys";
 import { kAlice } from "./certificateChains";
 import { expect, test, describe, beforeAll } from "vitest";
 
@@ -53,12 +55,12 @@ beforeAll(async () => {
 });
 
 /** Sends the message to ourselves, and reads it, as the recipient would. */
-async function sendAndReceive(sign: boolean, encrypt: boolean): Promise<EMail> {
+async function sendAndReceive(sign: boolean, encrypt: boolean, myIdentity = identity): Promise<EMail> {
   let mail = folder.newEMail();
-  mail.identity = identity;
+  mail.identity = myIdentity;
   mail.from = findOrCreatePersonUID("user@example.com", "User");
   mail.to.add(mail.from);
-  mail.signPrivateKey = sign ? key : null;
+  mail.signPrivateKey = sign ? myIdentity.encryptionPrivateKeys.first : null;
   mail.shouldEncrypt = encrypt;
   let sent = await SMIMESend.encryptAndSign(mail);
 
@@ -87,6 +89,28 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
     expect(email.wasEncrypted).toBe(true);
     expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
     expect(email.signedPublicKeyFingerprint).toBe(key.fingerprint);
+  });
+});
+
+describe("A message signed with our EC key", () => {
+  test.each([
+    ["P-256", kOwnP256, "sha256", "ecdsaWithSHA256", "sha-256"],
+    ["P-384", kOwnP384, "sha384", "ecdsaWithSHA384", "sha-384"],
+    ["P-521", kOwnP521, "sha512", "ecdsaWithSHA512", "sha-512"],
+  ])("on %s is verified, and uses the hash that fits the curve", async (name, pem, digestAlgorithm, signatureAlgorithm, micalg) => {
+    let ecIdentity = new MailIdentity(folder.account);
+    ecIdentity.emailAddress = "user@example.com";
+    let ecKey = await SMIMEPrivateKey.importPrivateKey(pem);
+    ecIdentity.encryptionPrivateKeys.add(ecKey);
+    let email = await sendAndReceive(true, false, ecIdentity);
+    expect(email.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
+    expect(email.signedPublicKeyFingerprint).toBe(ecKey.fingerprint);
+    let signature = new Uint8Array(await email.attachments.last.content.arrayBuffer());
+    let signerInfo = SignedData.decode(signature, { berToDER: true }).content.signerInfos[0];
+    expect(signerInfo.digestAlgorithm.algorithm).toBe(digestAlgorithm);
+    expect(signerInfo.signatureAlgorithm.algorithm).toBe(signatureAlgorithm);
+    let contentType = new TextDecoder().decode(email.mime).match(/^Content-Type: (.*)$/m)[1];
+    expect(parseHeaderParameters(contentType).micalg).toBe(micalg);
   });
 });
 
