@@ -76,10 +76,11 @@ export class JSONEMail {
       json.invitationMessage = email.invitationMessage;
     }
 
-    if (email.signedPublicKeyFingerprint || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt || email.shouldSign) {
+    if (email.signedPublicKeyFingerprint || email.signedOnBehalfPublicKeyFingerprint || email.wasEncrypted || email.mustEncrypt || email.shouldEncrypt || email.shouldSign) {
       let e = json.encryption = {} as any;
       e.system = email.system;
       e.signedPublicKeyFingerprint = email.signedPublicKeyFingerprint;
+      e.signedOnBehalfPublicKeyFingerprint = email.signedOnBehalfPublicKeyFingerprint;
       e.signPrivateKeyFingerprint = email.signPrivateKey?.fingerprint;
       e.signedPublicKey = this.saveSigner(email);
       e.wasEncrypted = email.wasEncrypted;
@@ -241,6 +242,7 @@ export class JSONEMail {
     if (e) {
       email.system = sanitize.enum<EncryptionSystem>(e.system, Object.values(EncryptionSystem), null);
       email.signedPublicKeyFingerprint = sanitize.alphanumdash(e.signedPublicKeyFingerprint, null);
+      email.signedOnBehalfPublicKeyFingerprint = sanitize.alphanumdash(e.signedOnBehalfPublicKeyFingerprint, null);
       // Accounts must be loaded first before calling this
       email.signPrivateKey = getMyKeyByFingerprint(sanitize.alphanumdash(e.signPrivateKeyFingerprint, null));
       // Parsed on demand, @see `getPublicKeyByFingerprint()`

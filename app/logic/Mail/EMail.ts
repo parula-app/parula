@@ -124,7 +124,11 @@ export class EMail extends Message {
    * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
   signedPublicKeyFingerprint: string | null = null;
-  /** The `PublicKey` object for `signedPublicKeyFingerprint`
+  /** `Sender:` signed it with this key on behalf of `From:`, but `From:` did not sign, see `rememberSigner()`.
+   * Format: `PublicKey.fingerprint` */
+  @notifyChangedProperty
+  signedOnBehalfPublicKeyFingerprint: string | null = null;
+  /** The `PublicKey` object for `signedPublicKeyFingerprint` or `signedOnBehalfPublicKeyFingerprint`
    * Set this using @see rememberSigner() */
   signedPublicKey: PublicKey | null = null;
   /** As `signedPublicKey`, but not parsed yet.
@@ -204,21 +208,30 @@ export class EMail extends Message {
    * in the AutoCrypt header for PGP - so this is the only place where we
    * have it for senders who are not in the addressbook.
    * Only keys that were issued for the `From:` address describe the sender,
-   * otherwise the message is not signed.
-   * @param signer null, if the signature did not verify */
-  rememberSigner(signer: PublicKey | null) {
-    if (!signer?.isForEMailAddress(this.from?.emailAddress)) {
+   * otherwise the message is not signed. A key for the `Sender:` address,
+   * who sent it on behalf of `From:` (RFC 8550 section 3), is `signedOnBehalfPublicKeyFingerprint`.
+   * @param signer null, if the signature did not verify
+   * @param sender `Sender:` address. S/MIME only: PGP verifies only with the keys of `From:`. */
+  rememberSigner(signer: PublicKey | null, sender?: string) {
+    let isFrom = signer?.isForEMailAddress(this.from?.emailAddress);
+    if (!isFrom && !signer?.isForEMailAddress(sender)) {
       signer = null;
     }
     this.signedPublicKey = signer;
-    this.signedPublicKeyFingerprint = signer?.fingerprint ?? null;
-    if (!signer) {
+    this.signedPublicKeyFingerprint = isFrom ? signer.fingerprint : null;
+    this.signedOnBehalfPublicKeyFingerprint = isFrom ? null : signer?.fingerprint ?? null;
+    if (!isFrom) { // a delegate's key is not a key of `From:`
       return;
     }
     let known = this.from.encryptionPublicKey;
     if (!known || known.obsolete) {
       this.from.encryptionPublicKey = signer;
     }
+  }
+
+  /** Who signed with this key: `From:`, or the delegate who sent it on behalf of `From:`, see `rememberSigner()` */
+  signedBy(key: PublicKey): PersonUID {
+    return key.isForEMailAddress(this.from?.emailAddress) ? this.from : findOrCreatePersonUID(key.userIDs.first, null);
   }
 
   /** Marks as spam, and deletes or moves the message, as configured */
@@ -789,6 +802,7 @@ export class EMail extends Message {
     other.wasEncrypted = this.wasEncrypted;
     other.signPrivateKey = this.signPrivateKey;
     other.signedPublicKeyFingerprint = this.signedPublicKeyFingerprint;
+    other.signedOnBehalfPublicKeyFingerprint = this.signedOnBehalfPublicKeyFingerprint;
     other.system = this.system;
   }
 

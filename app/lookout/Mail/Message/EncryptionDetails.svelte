@@ -22,7 +22,7 @@
         <GroupBox label={$t`Signing key`}>
           <FormGrid columns="max-content minmax(0, 1fr)">
             <span class="lo-form-label">{$t`Signer *=> Person who signed the email`}</span>
-            <span class="value">{$signingKey.name ?? fromName}</span>
+            <span class="value">{$signingKey.name ?? signerName}</span>
             <span class="lo-form-label">{$t`System`}</span>
             <span class="value">{signingKey.system}</span>
             <span class="lo-form-label">{$t`Fingerprint`}</span>
@@ -36,7 +36,7 @@
         <GroupBox label={$t`Edit Trust`}>
           <!-- <copied from="../../../frontend/Contacts/PersonPage/EncryptionKey.svelte" acceptance> -->
           {#each [TrustLevel.Personal, signingKey.caName ? TrustLevel.ThirdParty : TrustLevel.Sender, TrustLevel.Distrusted] as level}
-            <Radio label={trustLabel(level, signingKey.caName, fromName)}
+            <Radio label={trustLabel(level, signingKey.caName, signerName)}
               bind:group={signingKey.trustLevel} value={level}
               on:change={() => catchErrors(onTrustChanged)} />
           {/each}
@@ -70,12 +70,13 @@
 
   let signingKey: PublicKey = null;
   /* <copied from="../../../frontend/Mail/Message/EncryptionButtons.svelte"> */
-  $: getPublicKeyByFingerprint($message.signedPublicKeyFingerprint, message)
+  $: fingerprint = $message.signedPublicKeyFingerprint ?? $message.signedOnBehalfPublicKeyFingerprint;
+  $: getPublicKeyByFingerprint(fingerprint, message)
     .then(key => signingKey = key)
     .catch(showError);
   /* </copied> */
   /* <copied from="EncryptionButtons.svelte"> */
-  $: isSigned = $message && !!message.signedPublicKeyFingerprint && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
+  $: isSigned = !!fingerprint && !!signingKey && signingKey.trustLevel != TrustLevel.Distrusted;
   /* </copied> */
   $: isEncrypted = !!$message.wasEncrypted;
   // <copied from="../../../frontend/Mail/Message/EncryptionDetails.svelte">
@@ -86,13 +87,14 @@
       : isSigned
         ? $t`Signed`
         : $t`End-to-end-encrypted, but not signed`;
-  $: fromName = $message.from?.findPerson()?.name ?? $message.from?.nameOrEMail;
+  $: signer = signingKey && $message.signedBy(signingKey);
+  $: signerName = signer?.findPerson()?.name ?? signer?.nameOrEMail;
   $: msg = mySigningKey
       ? $t`You sent this email`
       : isSigned && isEncrypted
-        ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${fromName}. Only the recipients can read it, but the email provider cannot.`
+        ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${signerName}. Only the recipients can read it, but the email provider cannot.`
         : isSigned
-          ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${fromName}. It was not encrypted, meaning that it was not protected from surveillance.`
+          ? $t`If - and only if - you have confidence in the certificate below, you can be sure that this email was indeed written by ${signerName}. It was not encrypted, meaning that it was not protected from surveillance.`
           : $t`Only the recipients can read this email, but there is no assurance about who wrote it`;
   // </copied>
   $: layers = [
@@ -117,7 +119,7 @@
 
   async function onTrustChanged() {
     // <copied from="../../../frontend/Contacts/PersonPage/EncryptionKey.svelte" onSave()>
-    await message.from?.findPerson()?.save();
+    await signer?.findPerson()?.save();
     // </copied>
   }
 </script>

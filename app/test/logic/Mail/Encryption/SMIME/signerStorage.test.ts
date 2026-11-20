@@ -37,10 +37,10 @@ class TestMailStore {
   }
 }
 
-async function readAndSaveSignedMessage(folder: Folder, received = new Date()): Promise<EMail> {
+async function readAndSaveSignedMessage(folder: Folder, received = new Date(), mime = kClearSigned): Promise<EMail> {
   let email = folder.newEMail();
   email.received = received;
-  email.mime = new TextEncoder().encode(kClearSigned.replace(/\n/g, "\r\n"));
+  email.mime = new TextEncoder().encode(mime.replace(/\n/g, "\r\n"));
   await email.parseMIME();
   await SQLEMail.save(email);
   return email;
@@ -101,6 +101,18 @@ describe("The key of a sender who is not in the addressbook", () => {
     expect(fromDB.signedPublicKeyJSON).toBe(null);
     let signingKey = await getPublicKeyByFingerprint(fromDB.signedPublicKeyFingerprint, fromDB);
     expect(signingKey).toBe(alice.encryptionPublicKeys.first);
+  });
+
+  test("who signed on behalf of From: is stored as such", async () => {
+    let { folder } = await setupTestFolder({ getCACertificates: async () => [] });
+    let onBehalf = kClearSigned.replace("From: Alice <alice@example.com>", "From: CEO <ceo@example.com>\nSender: Alice <alice@example.com>");
+    let email = await readAndSaveSignedMessage(folder, new Date(), onBehalf);
+
+    let fromDB = await reread(email);
+    expect(fromDB.signedPublicKeyFingerprint).toBe(null);
+    expect(fromDB.signedOnBehalfPublicKeyFingerprint).toBe(email.signedPublicKey.fingerprint);
+    let signingKey = await getPublicKeyByFingerprint(fromDB.signedOnBehalfPublicKeyFingerprint, fromDB);
+    expect(signingKey.userIDs.contents).toContain("alice@example.com");
   });
 });
 
