@@ -550,6 +550,15 @@ export class Event extends Observable {
     this.outgoingInvitation.createOrganizer();
   }
 
+  /** An occurrence may share the participant objects with its series.
+   * Call this before changing a participant of only this occurrence,
+   * e.g. my response, so that the change doesn't apply to the whole series. */
+  separateParticipantsFromSeries() {
+    if (this.parentEvent) {
+      this.participants.replaceAll(this.participants.contents.map(participant => participant.clone()));
+    }
+  }
+
   /** Who invited to this meeting.
    * null, if this is a private event of our user, without other participants. */
   get organizer(): Participant | null {

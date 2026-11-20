@@ -47,7 +47,10 @@ export class ICalIncomingInvitation extends IncomingInvitation {
     }
   }
 
+  /** My participant entry in `event`, to change my response.
+   * For an occurrence, the entry of only this occurrence, not of the whole series. */
   static participantMe(event: Event, mailAccount?: MailAccount): { identity: MailIdentity, myParticipant: Participant } {
+    event.separateParticipantsFromSeries();
     let results = [];
     let accounts = mailAccount ? [mailAccount] : appGlobal.emailAccounts.contents.filter(account => account.canSendOutgoingInvitations);
     for (let account of accounts) {
