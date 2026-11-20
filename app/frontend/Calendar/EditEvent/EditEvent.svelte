@@ -17,7 +17,7 @@
                 <ExpanderButtons>
                   <ExpanderButton bind:expanded={showRepeat} label={$t`Repeat`} icon={RepeatIcon} on:expand={expandRepeat} />
                   <ExpanderButton bind:expanded={showReminder} label={$t`Reminder`} icon={ReminderIcon} on:expand={expandReminder} />
-                  <ExpanderButton bind:expanded={showParticipants} label={$t`Invite`} icon={ParticipantsIcon} on:expand={expandParticipants} />
+                  <ExpanderButton bind:expanded={showParticipants} label={$t`Invite`} icon={ParticipantsIcon} on:expand={() => catchErrors(expandParticipantsAndFocus)} />
                   <ExpanderButton bind:expanded={showLocation} label={$t`Location`} icon={LocationIcon} on:expand={expandLocation} />
                   <ExpanderButton bind:expanded={showOnlineMeeting} label={$t`Online meeting`} icon={OnlineMeetingIcon} on:expand={expandOnlineMeeting} />
                   <ExpanderButton bind:expanded={showDescription} label={$t`Description`} icon={DescriptionIcon} on:expand={expandDescription} />
@@ -39,7 +39,7 @@
             {/if}
             {#if showParticipants}
               <Section label={$t`Invite`} icon={ParticipantsIcon} flex={isAvailabilityExpanded || null}>
-                <ParticipantsBox {event} bind:isAvailabilityExpanded bind:isAvailabilityEnlarged />
+                <ParticipantsBox {event} bind:isAvailabilityExpanded bind:isAvailabilityEnlarged bind:this={participantsBox} />
               </Section>
             {/if}
             {#if !isAvailabilityEnlarged}
@@ -117,6 +117,7 @@
   import DescriptionIcon from "lucide-svelte/icons/notebook-pen";
   import AttachmentIcon from "lucide-svelte/icons/paperclip";
   import { catchErrors } from "../../Util/error";
+  import { tick } from "svelte";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -148,6 +149,13 @@
       return;
     }
     event.createMeeting();
+  }
+
+  let participantsBox: ParticipantsBox;
+  async function expandParticipantsAndFocus(): Promise<void> {
+    expandParticipants();
+    await tick();
+    participantsBox.focus();
   }
 
   function expandLocation(): void {
