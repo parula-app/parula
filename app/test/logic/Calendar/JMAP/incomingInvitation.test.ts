@@ -348,6 +348,26 @@ test("An event without other participants is not an invitation", () => {
   expect(event.isIncomingMeeting).toBe(false);
 });
 
+test("Accepting in the email a meeting that the JMAP server changed since tells the server my response", async () => {
+  let { account, calendar, calls, sent } = setup();
+  let event = calendar.newEvent();
+  let json = serverMeeting("needs-action");
+  json.updated = "2026-10-01T10:00:00Z"; // The server's copy is newer than the email
+  event.fromJMAP(json);
+  calendar.events.add(event);
+  let email = await newInvitationEMail(account);
+
+  await calendar.getIncomingInvitationForEMail(email).respondToInvitationFromMail(InvitationResponse.Accept);
+
+  expect(calendar.events.length).toEqual(1);
+  expect(event.myParticipation).toEqual(InvitationResponse.Accept);
+  expect(event.participants.find(participant => participant.emailAddress == kMe).response).toEqual(InvitationResponse.Accept);
+  let updated = calls[0].args.update.serverEventID as TJMAPCalendarEvent;
+  expect(updated.participants.meID.participationStatus).toEqual("accepted");
+  expect(sent.length).toEqual(1);
+  expect(sent[0].event.participants.first.response).toEqual(InvitationResponse.Accept);
+});
+
 test("Accepting an invitation that the JMAP server added keeps the server's participants", async () => {
   let { account, calendar, calls, sent } = setup();
   appGlobal.emailAccounts.add(account);
