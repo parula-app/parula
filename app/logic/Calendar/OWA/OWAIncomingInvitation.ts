@@ -20,7 +20,8 @@ export class OWAIncomingInvitation extends IncomingInvitation {
   constructor(calendar: OWACalendar, message: OWAEMail) {
     super(calendar, message);
     let event = this.calEvent() as OWAEvent;
-    this.itemID = event?.itemID;
+    // An occurrence that is not an exception yet has no item. Fetching the master fetches its exceptions, too.
+    this.itemID = event?.itemID ?? event?.parentEvent?.itemID;
   }
 
   async respondToInvitationFromMail(response: InvitationResponseInMessage, sendReply = true) {
