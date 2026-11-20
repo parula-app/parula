@@ -7,6 +7,7 @@ import com.getcapacitor.BridgeActivity
 class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(LinkTapPlugin::class.java)
+        registerPlugin(LoginWebViewPlugin::class.java)
         super.onCreate(savedInstanceState)
     }
 
