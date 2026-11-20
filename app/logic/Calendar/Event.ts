@@ -825,7 +825,7 @@ export class Event extends Observable {
 
   async deleteFromServer(): Promise<void> {
     try {
-      if (!this.participants.length) {
+      if (!this.participants.length || this.isCancelled) {
         return;
       }
       if (this.isOutgoingMeeting) {
