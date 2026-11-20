@@ -1,7 +1,7 @@
 <vbox class="webapps" class:running={$showingWebApp} class:no-title-bar={noTitleBar}>
-  {#each $webAppsRunning.each as webApp}
+  {#each $webAppsRunning.each as webApp (webApp)} <!-- Each app keeps its WebView, and with it, its page -->
     <vbox class="webapp" class:running={$showingWebApp == webApp}>
-      <WebAppRunner app={webApp} />
+      <WebAppRunner app={webApp} hidden={$showingWebApp != webApp} on:hide={() => $showingWebApp = null} />
     </vbox>
   {/each}
 </vbox>

@@ -1,8 +1,10 @@
+{#if !nativePage} <!-- Android and iOS: A web page may be in a native WebView instead, see `showNativePage()` -->
 // #if [!WEBMAIL && !MOBILE]
 <webview bind:this={webviewE} src={url ?? blobURL} {title} class:hidden {partition} />
 // #else
 <iframe bind:this={webviewE} src={url ?? blobURL} {title} {sandbox} class:hidden />
 // #endif
+{/if}
 // #if [!WEBMAIL]
 <!-- No Svelte if-block between the conditional compile lines: The plugin takes it as its own condition. The popup shows only on `show()` anyways. -->
 <OpenLinkPopup bind:this={openLinkPopup} popupAnchor={linkAnchor} />
@@ -29,9 +31,12 @@
 <script lang="ts" context="module">
   import { openExternalURL } from "../../logic/util/os-integration";
   // #if [MOBILE]
-  import { linkTapPlugin, type LinkTap } from "../../logic/util/os-integration";
+  import { linkTapPlugin, webPagePlugin, type LinkTap } from "../../logic/util/os-integration";
 
   linkTapPlugin.addListener("linkTap", tap => onLinkTap(tap).catch(console.error))
+    .catch(console.error);
+  /** From a web page in a native WebView, see `showNativePage()`. Like `onLinkTap()`. */
+  webPagePlugin.addListener("link", link => openExternalURL(link.url).catch(console.error))
     .catch(console.error);
 
   /** The `WebView` where the user tapped may take the link, to show where it goes.
@@ -60,12 +65,16 @@
   import type { ArrayColl } from "svelte-collections";
   import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { removeTrackingURL } from "../../logic/util/netUtil";
+  // #if [MOBILE]
+  import type { PluginListenerHandle } from "@capacitor/core";
+  // #endif
   const dispatch = createEventDispatcher();
 
   /**
    * Displays untrusted HTML in a sandboxed iframe which does not allow any JavaScript.
    * Desktop: Which permissions the page gets, e.g. for the camera or the location,
    * decides `restrictPermissions()` in `desktop/src/main/index.ts`.
+   * Android and iOS: For a web page with `sessionID`, `WebPagePlugin` in `mobile/`.
    */
 
   /** The HTML to display.
@@ -83,7 +92,8 @@
   /** Size the <WebView> to the size of the content */
   export let autoSize = false;
   export let hidden = false;
-  /** The cookie storage. For `<webview partition="persist:...">` */
+  /** The cookie storage. For `<webview partition="persist:...">`
+   * Android and iOS: For the native WebView, see `showNativePage()` */
   export let sessionID: string | null = null;
 
   /**
@@ -104,6 +114,8 @@
   export let askBeforeOpeningLinks = false;
 
   $: partition = sessionID ? "persist:" + sessionID : undefined;
+  /** Android and iOS: The web page is in a native WebView over our app, not here */
+  let nativePage = false;
 
   /** Jail untrusted `html`, e.g. a mail: No scripts, and an opaque origin to block access of app.
    * `allow-popups` keeps the `target="_blank"` links working that `sanitizeHTML()` creates.
@@ -321,6 +333,41 @@
     if (document.activeElement == webviewE) {
       webviewE.click(); // e.g. to close the popup, like `addInputListener()`
     }
+  }
+  // #endif
+
+  // #if [MOBILE]
+  nativePage = !!(url && sessionID);
+  /** Which of the native pages is ours */
+  const nativeID = crypto.randomUUID();
+  /** For when the user goes back from our page to our app */
+  let hideListener: Promise<PluginListenerHandle>;
+  $: nativePage && catchErrors(() => showNativePage(hidden));
+  onDestroy(() => hideListener && catchErrors(closeNativePage));
+
+  /** In an `<iframe>`, a web page gets only the cookie jar of our app, the same for all sessions.
+   * And in our frame, its cookies are third-party cookies: iOS doesn't keep them, and Android
+   * only those with `SameSite=None`, so the user would have to log in again and again.
+   * So it's in a native WebView, which is jailed, and has the cookies and storage of `sessionID`,
+   * like `<webview partition>` on desktop. It's over our whole app, because our app can't show
+   * anything over it, e.g. a menu or a dialog. The user goes back to our app with the close button.
+   * A page without `sessionID`, e.g. the payment page, stays in the `<iframe>` in our app. */
+  async function showNativePage(hidden: boolean) {
+    hideListener ??= webPagePlugin.addListener("hide", page => page.id == nativeID && dispatch("hide"));
+    await hideListener;
+    try {
+      await webPagePlugin.open({ id: nativeID, url, profile: sessionID, hidden });
+    } catch (ex) {
+      if (ex.code != "UNAVAILABLE") {
+        throw ex;
+      }
+      nativePage = false; // Android System WebView without profiles: In the `<iframe>`, as before
+    }
+  }
+
+  async function closeNativePage() {
+    await (await hideListener).remove();
+    await webPagePlugin.close({ id: nativeID });
   }
   // #endif
 
