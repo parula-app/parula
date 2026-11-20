@@ -787,15 +787,6 @@ export class OWAAccount extends ExchangeMailAccount {
     if (this.mainAccount) {
       throw new NotReached();
     }
-    let shared = await this.findFoldersWithAccess(person, distinguishedIDs);
-    if (distinguishedIDs.includes("calendar") && !shared.includes("calendar") &&
-        await this.calendarWithLimitedDetails(person, newCalendarForProtocol("calendar-owa") as OWACalendar)) {
-      shared.push("calendar");
-    }
-    return shared;
-  }
-
-  protected async findFoldersWithAccess(person: PersonUID, distinguishedIDs: string[]): Promise<string[]> {
     try {
       let result = await this.callOWA(owaSharedFolderRequest(distinguishedIDs, person.emailAddress));
       let responses = result.ResponseMessages ? result.ResponseMessages.Items : [result];
@@ -867,15 +858,7 @@ export class OWAAccount extends ExchangeMailAccount {
     if (this.mainAccount) {
       throw new NotReached();
     }
-    let result: any;
-    try {
-      result = await this.callOWA(owaSharedFolderRequest(["calendar"], person.emailAddress));
-    } catch (ex) {
-      if (EWSCalendarShortcut.isStaleError(ex)) {
-        return await this.addCalendarWithLimitedDetails(person, newCalendarForProtocol("calendar-owa") as OWACalendar, ex) as OWACalendar;
-      }
-      throw ex;
-    }
+    let result = await this.callOWA(owaSharedFolderRequest(["calendar"], person.emailAddress));
     let folder = result.Folders[0];
     let folderID = sanitize.nonemptystring(folder.FolderId.Id);
     let existing = this.dependentAccounts().find(account =>
@@ -889,7 +872,9 @@ export class OWAAccount extends ExchangeMailAccount {
     calendar.name = `${person.name} ${folder.DisplayName}`;
     calendar.username = person.emailAddress;
     calendar.folderID = folderID;
-    calendar.useForInvitations = true;
+    // "Can view titles and locations" shows the folder, but doesn't let us read it
+    calendar.hasLimitedDetails = !sanitize.boolean(folder.EffectiveRights.Read);
+    calendar.useForInvitations = !calendar.hasLimitedDetails;
     appGlobal.calendars.add(calendar);
     await calendar.listEvents();
     return calendar;

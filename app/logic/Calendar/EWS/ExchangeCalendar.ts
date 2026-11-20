@@ -15,7 +15,7 @@ export class ExchangeCalendar extends Calendar {
   /** Is this the default calendar that handles incoming invitations */
   useForInvitations: boolean = false;
   /** The colleague who owns this calendar lets us see only the times, titles and locations
-   * of their appointments, from their availability, but not the calendar folder */
+   * of their appointments, from their availability, but not read the calendar folder */
   hasLimitedDetails = false;
 
   fromConfigJSON(json: any) {
@@ -46,28 +46,18 @@ export class ExchangeCalendar extends Calendar {
     }, null);
   }
 
-  protected get owner(): Participant {
-    return new Participant(this.username, this.name, InvitationResponse.Unknown);
-  }
-
-  async showsTitles(): Promise<boolean> {
-    let from = new Date();
-    let to = new Date(from.getTime() + k1DayMS);
-    let [availability] = await this.arePersonsFree([this.owner], from, to);
-    return !!availability?.hasDetails;
-  }
-
   protected async listEventsFromAvailability() {
     const kTimeSpanDays = 42; // the longest that the server allows
     const kTimeSpansBefore = 1;
     const kTimeSpans = 4;
+    let owner = new Participant(this.username, this.name, InvitationResponse.Unknown);
     let events = new ArrayColl<FreeBusyEvent>();
     let today = new Date();
     today.setHours(0, 0, 0, 0);
     for (let i = 0; i < kTimeSpans; i++) {
       let from = new Date(today.getTime() + (i - kTimeSpansBefore) * kTimeSpanDays * k1DayMS);
       let to = new Date(from.getTime() + kTimeSpanDays * k1DayMS);
-      let [availability] = await this.arePersonsFree([this.owner], from, to);
+      let [availability] = await this.arePersonsFree([owner], from, to);
       assert(availability?.availability, gt`Could not get the appointments in the calendar ${this.name}`);
       for (let appointment of availability.availability) {
         if (i > 0 && appointment.startTime < from) {

@@ -52,7 +52,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
     return new EWSIncomingInvitation(this, message);
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[], hasDetails?: boolean }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
     let request = {
       m$GetUserAvailabilityRequest: {
         m$MailboxDataArray: {
@@ -83,7 +83,6 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
       }
       availabilities.push({
         participant,
-        hasDetails: sanitize.string(result.FreeBusyView.FreeBusyViewType, "").startsWith("Detailed"),
         availability: ensureArray(result.FreeBusyView.CalendarEventArray?.CalendarEvent)
           .filter(event => this.freeBusyStatus(event.BusyType))
           .map(event => {

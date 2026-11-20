@@ -58,7 +58,7 @@ export class OWACalendar extends ExchangeCalendar {
     return new OWAIncomingInvitation(this, message);
   }
 
-  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[], hasDetails?: boolean }[]> {
+  async arePersonsFree(participants: Participant[], from: Date, to: Date): Promise<{ participant: Participant, availability?: FreeBusyEvent[] }[]> {
     let results = await this.callOWA(new OWAGetUserAvailabilityRequest(participants, from, to));
     let availabilities = [];
     for (let [i, participant] of participants.entries()) {
@@ -73,7 +73,6 @@ export class OWACalendar extends ExchangeCalendar {
       let hasDetails = viewType.startsWith("Detailed");
       availabilities.push({
         participant,
-        hasDetails,
         availability: ensureArray(result.CalendarView.Items)
           .filter(event => this.freeBusyStatus(event.FreeBusyType))
           .map(event => {

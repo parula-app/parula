@@ -29,8 +29,6 @@ function serve(action: string, body: any): any {
             }],
           }
           : errorResponse("ErrorAccessDenied"));
-    case "GetUserAvailabilityInternal": // By default, the colleagues see only when the others are busy
-      return [{ Responses: [{ ResponseMessage: { ResponseClass: "Success" }, CalendarView: { FreeBusyViewType: "FreeBusy" } }] }];
   }
   throw new Error("Unexpected request " + action);
 }

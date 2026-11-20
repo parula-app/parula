@@ -13,11 +13,13 @@ import path from "node:path";
 import { beforeAll, expect, test } from "vitest";
 
 /* Bob shared his calendar with Alice in Outlook with "Can view titles and locations",
- * Carol with "Can view when I'm busy".
+ * Carol with "Can view when I'm busy", Erin with "Can view all details".
  *
  * <https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/add-mailboxfolderpermission>:
- * These are the calendar roles LimitedDetails ("View availability data with subject and location")
- * and AvailabilityOnly ("View only availability data"). Neither lets Alice open the calendar folder.
+ * These are the calendar roles LimitedDetails ("View availability data with subject and location"),
+ * AvailabilityOnly ("View only availability data") and Reviewer.
+ * LimitedDetails lets Alice see the calendar folder, but its `EffectiveRights` don't let her `Read` it.
+ * AvailabilityOnly doesn't let her see the folder.
  * <https://learn.microsoft.com/en-us/exchange/client-developer/web-service-reference/getuseravailability-operation>:
  * GetUserAvailability "returns the maximum number of calendar details that the requesting client has permission to receive".
  * <https://learn.microsoft.com/en-us/exchange/client-developer/web-service-reference/freebusyviewtype>:
@@ -28,6 +30,7 @@ import { beforeAll, expect, test } from "vitest";
 const kAlice = "alice@example.com";
 const kBob = "bob@example.com";
 const kCarol = "carol@example.com";
+const kErin = "erin@example.com";
 /** As the sharing settings check them */
 const kSharedFolders = ["msgfolderroot", "inbox", "contacts", "calendar"];
 
@@ -64,9 +67,34 @@ const kBobAppointments = [{
 
 const kMaxTimeSpanMS = 42 * k1DayMS;
 let availabilityRequests: { address: string, start: Date, end: Date }[] = [];
+let requests: string[] = [];
 
 function errorResponse(code: string): any {
   return { ResponseClass: "Error", ResponseCode: code, MessageText: code };
+}
+
+/** @param read Whether Alice may read the appointments in the folder */
+function calendarFolder(owner: string, read: boolean): any {
+  return {
+    ResponseClass: "Success",
+    Folders: [{
+      __type: "CalendarFolder:#Exchange",
+      FolderId: { Id: owner + "-calendar-id" },
+      DisplayName: "Calendar",
+      FolderClass: "IPF.Appointment",
+      DistinguishedFolderId: "calendar",
+      EffectiveRights: {
+        __type: "EffectiveRightsType:#Exchange",
+        CreateAssociated: false,
+        CreateContents: false,
+        CreateHierarchy: false,
+        Delete: false,
+        Modify: false,
+        Read: read,
+        ViewPrivateItems: false,
+      },
+    }],
+  };
 }
 
 function toOWATime(date: Date): string {
@@ -112,7 +140,17 @@ function availabilityResponse(address: string, start: Date, end: Date): any {
 function serve(action: string, request: any): any {
   switch (action) {
     case "GetFolder":
-      return { ResponseMessages: { Items: request.Body.FolderIds.map(() => errorResponse("ErrorAccessDenied")) } };
+      return {
+        ResponseMessages: {
+          Items: request.Body.FolderIds.map(folderID =>
+            folderID.Id != "calendar" ? errorResponse("ErrorAccessDenied") :
+            folderID.Mailbox?.EmailAddress == kBob ? calendarFolder("bob", false) :
+            folderID.Mailbox?.EmailAddress == kErin ? calendarFolder("erin", true) :
+            errorResponse("ErrorAccessDenied")),
+        },
+      };
+    case "FindItem": // Erin's calendar
+      return { ResponseMessages: { Items: [{ ResponseClass: "Success", RootFolder: { IncludesLastItemInRange: true, Items: [] } }] } };
     case "GetUserAvailabilityInternal": {
       let body = request.request.Body;
       let start = new Date(body.FreeBusyViewOptions.TimeWindow.StartTime);
@@ -153,8 +191,9 @@ beforeAll(() => {
   globalThis.fetch = (async (url: string, options: any) => {
     let headers = options.headers;
     let logon = headers["x-owa-explicitlogonuser"];
+    requests.push(headers.Action);
     // Alice may not open the mailboxes of Bob and Carol, she may only see their availability
-    let body = logon && logon != kAlice
+    let body = logon && logon != kAlice && logon != kErin
       ? { ResponseMessages: { Items: [errorResponse("ErrorAccessDenied")] } }
       : serve(headers.Action, JSON.parse(options.body));
     return {
@@ -253,6 +292,15 @@ test("OWA: Shared calendar with titles and locations: Read again after a restart
 test("OWA: Shared calendar with titles and locations: Added only once", async () => {
   let again = await account.addSharedCalendar(new PersonUID(kBob, "Bob Builder"));
   expect(again).toBe(calendar);
+});
+
+test("OWA: Sharing: Add a colleague's calendar with all details", async () => {
+  requests = [];
+  let erin = await account.addSharedCalendar(new PersonUID(kErin, "Erin"));
+  expect(errors).toEqual([]);
+  expect(erin.isReadOnly).toBe(false);
+  expect(requests).toContain("FindItem");
+  expect(requests).not.toContain("GetUserAvailabilityInternal");
 });
 
 test("OWA: Shared calendar with only busy times: Not added as calendar", async () => {

@@ -10,10 +10,11 @@ import { InProcessSQLiteDatabase } from "../../util/inProcessSQLite";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vitest";
 
 /* Bob shared his calendar with Alice in Outlook with "Can view titles and locations",
- * Carol with "Can view when I'm busy". Neither lets Alice open the calendar folder.
+ * Carol with "Can view when I'm busy", Erin with "Can view all details".
+ * Bob's lets Alice see the calendar folder, but not read it, Carol's not even see it.
  * GetUserAvailability returns the appointments with subject and location (`Detailed`)
  * for Bob, and only the busy times (`FreeBusy`) for Carol.
  * See the OWA test of the same name for the documentation. */
@@ -21,6 +22,7 @@ import { beforeAll, expect, test } from "vitest";
 const kAlice = "alice@example.com";
 const kBob = "bob@example.com";
 const kCarol = "carol@example.com";
+const kErin = "erin@example.com";
 const kMaxTimeSpanMS = 42 * k1DayMS;
 
 const kToday = new Date();
@@ -77,6 +79,43 @@ const kAccessDenied = `
     <DescriptiveLinkKey>0</DescriptiveLinkKey>
   </GetFolderResponseMessage>`;
 
+/** @param read Whether Alice may read the appointments in the folder */
+function calendarFolder(owner: string, read: boolean): string {
+  return `
+    <GetFolderResponseMessage ResponseClass="Success">
+      <ResponseCode>NoError</ResponseCode>
+      <Folders>
+        <CalendarFolder xmlns="http://schemas.microsoft.com/exchange/services/2006/types">
+          <FolderId Id="${owner}-calendar-id" ChangeKey="AgAAAA=="/>
+          <DisplayName>Calendar</DisplayName>
+          <DistinguishedFolderId>calendar</DistinguishedFolderId>
+          <EffectiveRights>
+            <CreateAssociated>false</CreateAssociated>
+            <CreateContents>false</CreateContents>
+            <CreateHierarchy>false</CreateHierarchy>
+            <Delete>false</Delete>
+            <Modify>false</Modify>
+            <Read>${read}</Read>
+            <ViewPrivateItems>false</ViewPrivateItems>
+          </EffectiveRights>
+        </CalendarFolder>
+      </Folders>
+    </GetFolderResponseMessage>`;
+}
+
+/** An empty answer to `operation`, e.g. `Unsubscribe` */
+function success(operation: string, content = ""): string {
+  return soap(`
+    <${operation}Response xmlns="http://schemas.microsoft.com/exchange/services/2006/messages">
+      <ResponseMessages>
+        <${operation}ResponseMessage ResponseClass="Success">
+          <ResponseCode>NoError</ResponseCode>
+          ${content}
+        </${operation}ResponseMessage>
+      </ResponseMessages>
+    </${operation}Response>`);
+}
+
 function freeBusyResponse(address: string, start: Date, end: Date): string {
   availabilityRequests.push({ address, start, end });
   if (end.getTime() - start.getTime() > kMaxTimeSpanMS) {
@@ -122,12 +161,25 @@ function serve(body: string): string {
   requests.push(operation);
   switch (operation) {
     case "GetFolder": {
-      let count = body.split("<t:DistinguishedFolderId ").length - 1;
+      // e.g. `<t:DistinguishedFolderId Id="calendar"><t:Mailbox><t:EmailAddress>bob@example.com</t:EmailAddress>`
+      let folders = [...body.matchAll(/<t:DistinguishedFolderId Id="(\w+)"><t:Mailbox><t:EmailAddress>([^<]*)</g)];
+      let responses = folders.map(([, id, address]) =>
+        id != "calendar" ? kAccessDenied :
+        address == kBob ? calendarFolder("bob", false) :
+        address == kErin ? calendarFolder("erin", true) :
+        kAccessDenied);
       return soap(`
         <GetFolderResponse xmlns="http://schemas.microsoft.com/exchange/services/2006/messages">
-          <ResponseMessages>${kAccessDenied.repeat(count)}</ResponseMessages>
+          <ResponseMessages>${responses.join("")}</ResponseMessages>
         </GetFolderResponse>`);
     }
+    case "SyncFolderItems": // Erin's calendar
+      return success(operation, "<SyncState>erin-sync-state</SyncState><IncludesLastItemInRange>true</IncludesLastItemInRange><Changes/>");
+    case "Subscribe":
+      return success(operation, "<SubscriptionId>erin-subscription</SubscriptionId>");
+    case "GetStreamingEvents":
+    case "Unsubscribe":
+      return success(operation);
     case "GetUserAvailabilityRequest": {
       // e.g. `<t:Address>bob@example.com</t:Address>`, `<t:StartTime>2026-11-05T12:47:54.249Z</t:StartTime>`
       let addresses = [...body.matchAll(/<t:Address>([^<]*)<\/t:Address>/g)].map(match => match[1]);
@@ -200,7 +252,8 @@ test("EWS: Sharing: Add a colleague's calendar with titles and locations", async
 
   requests = [];
   await calendar.syncOnStartup();
-  expect(requests).not.toContain("Subscribe"); // We have no access to the calendar folder
+  expect(requests).not.toContain("SyncFolderItems"); // We may not read the calendar folder
+  expect(requests).not.toContain("Subscribe");
   expect(calendar.events.contents.filter(event => event.title == "Parental leave").length).toBe(1);
 });
 
@@ -219,7 +272,20 @@ test("EWS: Shared calendar with titles and locations: Each appointment has its o
   expect(calendar.events.contents.map(event => event.calUID).sort()).toEqual(uids.sort());
 });
 
+test("EWS: Sharing: Add a colleague's calendar with all details", async () => {
+  requests = [];
+  let calendar = await account.addSharedCalendar(new PersonUID(kErin, "Erin")) as EWSCalendar;
+  expect(calendar.isReadOnly).toBe(false);
+  expect(requests).toContain("SyncFolderItems");
+  expect(requests).toContain("Subscribe");
+  expect(requests).not.toContain("GetUserAvailabilityRequest");
+});
+
 test("EWS: Shared calendar with only busy times: Not added as calendar", async () => {
   await expect(account.addSharedCalendar(new PersonUID(kCarol, "Carol"))).rejects.toThrow();
   expect(appGlobal.calendars.contents.some(listed => listed.username == kCarol)).toBe(false);
+});
+
+afterAll(async () => {
+  await account.unsubscribeAllSubscriptions(); // ends the notification stream of Erin's calendar
 });
