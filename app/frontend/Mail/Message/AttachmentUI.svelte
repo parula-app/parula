@@ -28,6 +28,7 @@
   import type { Attachment } from "../../../logic/Abstract/Attachment";
   import { fileSize } from "../../Files/file";
   import { openFileInternallyFromFile, canOpenFileInternally } from "../../Files/open";
+  import { openExternalURL } from "../../../logic/util/os-integration";
   import { appGlobal } from "../../../logic/app";
   import { assert } from "../../../logic/util/util";
   import { executableMessage } from "../../../logic/Files/FileType/ExecutableFile";
@@ -43,6 +44,14 @@
   $: executable = $attachment.executable ? executableMessage($attachment.executable) : null;
 
   async function onOpen() {
+    if (!attachment.content && !attachment.filepathLocal) {
+      await attachment.load();
+      if (!attachment.content && attachment.url) {
+        // The file is on a web server that we cannot download from, e.g. a cloud drive
+        await openExternalURL(attachment.url);
+        return;
+      }
+    }
     if (canOpenFileInternally(attachment.mimeType)) {
       await attachment.load();
       await openFileInternallyFromFile(attachment.content);

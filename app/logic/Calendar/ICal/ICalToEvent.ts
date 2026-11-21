@@ -6,7 +6,7 @@ import { ContentDisposition } from "../../Abstract/Attachment";
 import { ICalContainer, ICalParser } from "./ICalParser";
 import { ICalTimezone } from "./ICalTimezone";
 import { WindowsToIANATimezone } from "./WindowsTimezone";
-import { fileExtensionForMIMEType } from "../../util/util";
+import { fileExtensionForMIMEType, type URLString } from "../../util/util";
 import { base64ToUint8Array, stringFromDataURL } from "../../util/blob";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../l10n/l10n";
@@ -15,9 +15,10 @@ import type { ArrayColl } from "svelte-collections";
 /**
  * @param ics iCal .ics contents to be parsed
  * @param event Output: Put the iCal data into this object
+ * @param baseURL Where the .ics came from, to resolve relative URLs in it
  * @returns whether an iCal event is indeed contained an event
  */
-export function convertICalToEvent(ics: string, event: Event): boolean {
+export function convertICalToEvent(ics: string, event: Event, baseURL?: URLString): boolean {
   let parsed = new ICalParser(ics);
   let vevents = parsed.containers.vcalendar?.[0].containers.vevent;
   if (!vevents?.length) {
@@ -26,7 +27,7 @@ export function convertICalToEvent(ics: string, event: Event): boolean {
   // A recurring event with modified occurrences has multiple VEVENTs:
   // the master, and one per modified occurrence, marked with RECURRENCE-ID.
   let master = vevents.find(v => !v.entries.recurrenceid) ?? vevents[0];
-  convertICalContainerToEvent(master, event);
+  convertICalContainerToEvent(master, event, baseURL);
   return true;
 }
 
@@ -57,9 +58,10 @@ export function convertICalToEvents(iCalFile: string, newEvent: () => Event, err
 /**
  * @param ics iCal / ICS, already parsed
  * @param event Output: Put the ics data into this object
+ * @param baseURL Where the .ics came from, to resolve relative URLs in it
  * TODO need to handle more removed properties
  */
-export function convertICalContainerToEvent(vevent: ICalContainer, event: Event): void {
+export function convertICalContainerToEvent(vevent: ICalContainer, event: Event, baseURL?: URLString): void {
   if (vevent.entries.uid) {
     event.calUID = vevent.entries.uid[0].value;
   }
@@ -157,7 +159,7 @@ export function convertICalContainerToEvent(vevent: ICalContainer, event: Event)
       event.participants.add(participant);
     }
   }
-  readAttachments(vevent, event);
+  readAttachments(vevent, event, baseURL);
 }
 
 /** ORGANIZER and ATTENDEE are a CAL-ADDRESS, RFC 5545 3.3.3, i.e. a `mailto:` URI.
@@ -168,24 +170,54 @@ function emailAddressFromCalAddress(calAddress: string): string {
   return calAddress.replace(/^MAILTO:/i, "").replace(/^<(.*)>$/, "$1");
 }
 
-/** Inline attachments, RFC 5545 3.8.1.1.
- * Attachments that are only referenced by URI are not supported. */
-function readAttachments(vevent: ICalContainer, event: Event): void {
+/** Attachments, RFC 5545 3.8.1.1. Either the file itself, inline and base64-encoded,
+ * or - the default - only a URI where the file is stored, e.g. Nextcloud saves the
+ * files in the user's file storage. `SIZE` and `FILENAME` are RFC 8607,
+ * `X-FILENAME` is what Outlook writes. */
+function readAttachments(vevent: ICalContainer, event: Event, baseURL?: URLString): void {
   event.attachments.clear(); // in case we're updating an existing event
   let fallbackID = 0;
   for (let entry of vevent.entries.attach ?? []) {
-    if (entry.properties.value?.toUpperCase() != "BINARY") {
-      continue;
+    let isInline = entry.properties.value?.toUpperCase() == "BINARY";
+    let url = isInline ? null : attachmentURL(entry.value, baseURL);
+    if (!isInline && !url) {
+      continue; // neither the file nor a URL where we could get it
     }
     let attachment = event.newAttachment();
     attachment.mimeType = sanitize.nonemptystring(entry.properties.fmttype, "application/octet-stream");
     attachment.filename = sanitize.filename(
-      entry.properties.filename ?? entry.properties["x-filename"] ?? entry.properties["x-apple-filename"],
+      entry.properties.filename ?? entry.properties["x-filename"] ?? entry.properties["x-apple-filename"] ??
+      filenameFromURL(url),
       "attachment-" + ++fallbackID + "." + fileExtensionForMIMEType(attachment.mimeType));
-    attachment.content = new File([base64ToUint8Array(entry.value)], attachment.filename, { type: attachment.mimeType });
-    attachment.size = attachment.content.size;
+    if (isInline) {
+      attachment.content = new File([base64ToUint8Array(entry.value)], attachment.filename, { type: attachment.mimeType });
+      attachment.size = attachment.content.size;
+    } else {
+      attachment.url = url;
+      attachment.size = sanitize.integer(entry.properties.size, null);
+    }
     attachment.disposition = ContentDisposition.attachment;
     event.attachments.add(attachment);
+  }
+}
+
+/** @param value The `ATTACH` value, a URI, as the server wrote it.
+ *   Nextcloud writes it relative to the server, e.g. `/index.php/f/1234`.
+ * @returns absolute URL, or null, if it's not a URL that we can fetch */
+function attachmentURL(value: string, baseURL?: URLString): URLString | null {
+  try {
+    return sanitize.url(new URL(value, baseURL).href, null);
+  } catch (ex) { // not a URL, or relative without a base URL
+    return null;
+  }
+}
+
+/** @returns the file name that the URL ends with, if any */
+function filenameFromURL(url: URLString | null): string | null {
+  try {
+    return url && decodeURIComponent(new URL(url).pathname.split("/").pop());
+  } catch (ex) { // broken percent encoding
+    return null;
   }
 }
 

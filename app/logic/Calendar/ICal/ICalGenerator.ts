@@ -147,14 +147,23 @@ async function addVEvent(lines: (string | string[])[], event: Event, method?: iC
   lines.push(["END", "VEVENT"]);
 }
 
-/** Inline attachments, RFC 5545 3.8.1.1.
- * `FILENAME` is RFC 8607, `X-FILENAME` is what Outlook writes. */
+/** Attachments, RFC 5545 3.8.1.1.
+ * `SIZE` and `FILENAME` are RFC 8607, `X-FILENAME` is what Outlook writes. */
 async function addAttachments(lines: (string | string[])[], event: Event): Promise<void> {
   if (event.attachments.isEmpty) {
     return;
   }
-  await event.loadAttachments();
+  if (event.attachments.some(attachment => !attachment.content && !attachment.url)) {
+    await event.loadAttachments(); // we need the file contents of these
+  }
   for (let attachment of event.attachments) {
+    if (attachment.url) {
+      // The server stores the file outside of the event, @see `Attachment.url`
+      let size = attachment.size ?? attachment.content?.size;
+      lines.push(["ATTACH", "FMTTYPE", attachment.mimeType, "FILENAME", attachment.filename,
+        ...(size ? ["SIZE", String(size)] : []), attachment.url]);
+      continue;
+    }
     if (!attachment.content) {
       continue; // We can't send what we don't have
     }

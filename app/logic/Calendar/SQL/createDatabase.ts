@@ -17,6 +17,9 @@ export const eventAttachmentSchema = sql`
     "size" INTEGER default null,
     -- Protocol-specific ID of the attachment on the server, e.g. the EWS AttachmentId
     "pID" TEXT default null,
+    -- Where the file is on the server, for servers that save it outside of the event,
+    -- e.g. Nextcloud saves it as a normal file of the user
+    "url" TEXT default null,
     -- Additional data
     "json" TEXT default null,
     UNIQUE("eventID", "filename"),
