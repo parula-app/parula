@@ -21,13 +21,12 @@
   import { CalendarActions } from "./CalendarActions";
   import { inlineTitle, selectedSlots } from "./selected";
   import { selectedCalendar, shownCalendars } from "../../frontend/Calendar/selected";
-  import { appGlobal } from "../../logic/app";
   import { tick } from "svelte";
   import { t } from "../../l10n/l10n";
 
   let inputEl: HTMLInputElement;
 
-  $: calendar = $selectedSlots?.calendar ?? $selectedCalendar ?? appGlobal.calendars.first;
+  $: calendar = shownCalendars.calendarForNewEvent($selectedSlots?.calendar ?? $selectedCalendar);
 
   $: if (inputEl) {
     focusAtEnd();

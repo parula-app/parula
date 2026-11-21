@@ -884,7 +884,9 @@ export class OWAAccount extends ExchangeMailAccount {
     calendar.name = `${person.name} ${folder.DisplayName}`;
     calendar.username = person.emailAddress;
     calendar.folderID = folderID;
-    calendar.useForInvitations = true;
+    // "Can view titles and locations" shows the folder, but doesn't let us read it
+    calendar.hasLimitedDetails = !sanitize.boolean(folder.EffectiveRights.Read);
+    calendar.useForInvitations = !calendar.hasLimitedDetails;
     appGlobal.calendars.add(calendar);
     await calendar.listEvents();
     return calendar;

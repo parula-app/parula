@@ -33,7 +33,7 @@
         iconSize="24px"
         iconOnly
         label={$t`Make an appointment`}
-        onClick={newEvent}
+        onClick={() => createNewEvent($selectedCalendar, new Date(), false)}
         disabled={!$selectedCalendar}
         plain
         />
@@ -46,8 +46,7 @@
 
 <script lang="ts">
   import { selectedCalendar } from "../selected";
-  import { setNewEventTime } from "../event";
-  import { openEvent } from "../open";
+  import { createNewEvent } from "../event";
   import AppBarM from "../../AppsBar/AppBarM.svelte";
   import Button from "../../Shared/Button.svelte";
   import AppMenuButton from "../../AppsBar/AppMenuM/AppMenuButton.svelte";
@@ -65,11 +64,5 @@
 
   function goToTODOs() {
     goTo("/calendar/todos", {});
-  }
-
-  function newEvent() {
-    let event = $selectedCalendar.newEvent();
-    setNewEventTime(event, false, new Date());
-    openEvent(event, true);
   }
 </script>

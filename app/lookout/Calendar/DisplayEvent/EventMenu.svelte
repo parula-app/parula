@@ -1,5 +1,7 @@
-<MenuItem label={$t`Open`} icon={OpenIcon} shortCutInfo={$t`Enter *=> RETURN key`}
-  onClick={() => openEvent(event, true)} />
+{#if !event.isReadOnly}
+  <MenuItem label={$t`Open`} icon={OpenIcon} shortCutInfo={$t`Enter *=> RETURN key`}
+    onClick={() => openEvent(event, true)} />
+{/if}
 {#if event.isIncomingMeeting && !event.isCancelled}
   <MenuDivider />
   {#each responses as response}
@@ -10,7 +12,9 @@
   {/each}
 {/if}
 {#if !event.isCancelled}
-  <MenuDivider />
+  {#if !event.isReadOnly}
+    <MenuDivider />
+  {/if}
   {#if event.isIncomingMeeting}
     <MenuItem label={$t`Reply`} icon={ReplyIcon}
       onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, false))} />
@@ -20,36 +24,38 @@
   <MenuItem label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
     onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
 {/if}
-<MenuDivider />
-{#if event.isCancelled}
-  <MenuItem label={$t`Remove from Calendar`} icon={DeleteIcon}
-    onClick={() => CalendarActions.deleteOccurrence(event)} />
-{:else if isRecurring && event.isOutgoingMeeting}
-  <SubMenu label={$t`Cancel Meeting`} icon={CancelIcon}>
-    <MenuItem label={$t`Cancel Occurrence *=> Call off this occurrence of the recurring meeting`} icon={CancelIcon}
-      onClick={() => CalendarActions.cancelMeeting(event)} />
-    <MenuItem label={$t`Cancel Series *=> Call off all occurrences of the recurring meeting`} icon={CancelIcon}
-      onClick={() => CalendarActions.deleteSeries(event)} />
-  </SubMenu>
-{:else if isRecurring}
-  <SubMenu label={$t`Delete`} icon={DeleteIcon}>
-    {#if !event.isIncomingMeeting}
-      <MenuItem label={$t`Delete Occurrence`} icon={DeleteIcon} shortCutInfo={$t`Del *=> Delete key`}
-        onClick={() => CalendarActions.deleteOccurrence(event)} />
-      {#if event.seriesStatus == "middle"}
-        <MenuItem label={$t`Delete This and Following`} icon={DeleteIcon}
-          onClick={() => CalendarActions.deleteRemainder(event)} />
+{#if !event.isReadOnly}
+  <MenuDivider />
+  {#if event.isCancelled}
+    <MenuItem label={$t`Remove from Calendar`} icon={DeleteIcon}
+      onClick={() => CalendarActions.deleteOccurrence(event)} />
+  {:else if isRecurring && event.isOutgoingMeeting}
+    <SubMenu label={$t`Cancel Meeting`} icon={CancelIcon}>
+      <MenuItem label={$t`Cancel Occurrence *=> Call off this occurrence of the recurring meeting`} icon={CancelIcon}
+        onClick={() => CalendarActions.cancelMeeting(event)} />
+      <MenuItem label={$t`Cancel Series *=> Call off all occurrences of the recurring meeting`} icon={CancelIcon}
+        onClick={() => CalendarActions.deleteSeries(event)} />
+    </SubMenu>
+  {:else if isRecurring}
+    <SubMenu label={$t`Delete`} icon={DeleteIcon}>
+      {#if !event.isIncomingMeeting}
+        <MenuItem label={$t`Delete Occurrence`} icon={DeleteIcon} shortCutInfo={$t`Del *=> Delete key`}
+          onClick={() => CalendarActions.deleteOccurrence(event)} />
+        {#if event.seriesStatus == "middle"}
+          <MenuItem label={$t`Delete This and Following`} icon={DeleteIcon}
+            onClick={() => CalendarActions.deleteRemainder(event)} />
+        {/if}
       {/if}
-    {/if}
-    <MenuItem label={$t`Delete Series`} icon={DeleteIcon}
-      onClick={() => CalendarActions.deleteSeries(event)} />
-  </SubMenu>
-{:else if event.isOutgoingMeeting}
-  <MenuItem label={$t`Cancel Meeting`} icon={CancelIcon}
-    onClick={() => CalendarActions.cancelMeeting(event)} />
-{:else}
-  <MenuItem label={$t`Delete`} icon={DeleteIcon} shortCutInfo={$t`Del *=> Delete key`}
-    onClick={() => CalendarActions.deleteOccurrence(event)} />
+      <MenuItem label={$t`Delete Series`} icon={DeleteIcon}
+        onClick={() => CalendarActions.deleteSeries(event)} />
+    </SubMenu>
+  {:else if event.isOutgoingMeeting}
+    <MenuItem label={$t`Cancel Meeting`} icon={CancelIcon}
+      onClick={() => CalendarActions.cancelMeeting(event)} />
+  {:else}
+    <MenuItem label={$t`Delete`} icon={DeleteIcon} shortCutInfo={$t`Del *=> Delete key`}
+      onClick={() => CalendarActions.deleteOccurrence(event)} />
+  {/if}
 {/if}
 
 <script lang="ts">

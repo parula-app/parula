@@ -1280,6 +1280,11 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
       m$GetFolder: {
         m$FolderShape: {
           t$BaseShape: "Default",
+          t$AdditionalProperties: {
+            t$FieldURI: {
+              FieldURI: "folder:EffectiveRights",
+            },
+          },
         },
         m$FolderIds: {
           t$DistinguishedFolderId: {
@@ -1305,7 +1310,9 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     calendar.name = `${person.name} ${sanitize.label(folder.DisplayName)}`;
     calendar.username = person.emailAddress;
     calendar.folderID = folderID;
-    calendar.useForInvitations = true;
+    // "Can view titles and locations" shows the folder, but doesn't let us read it
+    calendar.hasLimitedDetails = !sanitize.boolean(folder.EffectiveRights.Read);
+    calendar.useForInvitations = !calendar.hasLimitedDetails;
     appGlobal.calendars.add(calendar);
     await calendar.syncOnStartup();
     return calendar;

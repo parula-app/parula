@@ -394,6 +394,9 @@ export function owaSharedFolderRequest(distinguishedIDs: string[], emailAddress:
       }, {
         __type: "PropertyUri:#Exchange",
         FieldURI: "folder:DistinguishedFolderId",
+      }, {
+        __type: "PropertyUri:#Exchange",
+        FieldURI: "folder:EffectiveRights",
       }],
     },
     FolderIds: distinguishedIDs.map(distinguishedID => ({
