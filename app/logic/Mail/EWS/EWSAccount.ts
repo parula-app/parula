@@ -1304,7 +1304,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     calendar.username = person.emailAddress;
     calendar.folderID = folderID;
     // "Can view titles and locations" shows the folder, but doesn't let us read it
-    calendar.hasLimitedDetails = folder.EffectiveRights.Read != "true";
+    calendar.hasLimitedDetails = !sanitize.boolean(folder.EffectiveRights.Read);
     calendar.useForInvitations = !calendar.hasLimitedDetails;
     appGlobal.calendars.add(calendar);
     await calendar.syncOnStartup();
