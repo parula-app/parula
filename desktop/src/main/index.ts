@@ -42,15 +42,18 @@ async function createWindow(): Promise<void> {
     setMainWindow(mainWindow);
     mainWindowWebContents = mainWindow.webContents;
 
+    // Only once: `show()` also focuses the window. Electron fires "ready-to-show" on the window
+    // again for every `<webview>` in it, e.g. the email that loads when the composer pops out,
+    // and then the main window would come in front of the composer window.
     if (process.platform == "linux" && app.commandLine.getSwitchValue("ozone-platform") == "wayland") {
       // The "ready-to-show" event doesn't always fire on Wayland.
       // "did-finish-load" works and is close enough.
       // https://github.com/electron/electron/issues/48859
-      mainWindow.webContents.on("did-finish-load", () => {
+      mainWindow.webContents.once("did-finish-load", () => {
         mainWindow.show();
       });
     } else {
-      mainWindow.on("ready-to-show", () => {
+      mainWindow.once("ready-to-show", () => {
         mainWindow.show();
       });
     }
