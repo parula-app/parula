@@ -3,6 +3,7 @@
 import "../../../logic/app";
 import { Notification, NotificationSeverity, notifications } from "../../../logic/util/Notification";
 import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+import MainWindow from "../../../frontend/MainWindow/MainWindow.svelte";
 import SecondaryWindow from "../../MainWindow/SecondaryWindow.svelte";
 import WindowHeader from "../../MainWindow/WindowHeader.svelte";
 import Ribbon, { tabsInTitleBar } from "../../Shared/Ribbon/Ribbon.svelte";
@@ -92,6 +93,19 @@ test("The window buttons act on their own window", async () => {
   button("Close").click();
   await vi.waitFor(() => expect(close).toHaveBeenCalledTimes(1));
   expect(mainClose).not.toHaveBeenCalled();
+});
+
+test("Only the main window's title bar has the button that opens a new main window", async () => {
+  let openMainWindow = vi.spyOn(AppWindow, "openMainWindow").mockResolvedValue(null);
+  mountIn(null, WindowHeader, {});
+  mountIn(newSecondaryWindow(), WindowHeader, { title: "Lunch on Friday" });
+  let [mainTitleBar, secondaryTitleBar] = document.querySelectorAll(".title-bar");
+  expect(secondaryTitleBar.querySelector(".new-window")).toBeNull();
+
+  mainTitleBar.querySelector<HTMLButtonElement>(".new-window").click();
+  await vi.waitFor(() => expect(openMainWindow).toHaveBeenCalledTimes(1));
+  // The classic main window shows Lookout or classic, as the user chose
+  expect(openMainWindow.mock.calls[0][0]).toBe(MainWindow);
 });
 
 test("Notifications show in the secondary window too", () => {
