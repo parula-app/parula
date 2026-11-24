@@ -351,7 +351,7 @@ test("Unlicensed: The Sent by line goes into our signature, and only once", asyn
   expect(footers.length).toBe(1);
   expect(footers[0].textContent).toBe("Fred MillerExample Inc.Sent by © Parula");
   expect(mail.text.match(/^-- $/gm)).toHaveLength(1);
-  expect(mail.text).toMatch(/^-- \nFred Miller\nExample Inc\.\nSent by © Parula/);
+  expect(mail.text).toMatch(/^-- \nFred Miller\nExample Inc\.\nSent by © Parula <https:\/\/parula\.app>$/m);
 
   // Sending again, e.g. after a server error, doesn't add another one
   let sentHTML = mail.rawHTMLDangerous;
