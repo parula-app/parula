@@ -104,7 +104,7 @@
 
   const appWindow = AppWindow.current();
 
-  // The composer windows that shared code opens, e.g. for a mailto: link, show Lookout's composer, until the user switches the frontend
+  // The composer windows that shared code opens, e.g. for a mailto: link
   appWindow.uiState(mailMustangApp.composerWindow).set(ComposerWindow);
   onDestroy(() => appWindow.uiState(mailMustangApp.composerWindow).set(ClassicComposerWindow));
 
