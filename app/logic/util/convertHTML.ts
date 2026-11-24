@@ -3,14 +3,14 @@ import type { URLString } from "./util";
 import DOMPurify from "dompurify"; // https://github.com/cure53/DOMPurify
 import markdownit from "markdown-it";
 import { MarkdownWriter } from "./convert/MarkdownWriter";
-import { PlaintextWriter } from "./convert/PlaintextWriter";
+import { FormatFlowedWriter } from "./convert/FormatFlowedWriter";
 import { unwrapFormatFlowed } from "./formatFlowed";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../l10n/l10n";
 
-/** With the conventions of plaintext emails @see `PlaintextWriter` */
+/** With the conventions of plaintext emails @see `FormatFlowedWriter` */
 export function convertHTMLToText(html: string): string {
-  return new PlaintextWriter().write(html);
+  return new FormatFlowedWriter().write(html);
 }
 
 let markdownitInstance;

@@ -55,7 +55,7 @@ export class CreateMIME {
     };
   }
 
-  /** As format=flowed (RFC 3676), which `PlaintextWriter` wrote, and nodemailer can't declare */
+  /** As format=flowed (RFC 3676), which `FormatFlowedWriter` wrote, and nodemailer can't declare */
   protected static getFlowedText(text: string): NMAttachment {
     text = fixNewlines(text);
     let bytes = new TextEncoder().encode(text);

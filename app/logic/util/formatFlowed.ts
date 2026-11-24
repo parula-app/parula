@@ -262,7 +262,7 @@ function getPath(currentE: HTMLElement): string {
 }
 
 /** Joins the lines that format=flowed (RFC 3676) wrapped, and removes the space-stuffing.
- * Quotes stay as `> ` and `>> `. @see `PlaintextWriter`, which wraps them */
+ * Quotes stay as `> ` and `>> `. @see `FormatFlowedWriter`, which wraps them */
 export function unwrapFormatFlowed(text: string): string {
   let lines: string[] = [];
   let isFlowed = false;

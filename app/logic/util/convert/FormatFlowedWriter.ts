@@ -9,7 +9,7 @@ const kQuote = "\u0001";
  * `*bold*`, `/italic/`, `_underline_`, `>` before quotes, `-- ` before the signature, and links as `text <URL>`.
  * Without images. Long lines are wrapped as format=flowed @see `flowed()`
  */
-export class PlaintextWriter extends MarkdownWriter {
+export class FormatFlowedWriter extends MarkdownWriter {
   protected readonly boldMarker = "*";
   protected readonly italicMarker = "/";
   protected readonly underlineMarker = "_";
