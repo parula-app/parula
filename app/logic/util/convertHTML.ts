@@ -2,8 +2,8 @@ import { getBaseDomainFromURL } from "./netUtil";
 import type { URLString } from "./util";
 import DOMPurify from "dompurify"; // https://github.com/cure53/DOMPurify
 import markdownit from "markdown-it";
-import { MarkdownWriter } from "./MarkdownWriter";
-import { PlaintextWriter } from "./PlaintextWriter";
+import { MarkdownWriter } from "./convert/MarkdownWriter";
+import { PlaintextWriter } from "./convert/PlaintextWriter";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../l10n/l10n";
 
