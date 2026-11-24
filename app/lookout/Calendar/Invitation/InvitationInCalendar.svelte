@@ -1,5 +1,6 @@
 <vbox flex class="invitation-form">
   <InfoBar {messages} />
+  <EventCategories {event} />
   <grid class="fields">
     {#if organizer}
       <span class="row-label">{$t`Organizer *=> The person who invited to this meeting`}</span>
@@ -50,6 +51,7 @@
   import type { EventEditFlow } from "../EditEvent/EventEditFlow";
   import { eventWhenText, type InfoMessage } from "../EditEvent/EventFormInfo";
   import InfoBar from "../EditEvent/InfoBar.svelte";
+  import EventCategories from "../EditEvent/EventCategories.svelte";
   import ParticipantsDisplay from "../DisplayEvent/ParticipantsDisplay.svelte";
   import EventInDayView from "../DisplayEvent/EventInDayView.svelte";
   import AttachmentsUI from "../../Mail/Message/AttachmentsUI.svelte";

@@ -3,6 +3,7 @@ import { Participant } from "../Participant";
 import { RecurrenceRule } from "../RecurrenceRule";
 import { ParticipationStatus, InvitationResponse } from "../Invitation/InvitationStatus";
 import { ContentDisposition } from "../../Abstract/Attachment";
+import { getTagByName } from "../../Abstract/Tag";
 import { ICalContainer, ICalParser } from "./ICalParser";
 import { ICalTimezone } from "./ICalTimezone";
 import { WindowsToIANATimezone } from "./WindowsTimezone";
@@ -157,6 +158,11 @@ export function convertICalContainerToEvent(vevent: ICalContainer, event: Event)
       event.participants.add(participant);
     }
   }
+  // RFC 5545 3.8.1.2: Several names per line, and several lines
+  event.tags.replaceAll((vevent.entries.categories ?? [])
+    .flatMap(entry => entry.listValues)
+    .filter(name => name)
+    .map(name => getTagByName(name)));
   readAttachments(vevent, event);
 }
 

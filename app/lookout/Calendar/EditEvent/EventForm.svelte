@@ -1,6 +1,7 @@
 <FileDropTarget on:add-files={dropped => catchErrors(() => onFilesDrop(dropped))}>
   <vbox flex class="event-form">
     <InfoBar {messages} />
+    <EventCategories {event} />
     <hbox class="header">
       {#if isMeeting}
         <SendButton label={sendLabel} disabled={sendDisabled} onClick={onSend} />
@@ -52,6 +53,7 @@
   import type { InfoMessage } from "./EventFormInfo";
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
   import InfoBar from "./InfoBar.svelte";
+  import EventCategories from "./EventCategories.svelte";
   import SendButton from "./SendButton.svelte";
   import TimeBox from "./TimeBox.svelte";
   import ParticipantsBox from "./ParticipantsBox.svelte";

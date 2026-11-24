@@ -9,6 +9,10 @@
       </vbox>
     {/if}
 
+    <hbox class="tags">
+      <TagSelector tags={availableTags} selectedTags={event.tags} object={event} />
+    </hbox>
+
     {#if $event.isCancelled }
       <hbox class="cancelled-text">
         {$t`This meeting has been cancelled by the organizer. You may delete it.`}
@@ -31,10 +35,12 @@
 
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
+  import { availableTags } from "../../../logic/Abstract/Tag";
   import InvitationDisplay from "./InvitationDisplay.svelte";
   import InvitationButtons from "./InvitationButtons.svelte";
   import Attachments from "../../Mail/Message/AttachmentsUI.svelte";
   import DialogHeader from "../DisplayEvent/DialogHeader.svelte";
+  import TagSelector from "../../Shared/Tag/TagSelector.svelte";
   import WebView from "../../Shared/WebView.svelte";
   import Paper from "../../Shared/Paper.svelte";
   import cssContent from "../../Mail/Message/content.css?inline";
@@ -56,7 +62,8 @@
     padding: 24px 32px;
     margin-block-end: 32px;
   }
-  .attachments {
+  .attachments,
+  .tags {
     margin-block-end: 16px;
   }
   .cancelled-text,
