@@ -260,3 +260,29 @@ function getPath(currentE: HTMLElement): string {
   }
   return path.reverse().join(" > ");
 }
+
+/** Joins the lines that format=flowed (RFC 3676) wrapped, and removes the space-stuffing.
+ * Quotes stay as `> ` and `>> `. @see `PlaintextWriter`, which wraps them */
+export function unwrapFormatFlowed(text: string): string {
+  let lines: string[] = [];
+  let isFlowed = false;
+  let previousDepth = 0;
+  for (let line of text.split(/\r?\n/)) {
+    let depth = 0;
+    while (line[depth] == ">") {
+      depth++;
+    }
+    let content = line.substring(depth);
+    if (content.startsWith(" ")) {
+      content = content.substring(1);
+    }
+    if (isFlowed && depth == previousDepth && content != "-- ") {
+      lines[lines.length - 1] += content;
+    } else {
+      lines.push(depth ? ">".repeat(depth) + (content ? " " : "") + content : content);
+    }
+    isFlowed = content.endsWith(" ") && content != "-- ";
+    previousDepth = depth;
+  }
+  return lines.join("\n");
+}

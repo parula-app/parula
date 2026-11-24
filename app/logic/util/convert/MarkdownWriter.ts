@@ -46,14 +46,14 @@ export class MarkdownWriter {
       let number = parseInt((node as Element).getAttribute("start")) || 1;
       let items: string[] = [];
       for (let item of (node as Element).children) {
-        let marker = name == "OL" ? `${number++}. ` : "- ";
+        let marker = name == "OL" ? `${number++}. ` : "* ";
         let indent = " ".repeat(marker.length);
         let lines = this.blocks(item).split("\n");
         items.push(marker + lines.map((line, i) => i && line ? indent + line : line).join("\n"));
       }
       return items.join("\n");
     } else if (name == "BLOCKQUOTE") {
-      return this.blocks(node).split("\n").map(line => line ? "> " + line : ">").join("\n");
+      return this.quote(this.blocks(node));
     } else if (name == "PRE") {
       let code = node.textContent;
       if (code.endsWith("\n")) {
@@ -70,6 +70,10 @@ export class MarkdownWriter {
       return this.blocks(node);
     }
     return null;
+  }
+
+  protected quote(text: string): string {
+    return text.split("\n").map(line => line ? "> " + line : ">").join("\n");
   }
 
   protected heading(level: number, text: string): string {

@@ -4,6 +4,7 @@ import DOMPurify from "dompurify"; // https://github.com/cure53/DOMPurify
 import markdownit from "markdown-it";
 import { MarkdownWriter } from "./convert/MarkdownWriter";
 import { PlaintextWriter } from "./convert/PlaintextWriter";
+import { unwrapFormatFlowed } from "./formatFlowed";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../l10n/l10n";
 
@@ -14,6 +15,7 @@ export function convertHTMLToText(html: string): string {
 
 let markdownitInstance;
 export function convertTextToHTML(plaintext: string): string {
+  plaintext = unwrapFormatFlowed(plaintext);
   if (!markdownitInstance) {
     markdownitInstance = markdownit({
       linkify: true,

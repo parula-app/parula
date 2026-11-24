@@ -291,7 +291,9 @@ test("Sent mail: Markers in HTML and plaintext, without the composer marker", as
     .toBe("Fred MillerExample Inc.");
   expect(mail.text).toMatch(/^See you at 12\n\n-- \nFred Miller\nExample Inc\.\s*$/);
   let nmMail = await CreateMIME.getNMMail(mail);
-  expect(nmMail.text).toContain("\r\n-- \r\n"); // The `-- ` keeps its space on the wire
+  let textPart = (nmMail.text as { raw: string }).raw;
+  expect(textPart).toContain("format=flowed");
+  expect(textPart).toContain("\r\n-- \r\n"); // The `-- ` keeps its space on the wire
 });
 
 test("Send sanitizes the body, so the signature has no remote images", async () => {

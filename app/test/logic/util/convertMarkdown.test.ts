@@ -43,7 +43,7 @@ test("HTML -> Markdown -> HTML keeps the content", () => {
 test("Markdown of HTML is readable, without HTML", () => {
   let markdown = convertHTMLToMarkdown(kEditorHTML);
   expect(markdown).toContain("**bold**");
-  expect(markdown).toContain("- One");
+  expect(markdown).toContain("* One");
   expect(markdown).toContain("> Quoted");
   expect(markdown).not.toContain("<u>");
   expect(markdown).not.toContain("<p>");

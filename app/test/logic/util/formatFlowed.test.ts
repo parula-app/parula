@@ -1,6 +1,6 @@
-import { convertFormatFlowedToHTML, convertHTMLToFormatFlowed } from '../../../logic/util/formatFlowed';
+import { convertFormatFlowedToHTML } from '../../../logic/util/formatFlowed';
 import markdownit from "markdown-it";
-import { convert as htmlToText } from "html-to-text";
+import { convertHTMLToText } from "../../../logic/util/convertHTML";
 import formatHTML from 'html-formatter';
 import { expect, test } from 'vitest';
 // @vitest-environment happy-dom
@@ -118,25 +118,8 @@ End
 ];
 
 test.skip("Convert HTML to format=flowed", () => {
-  let formatter = html => htmlToText(html, {
-    formatters: {
-      removeFormatter: () => { },
-    },
-    selectors: [
-      {
-        selector: "img",
-        format: "removeFormatter",
-      },
-      {
-        selector: "style",
-        format: "removeFormatter",
-      },
-    ],
-  });
-
   for (let testMail of testMails) {
-    let formatFlowed = convertHTMLToFormatFlowed(testMail.html, formatter, true);
-    expect(formatFlowed).toBe(testMail.formatFlowed);
+    expect(convertHTMLToText(testMail.html)).toBe(testMail.formatFlowed);
   }
 });
 
