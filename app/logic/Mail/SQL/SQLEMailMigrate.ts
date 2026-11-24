@@ -31,7 +31,7 @@ export const removeSecretKeyOfSigner = sql`
 `;
 
 /** IMAP, EWS, OWA, Graph, ActiveSync and POP3 used to store Message-IDs with <>, JMAP and the composer without.
- * Now all store them without, @see `withoutBrackets()`. `threadID` can be an `inReplyTo`, @see `EMail.findThread()`.
+ * Now all store them without, @see `msgIDWithoutBrackets()`. `threadID` can be an `inReplyTo`, @see `EMail.findThread()`.
  * Rewrites each matching row, with its body: 1 s for 256 MB of mails. */
 export const removeMessageIDBrackets = sql`
   UPDATE email

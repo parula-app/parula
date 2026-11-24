@@ -1,4 +1,4 @@
-import { EMail, withoutBrackets } from "../EMail";
+import { EMail, msgIDWithoutBrackets } from "../EMail";
 import type { GraphFolder } from "./GraphFolder";
 import type { GraphAccount } from "./GraphAccount";
 import { SpecialFolder } from "../Folder";
@@ -33,7 +33,7 @@ export class GraphEMail extends EMail {
     if (this.downloadComplete) {
       return;
     }
-    this.id = withoutBrackets(sanitize.nonemptystring(json.internetMessageId, this.pID));
+    this.id = msgIDWithoutBrackets(json.internetMessageId) ?? this.pID;
     this.subject = sanitize.string(json.subject, null);
     this.received = sanitize.date(json.receivedDateTime, this.received ?? new Date());
     this.sent = sanitize.date(json.sentDateTime, this.received);
@@ -76,7 +76,7 @@ export class GraphEMail extends EMail {
     for (let header of headers) {
       this.headers.set(header.name, header.value);
     }
-    this.inReplyTo = withoutBrackets(this.headers.get("In-Reply-To")?.split(" ")[0]);
+    this.inReplyTo = msgIDWithoutBrackets(this.headers.get("In-Reply-To")?.split(" ")[0]);
   }
 
   static getGraphCategories(email: EMail): string[] {

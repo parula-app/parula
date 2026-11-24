@@ -1,4 +1,4 @@
-import { EMail, setPersons, withoutBrackets } from "../EMail";
+import { EMail, setPersons, msgIDWithoutBrackets } from "../EMail";
 import type { IMAPFolder } from "./IMAPFolder";
 import { ConnectionPurpose } from "./IMAPAccount";
 import { SpecialFolder } from "../Folder";
@@ -72,11 +72,11 @@ export class IMAPEMail extends EMail {
     }
     // <https://imapflow.com/global.html#MessageEnvelopeObject>
     let env = msgInfo.envelope;
-    this.id = withoutBrackets(sanitize.nonemptystring(env.messageId, this.uid + ""));
+    this.id = msgIDWithoutBrackets(env.messageId) ?? this.uid + "";
     this.subject = sanitize.string(env.subject, null);
     this.received = msgInfo.internalDate ?? new Date();
     this.sent = sanitize.date(env.date, this.received);
-    this.inReplyTo = withoutBrackets(sanitize.string(env.inReplyTo, null));
+    this.inReplyTo = msgIDWithoutBrackets(env.inReplyTo);
     this.threadID = sanitize.string(env.threadId, null); // Only if server supports OBJECTID or X-GM-EXT-1 IMAP extension
     if (env.from?.length && env.from[0]?.address) {
       let firstFrom = env.from[0];

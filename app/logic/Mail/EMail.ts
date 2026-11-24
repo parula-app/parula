@@ -153,7 +153,7 @@ export class EMail extends Message {
     this.folder = folder;
   }
 
-  /** RFC 822 Message-ID, without <>, @see withoutBrackets() */
+  /** RFC 822 Message-ID, without <>, @see msgIDWithoutBrackets() */
   get messageID(): string {
     return this.id;
   }
@@ -388,7 +388,7 @@ export class EMail extends Message {
     let postalMIME = new PostalMIME();
     let mail = await postalMIME.parse(this.mime);
 
-    this.id ??= withoutBrackets(sanitize.string(mail.messageId, this.id ?? ""));
+    this.id ??= msgIDWithoutBrackets(mail.messageId) ?? "";
     this.subject ||= sanitize.string(mail.subject, "");
     this.sent ??= sanitize.date(mail.date, this.sent ?? new Date());
     if (!this.from || this.from.emailAddress == kDummyPerson.emailAddress) {
@@ -410,9 +410,9 @@ export class EMail extends Message {
         sanitize.nonemptylabel(p.name, null));
     }
     if (!this.inReplyTo) {
-      this.inReplyTo = withoutBrackets(sanitize.string(mail.inReplyTo, null));
+      this.inReplyTo = msgIDWithoutBrackets(mail.inReplyTo);
     }
-    this.references = sanitize.string(mail.references, null)?.split(" ").map(id => withoutBrackets(id));
+    this.references = sanitize.string(mail.references, null)?.split(" ").map(id => msgIDWithoutBrackets(id));
     // RFC 4021 `Importance:`, RFC 2156 `Priority:`, and the de-facto `X-Priority: 1` = highest
     this.isImportant ||= this.mimeHeader(mail, "importance") == "high" ||
       this.mimeHeader(mail, "priority") == "urgent" ||
@@ -867,7 +867,9 @@ export function setPersons(targetList: ArrayColl<PersonUID>, personList: { addre
     sanitize.label(p.name, null))));
 }
 
-/** We store Message-IDs, also in `inReplyTo` and `references`, without <>. Where we write headers, we add them again. */
-export function withoutBrackets(messageID: string | null): string | null {
+/** We store Message-IDs, also in `inReplyTo` and `references`, without <>. Where we write headers, we add them again.
+ * @returns null, if empty */
+export function msgIDWithoutBrackets(messageID: string | null | undefined): string | null {
+  messageID = sanitize.nonemptystring(messageID, null);
   return messageID?.startsWith("<") && messageID.endsWith(">") ? messageID.slice(1, -1) : messageID;
 }

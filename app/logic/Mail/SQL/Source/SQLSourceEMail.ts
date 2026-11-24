@@ -1,5 +1,5 @@
 import type { MailContentStorage } from "../../MailAccount";
-import { withoutBrackets, type EMail } from "../../EMail";
+import { msgIDWithoutBrackets, type EMail } from "../../EMail";
 import type { Attachment } from "../../../Abstract/Attachment";
 import { getDatabase } from "./SQLSourceDatabase";
 import { SQLEMail } from "../SQLEMail";
@@ -40,7 +40,7 @@ export class SQLSourceEMail implements MailContentStorage {
     /* The other database frees the row ID when the mail goes, and gives it to
      * the next mail: This row can be a stranger's, from any account.
      * Older rows have the Message-ID with <>. A migration would rewrite all the MIME in this database. */
-    if ((withoutBrackets(row.messageID) || null) != (email.messageID || null)) {
+    if (msgIDWithoutBrackets(row.messageID) != (email.messageID || null)) {
       return;
     }
     email.mime = row.mime;

@@ -1,5 +1,5 @@
 import { ExchangeEMail, EMailFlag, EMailFlagPidTag, EMailFlagTimePidTag, IconIndex, IconIndexPidTag } from "./ExchangeEMail";
-import { withoutBrackets } from "../EMail";
+import { msgIDWithoutBrackets } from "../EMail";
 import { type EWSFolder, getEWSItem } from "./EWSFolder";
 import { SpecialFolder } from "../Folder";
 import { DeleteStrategy } from "../MailAccount";
@@ -59,14 +59,14 @@ export class EWSEMail extends ExchangeEMail {
 
   fromXML(xmljs: Record<string, any>) {
     this.itemID = sanitize.nonemptystring(xmljs.ItemId.Id);
-    this.id = withoutBrackets(sanitize.nonemptystring(xmljs.InternetMessageId, ""));
+    this.id = msgIDWithoutBrackets(xmljs.InternetMessageId) ?? "";
     this.subject = sanitize.nonemptystring(xmljs.Subject, "");
     this.size = sanitize.integer(xmljs.Size, null);
     this.sent = sanitize.date(xmljs.DateTimeSent, new Date());
     this.received = sanitize.date(xmljs.DateTimeReceived, new Date());
     this.setFlags(xmljs);
-    this.inReplyTo = withoutBrackets(sanitize.nonemptystring(xmljs.InReplyTo, null));
-    this.references = sanitize.nonemptystring(xmljs.References, null)?.split(" ").map(id => withoutBrackets(id));
+    this.inReplyTo = msgIDWithoutBrackets(xmljs.InReplyTo);
+    this.references = sanitize.nonemptystring(xmljs.References, null)?.split(" ").map(id => msgIDWithoutBrackets(id));
     if ("ReplyTo" in xmljs) {
       this.replyTo = findOrCreatePersonUID(
         getEmailAddressOrX400(xmljs.ReplyTo.Mailbox.EmailAddress),
