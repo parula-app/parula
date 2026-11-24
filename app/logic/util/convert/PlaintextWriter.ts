@@ -1,4 +1,5 @@
 import { MarkdownWriter } from "./MarkdownWriter";
+import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 
 /** Marks a quoted line for `flowed()`. `text()` removes it from the text of the HTML. */
 const kQuote = "\u0001";
@@ -82,11 +83,11 @@ export class PlaintextWriter extends MarkdownWriter {
     return code;
   }
 
-  /** Without `*bold*` etc., because the URL follows */
+  /** Without `*bold*` etc., because the URL follows. Only http, https and mailto URLs. */
   protected link(link: Element): string {
     let text = this.spaces(link.textContent);
     let trimmed = text.trim();
-    let url = link.getAttribute("href") ?? "";
+    let url = sanitize.url(link.getAttribute("href"), null, ["https", "http", "mailto"]);
     if (!trimmed || !url || trimmed == url || "mailto:" + trimmed == url) {
       return text;
     }

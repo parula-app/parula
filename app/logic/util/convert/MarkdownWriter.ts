@@ -1,6 +1,10 @@
+import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
+
 /**
- * Writes HTML as Markdown, without any HTML in it. E.g. for the pages of topics.
+ * Writes HTML as Markdown, e.g. for the pages of topics.
  * Converts what our HTML editor writes. Other elements, e.g. `<div>` or `<span>`, become their contents.
+ * The Markdown has no HTML, also not for other apps: Elements like `<script>` and `<style>` are removed,
+ * links and images only with safe URLs, and `<` in the text is escaped.
  * The width of an image is an attribute, as in Pandoc: `![alt](src){width=200}`
  * @see `convertMarkdownToHTML()` reads it back.
  */
@@ -101,7 +105,7 @@ export class MarkdownWriter {
     let name = node.nodeName;
     if (name == "#text") {
       return this.text(this.spaces(node.textContent));
-    } else if (!(node instanceof Element) || ["STYLE", "SCRIPT", "TEMPLATE", "TITLE", "svg", "math"].includes(name)) {
+    } else if (!(node instanceof Element) || ["SCRIPT", "STYLE", "TEMPLATE", "TITLE", "IFRAME", "OBJECT", "EMBED", "svg", "math"].includes(name)) {
       return "";
     } else if (name == "BR") {
       return "\n";
@@ -176,17 +180,22 @@ export class MarkdownWriter {
     return fence + padding + code + padding + fence;
   }
 
+  /** Only http, https and mailto, so that there's no `javascript:` link */
   protected link(link: Element): string {
-    return "[" + this.inlines(link) + "](" + this.url(link.getAttribute("href") ?? "", link.getAttribute("title")) + ")";
+    let url = sanitize.url(link.getAttribute("href"), null, ["https", "http", "mailto"]);
+    return url ? "[" + this.inlines(link) + "](" + this.url(url, link.getAttribute("title")) + ")" : this.inlines(link);
   }
 
   /** With the width that the user gave the image in our editor */
   protected image(image: Element): string {
+    let src = sanitize.url(image.getAttribute("src"), null, ["https", "http", "data"]);
+    if (!src) {
+      return "";
+    }
     let style = image.ownerDocument.createElement("div").style;
     style.cssText = image.getAttribute("containerstyle") ?? "";
     let width = parseInt(image.getAttribute("width")) || (style.width.endsWith("px") ? parseInt(style.width) : 0);
-    return "![" + this.text(image.getAttribute("alt") ?? "") + "](" +
-      this.url(image.getAttribute("src") ?? "", image.getAttribute("title")) + ")" +
+    return "![" + this.text(image.getAttribute("alt") ?? "") + "](" + this.url(src, image.getAttribute("title")) + ")" +
       (width ? `{width=${width}}` : "");
   }
 

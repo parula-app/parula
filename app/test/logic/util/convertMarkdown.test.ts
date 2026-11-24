@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { convertHTMLToMarkdown, convertMarkdownToHTML } from "../../../logic/util/convertHTML";
+import { convertHTMLToMarkdown, convertHTMLToText, convertMarkdownToHTML } from "../../../logic/util/convertHTML";
 import { expect, test } from "vitest";
 
 /** HTML as our editor writes it */
@@ -71,4 +71,27 @@ test("HTML in Markdown stays text", () => {
 test("No empty lines from empty paragraphs and trailing line breaks", () => {
   let markdown = convertHTMLToMarkdown("<p></p><p>Text<br></p><p></p>");
   expect(markdown.trim()).toBe("Text");
+});
+
+test("No scripts, styles, HTML or unsafe URLs from the HTML in the Markdown or the plaintext", () => {
+  let html = `<style>p { color: red; }</style><script>alert(1)</script>
+    <p>&lt;img src=x onerror=alert(2)&gt; <a href="javascript:alert(3)">link</a> <a href="https://example.com/">safe</a></p>
+    <p><img src="javascript:alert(4)" alt="bad"><img src="https://example.com/logo.png" alt="Logo"></p>
+    <iframe src="https://example.com/frame"></iframe><svg><text>vector</text></svg>`;
+  let markdown = convertHTMLToMarkdown(html);
+  for (let unsafe of ["alert(1)", "color: red", "javascript:", "frame", "vector"]) {
+    expect(markdown).not.toContain(unsafe);
+  }
+  expect(markdown.replaceAll("\\<", "")).not.toContain("<"); // HTML in the text stays text
+  expect(markdown).toContain("link");
+  expect(markdown).toContain("[safe](https://example.com/)");
+  expect(markdown).toContain("![Logo](https://example.com/logo.png)");
+  let doc = new DOMParser().parseFromString(convertMarkdownToHTML(markdown), "text/html");
+  expect(doc.querySelector("script, style, iframe, [onerror]")).toBeNull();
+
+  let text = convertHTMLToText(html);
+  for (let unsafe of ["alert(1)", "color: red", "javascript:", "vector"]) {
+    expect(text).not.toContain(unsafe);
+  }
+  expect(text).toContain("safe <https://example.com/>");
 });
