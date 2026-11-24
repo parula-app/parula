@@ -59,12 +59,16 @@
   import { catchErrors } from "../../../frontend/Util/error";
   import { openExternalURL } from "../../../logic/util/os-integration";
   import { selectedDate, selectedEvent, startDate } from "../../../frontend/Calendar/selected";
+  import { openEvent } from "../../../frontend/Calendar/open";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import JoinIcon from "lucide-svelte/icons/video";
   import { getDateTimeLocale, t } from "../../../l10n/l10n";
 
   export let event: Event;
   export let flow: EventEditFlow;
   export let messages: InfoMessage[];
+
+  const appWindow = AppWindow.current();
 
   $: organizer = $event.organizer;
   $: when = eventWhenText($event, getDateTimeLocale());
@@ -78,6 +82,10 @@
   function showInCalendar() {
     let day = new Date(event.startTime);
     flow.close();
+    if (!appWindow.isMainWindow) {
+      openEvent(event, false); // The event's own window closed, so in its main window
+      return;
+    }
     $selectedEvent = event;
     $selectedDate = day;
     $startDate = day;

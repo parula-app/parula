@@ -1,14 +1,25 @@
 <vbox flex class="header">
   <Stack>
     <hbox class="title-background" style="--header-color: {newCalendar.color}" />
-    <hbox class="window-title-bar">
+    <hbox class="window-title-bar window-drag">
+      <SecondaryWindowButtons />
       <hbox class="buttons">
-        {#if !isFullWindow}
+        {#if !isFullWindow && appWindow.isMainWindow}
           <RoundButton
             label={$t`Expand dialog size to full window`}
             icon={ExpandDialogIcon}
             onClick={onExpandToWindow}
             classes="plain expand"
+            border={false}
+            iconSize="16px"
+            />
+        {/if}
+        {#if !appGlobal.isMobile && appWindow.isMainWindow}
+          <RoundButton
+            label={$t`Open in a separate window`}
+            icon={PopOutIcon}
+            onClick={onPopOut}
+            classes="plain"
             border={false}
             iconSize="16px"
             />
@@ -71,7 +82,7 @@
       </hbox>
       <hbox flex class="spacer" />
       <hbox class="buttons">
-        {#if isFullWindow}
+        {#if isFullWindow && appWindow.isMainWindow}
           <RoundButton
             label={$t`Shrink dialog to sidebar`}
             icon={ShrinkDialogIcon}
@@ -149,6 +160,8 @@
   import { CalendarEventMustangApp, calendarMustangApp } from "../CalendarMustangApp";
   import { selectedEvent, selectedCalendar } from "../selected";
   import { openApp, selectedApp, goBack } from "../../AppsBar/selectedApp";
+  import { AppWindow } from "../../MainWindow/AppWindow";
+  import SecondaryWindowButtons from "../../MainWindow/SecondaryWindowButtons.svelte";
   import { appGlobal } from "../../../logic/app";
   import Stack from "../../Shared/Stack.svelte";
   import AccountDropDown from "../../Shared/AccountDropDown.svelte";
@@ -164,11 +177,13 @@
   import SendIcon from "lucide-svelte/icons/send";
   import CloseIcon from "lucide-svelte/icons/x";
   import RevertIcon from "lucide-svelte/icons/undo-2";
+  import PopOutIcon from "lucide-svelte/icons/square-arrow-out-up-right";
   import { catchErrors } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
 
+  const appWindow = AppWindow.current();
   let newCalendar = event.calendar; // Don't listen to $event #730
   $: hasMinimalProps = event && $event.title && $event.startTime && $event.endTime &&
       event.startTime.getTime() <= event.endTime.getTime();
@@ -314,10 +329,24 @@
     goBack();
   }
 
+  /** Moves the dialog into its own window, where the user keeps editing */
+  async function onPopOut() {
+    await calendarMustangApp.showEventInNewWindow(event);
+    calendarMustangApp.closeEvent(event);
+    if (isFullWindow) {
+      goBack();
+    }
+    $selectedEvent = null; // Clears our `event` prop, see `onClose()`
+  }
+
   /** @param deselect The user is done with the event, so drop it from the sidebar as
    * well. Not for `onSave()`, which leaves it there as display-only. */
   function onClose(deselect = false) {
     event.finishEditing();
+    if (!appWindow.isMainWindow) {
+      appWindow.close();
+      return;
+    }
     calendarMustangApp.closeEvent(event);
     if (deselect || !isFullWindow) {
       // Make sidebar disappear, see CalendarApp.svelte.
@@ -371,6 +400,7 @@
     align-items: end;
     margin-inline-start: 6px;
     margin-block-end: 4px;
+    overflow: hidden; /* Keeps the buttons in the narrow sidebar, like the display's .account-name */
   }
   .account-icon-dummy {
     height: 24px;

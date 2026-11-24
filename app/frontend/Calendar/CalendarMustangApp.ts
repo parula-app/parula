@@ -1,6 +1,8 @@
 import { MustangApp } from "../AppsBar/MustangApp";
 import { openApp } from "../AppsBar/selectedApp";
 import type { Event } from "../../logic/Calendar/Event";
+import { AppWindow } from "../MainWindow/AppWindow";
+import EventWindow from "./DisplayEvent/EventWindow.svelte";
 import CalendarIcon from "../Calendar/CalendarIcon.svelte";
 import EditIcon from "lucide-svelte/icons/pencil";
 import { derived } from "svelte/store";
@@ -21,6 +23,10 @@ export class CalendarMustangApp extends MustangApp {
       calendarMustangApp.subApps.add(edit);
     }
     openApp(edit, edit.windowParams);
+  }
+
+  async showEventInNewWindow(event: Event) {
+    await AppWindow.current().open(EventWindow, { event }, 1000);
   }
 
   /** Closes the full window that `showEvent()` opened, if any */

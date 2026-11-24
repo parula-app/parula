@@ -1,14 +1,25 @@
 <vbox flex class="header">
   <Stack>
     <hbox class="title-background" style="--header-color: {event.calendar?.color}" />
-    <hbox class="window-title-bar" flex>
+    <hbox class="window-title-bar window-drag" flex>
+      <SecondaryWindowButtons />
       <hbox class="buttons">
-        {#if !isFullWindow}
+        {#if !isFullWindow && appWindow.isMainWindow}
           <RoundButton
             label={$t`Expand dialog size to full window`}
             icon={ExpandDialogIcon}
             onClick={onExpandToWindow}
             classes="plain expand"
+            border={false}
+            iconSize="16px"
+            />
+        {/if}
+        {#if !appGlobal.isMobile && appWindow.isMainWindow}
+          <RoundButton
+            label={$t`Open in a separate window`}
+            icon={PopOutIcon}
+            onClick={onPopOut}
+            classes="plain"
             border={false}
             iconSize="16px"
             />
@@ -64,7 +75,7 @@
       </hbox>
       <hbox flex class="spacer" />
       <hbox class="buttons">
-        {#if isFullWindow}
+        {#if isFullWindow && appWindow.isMainWindow}
           <RoundButton
             label={$t`Shrink dialog to sidebar`}
             icon={ShrinkDialogIcon}
@@ -100,6 +111,9 @@
   import { CalendarEventMustangApp, calendarMustangApp } from "../CalendarMustangApp";
   import { selectedEvent } from "../selected";
   import { openApp, selectedApp, goBack } from "../../AppsBar/selectedApp";
+  import { AppWindow } from "../../MainWindow/AppWindow";
+  import SecondaryWindowButtons from "../../MainWindow/SecondaryWindowButtons.svelte";
+  import { appGlobal } from "../../../logic/app";
   import Stack from "../../Shared/Stack.svelte";
   import RoundButton from "../../Shared/RoundButton.svelte";
   import Button from "../../Shared/Button.svelte";
@@ -111,15 +125,19 @@
   import EditIcon from "lucide-svelte/icons/pencil";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import CloseIcon from "lucide-svelte/icons/x";
+  import PopOutIcon from "lucide-svelte/icons/square-arrow-out-up-right";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
 
+  const appWindow = AppWindow.current();
   $: isFullWindow = $selectedApp instanceof CalendarEventMustangApp;
   let isDeleteSeriesOpen = false;
 
   function onEdit() {
-    calendarMustangApp.showEvent(event); // open full screen
+    if (appWindow.isMainWindow) {
+      calendarMustangApp.showEvent(event); // open full screen
+    }
     event.startEditing();
   }
 
@@ -157,6 +175,10 @@
    *   well. Not for `onShrink()`, which moves the full window into the sidebar.
    */
   function onClose(deselect = false) {
+    if (!appWindow.isMainWindow) {
+      appWindow.close();
+      return;
+    }
     calendarMustangApp.closeEvent(event);
     if (deselect || !isFullWindow) {
       // Make sidebar disappear, see CalendarApp.svelte.
@@ -175,6 +197,11 @@
   function onShrink() {
     onClose();
  }
+
+  async function onPopOut() {
+    await calendarMustangApp.showEventInNewWindow(event);
+    onClose(true);
+  }
   // </copied>
 </script>
 

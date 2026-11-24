@@ -33,11 +33,11 @@
             onClick={onDelete} />
         {/if}
         <RibbonButton label={$t`Reply`} icon={ReplyIcon}
-          onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, false))} />
+          onClick={() => MessageActions.writeMail(IncomingInvitation.replyToEventByMail(event, false))} />
         <RibbonButton label={$t`Reply All`} icon={ReplyAllIcon}
-          onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, true))} />
+          onClick={() => MessageActions.writeMail(IncomingInvitation.replyToEventByMail(event, true))} />
         <RibbonButton label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
-          onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
+          onClick={async () => MessageActions.writeMail(await IncomingInvitation.forwardEventByMail(event))} />
       </RibbonGroup>
       <RibbonGroup label={$t`Calendar`}>
         <RibbonButton label={$t`Calendar… *=> Show this day in the calendar`} icon={CalendarIcon}
@@ -79,7 +79,7 @@
         {/if}
         <RibbonButton label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
           disabled={!flow.isSaved && (isMeeting ? $t`Send the meeting first` : $t`Save the appointment first`)}
-          onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
+          onClick={async () => MessageActions.writeMail(await IncomingInvitation.forwardEventByMail(event))} />
       </RibbonGroup>
       <RibbonGroup label={$t`Online Meeting`}>
         {#if $event.isOnline}
@@ -191,7 +191,9 @@
   import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
   import { openExternalURL } from "../../../logic/util/os-integration";
   import { appGlobal } from "../../../logic/app";
-  import { openComposer } from "../../../frontend/Mail/open";
+  import { MessageActions } from "../../Mail/MessageActions";
+  import { openEvent } from "../../../frontend/Calendar/open";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import { selectedDate, selectedEvent, startDate } from "../../../frontend/Calendar/selected";
   import { askYesNo } from "../../Shared/Dialog/MessageBox";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
@@ -238,6 +240,8 @@
   export let onSelectAttendees: () => void;
   export let onCheckNames: () => Promise<void>;
   export let onRefreshAvailability: () => void;
+
+  const appWindow = AppWindow.current();
 
   $: participants = event.participants;
   $: isMeeting = $participants.hasItems;
@@ -310,6 +314,10 @@
   function showInCalendar() {
     let day = new Date(event.startTime);
     flow.close();
+    if (!appWindow.isMainWindow) {
+      openEvent(event, false); // The event's own window closed, so in its main window
+      return;
+    }
     $selectedEvent = event;
     $selectedDate = day;
     $startDate = day;
