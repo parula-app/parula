@@ -390,15 +390,21 @@ function restrictPermissions(session: Session) {
   session.setPermissionRequestHandler((webContents, permission, callback) => {
     callback(isPermissionAllowed(webContents, permission));
   });
-  session.setPermissionCheckHandler((webContents, permission) => isPermissionAllowed(webContents, permission));
+  session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => isPermissionAllowed(webContents, permission, requestingOrigin));
 }
 
 /** Our app window. Only it gets all permissions. */
 let mainWindowWebContents: WebContents | null = null;
 
-function isPermissionAllowed(webContents: WebContents | null, permission: string): boolean {
+function isPermissionAllowed(webContents: WebContents | null, permission: string, requestingOrigin?: string): boolean {
   if (webContents == mainWindowWebContents && webContents) {
     return true; // our main window
+  }
+  // Electron checks the access to a file that the user picked, e.g. to save an attachment, without the `WebContents`, only with the origin.
+  // Only our app runs scripts with our origin. The mails in a `<webview>` have it, too, but no scripts.
+  if (permission == "fileSystem" && !webContents && mainWindowWebContents && !mainWindowWebContents.isDestroyed() &&
+      requestingOrigin == URL.parse("/", mainWindowWebContents.getURL())?.href) {
+    return true; // our app
   }
   const kWebPagePermissions = ["media", "display-capture", "notifications", "fullscreen", "pointerLock", "clipboard-sanitized-write", "speaker-selection", "storage-access", "top-level-storage-access", "mediaKeySystem"];
   return kWebPagePermissions.includes(permission);
