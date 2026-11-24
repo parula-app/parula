@@ -1,4 +1,5 @@
 import { ExchangeEMail, type EMailFlag, EMailFlagPidTag, EMailFlagTimePidTag, type IconIndex, IconIndexPidTag } from "../EWS/ExchangeEMail";
+import { withoutBrackets } from "../EMail";
 import type { OWAFolder } from "./OWAFolder";
 import { SpecialFolder } from "../Folder";
 import { DeleteStrategy } from "../MailAccount";
@@ -39,14 +40,14 @@ export class OWAEMail extends ExchangeEMail {
 
   fromJSON(json: Record<string, any>) {
     this.itemID = sanitize.nonemptystring(json.ItemId.Id);
-    this.id = sanitize.nonemptystring(json.InternetMessageId, "");
+    this.id = withoutBrackets(sanitize.nonemptystring(json.InternetMessageId, ""));
     this.subject = sanitize.nonemptystring(json.Subject, "");
     this.size = sanitize.integer(json.Size, null);
     this.sent = sanitize.date(json.DateTimeSent, new Date());
     this.received = sanitize.date(json.DateTimeReceived, new Date());
     this.setFlags(json);
-    this.inReplyTo = sanitize.nonemptystring(json.InReplyTo, null);
-    this.references = sanitize.nonemptystring(json.References, null)?.split(" ");
+    this.inReplyTo = withoutBrackets(sanitize.nonemptystring(json.InReplyTo, null));
+    this.references = sanitize.nonemptystring(json.References, null)?.split(" ").map(id => withoutBrackets(id));
     /*if ("ReplyTo" in json) {
       this.replyTo = findOrCreatePersonUID(
         sanitize.emailAddress(json.ReplyTo.Mailbox.EmailAddress, null),
