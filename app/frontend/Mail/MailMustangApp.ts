@@ -4,12 +4,14 @@ import { openApp } from "../AppsBar/selectedApp";
 import { AppWindow } from "../MainWindow/AppWindow";
 import ComposerWindow from "./Composer/ComposerWindow.svelte";
 import { showError } from "../Util/error";
+import { getLocalStorage } from "../Util/LocalStorage";
 import { OAuth2Tab, oAuth2TabsOpen } from "../../logic/Auth/UI/OAuth2Tab";
 import { appGlobal } from "../../logic/app";
 import mailIcon from '../asset/icon/appBar/mail.svg?raw';
 import EditIcon from "lucide-svelte/icons/pencil";
 import AuthIcon from "lucide-svelte/icons/key-round";
-import { derived } from "svelte/store";
+import { derived, get, writable } from "svelte/store";
+import type { Component } from "svelte";
 import { gt } from "../../l10n/l10n";
 
 export class MailMustangApp extends MustangApp {
@@ -17,14 +19,17 @@ export class MailMustangApp extends MustangApp {
   name = gt`Mail`;
   icon = mailIcon;
   appURL = "/mail";
+  /** The window that shows the composer. The Lookout frontend sets its own, in each of its main windows. */
+  composerWindow = AppWindow.perMainWindow(() => writable<Component<{ mail: EMail }>>(ComposerWindow));
 
   /**
    * Opens the mail composer.
-   * In a main window, as part of the Mail app. In other windows, in a new window.
+   * In a main window, as part of the Mail app, unless the user wants it always in a new window.
+   * In other windows, in a new window.
    */
   writeMail(mail: EMail) {
     let appWindow = AppWindow.current();
-    if (!appWindow.isMainWindow) {
+    if (!appWindow.isMainWindow || getLocalStorage("mail.send.newWindow", false).value) {
       this.writeMailInNewWindow(mail)
         .catch(showError);
       return;
@@ -37,7 +42,7 @@ export class MailMustangApp extends MustangApp {
   }
 
   async writeMailInNewWindow(mail: EMail) {
-    await AppWindow.current().open(ComposerWindow, { mail }, 1000);
+    await AppWindow.current().open(get(this.composerWindow), { mail }, 1000);
   }
 
   login(tab: OAuth2Tab): LoginDialogMustangApp {

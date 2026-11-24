@@ -10,6 +10,8 @@ import { calendarMustangApp } from "../../../frontend/Calendar/CalendarMustangAp
 import { contactsMustangApp } from "../../../frontend/Contacts/ContactsMustangApp";
 import { createNewEvent } from "../../../frontend/Calendar/event";
 import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
+import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+import ComposerWindow from "../../Mail/Composer/ComposerWindow.svelte";
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from "vitest";
 
@@ -43,6 +45,7 @@ afterEach(() => {
   unmount(app);
   app = null;
   document.body.innerHTML = "";
+  getLocalStorage("mail.send.newWindow", false).value = false;
   vi.restoreAllMocks();
   vi.mocked(openApp).mockClear();
   vi.mocked(createNewEvent).mockClear();
@@ -107,6 +110,16 @@ test("New items from any module", () => {
   expect(handled("I", { code: "KeyI", ctrlKey: true, shiftKey: true })).toBe(false);
   expect(handled("M", { code: "KeyM", ctrlKey: true, shiftKey: true, altKey: true })).toBe(false);
   expect(writeMail).toHaveBeenCalledTimes(1);
+});
+
+test("With the setting, a new mail opens Lookout's composer in a new window", () => {
+  let mail = { to: [] };
+  let open = vi.spyOn(AppWindow.prototype, "open").mockImplementation(async () => null);
+  vi.spyOn(MessageActions, "accountForNewMail").mockReturnValue({ newEMailFrom: () => mail } as any);
+  getLocalStorage("mail.send.newWindow", false).value = true;
+  expect(handled("M", { code: "KeyM", ctrlKey: true, shiftKey: true })).toBe(true);
+  expect(open).toHaveBeenCalledWith(ComposerWindow, { mail }, 1000);
+  expect(openApp).not.toHaveBeenCalled();
 });
 
 test("F3 and Ctrl+E go to the search box", () => {
