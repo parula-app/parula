@@ -46,11 +46,12 @@ async function createWindow(): Promise<void> {
       // The "ready-to-show" event doesn't always fire on Wayland.
       // "did-finish-load" works and is close enough.
       // https://github.com/electron/electron/issues/48859
-      mainWindow.webContents.on("did-finish-load", () => {
+      // Only once: Each `<webview>` fires "ready-to-show" again, and `show()` also focuses the window.
+      mainWindow.webContents.once("did-finish-load", () => {
         mainWindow.show();
       });
     } else {
-      mainWindow.on("ready-to-show", () => {
+      mainWindow.once("ready-to-show", () => {
         mainWindow.show();
       });
     }
