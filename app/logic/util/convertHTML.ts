@@ -55,6 +55,11 @@ export function convertTextToHTML(plaintext: string): string {
       linkify: true,
       breaks: true,
     });
+    // A quote ends at the first line without ">". Markdown would add that line to the
+    // quoted paragraph ("lazy continuation"), but in mails, it's the sender's new text.
+    // As terminator, the blockquote rule calls this with `silent`. After `paragraph`,
+    // the normal parsing never reaches it.
+    markdownitInstance.block.ruler.push("quoteEnd", (state, startLine, endLine, silent) => silent, { alt: ["blockquote"] });
   }
   let body = plaintext;
   let signatureHTML = "";
