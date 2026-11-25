@@ -11,8 +11,8 @@ export class OWAFilterRule extends ServerFilterRule {
   protected readonly canCheckCategories = false;
   protected readonly canDeleteImmediately = false;
   /** The server sets them, or they describe the rule */
-  static readonly kOutputOnly = ["Identity", "Enabled", "InError", "SupportedByTask", "Description",
-    "DescriptionTimeFormat", "DescriptionTimeZone", "WarningMessages"];
+  static readonly kOutputOnly = ["__type", "Identity", "Enabled", "InError", "ErrorType", "SupportedByTask", "Description",
+    "DescriptionTimeFormat", "DescriptionTimeZone", "WarningMessages", "RuleProvider"];
 
   get id(): string | null {
     return sanitize.nonemptystring(this.json.Identity?.RawIdentity, null);
@@ -37,7 +37,9 @@ export class OWAFilterRule extends ServerFilterRule {
   protected get sections(): Record<string, Record<string, any>> {
     let parameters: Record<string, any> = {};
     for (let [key, value] of Object.entries(this.json)) {
-      if (!OWAFilterRule.kOutputOnly.includes(key) && key != "Name" && key != "Priority") {
+      // The server sends an enum that is not set as "Null" and its type, e.g. "NullImportance"
+      if (!OWAFilterRule.kOutputOnly.includes(key) && key != "Name" && key != "Priority" &&
+          !(typeof value == "string" && value.startsWith("Null"))) {
         parameters[key] = value;
       }
     }
