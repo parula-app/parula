@@ -56,6 +56,16 @@ export function removeTrackingURL(url: string): string {
   return url;
 }
 
+/** A website without scheme: `example.com/foo` → `https://example.com/foo`. Anything else, e.g. `http:…`, `mailto:…` or not a host name, stays. */
+export function addHTTPSToHostname(address: string): string {
+  let url = URL.parse("https://" + address);
+  // `https://example.com` would have the host name `https`, `mailto:fred@example.com` the user `mailto`
+  if (!url || url.username || !url.hostname.includes(".")) {
+    return address;
+  }
+  return "https://" + address;
+}
+
 /** Resolves once the network is online: at once if it already is, else when
  * the browser fires `online`, e.g. after the OS wakes from sleep. */
 export function waitUntilOnline(): Promise<void> {

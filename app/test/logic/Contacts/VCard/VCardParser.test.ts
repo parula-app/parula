@@ -81,3 +81,12 @@ test("Write new VCard", async () => {
   const serialised = vCard.personToVCard(person);
   expect(serialised).toBe(replacement);
 });
+
+test("A website without https:// gets it, and one with a bad scheme is dropped", () => {
+  // Other clients may have saved just the host name
+  let person = new Person();
+  vCard.convertVCardToPerson("BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Erika\r\nURL:erika.example\r\nURL:javascript:alert(1)\r\nNOTE:Still here\r\nEND:VCARD\r\n", person);
+  expect(person.urls.contents.map(entry => entry.value)).toEqual(["https://erika.example"]);
+  expect(person.urls.first.protocol).toBe("https");
+  expect(person.notes).toBe("Still here");
+});

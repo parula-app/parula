@@ -4,6 +4,7 @@ import { ContactEntry } from "../../Abstract/Person";
 import type { CardDAVPerson } from "../CardDAV/CardDAVPerson";
 import { StreetAddress } from "../StreetAddress";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
+import { addHTTPSToHostname } from "../../util/netUtil";
 import type { ArrayColl, Collection } from 'svelte-collections';
 import { gt } from "../../../l10n/l10n";
 
@@ -89,7 +90,11 @@ export function updatePerson(vcard: ICalContainer, person: Person) {
   person.urls.clear();
   if (vcard.entries.url) {
     for (let entry of vcard.entries.url) {
-      person.urls.add(makeContactEntry(entry));
+      // Other clients may have saved just the host name, e.g. `erika.example`
+      entry.value = sanitize.url(addHTTPSToHostname(entry.value), null, ["https", "http", "mailto", "tel", "fax"]);
+      if (entry.value) {
+        person.urls.add(makeContactEntry(entry));
+      }
     }
   }
   person.streetAddresses.clear();
