@@ -143,6 +143,16 @@ export class Topic extends Observable {
       await storage.deleteTopic(this);
     }
   }
+
+  /** The sub-topics, their sub-topics etc., in the order of the page */
+  get descendants(): Topic[] {
+    return this.children.contents.flatMap(child => [child, ...child.descendants]);
+  }
+
+  /** 0 for the root topic, 1 for its sub-topics etc. */
+  get depth(): number {
+    return this.parent ? this.parent.depth + 1 : 0;
+  }
 }
 
 export type LinkTarget = Topic | Person | Group | Message | Event | File;

@@ -77,6 +77,7 @@
     <RibbonMenuButton label={$t`Follow Up *=> Flag the selected emails for follow-up`} icon={FlagIcon} size="small" disabled={noSelection}>
       <FollowUpMenuItems {messages} />
     </RibbonMenuButton>
+    <AddToTopicRibbonButton target={single} disabled={noSingle} />
   </RibbonGroup>
   <RibbonGroup label={$t`Find *=> Ribbon group with search commands`}>
     {#if !isSimplified}
@@ -134,6 +135,7 @@
   import CategorizeMenuItems from "../Message/CategorizeMenuItems.svelte";
   import FilterMenuItems from "../LeftPane/FilterMenuItems.svelte";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
+  import AddToTopicRibbonButton from "../../Topic/AddToTopicRibbonButton.svelte";
   import NewEventSubMenu from "../../Calendar/NewEventSubMenu.svelte";
   import NewMailIcon from "lucide-svelte/icons/mail-plus";
   import NewItemsIcon from "lucide-svelte/icons/square-plus";

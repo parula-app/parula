@@ -63,6 +63,11 @@
     </hbox>
 
     <ActionToolbar {file} />
+
+    <hbox class="topics">
+      <AddToTopicButton target={file} placement="top-end" />
+      <LinkedTopics target={file} />
+    </hbox>
   </vbox>
 </vbox>
 
@@ -73,6 +78,8 @@
   import type { WebAppListed } from "../../../logic/WebApps/WebAppListed";
   import Rename from "./Rename.svelte";
   import ActionToolbar from "./ActionToolbar.svelte";
+  import AddToTopicButton from "../../Topic/Picker/AddToTopicButton.svelte";
+  import LinkedTopics from "../../Topic/Picker/LinkedTopics.svelte";
   import Thumbnail from "../Thumbnail/Thumbnail.svelte";
   import FileIcon from "../Thumbnail/FileIcon.svelte";
   import ErrorMessageInline from "../../Shared/ErrorMessageInline.svelte";
@@ -134,6 +141,11 @@
   }
   .file-properties {
     opacity: 60%;
+  }
+  .topics {
+    align-items: center;
+    gap: 4px;
+    margin-block-start: 12px;
   }
   .buttons {
     align-items: start;
