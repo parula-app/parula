@@ -3,7 +3,7 @@ import { SetColl } from "svelte-collections";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 
 /**
- * Defines a tag/keyword that can be set on an email or event.
+ * Defines a tag/keyword that can be set on an email, chat msg, calendar event or file
  *
  * This describes the generic class of a tag.
  * The instance of a tag is represented by `EMail.tags` and `Event.tags`.
