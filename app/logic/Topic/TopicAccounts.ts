@@ -1,5 +1,6 @@
 import { TopicAccount } from './TopicAccount';
 import { SQLTopicStorage } from './SQL/SQLTopicStorage';
+import { LocalFileTopicStorage } from './File/LocalFileTopicStorage';
 import { DummyTopicStorage } from './SQL/DummyTopicStorage';
 import { appGlobal } from '../app';
 import { NotReached, assert } from '../util/util';
@@ -30,9 +31,28 @@ export async function readTopicAccounts(): Promise<Collection<TopicAccount>> {
   if (topicAccounts.isEmpty) {
     topicAccounts.add(await createLocalTopicAccount());
   }
+  for (let account of topicAccounts) {
+    try {
+      await setContentStorage(account);
+    } catch (ex) {
+      account.errorCallback(ex);
+    }
+  }
   return topicAccounts;
 }
 // #endif
+
+/** Adds or removes the files on this computer, as `account.saveAsLocalFiles` says, and syncs them with the database */
+export async function setContentStorage(account: TopicAccount) {
+  let local = account.contentStorage.find(storage => storage instanceof LocalFileTopicStorage);
+  if (account.saveAsLocalFiles && !local) {
+    local = new LocalFileTopicStorage(account);
+    account.contentStorage.add(local);
+    await local.sync(account);
+  } else if (!account.saveAsLocalFiles && local) {
+    account.contentStorage.remove(local);
+  }
+}
 
 export async function createLocalTopicAccount(): Promise<TopicAccount> {
   console.log("Creating local topic storage");

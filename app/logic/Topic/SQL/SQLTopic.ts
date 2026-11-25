@@ -29,13 +29,13 @@ export class SQLTopic {
         INSERT INTO topic (
           idStr, accountID, name, parentID,
           contentsJSON, propertiesJSON, linksJSON,
-          json
+          json, lastMod
         ) VALUES (
           ${topic.id}, ${topic.account.dbID}, ${topic.name}, ${topic.parent?.dbID ?? null},
           ${SQLTopic.saveContents(topic)},
           ${SQLTopic.saveProperties(topic)},
           ${SQLTopic.saveLinks(topic)},
-          null
+          null, ${topic.lastMod?.getTime() ?? null}
         )`);
       topic.dbID = insert.lastInsertRowid;
     } else {
@@ -48,7 +48,8 @@ export class SQLTopic {
           contentsJSON = ${SQLTopic.saveContents(topic)},
           propertiesJSON = ${SQLTopic.saveProperties(topic)},
           linksJSON = ${SQLTopic.saveLinks(topic)},
-          json = null
+          json = null,
+          lastMod = ${topic.lastMod?.getTime() ?? null}
         WHERE id = ${topic.dbID}
         `);
     }
@@ -61,7 +62,7 @@ export class SQLTopic {
       SELECT
         idStr, name, parentID,
         contentsJSON, propertiesJSON, linksJSON,
-        json
+        json, lastMod
       FROM topic
       WHERE id = ${dbID}
       `) as any;
@@ -72,6 +73,7 @@ export class SQLTopic {
     topic.dbID = sanitize.integer(dbID);
     topic.id = sanitize.nonemptystring(row.idStr);
     topic.name = sanitize.string(row.name, "");
+    topic.lastMod = sanitize.date(row.lastMod, null);
     SQLTopic.readContents(topic, sanitize.json(row.contentsJSON, []));
     SQLTopic.readProperties(topic, sanitize.json(row.propertiesJSON, []));
     //SQLTopic.readLinks(topic, sanitize.json(row.linksJSON, []));
@@ -134,7 +136,7 @@ export class SQLTopic {
       SELECT
         id, idStr, name, parentID,
         contentsJSON, propertiesJSON, linksJSON,
-        json
+        json, lastMod
       FROM topic
       WHERE accountID = ${topicAccount.dbID}
       `) as any[];

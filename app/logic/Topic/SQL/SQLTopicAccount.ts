@@ -2,7 +2,6 @@ import type { TopicAccount } from "../TopicAccount";
 import { AccountType, SQLAccount, type AccountDBRow } from "../../Mail/SQL/Account/SQLAccount";
 import { getDatabase } from "./SQLDatabase";
 import { newTopicAccountForProtocol } from "../TopicAccounts";
-import { SQLTopicStorage } from "./SQLTopicStorage";
 import { internalError } from "../../util/error";
 import { exMessage } from "../../util/util";
 import { ArrayColl } from "svelte-collections";
@@ -53,7 +52,6 @@ export class SQLTopicAccount {
       FROM topicAccount
       WHERE idStr = ${accountRow.idStr}
       `) as any;
-    acc.storage = new SQLTopicStorage();
     if (row?.id) {
       acc.dbID = row.id;
     } else {
