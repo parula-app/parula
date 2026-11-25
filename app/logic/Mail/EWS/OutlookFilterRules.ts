@@ -105,6 +105,7 @@ export class OutlookRule {
   }
 }
 
+/** Throws for reads beyond the end, so that a wrong length or count in the stream can't read past it */
 class LittleEndianReader {
   readonly bytes: Uint8Array;
   protected readonly view: DataView;

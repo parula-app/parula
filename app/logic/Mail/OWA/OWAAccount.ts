@@ -947,7 +947,7 @@ export class OWAAccount extends ExchangeMailAccount {
     let streams: Uint8Array[] = [];
     for (let item of ensureArray(result?.RootFolder?.Items)) {
       let response = await this.callOWA(owaGetOutlookRulesStreamRequest(sanitize.nonemptystring(item?.ItemId?.Id)));
-      let value = ensureArray(response?.Items?.[0]?.ExtendedProperty)[0]?.Value;
+      let value = ensureArray(ensureArray(response?.Items)[0]?.ExtendedProperty)[0]?.Value;
       streams.push(base64ToUint8Array(sanitize.nonemptystring(value)));
     }
     return streams;
