@@ -88,6 +88,8 @@ export class MessageActions {
   static async respond(original: EMail, draft: EMail) {
     if (MessageActions.respondsInline(original)) {
       await startInlineReply(original, draft);
+    } else if (getLocalStorage<boolean>("lookout.mail.compose.repliesInNewWindow", false).value) {
+      await MessageActions.writeMailInNewWindow(draft);
     } else {
       MessageActions.writeMail(draft);
     }
