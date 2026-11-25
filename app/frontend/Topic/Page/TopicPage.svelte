@@ -49,6 +49,7 @@
           <HTMLEditor bind:html={pageHTML} bind:editor {extraExtensions}
             on:change={onChange} />
         </vbox>
+        <TopicLinks {topic} />
       </vbox>
     </Paper>
   </Scroll>
@@ -63,6 +64,7 @@
   import HTMLEditor from "../../Shared/Editor/HTMLEditor.svelte";
   import HTMLEditorToolbar from "../../Shared/Editor/HTMLEditorToolbar.svelte";
   import ImageEdit from "./ImageEdit.svelte";
+  import TopicLinks from "./TopicLinks.svelte";
   import Paper from "../../Shared/Paper.svelte";
   import Scroll from "../../Shared/Scroll.svelte";
   import ButtonMenu from "../../Shared/Menu/ButtonMenu.svelte";

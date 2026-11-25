@@ -4,7 +4,6 @@
   "description": "Mustang - User-friendly full-featured email application for everybody - Logic",
   "dependencies": {
     "bufferutil": "^4.1.0",
-    "html-to-text": "^9.0.5",
     "i18n": "^0.15.3",
     "iocane": "^5.2.0",
     "lodash": "^4.17.21",

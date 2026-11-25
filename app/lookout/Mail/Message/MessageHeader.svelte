@@ -72,6 +72,9 @@
       {/each}
     </hbox>
   {/if}
+  <hbox class="topics">
+    <LinkedTopics target={message} />
+  </hbox>
   {#if message.to.isEmpty || message.from.emailAddress == kDummyPerson.emailAddress}
     <!-- <copied from="../../../frontend/Mail/Message/MessageHeader.svelte"> -->
     {#await message.loadForDisplay() catch ex}
@@ -141,6 +144,7 @@
   import FollowUpMenuItems from "./FollowUpMenuItems.svelte";
   import JunkMenuItem from "./JunkMenuItem.svelte";
   import CategorizeMenuItems from "./CategorizeMenuItems.svelte";
+  import LinkedTopics from "../../../frontend/Topic/Picker/LinkedTopics.svelte";
   import DisplayModeSwitcher from "./DisplayModeSwitcher.svelte";
   import RecipientsList from "./RecipientsList.svelte";
   import EncryptionButtons from "./EncryptionButtons.svelte";
@@ -316,6 +320,9 @@
   .categories {
     flex-wrap: wrap;
     gap: 6px;
+    padding-inline-start: 52px;
+  }
+  .topics {
     padding-inline-start: 52px;
   }
   .category {

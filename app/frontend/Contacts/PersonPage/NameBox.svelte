@@ -78,6 +78,7 @@
             </hbox>
           {/if}
         </vbox>
+        <LinkedTopics target={person} />
       </vbox>
     </hbox>
     <hbox flex class="main-right">
@@ -104,6 +105,7 @@
       <hbox flex />
       <hbox class="main-right-top">
         <AddressbookChanger {person} />
+        <AddToTopicButton target={person} iconSize="20px" />
         <PersonMenu {person} />
       </hbox>
     </hbox>
@@ -113,6 +115,8 @@
 <script lang="ts">
   import type { Person } from "../../../logic/Abstract/Person";
   import { newPerson } from "../Person/Selected";
+  import AddToTopicButton from "../../Topic/Picker/AddToTopicButton.svelte";
+  import LinkedTopics from "../../Topic/Picker/LinkedTopics.svelte";
   import CallButtons from "./CallButtons.svelte";
   import EditableSimpleText from "./EditableSimpleText.svelte";
   import GroupBox from "./GroupBox.svelte";

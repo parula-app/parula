@@ -129,7 +129,7 @@ test("Writes the reply and the time range", async () => {
   expect(new Date(server.vacation.fromDate).getTime()).toBe(autoResponder.startTime.getTime());
   expect(new Date(server.vacation.toDate).getTime()).toBe(autoResponder.endTime.getTime());
   expect(server.vacation.htmlBody).toContain("January 4");
-  expect(server.vacation.textBody).toContain("Back on January 4");
+  expect(server.vacation.textBody).toContain("Back on *January 4*");
   expect(server.methods).toEqual(["VacationResponse/set"]);
 
   autoResponder.scheduled = false;
