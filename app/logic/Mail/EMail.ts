@@ -7,16 +7,18 @@ import { DeleteStrategy, type MailAccountStorage } from "./MailAccount";
 import { PersonUID, findOrCreatePersonUID, kDummyPerson } from "../Abstract/PersonUID";
 import type { MailIdentity } from "./MailIdentity";
 import { RawFilesAttachment } from "./Store/RawFilesAttachment";
-import { EMailProcessorList, ProcessingStartOn } from "./EMailProcessor";
+import { EMailProcessorList, ProcessingStartOn, CannotReadMail } from "./EMailProcessor";
 import type { ExtraData } from "./ExtraData";
 import type { SMLData } from "./SML/SMLData";
 import type { PublicKey } from "./Encryption/PublicKey";
+import type { PrivateKey } from "./Encryption/PrivateKey";
 import { Event } from "../Calendar/Event";
 import { InvitationMessage, type iCalMethod } from "../Calendar/Invitation/InvitationStatus";
 import { FilterMoment } from "./FilterRules/FilterMoments";
 import type { EncryptionSystem } from "./Encryption/enums";
 import { fileExtensionForMIMEType, assert, AbstractFunction, getUserPreference, setUserPreference } from "../util/util";
 import { blobToDataURL } from "../util/blob";
+import { convertTextToHTML } from "../util/convertHTML";
 import { isMobile, webMail } from "../build";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { PromiseAllDone } from "../util/flow/PromiseAllDone";
@@ -102,6 +104,12 @@ export class EMail extends Message {
   /** For composer/send only: This email should be end-to-end encrypted. */
   @notifyChangedProperty
   shouldEncrypt = false;
+  /** For composer/send only: Our key that will sign this email.
+   * Not `signedPublicKey`, which is the key that signed a received email, and which
+   * is saved with it: This one is our secret key, so it is only in memory.
+   * A draft saves only its fingerprint. */
+  @notifyChangedProperty
+  signPrivateKey: (PublicKey & PrivateKey) | null = null;
   /** For composer/send only: This email must be end-to-end encrypted, e.g.
    * because it quotes from an encrypted email. */
   @notifyChangedProperty
@@ -113,15 +121,15 @@ export class EMail extends Message {
   /** This email was correctly signed with this public key.
    * The signature was valid and the public key matches `From:`.
    * This gives you the specific public key that was used to sign.
-   * Format: `PublicKey.id` */
+   * Format: `PublicKey.fingerprint` */
   @notifyChangedProperty
-  signedByKeyID: string | null = null;
-  /** As `signed` but giving you the actual PublicKey object.
+  signedPublicKeyFingerprint: string | null = null;
+  /** The `PublicKey` object for `signedPublicKeyFingerprint`
    * Set this using @see rememberSigner() */
-  signedKey: PublicKey | null = null;
-  /** As `signedKey`, but not parsed yet.
-   * `getPublicKeyByKeyID()` parses it when the reader needs it. */
-  signedKeyJSON: any = null;
+  signedPublicKey: PublicKey | null = null;
+  /** As `signedPublicKey`, but not parsed yet.
+   * `getPublicKeyByFingerprint()` parses it when the reader needs it. */
+  signedPublicKeyJSON: any = null;
   /** Contains the complete MIME message for sending.
    * Used for encrypted messages. */
   sendRawMIME: string | null = null;
@@ -160,6 +168,17 @@ export class EMail extends Message {
     return this.folder.account.storage;
   }
 
+  /** For composer/send only: Sign this email, with our key `signPrivateKey` */
+  get shouldSign(): boolean {
+    return !!this.signPrivateKey;
+  }
+  /** false: Don't sign this email.
+   * To sign it, set `signPrivateKey` to the key that signs. */
+  set shouldSign(val: boolean) {
+    assert(!val, "To sign, set signPrivateKey");
+    this.signPrivateKey = null;
+  }
+
   get mustEncrypt(): boolean {
     return this._mustEncrypt;
   }
@@ -191,8 +210,8 @@ export class EMail extends Message {
     if (!signer?.isForEMailAddress(this.from?.emailAddress)) {
       signer = null;
     }
-    this.signedKey = signer;
-    this.signedByKeyID = signer?.id ?? null;
+    this.signedPublicKey = signer;
+    this.signedPublicKeyFingerprint = signer?.fingerprint ?? null;
     if (!signer) {
       return;
     }
@@ -438,7 +457,7 @@ export class EMail extends Message {
     const kMaxLayers = 10;
     let isOutermost = !this.processorLoop;
     this.processorLoop ??= new LoopGuard(kMaxLayers, () => {
-      throw new Error("Too many nested encryption or signature layers");
+      throw new CannotReadMail(null, "Too many nested encryption or signature layers");
     });
     try {
       this.processorLoop.nextRound();
@@ -449,6 +468,9 @@ export class EMail extends Message {
         try {
           await processor.process(this, mail);
         } catch (ex) {
+          if (ex instanceof CannotReadMail && !this.html) {
+            this._sanitizedHTML = convertTextToHTML(ex.message); // Shows why, but isn't saved as body, so that opening it later tries again
+          }
           this.folder.account.errorCallback(ex);
         }
       }
@@ -639,9 +661,10 @@ export class EMail extends Message {
   }
 
   /** The user allowed images from the Internet in all mails from the sender.
-   * Not for junk, because spammers forge the sender address. */
+   * Not for junk, because spammers forge the sender address.
+   * Not for encrypted mails, which an attacker can change to load an image with the decrypted text in its URL (EFAIL). */
   loadExternalImagesFromSender(): boolean {
-    if (this.isSpam || this.folder?.specialFolder == SpecialFolder.Spam) {
+    if (this.isSpam || this.folder?.specialFolder == SpecialFolder.Spam || this.wasEncrypted) {
       return false;
     }
     return sanitize.array(getUserPreference("mail.externalImages.senders", []), []).includes(this.from.emailAddress?.toLowerCase());
@@ -654,10 +677,11 @@ export class EMail extends Message {
     if (!emailAddress || emailAddress == kDummyPerson.emailAddress) {
       return;
     }
-    if (allow == this.loadExternalImagesFromSender()) {
+    let senders = sanitize.array(getUserPreference("mail.externalImages.senders", []), []);
+    if (allow == senders.includes(emailAddress)) { // not `loadExternalImagesFromSender()`, which is false for junk and encrypted mails
       return;
     }
-    let otherSenders = sanitize.array(getUserPreference("mail.externalImages.senders", []), []).filter(sender => sender != emailAddress);
+    let otherSenders = senders.filter(sender => sender != emailAddress);
     setUserPreference("mail.externalImages.senders", allow ? [...otherSenders, emailAddress] : otherSenders);
   }
 
@@ -763,7 +787,8 @@ export class EMail extends Message {
     other.mustEncrypt = this.mustEncrypt;
     other.shouldEncrypt = this.shouldEncrypt;
     other.wasEncrypted = this.wasEncrypted;
-    other.signedByKeyID = this.signedByKeyID;
+    other.signPrivateKey = this.signPrivateKey;
+    other.signedPublicKeyFingerprint = this.signedPublicKeyFingerprint;
     other.system = this.system;
   }
 
@@ -790,8 +815,10 @@ export class EMail extends Message {
       null;
   }
 
+  /** One per mail, because it keeps state for the composer */
+  protected _compose: ComposeActions | null = null;
   get compose(): ComposeActions {
-    return new ComposeActions(this);
+    return this._compose ??= new ComposeActions(this);
   }
 }
 

@@ -3,12 +3,14 @@ import { SpecialFolder } from "./Folder";
 import { Attachment, ContentDisposition } from "../Abstract/Attachment";
 import { PersonUID, findOrCreatePersonUID } from "../Abstract/PersonUID";
 import { MailIdentity, findIdentityForEMailAddress } from "./MailIdentity";
+import { MailBody } from "./MailBody";
 import { SendEncrypted } from "./Encryption/SendEncrypted";
 import { CreateMIME } from "./SMTP/CreateMIME";
 import { ExtraData } from "./ExtraData";
 import { appName, appVersion, siteRoot } from "../build";
 import { gLicense } from "../util/License";
 import { importAutoCryptKeys } from "./Encryption/PGP/AutoCrypt";
+import { getMyKeyByFingerprint } from "./Encryption/KeyUtils";
 import { fileExtensionForMIMEType } from "../Files/FileType/MIMETypes";
 import { escapeAttr, escapeHTML } from "../Files/FileType/htmlHelper";
 import { minorError } from "../util/error";
@@ -23,6 +25,8 @@ import { ArrayColl, type Collection } from "svelte-collections";
  * or are higher-level functions not inherently about the email object. */
 export class ComposeActions {
   readonly email: EMail;
+  /** Whether the composer still has to add our signature, the `<footer class="signature">` */
+  needsFooter = false;
 
   constructor(email: EMail) {
     this.email = email;
@@ -85,9 +89,15 @@ export class ComposeActions {
       .catch(original.folder.account.errorCallback);
 
     let quoteSetting = getUserPreference("mail.send.quote", "below");
+    let originalHTML = original.html;
+    if (getUserPreference("mail.send.quote.stripSignatures", true)) {
+      let originalBody = new MailBody(originalHTML);
+      originalBody.removeSignatures();
+      originalHTML = originalBody.html;
+    }
     let quote = `<p class="quote-header">${escapeHTML(this.quotePrefixLine())}</p>
     <blockquote cite="mid:${escapeAttr(original.id ?? "")}">
-      ${original.html}
+      ${originalHTML}
     </blockquote>`;
     reply.html = quoteSetting == "none" ? `<p></p>` :
       quoteSetting == "below" ? `<p></p>
@@ -194,8 +204,11 @@ export class ComposeActions {
   async redirect(): Promise<EMail> {
     await this.email.loadAttachments();
     let redirect = this.email.folder.account.newEMailFrom();
+    redirect.compose.needsFooter = false;
     redirect.replyTo = this.email.from;
     redirect.subject = this.email.subject;
+    redirect.mustEncrypt = this.email.wasEncrypted;
+    redirect.system = this.email.system;
     redirect.html = this.email.html;
     redirect.attachments.addAll(this.email.attachments.map(a => a.cloneTo(redirect)));
     return redirect;
@@ -204,9 +217,12 @@ export class ComposeActions {
   async editAsNew(): Promise<EMail> {
     await this.email.loadAttachments();
     let clone = this.email.folder.account.newEMailFrom();
+    clone.compose.needsFooter = false;
     clone.to.addAll(this.email.to);
     clone.cc.addAll(this.email.cc);
     clone.subject = this.email.subject;
+    clone.mustEncrypt = this.email.wasEncrypted;
+    clone.system = this.email.system;
     clone.html = this.email.html;
     clone.attachments.addAll(this.email.attachments.map(a => a.cloneTo(clone)));
     return clone;
@@ -215,6 +231,8 @@ export class ComposeActions {
   async editDraft(): Promise<void> {
     await this.email.loadMIME();
     this.email.mustEncrypt = this.email.wasEncrypted;
+    // The draft is signed by the key that the user (or the app) chose before saving
+    this.email.signPrivateKey ??= getMyKeyByFingerprint(this.email.signedPublicKeyFingerprint);
   }
 
   async convertInlineAttachmentsURLs() {
@@ -309,10 +327,43 @@ export class ComposeActions {
   }
 
   /**
+   * For a new mail, reply or forward, when the composer opens it.
+   * @param body In the editor
+   * @returns false, if nothing changed
+   */
+  addSignature(identity: MailIdentity, body: MailBody): boolean {
+    if (!this.needsFooter) {
+      return false;
+    }
+    this.needsFooter = false;
+    return body.setOwnSignature(identity.signatureHTML);
+  }
+
+  /** Adds our signature to a mail that skips the composer, e.g. the quick reply from a notification */
+  addSignatureWithoutComposer() {
+    let body = new MailBody(this.email.html);
+    body.setOwnSignature(this.email.identity?.signatureHTML, false);
+    this.email.html = body.html;
+  }
+
+  /**
+   * The user changed the From identity: Swaps our signature.
+   * If the previous identity has none, adds the signature of the new identity.
+   * @param body In the editor
+   * @returns false, if nothing changed
+   */
+  changeSignature(previous: MailIdentity, identity: MailIdentity, body: MailBody): boolean {
+    if (!body.ownSignature && previous.signatureHTML) { // The user removed it, or it's e.g. a redirect
+      return false;
+    }
+    return body.setOwnSignature(identity.signatureHTML);
+  }
+
+  /**
    * Sets up the email for sending, with all the headers, signature etc.
    *
    * - Insert inline images
-   * - Add footer signature
+   * - Sanitize
    * - Encrypt
    * - Send
    * - Mark the message that we replied to or forwarded
@@ -333,13 +384,12 @@ export class ComposeActions {
     let account = fromIdentity.account;
 
     await this.convertInlineAttachmentsURLs();
-    let sig = fromIdentity.signatureHTML;
-    if (!gLicense?.license) {
-      this.email.html += `<p></p><footer class="signature" style="color: #777777">Sent by © <a href="https://parula.app" style="color: #20AE9E; text-decoration: none"><strong><em>Parula</em></strong></a></footer>`;
-    }
-    if (sig) {
-      this.email.html += `<footer class="signature">${sig}</footer>`;
-    }
+    const kSentByHTML = `<p style="color: #777777">Sent by © <a href="https://parula.app" style="color: #20AE9E; text-decoration: none"><strong><em>Parula</em></strong></a></p>`;
+    // Sanitized, so that we send no http: images, e.g. in signatures,
+    // because they trigger warnings at all recipients. Images go inline.
+    let body = new MailBody(this.email.html);
+    body.prepareForSending(gLicense?.license ? null : kSentByHTML);
+    this.email.html = body.html;
     this.email.regenerateTextFromHTML();
     this.email.mime = undefined; // else the protocol uploads the MIME of the last draft save, or of the draft that we opened
     this.email.headers.set("User-Agent", (appName == "Mustang" ? "" : `Mustang/${appVersion} `) + `${appName}/${appVersion}`);

@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import "../../frontend/Util/happyDOMForDOMPurify"; // `send()` sanitizes the body
 // app first, to resolve the import cycle around Abstract/Account.ts
 import { appGlobal } from "../../../logic/app";
 import { newTestEMail, setUpAccount, type TestMailAccount } from "./TestMailAccount";

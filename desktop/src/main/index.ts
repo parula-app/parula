@@ -2,6 +2,7 @@ import { setMainWindow, startupBackend, shutdownBackend, runBeforeQuit, startupA
 import { SecondaryBrowserWindow } from '../../backend/SecondaryBrowserWindow';
 import { app, shell, BrowserWindow, session, Menu, MenuItemConstructorOptions, type WebContents, type Session, type BrowserWindowConstructorOptions, type HandlerDetails, type WindowOpenHandlerResponse } from 'electron'
 import { join } from 'path'
+import { release } from 'os'
 import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
@@ -12,7 +13,8 @@ const windowFrame: BrowserWindowConstructorOptions = {
   titleBarStyle: process.platform == 'darwin' ? 'hiddenInset' : 'customButtonsOnHover',
   // macOS: Parula has the traffic lights on top of its app bar, which is 64px wide.
   // macOS 15: 54px wide, so x 5 centers them. `hiddenInset` alone puts them at x 12, y 11.
-  trafficLightPosition: { x: 5, y: 11 },
+  // macOS 26 (Darwin 25): 61px wide, so x 4, and the app bar widens, see `--appbar-width-no-title-bar` in app/frontend/app.css.
+  trafficLightPosition: { x: parseInt(release()) >= 25 ? 4 : 8, y: 11 },
   titleBarOverlay: true,
   frame: false,
   ...(process.platform === 'linux' ? { icon } : {}),
@@ -44,11 +46,12 @@ async function createWindow(): Promise<void> {
       // The "ready-to-show" event doesn't always fire on Wayland.
       // "did-finish-load" works and is close enough.
       // https://github.com/electron/electron/issues/48859
-      mainWindow.webContents.on("did-finish-load", () => {
+      // Only once: Each `<webview>` fires "ready-to-show" again, and `show()` also focuses the window.
+      mainWindow.webContents.once("did-finish-load", () => {
         mainWindow.show();
       });
     } else {
-      mainWindow.on("ready-to-show", () => {
+      mainWindow.once("ready-to-show", () => {
         mainWindow.show();
       });
     }

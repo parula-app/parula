@@ -112,9 +112,11 @@ afterEach(() => {
 });
 
 /** The keys that we take from a certificate that the company directory,
- * e.g. ActiveSync, returned without its CA certificates */
+ * e.g. ActiveSync, returned without its CA certificates,
+ * when we asked for the person whom it is for */
 async function directoryKeys(certificate: string, serverURL = kServerURL): Promise<ArrayColl<SMIMEPublicKey>> {
-  return await new SMIMEDirectory(serverURL).readCertificates([certificate], ex => { throw ex; });
+  let emailAddress = (await signerKey(certificate)).userIDs.first;
+  return await new SMIMEDirectory(serverURL).readCertificates(emailAddress, [certificate], ex => { throw ex; });
 }
 
 /** The certificate of the signer of a received mail, without its CA certificates */
@@ -229,13 +231,13 @@ test("The web server fails", async () => {
 });
 
 test("A directory certificate that no trusted CA issued is not taken", async () => {
-  let keys = await new SMIMEDirectory(kServerURL).readDirectoryCertificates([kUntrustedSMIMECertificate], [], ex => { throw ex; });
+  let keys = await new SMIMEDirectory(kServerURL).readDirectoryCertificates("untrusted@example.com", [kUntrustedSMIMECertificate], [], ex => { throw ex; });
   expect(keys.length).toBe(0);
 });
 
 test("userSMIMECertificate is not trusted: take userCertificate", async () => {
   webServer[kIntermediateCAURL] = der(kIntermediateCA);
-  let keys = await new SMIMEDirectory(kServerURL).readDirectoryCertificates([kUntrustedSMIMECertificate], [kUserCertificate], ex => { throw ex; });
+  let keys = await new SMIMEDirectory(kServerURL).readDirectoryCertificates("aia@example.com", [kUntrustedSMIMECertificate], [kUserCertificate], ex => { throw ex; });
   expect(keys.length).toBe(1);
   expect(keys.first.userIDs.contents).toContain("aia@example.com");
 });

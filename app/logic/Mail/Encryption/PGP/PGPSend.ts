@@ -1,6 +1,6 @@
 import { SendEncrypted } from "../SendEncrypted";
 import type { EMail } from "../../EMail";
-import { getMyPrivateKey, getPublicKeyForPersonUID } from "../KeyUtils";
+import { getMySigningKey, getPublicKeyForPersonUID } from "../KeyUtils";
 import { CreateMIME } from "../../SMTP/CreateMIME";
 import { PGPPublicKey } from "./PGPPublicKey";
 import { PGPPrivateKey } from "./PGPPrivateKey";
@@ -23,7 +23,7 @@ export class PGPSend {
    *   The original email is untouched.
    */
   static async encryptAndSign(mail: EMail, recipients = mail.allRecipients()): Promise<EMail> {
-    let privateKey = getMyPrivateKey(mail.identity, PGPPrivateKey);
+    let privateKey = getMySigningKey(mail, PGPPrivateKey);
     assert(privateKey, gt`Please first set up PGP encryption for yourself, in Settings | Mail | Identity | Encryption`);
     let result = SendEncrypted.cloneEMail(mail);
     let originalMIME = await CreateMIME.getMIME(mail);
@@ -47,7 +47,7 @@ export class PGPSend {
         encryptionKeys: recipientOpenPGPKeys,
       });
       result.sendRawMIME = PGPSend.createMIMEForEncrypted(mail, headers, encrypted, privateKey);
-    } else if (mail.signedByKeyID) {
+    } else if (mail.shouldSign) {
       let message = await openPGP.createMessage({ text: originalMIMEStr });
       let signature = await openPGP.sign({
         message: message,
@@ -64,7 +64,7 @@ export class PGPSend {
     } else {
       throw new NotReached();
     }
-    result.signedByKeyID = privateKey.id;
+    result.signedPublicKeyFingerprint = privateKey.fingerprint;
     return result;
   }
 
@@ -193,9 +193,10 @@ export class PGPSend {
 
   protected static wrapHeader(content: string): string[] {
     const maxWidth = 78;
-    let lines: string[] = [];
-    for (let i = 0; i < content.length; i += maxWidth) {
-      lines.push((i == 0 ? "" : "    ") + content.slice(i, i + maxWidth + (i == 0 ? 0 : -4)));
+    const indent = "    ";
+    let lines = [content.slice(0, maxWidth)];
+    for (let i = maxWidth; i < content.length; i += maxWidth - indent.length) {
+      lines.push(indent + content.slice(i, i + maxWidth - indent.length));
     }
     return lines;
   }

@@ -111,4 +111,48 @@ describe("OMEMO end-to-end through a chat", () => {
     expect(aliceGot!.text).toBe("got it, also secret");
     expect(aliceGot!.encrypted).toBe(true);
   });
+
+  test("The unencrypted HTML and links of an OMEMO message are ignored", async () => {
+    pep = new FakePEPServer();
+    let aliceSent: any[] = [];
+    let alice = newAccount(kAlice, aliceSent);
+    let bob = newAccount(kBob, []);
+    await alice.omemo.publishOwnKeys();
+    await bob.omemo.publishOwnKeys();
+
+    let aliceToBob = new XMPP1to1Chat(alice);
+    aliceToBob.id = kBob;
+    aliceToBob.contact = await alice.getRosterPerson(kBob, "Bob") as any;
+    aliceToBob.encryption = Encryption.OMEMO;
+
+    let bobToAlice = new XMPP1to1Chat(bob);
+    bobToAlice.id = kAlice;
+    bobToAlice.contact = await bob.getRosterPerson(kAlice, "Alice") as any;
+
+    // The server adds XHTML-IM and an OOB link, which OMEMO doesn't encrypt
+    let outgoing = aliceToBob.newMessage();
+    outgoing.text = "meet at noon";
+    await aliceToBob.sendMessage(outgoing);
+    let received = await bobToAlice.addMessage(overTheWire({
+      ...aliceSent[0],
+      html: { body: "<p>meet at midnight</p>" },
+      links: [{ url: "https://server.example/upload/midnight.png" }],
+    }, kAlice));
+    expect(received!.encrypted).toBe(true);
+    expect(received!.html).toContain("meet at noon");
+    expect(received!.html).not.toContain("midnight");
+    expect(received!.attachments.hasItems).toBe(false);
+
+    // The same for an edit
+    let edit = aliceToBob.newMessage();
+    edit.isEdit = outgoing.id;
+    edit.text = "meet at 1 pm";
+    await edit.sendEdit();
+    await bobToAlice.addMessage(overTheWire({
+      ...aliceSent[1],
+      html: { body: "<p>meet at midnight</p>" },
+    }, kAlice));
+    expect(received!.html).toContain("meet at 1 pm");
+    expect(received!.html).not.toContain("midnight");
+  });
 });

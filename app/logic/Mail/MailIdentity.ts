@@ -27,6 +27,9 @@ export class MailIdentity extends Observable {
    * and not including the Mustang signature */
   @notifyChangedProperty
   signatureHTML: string | null = null;
+  /** More signatures, which the user can pick in the composer. Like `signatureHTML`. */
+  @notifyChangedProperty
+  altSignatures = new ArrayColl<string>();
   /** email addresses that should be CCed on every outgoing email */
   @notifyChangedProperty
   sendCC = new ArrayColl<string>();
@@ -74,6 +77,11 @@ export class MailIdentity extends Observable {
   async deleteFromServer(): Promise<void> {
   }
 
+  /** The signatures that the user can pick in the composer, the default first, if there is one */
+  get signatures(): ArrayColl<string> {
+    return new ArrayColl([this.signatureHTML, ...this.altSignatures].filter(signatureHTML => signatureHTML));
+  }
+
   asPersonUID(): PersonUID {
     return new PersonUID(this.emailAddress, this.realname);
   }
@@ -112,6 +120,9 @@ export class MailIdentity extends Observable {
     this.replyTo = sanitize.emailAddress(config.replyTo, null);
     this.organisation = sanitize.label(config.organisation, null);
     this.signatureHTML = sanitize.string(config.signatureHTML, null);
+    this.altSignatures.replaceAll(sanitize.array(config.altSignatures, [])
+      .map(signatureHTML => sanitize.nonemptystring(signatureHTML, null))
+      .filter(signatureHTML => signatureHTML));
     this.sendCC.clear();
     this.sendBCC.clear();
     this.sendCC.addAll(sanitize.array(config.sendCC).filter(e =>
@@ -138,10 +149,11 @@ export class MailIdentity extends Observable {
       replyTo: this.replyTo,
       organisation: this.organisation,
       signatureHTML: this.signatureHTML,
+      altSignatures: this.altSignatures.contents,
       sendCC: this.sendCC.contents,
       sendBCC: this.sendBCC.contents,
       smlAccount: this.smlAccount?.toJSON(),
-      encryptionPrivateKeys: this.encryptionPrivateKeys.contents.map(key => key.toJSON()),
+      encryptionPrivateKeys: this.encryptionPrivateKeys.contents.map(key => key.toPrivateJSON()),
     };
   }
 

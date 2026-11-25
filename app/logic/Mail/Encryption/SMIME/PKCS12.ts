@@ -17,7 +17,7 @@ import { sha256, sha384, sha512 } from "@noble/hashes/sha2.js";
  */
 export class PKCS12 {
   /** The private keys in the file, in PKCS#8 form */
-  keys: Uint8Array[] = [];
+  keys: Uint8Array<ArrayBuffer>[] = [];
   /** The certificates in the file, in X.509 DER form.
    * Typically the certificate of the key, and the CAs that signed it. */
   certificates: Uint8Array[] = [];
@@ -38,6 +38,9 @@ export class PKCS12 {
     let authSafe = OctetString.decode(pfx.authSafe.content);
     if (pfx.macData) {
       this.verifyMAC(pfx.macData, authSafe);
+    } else {
+      // Whoever changed the file could also have removed the MAC. Without passphrase, anybody could make the MAC anyway.
+      assert(!this.passphrase, gt`This file has no MAC, which would show that nobody changed it`);
     }
     for (let safe of AuthenticatedSafe.decode(authSafe, { berToDER: true })) {
       await this.readSafeContents(await this.decryptSafe(safe));
@@ -152,7 +155,7 @@ export class PKCS12 {
    * defines itself. Which cipher and key length to use is part of the
    * algorithm OID, so the parameters hold only the salt and iterations.
    */
-  protected async decrypt(algorithm: AlgorithmIdentifier, data: Uint8Array): Promise<Uint8Array> {
+  protected async decrypt(algorithm: AlgorithmIdentifier, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
     if (algorithm.algorithm == "pkcs5PBES2") {
       return await decryptPBES2(data, algorithm.parameters, this.passphrase);
     }

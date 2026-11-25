@@ -93,7 +93,7 @@ accountSettings.add(new AccSetting(MailAccount, "mail-server", gt`Server`, Accou
 accountSettings.add(new AccSetting(MailAccount, "mail-folders", gt`Folders`, AccountFolders));
 accountSettings.add(new AccSetting(MailAccount, "mail-identity", gt`Identity`, AccountIdentity));
 accountSettings.add(new AccSetting(MailAccount, "mail-rules", gt`Rules *=> Criteria after which emails should be sorted`, MailRules));
-accountSettings.add(new AccSetting(MailAccount, "mail-auto-responder", gt`Auto-Responder *=> Automatic replies to incoming mail, e.g. during vacation`, MailAutoResponder, false, (account: MailAccount) => account.autoResponder.supported));
+accountSettings.add(new AccSetting(MailAccount, "mail-auto-responder", gt`Auto Replies *=> Automatic responses to incoming mail, e.g. during vacation`, MailAutoResponder, false, (account: MailAccount) => account.autoResponder.supported));
 accountSettings.add(new AccSetting(MailAccount, "mail-sharing", gt`Sharing *=> Accessing mail account of team mates`, MailSharing, false, (account: MailAccount) => account.canShareWithPersons()));
 
 // #if [DEV]

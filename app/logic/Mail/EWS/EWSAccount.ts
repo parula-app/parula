@@ -5,6 +5,7 @@ import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShar
 import { EWSFolder, getEWSItem } from "./EWSFolder";
 import { EWSSearchEMail } from "./EWSSearchEMail";
 import { EWSAutoResponder } from "./EWSAutoResponder";
+import { EWSTags } from "./EWSTags";
 import { deleteExchangePermissions, setExchangePermissions } from "./ExchangePermission";
 import { EWSCreateItemRequest } from "./Request/EWSCreateItemRequest";
 import type { EWSDeleteItemRequest } from "./Request/EWSDeleteItemRequest";
@@ -86,6 +87,10 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     return new EWSAutoResponder(this);
   }
 
+  newTags(): EWSTags {
+    return new EWSTags(this);
+  }
+
   get folderID(): string {
     return this.inbox.id;
   }
@@ -160,6 +165,8 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         // `listFolders()` will subscribe to new user-added addressbooks and calendars
 
         await this.subscribeToNotifications();
+        this.tags.load()
+          .catch(logErrorToServer);
       } finally { // Even when the mail folders failed, so that calendar and addressbook still work
         await this.startupDependentAccounts();
       }
@@ -1200,7 +1207,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     };
     try {
       let result = await this.callEWS(request);
-      return result.filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
+      return ensureArray(result).filter(folder => folder.ResponseClass == "Success").map(folder => sanitize.string(getEWSItem(folder.Folders).DistinguishedFolderId));
     } catch (ex) {
       return [];
     }

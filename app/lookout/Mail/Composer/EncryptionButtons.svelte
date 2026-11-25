@@ -3,12 +3,12 @@
     <RibbonToggleButton label={$t`Encrypt`} icon={EncryptIcon}
       tooltip={$t`Only the recipients can read the email`}
       selected={!!$mail.shouldEncrypt}
-      disabled={$mail.mustEncrypt && $t`Policy requires that this email stays encrypted, to keep protect secret information`}
+      disabled={$mail.mustEncrypt && $t`Policy requires that this email stays encrypted, to protect secret information`}
       onClick={toggleEncrypted} />
     <RibbonToggleButton label={$t`Sign *=> Digitally sign this email`} icon={SignIcon}
       tooltip={$t`This proves that I wrote this email`}
-      selected={!!$mail.signedByKeyID}
-      disabled={$mail.mustEncrypt && $t`Policy requires that this email stays encrypted, to keep protect secret information`}
+      selected={$mail.shouldSign}
+      disabled={$mail.mustEncrypt && $t`Policy requires that this email stays encrypted, to protect secret information`}
       onClick={toggleSigned} />
   {:else}
     <RibbonButton label={$t`Encrypt`} icon={EncryptIcon}
@@ -44,10 +44,10 @@
     if (mail.mustEncrypt) {
       return;
     }
-    if (mail.signedByKeyID && mail.shouldEncrypt) {
+    if (mail.shouldSign && mail.shouldEncrypt) {
       mail.shouldEncrypt = false;
-    } else if (mail.signedByKeyID) {
-      mail.signedByKeyID = null;
+    } else if (mail.shouldSign) {
+      mail.shouldSign = false;
       mail.shouldEncrypt = false;
     } else {
       doSign();
@@ -58,15 +58,15 @@
       openTrustCenter(identity);
       return;
     }
-    mail.signedByKeyID = getMyPrivateKey(identity)?.id;
-    assert(mail.signedByKeyID, "No signing key found");
+    mail.signPrivateKey = getMyPrivateKey(identity);
+    assert(mail.shouldSign, "No signing key found");
   }
   function toggleEncrypted() {
     if (mail.mustEncrypt) {
       return;
     }
     let encryptDisabledReason = mail.mustEncrypt
-      ? $t`Policy requires that this email stays encrypted, to keep protect secret information`
+      ? $t`Policy requires that this email stays encrypted, to protect secret information`
       : null;
     if (!mail.shouldEncrypt && encryptDisabledReason) {
       showError(new UserError(encryptDisabledReason));
@@ -74,7 +74,7 @@
     }
 
     mail.shouldEncrypt = !mail.shouldEncrypt;
-    if (mail.shouldEncrypt && !mail.signedByKeyID) {
+    if (mail.shouldEncrypt && !mail.shouldSign) {
       doSign();
     }
   }

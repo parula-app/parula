@@ -3,10 +3,11 @@
 // import cycle, which would otherwise leave the base classes undefined.
 import "../../../../logic/app";
 import { PersonUID } from "../../../../logic/Abstract/PersonUID";
+import { ContactEntry } from "../../../../logic/Abstract/Person";
 import { setUpAccount, type TestMailAccount } from "../TestMailAccount";
 import { SpecialFolder } from "../../../../logic/Mail/Folder";
-import { getEncryptionSystem, getPublicKeyForPerson, getPublicKeyForPersonUID } from "../../../../logic/Mail/Encryption/KeyUtils";
-import { EncryptionSystem } from "../../../../logic/Mail/Encryption/enums";
+import { getEncryptionSystem, getPublicKeyByFingerprint, getPublicKeyForPerson, getPublicKeyForPersonUID } from "../../../../logic/Mail/Encryption/KeyUtils";
+import { EncryptionSystem, TrustLevel } from "../../../../logic/Mail/Encryption/enums";
 import { SMIMEPublicKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPublicKey";
 import { SMIMEPrivateKey } from "../../../../logic/Mail/Encryption/SMIME/SMIMEPrivateKey";
 import { PGPPublicKey } from "../../../../logic/Mail/Encryption/PGP/PGPPublicKey";
@@ -86,6 +87,38 @@ describe("Encryption system of the outgoing email", () => {
   });
 });
 
+describe("Key that signed the email, as the mail viewer shows it", () => {
+  test("is not our own key with the same key ID", async () => {
+    let account = accountWithMyKey(new PGPPrivateKey());
+    appGlobal.emailAccounts.add(account);
+    let mail = account.getSpecialFolder(SpecialFolder.Inbox).newEMail();
+    mail.from = new PersonUID("mallory@example.com", "Mallory");
+    // Another PGP key can have the same 64-bit key ID
+    let signer = new PGPPublicKey();
+    signer.id = account.identities.first.encryptionPrivateKeys.first.id;
+    signer.fingerprint = "6d616c6c6f7279";
+    signer.userIDs.add("mallory@example.com");
+    mail.rememberSigner(signer);
+    expect(await getPublicKeyByFingerprint(mail.signedPublicKeyFingerprint, mail)).toBe(signer);
+  });
+
+  test("of a mail that we signed is our key with our trust, but without the secret key", async () => {
+    let myKey = await PGPPrivateKey.createNewPrivateKey({ realname: "Me", emailAddress: "me@example.com" });
+    myKey.trustLevel = TrustLevel.Personal;
+    let account = accountWithMyKey(myKey);
+    appGlobal.emailAccounts.add(account);
+    let mail = account.getSpecialFolder(SpecialFolder.Inbox).newEMail();
+    mail.from = new PersonUID("me@example.com", "Me");
+    mail.signedPublicKeyFingerprint = myKey.fingerprint;
+    let key = await getPublicKeyByFingerprint(mail.signedPublicKeyFingerprint, mail);
+    expect(key.fingerprint).toBe(myKey.fingerprint);
+    expect(key.trustLevel).toBe(TrustLevel.Personal);
+    expect(key).not.toBeInstanceOf(PGPPrivateKey);
+    expect(JSON.stringify(key)).not.toContain("PRIVATE KEY");
+    expect(JSON.stringify(key)).not.toContain(myKey.passphrase);
+  });
+});
+
 describe("Certificate to which we encrypt", () => {
   /** We have this certificate of the recipient, e.g. from the signature of his email */
   async function recipientWith(certificate: string): Promise<PersonUID> {
@@ -123,6 +156,53 @@ describe("Certificate to which we encrypt", () => {
     person.addEncryptionPublicKey(await SMIMEPublicKey.importPublicKey(kVictorSigning));
     person.addEncryptionPublicKey(encryption);
     expect(getPublicKeyForPerson(person)).toBe(encryption);
+  });
+
+  test("of a contact with a key that the user confirmed and one from an AutoCrypt header: the confirmed one", async () => {
+    let person = new Addressbook().newPerson();
+    // Anybody can send a mail with this person's address and an AutoCrypt header with a key of their own
+    let autoCrypt = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Victor", emailAddress: "victor@example.com" })).publicKeyArmored);
+    autoCrypt.trustLevel = TrustLevel.Sender;
+    autoCrypt.encryptByDefault = true;
+    let confirmed = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Victor", emailAddress: "victor@example.com" })).publicKeyArmored);
+    confirmed.trustLevel = TrustLevel.Personal;
+    person.addEncryptionPublicKey(autoCrypt);
+    person.addEncryptionPublicKey(confirmed);
+    expect(getPublicKeyForPerson(person)).toBe(confirmed);
+  });
+
+  test("of a contact with a confirmed certificate: not a PGP key that nobody confirmed", async () => {
+    let addressbook = new Addressbook();
+    appGlobal.addressbooks.add(addressbook);
+    let person = addressbook.newPerson();
+    person.emailAddresses.add(new ContactEntry("victor@example.com"));
+    addressbook.persons.add(person);
+    let confirmed = await SMIMEPublicKey.importPublicKey(kVictorEncryption);
+    confirmed.trustLevel = TrustLevel.ThirdParty;
+    person.addEncryptionPublicKey(confirmed);
+    // e.g. from the AutoCrypt header of a mail that anybody could have sent
+    let unconfirmed = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Victor", emailAddress: "victor@example.com" })).publicKeyArmored);
+    person.addEncryptionPublicKey(unconfirmed);
+    let uid = new PersonUID("victor@example.com", "Victor");
+    uid.encryptionPublicKey = unconfirmed; // as a mail signed with it leaves it
+    try {
+      expect(getPublicKeyForPersonUID(uid, PGPPublicKey)).toBe(null);
+      expect(getPublicKeyForPersonUID(uid)).toBe(confirmed);
+    } finally {
+      appGlobal.addressbooks.remove(addressbook);
+    }
+  });
+
+  test("of a contact with a certificate that the user confirmed: not a PGP key that only a key server confirmed", async () => {
+    let person = new Addressbook().newPerson();
+    let confirmed = await SMIMEPublicKey.importPublicKey(kVictorEncryption);
+    confirmed.trustLevel = TrustLevel.Personal;
+    person.addEncryptionPublicKey(confirmed);
+    let keyServer = await PGPPublicKey.importPublicKey((await PGPPrivateKey.createNewPrivateKey({ realname: "Victor", emailAddress: "victor@example.com" })).publicKeyArmored);
+    keyServer.trustLevel = TrustLevel.ThirdParty;
+    person.addEncryptionPublicKey(keyServer);
+    expect(getPublicKeyForPerson(person, PGPPublicKey)).toBeFalsy();
+    expect(getPublicKeyForPerson(person)).toBe(confirmed);
   });
 
   test("from a company directory that has one for signing and one for encrypting", async () => {

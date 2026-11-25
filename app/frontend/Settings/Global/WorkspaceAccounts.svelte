@@ -5,7 +5,7 @@
     <hbox class="buttons">
       {#if category?.newAccountURL}
         <RoundButton
-          label={$t`Add a new account.\nTo move an account to this workspace, find it its current workspace and click the [Move] button next to the account.`}
+          label={$t`Add a new account.\nTo move an account to this workspace, find it in its current workspace and click the [Move] button next to the account.`}
           icon={AddIcon}
           iconSize="10px"
           padding="3px"

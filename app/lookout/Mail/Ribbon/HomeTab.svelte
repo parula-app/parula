@@ -25,7 +25,7 @@
     <RibbonButton label={$t`Delete`} icon={DeleteIcon}
       onClick={async () => { await Promise.all(messages.map(message => message.deleteMessage())); }}
       disabled={noSelection} shortCutInfo={$t`Del *=> Delete key`} />
-    <RibbonButton label={$t`Archive`} icon={ArchiveIcon}
+    <RibbonButton label={$t`Archive *=> Move the message to the Archive folder`} icon={ArchiveIcon}
       onClick={() => MessageActions.archive(messages)}
       disabled={noSelection} shortCutInfo={$t`Backspace *=> Backspace key`} />
   </RibbonGroup>

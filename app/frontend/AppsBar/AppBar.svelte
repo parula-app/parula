@@ -1,4 +1,4 @@
-<vbox class="app-bar">
+<vbox class="app-bar" class:no-title-bar={noTitleBar}>
   {#if noTitleBar}
     <hbox class="window-buttons window-drag" class:mac> <!-- macOS shows its traffic lights here -->
       {#if !mac && !webMail}
@@ -83,8 +83,6 @@
     /* Electron gives the height of the macOS traffic lights.
      * 0 in fullscreen, where macOS hides them, and in a web browser. */
     height: calc(env(titlebar-area-height, 0px) + 8px);
-    /* The macOS 26 traffic lights are wider than the app bar */
-    min-width: env(titlebar-area-x, 0px);
   }
   .window-buttons:not(.mac) {
     justify-content: center;
@@ -105,6 +103,9 @@
     /* The content must not make the app bar higher than the window,
      * else `LaunchBar` would count that as space for more web apps */
     contain: size;
+  }
+  .app-bar.no-title-bar {
+    width: var(--appbar-width-no-title-bar);
   }
   .app-bar :global(.app-button),
   .middle {

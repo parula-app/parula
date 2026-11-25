@@ -101,6 +101,8 @@ test("Reads the settings from the server", async () => {
   expect(autoResponder.startTime.toISOString()).toBe("2026-10-05T07:00:00.000Z");
   expect(autoResponder.endTime.toISOString()).toBe("2026-10-19T16:00:00.000Z");
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Contacts);
+  // OWA does not tell us what the admin allows
+  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.All);
   // The HTML, not the plaintext that Exchange derives from it
   expect(autoResponder.internalHTML).toBe("sanitized:<html><body><p>Back on the <b>19th</b>.</p></body></html>");
   expect(autoResponder.externalHTML).toBe("sanitized:<p>I am out of office.</p>");
@@ -149,7 +151,7 @@ test("Old dates of a disabled responder are not kept", async () => {
 
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
-  expect(autoResponder.startTime.getTime()).toBeGreaterThan(Date.now());
+  expect(autoResponder.endTime.getTime()).toBeGreaterThan(Date.now());
 });
 
 test("Always on, for everybody", async () => {
@@ -175,7 +177,7 @@ test("Unknown values are read as off", async () => {
 
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
-  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Internal);
 });
 
 test("Writes the settings to the server", async () => {
@@ -227,7 +229,7 @@ test("Without time range, there are no times", async () => {
   expect("EndTime" in options).toBe(false);
 
   autoResponder.isOn = false;
-  autoResponder.externalAudience = AutoResponderAudience.None;
+  autoResponder.externalAudience = AutoResponderAudience.Internal;
   await autoResponder.save();
   expect(calls[1].body.Options.AutoReplyState).toBe(0);
   expect(calls[1].body.Options.ExternalAudience).toBe(0);
@@ -276,7 +278,7 @@ test("OWA sends the numbers of the names that EWS sends", () => {
     { isOn: true, scheduled: true, ews: "Scheduled", owa: 2 },
   ];
   let audiences = [
-    { audience: AutoResponderAudience.None, ews: "None", owa: 0 },
+    { audience: AutoResponderAudience.Internal, ews: "None", owa: 0 },
     { audience: AutoResponderAudience.Contacts, ews: "Known", owa: 1 },
     { audience: AutoResponderAudience.All, ews: "All", owa: 2 },
   ];

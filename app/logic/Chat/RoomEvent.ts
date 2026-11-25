@@ -115,6 +115,14 @@ export class IncomingCall extends ChatRoomEvent {
   }
 }
 
+/** The contact's end-to-end encryption key changed.
+ * Created with `ChatRoom.addIdentityChange()`. */
+export class IdentityChange extends ChatRoomEvent {
+  get kind(): RoomEventKind {
+    return RoomEventKind.IdentityChange;
+  }
+}
+
 /** What happened in the chat room.
  * Values: For storage in the DB. Do not change them. */
 export enum RoomEventKind {
@@ -124,4 +132,5 @@ export enum RoomEventKind {
   Invite = "invite",
   RoomNameChange = "name-change",
   IncomingCall = "call",
+  IdentityChange = "identity-change",
 }

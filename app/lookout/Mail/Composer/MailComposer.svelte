@@ -1,6 +1,6 @@
 <vbox flex class="composer-page" class:inline={isInline} on:keydown|capture={event => catchErrors(() => onKey(event))}>
   {#if !isInline}
-    <ComposerRibbon {mail} {editor} bind:showEmojis bind:openedTool {onSelectNames} {onCheckNames} {onEditSignatures} />
+    <ComposerRibbon {mail} {editor} bind:showEmojis bind:openedTool {onSelectNames} {onCheckNames} />
   {/if}
   <vbox flex class="composer" class:lo-card={!isInline} on:keydown={onEscape}>
     <FileDropTarget
@@ -15,6 +15,9 @@
           <DialogButton label={$t`Pop Out *=> Open the message in its own window`} icon={PopOutIcon} classes="plain"
             tooltip={$t`Open in a separate window`}
             onClick={onPopOut} />
+          <DialogButton label={$t`Maximize`} icon={MaximizeIcon} classes="plain"
+            tooltip={$t`Open this response in its own message page`}
+            onClick={onMaximize} />
         </hbox>
       {:else}
         <hbox class="title-row">
@@ -84,7 +87,7 @@
           </hbox>
         </grid>
       </hbox>
-      {#if $mail.shouldEncrypt || $mail.signedByKeyID}
+      {#if $mail.shouldEncrypt || $mail.shouldSign}
         <hbox class="info-bar">
           {#if $mail.shouldEncrypt}
             <LockIcon size={16} />
@@ -131,9 +134,6 @@
     onNo={onDiscard}
     on:close={() => showSaveChanges = false} />
 {/if}
-{#if showSignatures}
-  <SignaturesDialog identity={fromIdentity} on:close={() => showSignatures = false} />
-{/if}
 <EditorToolDialogs {editor} bind:openedTool />
 
 <script lang="ts">
@@ -141,6 +141,7 @@
   import type { PersonUID } from "../../../logic/Abstract/PersonUID";
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
   import { findAllIdentities, type MailIdentity } from "../../../logic/Mail/MailIdentity";
+  import { MailBody } from "../../../logic/Mail/MailBody";
   import { SpecialFolder } from "../../../logic/Mail/Folder";
   import { appGlobal } from "../../../logic/app";
   import { UserError, assert } from "../../../logic/util/util";
@@ -157,11 +158,9 @@
   import { minorError, catchErrors, showError, showUserError } from "../../../frontend/Util/error";
   import { getOSName, isTextField } from "../../../frontend/Util/util";
   import { getMyPrivateKey } from "../../../logic/Mail/Encryption/KeyUtils";
-  import { hasOwnText } from "../../../frontend/Mail/Composer/CloseButton.svelte";
   import ComposerRibbon from "./ComposerRibbon.svelte";
   import SelectNamesDialog, { RecipientField } from "./SelectNamesDialog.svelte";
   import SaveChangesDialog from "./SaveChangesDialog.svelte";
-  import SignaturesDialog from "./SignaturesDialog.svelte";
   import EditorToolDialogs from "../../Shared/Editor/EditorToolDialogs.svelte";
   import EmojiPane from "../../Shared/Editor/EmojiPane.svelte";
   import UndoRedoButtons from "../../Shared/Editor/UndoRedoButtons.svelte";
@@ -178,6 +177,7 @@
   import SaveIcon from "lucide-svelte/icons/save";
   import DiscardIcon from "lucide-svelte/icons/trash-2";
   import CloseIcon from "lucide-svelte/icons/x";
+  import MaximizeIcon from "lucide-svelte/icons/expand";
   import PopOutIcon from "lucide-svelte/icons/square-arrow-out-up-right";
   import LockIcon from "lucide-svelte/icons/lock";
   import SignIcon from "lucide-svelte/icons/signature";
@@ -208,7 +208,6 @@
   let selectNamesField: RecipientField | null = null;
   $: isSelectNamesOpen = !!selectNamesField;
   let showSaveChanges = false;
-  let showSignatures = false;
   let openedTool: EditorTool | null = null;
   let ribbonLayout = getLocalStorage<RibbonLayout>("lookout.ribbon.layout", "classic");
   $: isChips = $ribbonLayout.value == "simplified";
@@ -247,16 +246,19 @@
 
   let loading = false;
   async function loadText() {
-    if (!mail.hasHTML) {
-      return;
+    let hasHTML = mail.hasHTML;
+    if (hasHTML) {
+      loading = true;
+      await mail.loadBody();
+      loading = false;
     }
-    loading = true;
-    await mail.loadBody();
-    loading = false;
     if (!editor) {
       await tick();
     }
-    editor.commands.setContent(mail.html);
+    if (hasHTML) {
+      editor.commands.setContent(mail.html);
+    }
+    editor.commands.editSignature(body => mail.compose.addSignature(fromIdentity, body));
     setCursorDefault();
   }
 
@@ -266,12 +268,18 @@
     }
     let quoteSetting = getLocalStorage("mail.send.quote", "below").value;
     let below = quoteSetting == "below";
-    editor.commands.focus(below ? 'start' : 'end');
+    if (below || !editor.commands.focusBeforeSignature()) {
+      editor.commands.focus(below ? 'start' : 'end');
+    }
   }
 
   $: fromIdentity && setAuthor()
   function setAuthor() {
+    let previousIdentity = mail.identity;
     mail.identity = fromIdentity;
+    if (previousIdentity && previousIdentity != fromIdentity && editor) {
+      editor.commands.editSignature(body => mail.compose.changeSignature(previousIdentity, fromIdentity, body));
+    }
     mail.folder ??= fromIdentity.account.getSpecialFolder(SpecialFolder.Sent)
       ?? fromIdentity.account.inbox;
     if (fromIdentity == mail.identity) {
@@ -348,6 +356,12 @@
     goBack();
   }
 
+  /** Moves the inline reply to the composer page */
+  function onMaximize() {
+    onClose();
+    mailMustangApp.writeMail(mail);
+  }
+
   async function onPopOut() {
     onClose();
     await MessageActions.writeMailInNewWindow(mail);
@@ -355,7 +369,7 @@
 
   /** The user closed the separate window of the composer */
   onDestroy(() => {
-    if (closing || appWindow.isMainWindow || !hasOwnText(mail)) {
+    if (closing || appWindow.isMainWindow || !new MailBody(mail.html).hasUserText) {
       return;
     }
     mail.compose.saveAsDraft()
@@ -379,16 +393,16 @@
   function changedIdentity() {
     let extra = mail as any;
     if (privateKey) {
-      if (!mail.signedByKeyID && privateKey.useToSign) {
-        mail.signedByKeyID = privateKey.id;
+      if (!mail.shouldSign && privateKey.useToSign) {
+        mail.signPrivateKey = privateKey;
         extra.signOnlyByDefault = true;
       }
       if (!mail.shouldEncrypt && privateKey.encryptByDefault) {
         mail.shouldEncrypt = true;
         extra.encryptOnlyByDefault = true;
       }
-      if (mail.signedByKeyID && extra.signOnlyByDefault && !privateKey.useToSign) {
-        mail.signedByKeyID = null;
+      if (mail.shouldSign && extra.signOnlyByDefault && !privateKey.useToSign) {
+        mail.shouldSign = false;
         extra.signOnlyByDefault = false;
       }
       if (mail.shouldEncrypt && extra.encryptOnlyByDefault && !privateKey.encryptByDefault) {
@@ -398,13 +412,13 @@
     } else {
       assert(!mail.mustEncrypt, $t`This email must be encrypted`);
       mail.shouldEncrypt = false;
-      mail.signedByKeyID = null;
+      mail.shouldSign = false;
     }
   }
   // </copied>
 
   $: if (isInline && !closing) {
-    $inlineRibbon = { draft: mail, editor, onSelectNames, onCheckNames, onOpenTool, onEditSignatures };
+    $inlineRibbon = { draft: mail, editor, onSelectNames, onCheckNames, onOpenTool };
   }
   onDestroy(() => {
     let ribbon = appWindow.uiState(inlineRibbon);
@@ -438,7 +452,7 @@
   }
 
   function onCloseRequest() {
-    if (hasOwnText(mail)) {
+    if (new MailBody(mail.html).hasUserText) {
       showSaveChanges = true;
     } else {
       onClose();
@@ -451,10 +465,6 @@
 
   function onOpenTool(tool: EditorTool) {
     openedTool = tool;
-  }
-
-  function onEditSignatures() {
-    showSignatures = true;
   }
 
   async function onCheckNames() {
@@ -477,7 +487,7 @@
     if (event.key != "Escape" || event.ctrlKey || event.altKey || event.shiftKey || event.metaKey ||
         !isTextField(event.target) ||
         event.defaultPrevented && !(event.target as HTMLElement).closest("[contenteditable]:not([contenteditable='false'])") ||
-        isSelectNamesOpen || showSaveChanges || showSignatures || openedTool) {
+        isSelectNamesOpen || showSaveChanges || openedTool) {
       return;
     }
     event.preventDefault();
@@ -486,7 +496,7 @@
   }
 
   async function onKey(event: KeyboardEvent) {
-    if (isSelectNamesOpen || showSaveChanges || showSignatures || openedTool) {
+    if (isSelectNamesOpen || showSaveChanges || openedTool) {
       return;
     }
     let isCtrl = event.ctrlKey || event.metaKey;
