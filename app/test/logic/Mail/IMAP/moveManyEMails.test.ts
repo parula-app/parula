@@ -20,6 +20,7 @@ function setUpAccount(): IMAPAccount {
   appGlobal.remoteApp = {
     createIMAPFlowConnection: () => ({
       id: "test",
+      capabilities: new Map([["MOVE", true]]),
       on: () => undefined,
       connect: async () => undefined,
       getMailboxLock: async () => ({ release: () => undefined }),
