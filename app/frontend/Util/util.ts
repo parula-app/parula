@@ -52,7 +52,9 @@ export async function saveBlobAsFile(blob: Blob, filename?: string) {
   // #if [!WEBMAIL && !MOBILE]
   // Not with `showSaveFilePicker()`: Electron checks its write permission without the `WebContents`, so `isPermissionAllowed()` can't tell our app from a mail `<webview>` with our origin
   let filePath = await appGlobal.remoteApp.askWhereToSaveFile(filename);
-  if (filePath) {
+  if (!filePath) {
+    return;
+  }
     await appGlobal.remoteApp.writeFile(filePath, 0o644, new Uint8Array(await blob.arrayBuffer()));
   }
   // #else
