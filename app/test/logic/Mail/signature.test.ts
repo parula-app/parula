@@ -291,7 +291,9 @@ test("Sent mail: Markers in HTML and plaintext, without the composer marker", as
     .toBe("Fred MillerExample Inc.");
   expect(mail.text).toMatch(/^See you at 12\n\n-- \nFred Miller\nExample Inc\.\s*$/);
   let nmMail = await CreateMIME.getNMMail(mail);
-  expect(nmMail.text).toContain("\r\n-- \r\n"); // The `-- ` keeps its space on the wire
+  let textPart = (nmMail.text as { raw: string }).raw;
+  expect(textPart).toContain("format=flowed");
+  expect(textPart).toContain("\r\n-- \r\n"); // The `-- ` keeps its space on the wire
 });
 
 test("Send sanitizes the body, so the signature has no remote images", async () => {
@@ -351,7 +353,7 @@ test("Unlicensed: The Sent by line goes into our signature, and only once", asyn
   expect(footers.length).toBe(1);
   expect(footers[0].textContent).toBe("Fred MillerExample Inc.Sent by © Parula");
   expect(mail.text.match(/^-- $/gm)).toHaveLength(1);
-  expect(mail.text).toMatch(/^-- \nFred Miller\nExample Inc\.\nSent by © Parula/);
+  expect(mail.text).toMatch(/^-- \nFred Miller\nExample Inc\.\nSent by © Parula <https:\/\/parula\.app>$/m);
 
   // Sending again, e.g. after a server error, doesn't add another one
   let sentHTML = mail.rawHTMLDangerous;
