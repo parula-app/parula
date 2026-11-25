@@ -20,15 +20,15 @@ export class EWSFilterRule extends ServerFilterRule {
 
   /** Exchange allows to change only the order */
   get isReadOnly(): boolean {
-    return this.json.IsNotSupported == "true";
+    return sanitize.boolean(this.json.IsNotSupported, false);
   }
 
   get isEnabled(): boolean {
-    return this.json.IsEnabled != "false";
+    return sanitize.boolean(this.json.IsEnabled ?? true, true);
   }
 
   get hasError(): boolean {
-    return this.json.IsInError == "true";
+    return sanitize.boolean(this.json.IsInError, false);
   }
 
   protected get sections(): Record<string, Record<string, any>> {
@@ -73,7 +73,7 @@ export class EWSFilterRule extends ServerFilterRule {
       case "Delete":
       case "MarkAsRead":
       case "PermanentDelete":
-        return value == "true";
+        return sanitize.boolean(value, false);
       }
       return false;
     }
