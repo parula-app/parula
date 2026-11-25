@@ -21,9 +21,10 @@
         <UndoRedoButtons {editor} />
       {/if}
       {#if appWindow.isMainWindow}
-        <DialogButton label={$t`Pop Out *=> Open the event in its own window`} icon={PopOutIcon} classes="plain"
-          tooltip={$t`Open in a separate window`}
-          onClick={() => flow.popOut()} />
+        <button class="pop-out" title={$t`Open in a separate window`} aria-label={$t`Open in a separate window`}
+          on:click={() => catchErrors(() => flow.popOut())}>
+          <PopOutIcon size={16} />
+        </button>
       {/if}
       <button class="close" title={$t`Close`} aria-label={$t`Close`} on:click={onCloseRequest}>
         <CloseIcon size={18} />
@@ -84,7 +85,6 @@
   import { EditorTool } from "../../Shared/Editor/EditorTool";
   import EditorToolDialogs from "../../Shared/Editor/EditorToolDialogs.svelte";
   import UndoRedoButtons from "../../Shared/Editor/UndoRedoButtons.svelte";
-  import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
   import { shownCalendarEvents } from "../../../frontend/Calendar/selected";
   import { catchErrors } from "../../../frontend/Util/error";
   import { getOSName } from "../../../frontend/Util/util";
@@ -346,6 +346,7 @@
     height: 10px;
     border-radius: 50%;
   }
+  .pop-out,
   .close {
     display: flex;
     align-items: center;
@@ -357,6 +358,9 @@
     background: none;
     color: var(--lo-fg-secondary);
     cursor: pointer;
+  }
+  .pop-out:hover {
+    background-color: var(--lo-hover-bg);
   }
   .close:hover {
     background-color: var(--lo-danger);
