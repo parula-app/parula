@@ -186,7 +186,7 @@ export class POP3Folder extends Folder {
 
   /** A copy, because all POP3 folders are local */
   async addMessage(message: EMail) {
-    message.mime ??= await CreateMIME.getMIME(message);
+    message.mime ??= await CreateMIME.getMIME(message, true);
     let email = this.newEMail();
     email.mime = message.mime;
     await email.parseMIME();
