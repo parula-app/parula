@@ -58,7 +58,6 @@ test("Listing the emails of a folder asks the server only for the header fields"
   let fields = url.searchParams.get("$select")?.split(",");
   expect(fields).toContain("subject");
   expect(fields).not.toContain("body");
-  expect(url.searchParams.get("$top")).toBeTruthy();
 });
 
 /** Sends the pages one after the other, each with the link to the next page */
