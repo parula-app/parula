@@ -121,6 +121,17 @@ export class Topic extends Observable {
     await this.save();
   }
 
+  /** Finds the emails, contacts etc. of the links in our accounts, as `link.target` */
+  async findLinkTargets(): Promise<void> {
+    await Promise.all(this.links.contents.map(async link => {
+      try {
+        link.target ??= await link.findTarget();
+      } catch (ex) {
+        this.account.errorCallback(ex);
+      }
+    }));
+  }
+
   async save() {
     this.lastMod = new Date();
     await this.account.storage.saveTopic(this);
