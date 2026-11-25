@@ -219,6 +219,22 @@ test("saveContents overwrites bytes on the server", async () => {
   expect(new TextDecoder().decode(new Uint8Array(bytes))).toBe("Replaced contents\n");
 });
 
+test("rename renames the file on the server", async () => {
+  let root = account.rootDirs.first;
+  let sub = root.subDirs.find(d => d.name == "subdir");
+  await sub.listContents();
+  let file = sub.files.find(f => f.name == "hello.txt");
+  expect(file).toBeDefined();
+
+  await file.rename("renamed.txt");
+
+  let subOnServer = await verify.getDirectoryContents("/subdir") as webdavClient.FileStat[];
+  expect(subOnServer.map(s => s.basename)).toContain("renamed.txt");
+  expect(subOnServer.map(s => s.basename)).not.toContain("hello.txt");
+  expect(file.name).toBe("renamed.txt");
+  expect(sub.files.contains(file)).toBe(true);
+});
+
 test("deleteIt removes file from the server", async () => {
   let root = account.rootDirs.first;
   await root.listContents();

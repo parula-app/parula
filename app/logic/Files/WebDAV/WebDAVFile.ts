@@ -105,45 +105,44 @@ export class WebDAVFile extends File {
     this.fromDAV(stat);
   }
 
-  /** Save renames and lastMod changes to the server.
+  /** Save lastMod changes to the server.
    * Size and mimetype are server-computed, so we don't send them. */
   async saveOnServer() {
-    let renamedPath = this.parent.childPath(this.name);
-    let nameChanged = renamedPath != this.path;
     let lastModChanged = this.lastModOnServer &&
       this.lastMod.getTime() != this.lastModOnServer.getTime();
-    if (!nameChanged && !lastModChanged) {
+    if (!lastModChanged) {
       return;
     }
     await this.account.login(false);
-    if (nameChanged) {
-      await this.account.client.moveFile(this.path, renamedPath);
-      this.path = renamedPath;
-      this.serverURL = sanitize.url(new URL(this.path, this.account.url).href, null);
-      await this.parent.listContents();
-    }
-    if (lastModChanged) {
-      try {
-        // PROPPATCH on D:getlastmodified. Honored by SabreDAV, Nextcloud,
-        // ownCloud, openCloud. Plain WebDAV treats it as protected and 403s.
-        let xml = `<?xml version="1.0" encoding="utf-8"?>\n` +
-          `<D:propertyupdate xmlns:D="DAV:"><D:set><D:prop>` +
-          `<D:getlastmodified>${this.lastMod.toUTCString()}</D:getlastmodified>` +
-          `</D:prop></D:set></D:propertyupdate>`;
-        await this.account.client.customRequest(this.path, {
-          method: "PROPPATCH",
-          headers: { "Content-Type": "application/xml; charset=utf-8" },
-          data: xml,
-        });
-      } catch (ex) {
-        if (ex.message?.includes("403")) { // TODO test
-          console.log(ex);
-        } else {
-          throw ex;
-        }
+    try {
+      // PROPPATCH on D:getlastmodified. Honored by SabreDAV, Nextcloud,
+      // ownCloud, openCloud. Plain WebDAV treats it as protected and 403s.
+      let xml = `<?xml version="1.0" encoding="utf-8"?>\n` +
+        `<D:propertyupdate xmlns:D="DAV:"><D:set><D:prop>` +
+        `<D:getlastmodified>${this.lastMod.toUTCString()}</D:getlastmodified>` +
+        `</D:prop></D:set></D:propertyupdate>`;
+      await this.account.client.customRequest(this.path, {
+        method: "PROPPATCH",
+        headers: { "Content-Type": "application/xml; charset=utf-8" },
+        data: xml,
+      });
+    } catch (ex) {
+      if (ex.message?.includes("403")) { // TODO test
+        console.log(ex);
+      } else {
+        throw ex;
       }
-      this.lastModOnServer = this.lastMod;
     }
+    this.lastModOnServer = this.lastMod;
+  }
+
+  async renameOnServer(newName: string) {
+    let renamedPath = this.parent.childPath(newName);
+    await this.account.login(false);
+    await this.account.client.moveFile(this.path, renamedPath);
+    this.path = renamedPath;
+    this.serverURL = sanitize.url(new URL(this.path, this.account.url).href, null);
+    await this.parent.listContents();
   }
 
   async deleteOnServer() {

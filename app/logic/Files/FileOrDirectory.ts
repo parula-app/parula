@@ -41,6 +41,20 @@ export class FileOrDirectory extends Observable implements TaggableObject {
   async saveOnServer() {
   }
 
+  async rename(newName: string) {
+    if (newName == this.name) {
+      return;
+    }
+    await this.renameOnServer(newName);
+    this.setName(newName);
+    await this.saveLocally();
+  }
+  async renameOnServer(newName: string) {
+  }
+  protected setName(name: string) {
+    this.name = name;
+  }
+
   canDelete: boolean;
   async deleteIt() {
     await this.deleteLocally();
