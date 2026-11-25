@@ -1,6 +1,7 @@
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import type { URLString } from "../../logic/util/util";
 import { blobToDataURL } from "../../logic/util/blob";
+import { appGlobal } from "../../logic/app";
 
 /** Returns what `onEnter` returns, so that an async `onEnter` can be awaited,
  * e.g. by the `catchErrors()` around the call. */
@@ -45,13 +46,20 @@ export function onListKey(event: KeyboardEvent, rowSelector: string) {
 }
 
 export async function saveBlobAsFile(blob: Blob, filename?: string) {
+  if (blob instanceof File) {
+    filename = blob.name;
+  }
+  // #if [!WEBMAIL && !MOBILE]
+  // Not with `showSaveFilePicker()`: Electron checks its write permission without the `WebContents`, so `isPermissionAllowed()` can't tell our app from a mail `<webview>` with our origin
+  let filePath = await appGlobal.remoteApp.askWhereToSaveFile(filename);
+  if (filePath) {
+    await appGlobal.remoteApp.writeFile(filePath, 0o644, new Uint8Array(await blob.arrayBuffer()));
+  }
+  // #else
   const showSaveFilePicker = (window as any).showSaveFilePicker;
   if (typeof(showSaveFilePicker) != "function") { // Fallback
     saveBlobAsFileViaA(blob, filename);
     return;
-  }
-  if (blob instanceof File) {
-    filename = blob.name;
   }
   let handle: any;
   try {
@@ -67,6 +75,7 @@ export async function saveBlobAsFile(blob: Blob, filename?: string) {
   let writable = await handle.createWritable();
   await writable.write(blob);
   await writable.close();
+  // #endif
 }
 
 /** Doesn't work anymore */
