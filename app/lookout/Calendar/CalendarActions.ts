@@ -14,6 +14,7 @@ import { appGlobal } from "../../logic/app";
 import { assert } from "../../logic/util/util";
 import { catchErrors } from "../../frontend/Util/error";
 import { AppWindow } from "../../frontend/MainWindow/AppWindow";
+import EventWindow from "./EditEvent/EventWindow.svelte";
 import { gt } from "../../l10n/l10n";
 import { get } from "svelte/store";
 
@@ -99,6 +100,10 @@ export class CalendarActions {
     if (!get(appWindow.uiState(selectedSlots))) {
       appWindow.uiState(selectedEvent).set(event);
     }
+  }
+
+  static async showEventInNewWindow(event: Event) {
+    await AppWindow.current().open(EventWindow, { event }, 1000);
   }
 
   static async changeTime(event: Event, start: Date, end: Date) {

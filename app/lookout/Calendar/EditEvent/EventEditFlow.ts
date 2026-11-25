@@ -308,6 +308,10 @@ export class EventEditFlow {
   close(deselect = false) {
     let event = this.event;
     event.finishEditing();
+    if (!this.appWindow.isMainWindow) {
+      this.appWindow.close();
+      return;
+    }
     calendarMustangApp.closeEvent(event);
     if (deselect) {
       this.appWindow.uiState(selectedEvent).set(null);
@@ -315,6 +319,13 @@ export class EventEditFlow {
     this.onClosed();
   }
   // </copied>
+
+  /** Moves the form into the event's own window, where the user keeps editing */
+  async popOut() {
+    await CalendarActions.showEventInNewWindow(this.event);
+    calendarMustangApp.closeEvent(this.event);
+    this.onClosed();
+  }
 
   async deleteIt() {
     await CalendarActions.deleteOccurrence(this.event);

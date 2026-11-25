@@ -20,6 +20,11 @@
       {#if showsEditor}
         <UndoRedoButtons {editor} />
       {/if}
+      {#if appWindow.isMainWindow}
+        <DialogButton label={$t`Pop Out *=> Open the event in its own window`} icon={PopOutIcon} classes="plain"
+          tooltip={$t`Open in a separate window`}
+          onClick={() => flow.popOut()} />
+      {/if}
       <button class="close" title={$t`Close`} aria-label={$t`Close`} on:click={onCloseRequest}>
         <CloseIcon size={18} />
       </button>
@@ -79,20 +84,24 @@
   import { EditorTool } from "../../Shared/Editor/EditorTool";
   import EditorToolDialogs from "../../Shared/Editor/EditorToolDialogs.svelte";
   import UndoRedoButtons from "../../Shared/Editor/UndoRedoButtons.svelte";
+  import DialogButton from "../../Shared/Dialog/DialogButton.svelte";
   import { shownCalendarEvents } from "../../../frontend/Calendar/selected";
   import { catchErrors } from "../../../frontend/Util/error";
   import { getOSName } from "../../../frontend/Util/util";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import CloseIcon from "lucide-svelte/icons/x";
+  import PopOutIcon from "lucide-svelte/icons/square-arrow-out-up-right";
   import type { Editor } from "@tiptap/core";
   import { onMount } from "svelte";
   import { ArrayColl } from "svelte-collections";
-  import { openComposer } from "../../../frontend/Mail/open";
+  import { MessageActions } from "../../Mail/MessageActions";
   import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
 
   event.startEditing();
+  const appWindow = AppWindow.current();
   const flow = new EventEditFlow(event);
   const timeEditor = new EventTimeEditor(event);
   const schedulingLabel = $t`Scheduling Assistant`;
@@ -254,7 +263,7 @@
       } else if (key == "f" && flow.isSaved) {
         keyEvent.preventDefault();
         keyEvent.stopPropagation();
-        openComposer(await IncomingInvitation.forwardEventByMail(event));
+        MessageActions.writeMail(await IncomingInvitation.forwardEventByMail(event));
         return;
       }
     }
