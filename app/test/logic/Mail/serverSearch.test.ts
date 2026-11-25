@@ -358,6 +358,15 @@ test("Exchange: Criteria that a restriction cannot express are flagged", () => {
   expect(conditions.length).toBe(1);
 });
 
+test("Exchange: The server has the Message-ID with <>", () => {
+  let search = new ExchangeSearchEMail();
+  search.messageID = "original@example.com";
+
+  let conditions = (search as any).conditions();
+
+  expect(conditions[0].value).toBe("<original@example.com>");
+});
+
 let databaseDir: string;
 
 beforeEach(async () => {

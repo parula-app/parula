@@ -234,7 +234,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         }, "item:Attachments");
       }
       if (email.inReplyTo) {
-        request.addField("Message", "InReplyTo", email.inReplyTo, "item:InReplyTo");
+        request.addField("Message", "InReplyTo", "<" + email.inReplyTo + ">", "item:InReplyTo");
       }
       if (email.headers.hasItems) {
         request.addField("Message", "ExtendedProperty", [...email.headers.entries()].map(([header, value]) => ({

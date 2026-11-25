@@ -351,7 +351,7 @@ export class OWAAccount extends ExchangeMailAccount {
         })), null);
       }
       if (email.inReplyTo) {
-        request.addField("Message", "InReplyTo", email.inReplyTo, "item:InReplyTo");
+        request.addField("Message", "InReplyTo", "<" + email.inReplyTo + ">", "item:InReplyTo");
       }
       if (email.replyTo) {
         addRecipients(request, "ReplyTo", [email.replyTo]);
