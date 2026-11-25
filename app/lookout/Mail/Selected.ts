@@ -9,6 +9,7 @@ import type { InlineReply, InlineRibbon } from "./Composer/InlineReplies";
 import type { FolderPropertiesTab } from "./FolderProperties.svelte";
 import type { ApplyScope } from "./ViewSettings/ViewSettings";
 import { defaultSearchOptions, type SearchOptions } from "./Search/MailSearch";
+import { mailMustangApp } from "../../frontend/Mail/MailMustangApp";
 import { AppWindow } from "../../frontend/MainWindow/AppWindow";
 import { ArrayColl } from "svelte-collections";
 import { writable } from "svelte/store";
@@ -16,6 +17,7 @@ import { writable } from "svelte/store";
 export const updatingFolders = new ArrayColl<Folder>();
 
 export const inlineReplies = AppWindow.perWindow(() => new ArrayColl<InlineReply>());
+mailMustangApp.inlineDrafts = AppWindow.perWindow(appWindow => appWindow.uiState(inlineReplies).map(reply => reply.draft));
 
 export const inlineRibbon = AppWindow.perWindow(() => writable<InlineRibbon | null>(null));
 

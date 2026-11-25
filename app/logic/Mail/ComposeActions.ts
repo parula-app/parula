@@ -5,6 +5,7 @@ import { PersonUID, findOrCreatePersonUID } from "../Abstract/PersonUID";
 import { MailIdentity, findIdentityForEMailAddress } from "./MailIdentity";
 import { MailBody } from "./MailBody";
 import { SendEncrypted } from "./Encryption/SendEncrypted";
+import { CreateMIME } from "./SMTP/CreateMIME";
 import { ExtraData } from "./ExtraData";
 import { appName, appVersion, siteRoot } from "../build";
 import { gLicense } from "../util/License";
@@ -14,7 +15,7 @@ import { fileExtensionForMIMEType } from "../Files/FileType/MIMETypes";
 import { escapeAttr, escapeHTML } from "../Files/FileType/htmlHelper";
 import { minorError } from "../util/error";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
-import { UserError, assert, type URLString, ensureArray, getUserPreference } from "../util/util";
+import { UserError, assert, type URLString, ensureArray, getUserPreference, sleep, waitTime } from "../util/util";
 import { dataURLToBlob } from "../util/blob";
 import { getDateTimeLocale, gt } from "../../l10n/l10n";
 import { ArrayColl, type Collection } from "svelte-collections";
@@ -456,6 +457,30 @@ export class ComposeActions {
     await draftFolder.addMessage(draft);
 
     await this.deleteDrafts(previousDrafts);
+  }
+
+  /** When the app quits: Saves the draft on the server.
+   * If that fails or takes more than 1 second, keeps it on disk,
+   * and `MailAccount.uploadLocalDrafts()` uploads it on the next start.
+   * @throws if it could not save the draft on disk either */
+  async saveDraftOnQuit(): Promise<void> {
+    let savedOnServer = false;
+    let serverSave = (async () => {
+      try {
+        await this.saveAsDraft();
+        savedOnServer = true;
+      } catch (ex) {
+        minorError(ex);
+      }
+    })();
+    const kServerSeconds = 1;
+    await Promise.race([serverSave, sleep(kServerSeconds * waitTime.factor)]); // tests wait less
+    if (savedOnServer) {
+      return;
+    }
+    let account = this.email.folder?.account ?? this.email.identity?.account;
+    let draft = this.email.shouldEncrypt ? await SendEncrypted.encryptDraft(this.email) : this.email;
+    await account.saveDraftLocally(this.email.messageID, await CreateMIME.getMIME(draft));
   }
 
   getDrafts(): Collection<EMail> {

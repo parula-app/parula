@@ -2,9 +2,11 @@
 import { startInlineReply, removeInlineReply, InlineReply } from "../../../Mail/Composer/InlineReplies";
 import { inlineReplies, inlineRibbon } from "../../../Mail/Selected";
 import { messageBoxQuestion } from "../../../Shared/Dialog/MessageBox";
+import { mailMustangApp } from "../../../../frontend/Mail/MailMustangApp";
 import { AppWindow } from "../../../../frontend/MainWindow/AppWindow";
+import { ComposeActions } from "../../../../logic/Mail/ComposeActions";
 import type { EMail } from "../../../../logic/Mail/EMail";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { get } from "svelte/store";
 
 function mail(html = ""): EMail {
@@ -80,13 +82,14 @@ test("Removing a reply hides its Message tab", async () => {
   expect(inlineReplies.isEmpty).toBe(true);
 });
 
-test("A reply stays in the window where it was started, also when the question was answered after using another window", async () => {
-  // Stands in for a second main window. `acting` is what `AppWindow.current()` returns first.
-  class SecondWindow extends AppWindow {
-    constructor() {
-      super(window, "second");
-    }
+// Stands in for a second main window. `acting` is what `AppWindow.current()` returns first.
+class SecondWindow extends AppWindow {
+  constructor() {
+    super(window, "second");
   }
+}
+
+test("A reply stays in the window where it was started, also when the question was answered after using another window", async () => {
   let secondWindow = new SecondWindow();
   let original = mail();
   let reply = mail(kLongText);
@@ -105,4 +108,41 @@ test("A reply stays in the window where it was started, also when the question w
   expect(secondReplies.length).toBe(1);
   expect(secondReplies.first.draft).toBe(forward);
   expect(inlineReplies.isEmpty).toBe(true);
+});
+
+/** A mail that the user is writing. `saveDraftOnQuit()` is what `ComposeActions` does. */
+function draft(html: string): EMail {
+  let mail = { html } as unknown as EMail;
+  let compose = new ComposeActions(mail);
+  compose.saveDraftOnQuit = vi.fn(async () => {});
+  return Object.assign(mail, { compose });
+}
+
+test("Quitting the app saves the inline replies with text, and only those that are still open", async () => {
+  let written = draft(kLongText);
+  let discarded = draft(kLongText);
+  await startInlineReply(mail(), written);
+  await startInlineReply(mail(), discarded);
+  removeInlineReply(discarded);
+  await mailMustangApp.saveDraftsOnQuit();
+  expect(written.compose.saveDraftOnQuit).toHaveBeenCalledTimes(1);
+  expect(discarded.compose.saveDraftOnQuit).not.toHaveBeenCalled();
+});
+
+test("Quitting the app saves the inline replies of all windows", async () => {
+  let secondWindow = new SecondWindow();
+  let written = draft(kLongText);
+  AppWindow["acting"] = secondWindow;
+  try {
+    await startInlineReply(mail(), written);
+  } finally {
+    AppWindow["acting"] = null;
+  }
+  AppWindow.opened.add(secondWindow);
+  try {
+    await mailMustangApp.saveDraftsOnQuit();
+  } finally {
+    AppWindow.opened.remove(secondWindow);
+  }
+  expect(written.compose.saveDraftOnQuit).toHaveBeenCalledTimes(1);
 });

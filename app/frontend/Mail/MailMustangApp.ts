@@ -3,15 +3,18 @@ import { MustangApp } from "../AppsBar/MustangApp";
 import { openApp } from "../AppsBar/selectedApp";
 import { AppWindow } from "../MainWindow/AppWindow";
 import ComposerWindow from "./Composer/ComposerWindow.svelte";
+import { MailBody } from "../../logic/Mail/MailBody";
 import { showError } from "../Util/error";
 import { getLocalStorage } from "../Util/LocalStorage";
 import { OAuth2Tab, oAuth2TabsOpen } from "../../logic/Auth/UI/OAuth2Tab";
 import { appGlobal } from "../../logic/app";
+import { PromiseAllDone } from "../../logic/util/flow/PromiseAllDone";
 import mailIcon from '../asset/icon/appBar/mail.svg?raw';
 import EditIcon from "lucide-svelte/icons/pencil";
 import AuthIcon from "lucide-svelte/icons/key-round";
 import { derived, get, writable } from "svelte/store";
 import type { Component } from "svelte";
+import { ArrayColl, type Collection } from "svelte-collections";
 import { gt } from "../../l10n/l10n";
 
 export class MailMustangApp extends MustangApp {
@@ -21,6 +24,8 @@ export class MailMustangApp extends MustangApp {
   appURL = "/mail";
   /** The window that shows the composer. The Lookout frontend sets its own, in each of its main windows. */
   composerWindow = AppWindow.perMainWindow(() => writable<Component<{ mail: EMail }>>(ComposerWindow));
+  /** Mails that the user is writing outside of the composer sub-apps, e.g. Lookout's inline replies. Per window, see `AppWindow.perWindow()`. */
+  inlineDrafts: Collection<EMail> = AppWindow.perWindow(() => new ArrayColl<EMail>());
 
   /**
    * Opens the mail composer.
@@ -43,6 +48,33 @@ export class MailMustangApp extends MustangApp {
 
   async writeMailInNewWindow(mail: EMail) {
     await AppWindow.current().open(get(this.composerWindow), { mail }, 1000);
+  }
+
+  /** The mails that the user is writing, if they already have some text of the user */
+  draftsWithText(): ArrayColl<EMail> {
+    let drafts = new ArrayColl<EMail>();
+    for (let app of this.subApps) {
+      if (app instanceof WriteMailMustangApp && new MailBody(app.windowParams.mail.html).hasUserText) {
+        drafts.add(app.windowParams.mail);
+      }
+    }
+    for (let appWindow of AppWindow.all) {
+      for (let mail of appWindow.uiState(this.inlineDrafts)) {
+        if (new MailBody(mail.html).hasUserText) {
+          drafts.add(mail);
+        }
+      }
+    }
+    return drafts;
+  }
+
+  /** @see `ComposeActions.saveDraftOnQuit()` */
+  async saveDraftsOnQuit(): Promise<void> {
+    let saves = new PromiseAllDone();
+    for (let mail of this.draftsWithText()) {
+      saves.add(mail.compose.saveDraftOnQuit());
+    }
+    await saves.wait();
   }
 
   login(tab: OAuth2Tab): LoginDialogMustangApp {
