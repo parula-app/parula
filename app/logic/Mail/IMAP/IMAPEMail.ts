@@ -61,6 +61,15 @@ export class IMAPEMail extends EMail {
     });
   }
 
+  async downloadMIME(): Promise<Uint8Array> {
+    let msgInfo = await this.folder.runCommand(async (conn) => {
+      this.folder.account.log(this.folder, conn, "download MIME", this.uid, this.subject);
+      return await conn.fetchOne(this.uid + "", { source: true }, { uid: true });
+    }, ConnectionPurpose.Display);
+    assert(msgInfo && msgInfo.source, gt`This mail is not on the server anymore`);
+    return msgInfo.source;
+  }
+
   fromFlow(msgInfo: any) {
     this.setFlagsLocal(msgInfo.flags);
     // <https://imapflow.com/global.html#FetchMessageObject>
