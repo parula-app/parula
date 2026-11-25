@@ -14,16 +14,6 @@
             iconSize="16px"
             />
         {/if}
-        {#if isFullWindow && !appGlobal.isMobile && appWindow.isMainWindow}
-          <RoundButton
-            label={$t`Open in a separate window`}
-            icon={PopOutIcon}
-            onClick={onPopOut}
-            classes="plain"
-            border={false}
-            iconSize="16px"
-            />
-        {/if}
         {#if $event.recurrenceCase == RecurrenceCase.Instance}
           <ButtonMenu bind:isMenuOpen={isDeleteSeriesOpen}>
             <RoundButton
@@ -87,6 +77,16 @@
             label={$t`Shrink dialog to sidebar`}
             icon={ShrinkDialogIcon}
             onClick={onShrink}
+            classes="plain"
+            border={false}
+            iconSize="16px"
+            />
+        {/if}
+        {#if isFullWindow && !appGlobal.isMobile && appWindow.isMainWindow}
+          <RoundButton
+            label={$t`Open in a separate window`}
+            icon={PopOutIcon}
+            onClick={onPopOut}
             classes="plain"
             border={false}
             iconSize="16px"
