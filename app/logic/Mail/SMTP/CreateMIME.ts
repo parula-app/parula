@@ -5,6 +5,7 @@ import { getICal } from "../../Calendar/ICal/ICalGenerator";
 import { appGlobal } from "../../app";
 import { getUserPreference } from "../../util/util";
 import { fixNewlines } from "../../util/convertHTML";
+import { uint8ArrayToBase64 } from "../../util/blob";
 import type { ArrayColl } from "svelte-collections";
 import type { default as Mail, Attachment as NMAttachment, Address as NMAddress } from "nodemailer/lib/mailer";
 type NMMail = Mail.Options;
@@ -40,7 +41,7 @@ export class CreateMIME {
       to: CreateMIME.getRecipients(email.to),
       cc: CreateMIME.getRecipients(email.cc),
       bcc: CreateMIME.getRecipients(email.bcc),
-      text: fixNewlines(email.text),
+      text: email.text ? CreateMIME.getFlowedText(email.text) : null,
       html: doHTML ? fixNewlines(email.html) : null,
       icalEvent: iCal ? {
         content: iCal,
@@ -51,6 +52,23 @@ export class CreateMIME {
       headers: email.headers.contentKeyValues(),
       disableFileAccess: true,
       disableUrlAccess: true,
+    };
+  }
+
+  /** As format=flowed (RFC 3676), which `FormatFlowedWriter` wrote, and nodemailer can't declare */
+  protected static getFlowedText(text: string): NMAttachment {
+    text = fixNewlines(text);
+    let bytes = new TextEncoder().encode(text);
+    // Base64 keeps the spaces at the end of the lines. The RFC prefers no encoding.
+    let isASCII = bytes.length == text.length;
+    return {
+      raw: [
+        "Content-Type: text/plain; charset=utf-8; format=flowed",
+        "Content-Transfer-Encoding: " + (isASCII ? "7bit" : "base64"),
+        "",
+        // MIME allows base64 lines of at most 76 characters (RFC 2045), so 1 to 76 characters per line, as in `SMIMESend`
+        isASCII ? text : uint8ArrayToBase64(bytes).match(/.{1,76}/g).join("\r\n"),
+      ].join("\r\n"),
     };
   }
 

@@ -6,6 +6,12 @@
         <span>{$calendar?.name ?? ""}</span>
       </hbox>
       <h2 class="title" class:muted={look.status == "declined" || look.status == "cancelled"}>{look.title}</h2>
+      {#if $event.calUID}
+        <hbox class="topics">
+          <AddToTopicButton target={event} placement="bottom-start" />
+          <LinkedTopics target={event} />
+        </hbox>
+      {/if}
       {#if $event.isCancelled}
         <hbox class="notice">{$t`This meeting has been cancelled by the organizer`}</hbox>
         <hbox class="buttons">
@@ -45,6 +51,8 @@
   import type { Event } from "../../../logic/Calendar/Event";
   import { EventLook } from "./EventLook";
   import { CalendarActions } from "../CalendarActions";
+  import AddToTopicButton from "../../../frontend/Topic/Picker/AddToTopicButton.svelte";
+  import LinkedTopics from "../../../frontend/Topic/Picker/LinkedTopics.svelte";
   import DetailsGrid from "./DetailsGrid.svelte";
   import ResponseButton from "../Invitation/ResponseButton.svelte";
   import RespondButtons from "../Invitation/RespondButtons.svelte";
@@ -68,6 +76,10 @@
 </script>
 
 <style>
+  .topics {
+    align-items: center;
+    gap: 4px;
+  }
   .event-reading-pane {
     min-width: 0;
     min-height: 0;

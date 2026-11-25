@@ -85,6 +85,9 @@
             iconSize="16px"
             />
         {/if}
+        {#if event.calUID}
+          <AddToTopicButton target={event} />
+        {/if}
         {#if event.isEditable}
           <RoundButton
             label={$t`Edit`}
@@ -109,6 +112,7 @@
 <script lang="ts">
   import { RecurrenceCase, type Event } from "../../../logic/Calendar/Event";
   import { CalendarEventMustangApp, calendarMustangApp } from "../CalendarMustangApp";
+  import AddToTopicButton from "../../Topic/Picker/AddToTopicButton.svelte";
   import { selectedEvent } from "../selected";
   import { openApp, selectedApp, goBack } from "../../AppsBar/selectedApp";
   import { AppWindow } from "../../MainWindow/AppWindow";

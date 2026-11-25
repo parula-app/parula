@@ -39,6 +39,7 @@
             </TagSelector>
           </hbox>
         {/if}
+        <LinkedTopics target={message} />
       </hbox>
     </vbox>
   </hbox>
@@ -103,6 +104,7 @@
   import SecondaryWindowButtons from "../../MainWindow/SecondaryWindowButtons.svelte";
   import DisplayModeSwitcher from "./DisplayModeSwitcher.svelte";
   import TagSelector from "../../Shared/Tag/TagSelector.svelte";
+  import LinkedTopics from "../../Topic/Picker/LinkedTopics.svelte";
   import EncryptionButtons from "./EncryptionButtons.svelte";
   import EncryptionDetails from "./EncryptionDetails.svelte";
   import ErrorMessageInline from "../../Shared/ErrorMessageInline.svelte";

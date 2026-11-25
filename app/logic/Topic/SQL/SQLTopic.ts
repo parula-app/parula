@@ -2,6 +2,7 @@ import type { TopicAccount } from "../TopicAccount";
 import { setRootTopic } from "../TopicAccounts";
 import { Topic, type ValueProperty } from "../Topic";
 import { Paragraph } from "../PageContent";
+import { topicLinksFromJSONLD } from "../Link/TopicLinks";
 import { getDatabase } from "./SQLDatabase";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { dataError } from "../../util/error";
@@ -29,13 +30,13 @@ export class SQLTopic {
         INSERT INTO topic (
           idStr, accountID, name, parentID,
           contentsJSON, propertiesJSON, linksJSON,
-          json
+          json, lastMod
         ) VALUES (
           ${topic.id}, ${topic.account.dbID}, ${topic.name}, ${topic.parent?.dbID ?? null},
           ${SQLTopic.saveContents(topic)},
           ${SQLTopic.saveProperties(topic)},
           ${SQLTopic.saveLinks(topic)},
-          null
+          null, ${topic.lastMod?.getTime() ?? null}
         )`);
       topic.dbID = insert.lastInsertRowid;
     } else {
@@ -48,7 +49,8 @@ export class SQLTopic {
           contentsJSON = ${SQLTopic.saveContents(topic)},
           propertiesJSON = ${SQLTopic.saveProperties(topic)},
           linksJSON = ${SQLTopic.saveLinks(topic)},
-          json = null
+          json = null,
+          lastMod = ${topic.lastMod?.getTime() ?? null}
         WHERE id = ${topic.dbID}
         `);
     }
@@ -61,7 +63,7 @@ export class SQLTopic {
       SELECT
         idStr, name, parentID,
         contentsJSON, propertiesJSON, linksJSON,
-        json
+        json, lastMod
       FROM topic
       WHERE id = ${dbID}
       `) as any;
@@ -72,9 +74,10 @@ export class SQLTopic {
     topic.dbID = sanitize.integer(dbID);
     topic.id = sanitize.nonemptystring(row.idStr);
     topic.name = sanitize.string(row.name, "");
+    topic.lastMod = sanitize.date(row.lastMod, null);
     SQLTopic.readContents(topic, sanitize.json(row.contentsJSON, []));
     SQLTopic.readProperties(topic, sanitize.json(row.propertiesJSON, []));
-    //SQLTopic.readLinks(topic, sanitize.json(row.linksJSON, []));
+    SQLTopic.readLinks(topic, sanitize.json(row.linksJSON, []));
   }
 
   protected static readContents(topic: Topic, contents: ContentJSON[]) {
@@ -112,13 +115,13 @@ export class SQLTopic {
     return JSON.stringify(topic.properties.contents);
   }
 
+  /** As in JSON-LD @see `TopicLink.toJSONLD()` */
   protected static readLinks(topic: Topic, links: any[]) {
-    // TODO implement
+    topic.links.replaceAll(topicLinksFromJSONLD(topic, links));
   }
 
   protected static saveLinks(topic: Topic): string {
-    // TODO implement
-    return "[]";
+    return JSON.stringify(topic.links.contents.map(link => link.toJSONLD()));
   }
 
   static async deleteIt(topic: Topic) {
@@ -134,7 +137,7 @@ export class SQLTopic {
       SELECT
         id, idStr, name, parentID,
         contentsJSON, propertiesJSON, linksJSON,
-        json
+        json, lastMod
       FROM topic
       WHERE accountID = ${topicAccount.dbID}
       `) as any[];

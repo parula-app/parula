@@ -1,55 +1,20 @@
 import { getBaseDomainFromURL } from "./netUtil";
 import type { URLString } from "./util";
 import DOMPurify from "dompurify"; // https://github.com/cure53/DOMPurify
-import { compile as makeHTMLToText } from "html-to-text";
 import markdownit from "markdown-it";
+import { MarkdownWriter } from "./convert/MarkdownWriter";
+import { FormatFlowedWriter } from "./convert/FormatFlowedWriter";
+import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../l10n/l10n";
 
-let htmlToText: (html: string) => string;
-
+/** With the conventions of plaintext emails @see `FormatFlowedWriter` */
 export function convertHTMLToText(html: string): string {
-  if (!htmlToText) {
-    const options = {
-      formatters: {
-        removeFormatter: () => { },
-        signatureFormatter: (elem, walk, builder) => {
-          builder.openBlock({ leadingLineBreaks: 2 });
-          builder.addLiteral("-- ");
-          builder.closeBlock({ trailingLineBreaks: 1 });
-          for (let child of elem.children ?? []) {
-            if (child.type == "tag" && child.name == "p") {
-              builder.openBlock({ leadingLineBreaks: 1 });
-              walk(child.children, builder);
-              builder.closeBlock({ trailingLineBreaks: 1 });
-            } else {
-              walk([child], builder);
-            }
-          }
-        },
-      },
-      selectors: [
-        {
-          selector: "img",
-          format: "removeFormatter",
-        },
-        {
-          selector: "style",
-          format: "removeFormatter",
-        },
-        {
-          selector: "footer.signature",
-          format: "signatureFormatter",
-        },
-      ],
-    };
-    htmlToText = makeHTMLToText(options);
-  }
-  let text = htmlToText(sanitizeHTML(html));
-  return text;
+  return new FormatFlowedWriter().write(html);
 }
 
 let markdownitInstance;
 export function convertTextToHTML(plaintext: string): string {
+  plaintext = FormatFlowedWriter.unwrap(plaintext);
   if (!markdownitInstance) {
     markdownitInstance = markdownit({
       linkify: true,
@@ -72,6 +37,40 @@ export function convertTextToHTML(plaintext: string): string {
   }
   let html = markdownitInstance.render(body) + signatureHTML;
   return sanitizeHTML(html);
+}
+
+let markdownFileInstance;
+/** For Markdown files, e.g. the pages of topics. Unlike `convertTextToHTML()`, keeps the line breaks and URLs as they are.
+ * HTML in the Markdown stays text, so the result has only the elements that markdown-it makes.
+ * The width of an image is an attribute, as in Pandoc: `![alt](src){width=200}` */
+export function convertMarkdownToHTML(markdown: string): string {
+  if (!markdownFileInstance) {
+    markdownFileInstance = markdownit();
+    // Before `text_join`, so that an escaped `\{` is no attribute
+    markdownFileInstance.core.ruler.before("text_join", "image_width", state => {
+      for (let block of state.tokens) {
+        let tokens = block.children ?? [];
+        for (let i = 1; i < tokens.length; i++) {
+          let text = tokens[i].content;
+          if (tokens[i - 1].type != "image" || tokens[i].type != "text" || !text.startsWith("{width=")) {
+            continue;
+          }
+          let end = text.indexOf("}");
+          let width = sanitize.integer(text.substring("{width=".length, end), null);
+          if (width > 0) {
+            tokens[i - 1].attrSet("width", String(width));
+            tokens[i].content = text.substring(end + 1);
+          }
+        }
+      }
+    });
+  }
+  return markdownFileInstance.render(markdown);
+}
+
+/** For Markdown files, e.g. the pages of topics @see `MarkdownWriter` */
+export function convertHTMLToMarkdown(html: string): string {
+  return new MarkdownWriter().write(html);
 }
 
 export function fixNewlines(text: string): string {

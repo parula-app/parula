@@ -87,6 +87,9 @@
       plain
       />
   </hbox>
+  <hbox class="topic button">
+    <AddToTopicButton target={message} />
+  </hbox>
   {#if !$appGlobal.isMobile && appWindow.isMainWindow}
     <hbox class="popout button">
       <Button
@@ -117,6 +120,7 @@
   import { SpecialFolder } from "../../../logic/Mail/Folder";
   import MessageMenu from "./MessageMenu.svelte";
   import MessageMovePopup from "../Message/MessageMovePopup.svelte";
+  import AddToTopicButton from "../../Topic/Picker/AddToTopicButton.svelte";
   import Print from "./MessagePrint.svelte";
   import ButtonMenu from "../../Shared/Menu/ButtonMenu.svelte";
   import Popup from "../../Shared/Popup.svelte";
@@ -207,7 +211,7 @@
     margin-right: 32px;
   }
   @media (max-width: 600px)  {
-    .reply, .reply-all, .spam, .trash, .move, .popout, .menu {
+    .reply, .reply-all, .spam, .trash, .move, .topic, .popout, .menu {
       display: none;
     }
   }

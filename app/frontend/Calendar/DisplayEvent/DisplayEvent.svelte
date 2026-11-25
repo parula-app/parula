@@ -4,6 +4,7 @@
     <hbox class="title selectable font-normal">
       {$event.title ?? ""}
     </hbox>
+    <LinkedTopics target={event} />
   </hbox>
   <vbox class="details-grid">
     <DetailsGrid {event} />
@@ -31,6 +32,7 @@
   import cssBody from "../../Mail/Message/content-body.css?inline";
   import DialogHeader from "./DialogHeader.svelte";
   import DetailsGrid from "./DetailsGrid.svelte";
+  import LinkedTopics from "../../Topic/Picker/LinkedTopics.svelte";
   import Attachments from "../../Mail/Message/AttachmentsUI.svelte";
   import TagSelector from "../../Shared/Tag/TagSelector.svelte";
   import Paper from "../../Shared/Paper.svelte";

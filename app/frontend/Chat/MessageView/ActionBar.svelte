@@ -60,12 +60,14 @@
     border={false} classes="plain"
     padding="4px"
     />
+  <AddToTopicButton target={message} />
 </hbox>
 
 <script lang="ts">
   import { Message } from "../../../logic/Abstract/Message";
   import { ChatMessage } from "../../../logic/Chat/ChatMessage";
   import RoundButton from "../../Shared/RoundButton.svelte";
+  import AddToTopicButton from "../../Topic/Picker/AddToTopicButton.svelte";
   import Toolbar from "../../Shared/Toolbar/Toolbar.svelte";
   import TrashIcon from "lucide-svelte/icons/trash-2";
   import EditIcon from "lucide-svelte/icons/pencil";

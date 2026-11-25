@@ -21,6 +21,11 @@
         {/if}
         <CardButton label={$t`Edit`} icon={EditIcon}
           onClick={() => ContactActions.edit(person)} />
+        <CardButton label={$t`Topic`} icon={TopicIcon} hasMenu
+          onClick={event => { topicAnchor = event.currentTarget as HTMLElement; isTopicPickerOpen = true; }} />
+      </hbox>
+      <hbox class="topics">
+        <LinkedTopics target={person} />
       </hbox>
     </vbox>
   </hbox>
@@ -139,6 +144,9 @@
   {/if}
 </vbox>
 <NewEventCalendarMenu bind:this={newEventMenu} />
+<Popup bind:popupOpen={isTopicPickerOpen} popupAnchor={topicAnchor} placement="bottom-start" boundaryElSel="body">
+  <TopicPicker target={person} on:close={() => isTopicPickerOpen = false} />
+</Popup>
 
 <script lang="ts">
   import type { Person, ContactEntry } from "../../../logic/Abstract/Person";
@@ -150,6 +158,9 @@
   import CardField from "./CardField.svelte";
   import CardButton from "./CardButton.svelte";
   import NewEventCalendarMenu from "../../Calendar/NewEventCalendarMenu.svelte";
+  import TopicPicker from "../../../frontend/Topic/Picker/TopicPicker.svelte";
+  import LinkedTopics from "../../../frontend/Topic/Picker/LinkedTopics.svelte";
+  import Popup from "../../../frontend/Shared/Popup.svelte";
   import { shownCalendars } from "../../../frontend/Calendar/selected";
   import MailIcon from "lucide-svelte/icons/mail";
   import MeetingIcon from "lucide-svelte/icons/calendar-plus";
@@ -164,9 +175,13 @@
   import DepartmentIcon from "lucide-svelte/icons/network";
   import GroupIcon from "lucide-svelte/icons/users-round";
   import AddressbookIcon from "lucide-svelte/icons/book-user";
+  import TopicIcon from "lucide-svelte/icons/notebook-tabs";
   import { t } from "../../../l10n/l10n";
 
   export let person: Person;
+
+  let isTopicPickerOpen = false;
+  let topicAnchor: HTMLElement;
 
   $: emailAddresses = person.emailAddresses;
   $: phoneNumbers = person.phoneNumbers;
@@ -198,6 +213,9 @@
 </script>
 
 <style>
+  .topics {
+    margin-block-start: 8px;
+  }
   .address {
     white-space: pre-line;
   }
