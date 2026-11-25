@@ -31,7 +31,7 @@ export class OWAFilterRule extends ServerFilterRule {
   }
 
   get hasError(): boolean {
-    return this.json.InError === true;
+    return sanitize.boolean(this.json.InError, false);
   }
 
   protected get sections(): Record<string, Record<string, any>> {
@@ -55,7 +55,7 @@ export class OWAFilterRule extends ServerFilterRule {
     case "HasAttachment":
     case "MarkAsRead":
     case "DeleteMessage":
-      return value === true;
+      return sanitize.boolean(value, false);
     case "FlaggedForAction":
       return value == "Any";
     case "WithinSizeRangeMinimum":

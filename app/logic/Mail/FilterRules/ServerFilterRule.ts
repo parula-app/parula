@@ -222,6 +222,6 @@ export class ServerFilterRule {
   }
 
   protected strings(json: any): string[] {
-    return (Array.isArray(json) ? json : []).map(value => sanitize.nonemptystring(value, null)).filter(value => value);
+    return sanitize.array(json, []).map(value => sanitize.nonemptystring(value, null)).filter(value => value);
   }
 }

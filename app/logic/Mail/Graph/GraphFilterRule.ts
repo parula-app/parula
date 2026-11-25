@@ -25,7 +25,7 @@ export class GraphFilterRule extends ServerFilterRule {
   }
 
   get hasError(): boolean {
-    return this.json.hasError === true;
+    return sanitize.boolean(this.json.hasError, false);
   }
 
   protected get sections(): Record<string, Record<string, any>> {
@@ -66,7 +66,7 @@ export class GraphFilterRule extends ServerFilterRule {
       case "markAsRead":
       case "delete":
       case "permanentDelete":
-        return value === true;
+        return sanitize.boolean(value, false);
       }
       return false;
     }
