@@ -1,17 +1,15 @@
 <!-- <copied from="../../Mail/Message/MessageHeader.svelte"> -->
-{#if $tags.hasItems}
-  <hbox class="categories">
-    {#each $tags.each as tag (tag)}
-      <span class="category" style="--category-color: {tag.color};">
-        {tag.name}
-        <button class="remove-category" on:click={() => catchErrors(() => event.removeTag(tag))}
-          title={$t`Remove category ${tag.name}`} aria-label={$t`Remove category ${tag.name}`}>
-          <RemoveIcon size={12} />
-        </button>
-      </span>
-    {/each}
-  </hbox>
-{/if}
+<hbox class="categories">
+  {#each $tags.each as tag (tag)}
+    <span class="category" style="--category-color: {tag.color};">
+      {tag.name}
+      <button class="remove-category" on:click={() => catchErrors(() => event.removeTag(tag))}
+        title={$t`Remove category ${tag.name}`} aria-label={$t`Remove category ${tag.name}`}>
+        <RemoveIcon size={12} />
+      </button>
+    </span>
+  {/each}
+</hbox>
 
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
@@ -26,10 +24,8 @@
 
 <style>
   .categories {
-    flex-shrink: 0;
     flex-wrap: wrap;
     gap: 6px;
-    margin: 4px 24px;
   }
   .category {
     display: flex;

@@ -1,6 +1,5 @@
 <vbox flex class="invitation-form">
   <InfoBar {messages} />
-  <EventCategories {event} />
   <grid class="fields">
     {#if organizer}
       <span class="row-label">{$t`Organizer *=> The person who invited to this meeting`}</span>
@@ -29,6 +28,10 @@
         </button>
         <span class="url lo-secondary">{$event.onlineMeetingURL}</span>
       </hbox>
+    {/if}
+    {#if $tags.hasItems}
+      <span class="row-label">{$t`Categories *=> Colored labels to organize emails and other items`}</span>
+      <EventCategories {event} />
     {/if}
   </grid>
   <vbox class="preview">
@@ -71,6 +74,7 @@
   $: organizer = $event.organizer;
   $: when = eventWhenText($event, getDateTimeLocale());
   $: attachments = event.attachments;
+  $: tags = event.tags;
 
   // <copied from="../../../frontend/Calendar/Invitation/InvitationInCalendar.svelte">
   let headHTML = `<style>\n${cssBody}\n${cssContent}\n</style>`;

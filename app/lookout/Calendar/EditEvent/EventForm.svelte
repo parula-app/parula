@@ -1,7 +1,6 @@
 <FileDropTarget on:add-files={dropped => catchErrors(() => onFilesDrop(dropped))}>
   <vbox flex class="event-form">
     <InfoBar {messages} />
-    <EventCategories {event} />
     <hbox class="header">
       {#if isMeeting}
         <SendButton label={sendLabel} disabled={sendDisabled} onClick={onSend} />
@@ -26,6 +25,10 @@
         {#if $event.isOnline}
           <span class="row-label">{$t`Online meeting`}</span>
           <OnlineMeetingBox {event} />
+        {/if}
+        {#if $tags.hasItems}
+          <span class="row-label">{$t`Categories *=> Colored labels to organize emails and other items`}</span>
+          <EventCategories {event} />
         {/if}
       </grid>
     </hbox>
@@ -85,6 +88,7 @@
   $: participants = event.participants;
   $: isMeeting = $participants.hasItems;
   $: attachments = event.attachments;
+  $: tags = event.tags;
 
   let isShown = false;
   onMount(() => {
