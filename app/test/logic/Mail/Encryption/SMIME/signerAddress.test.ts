@@ -3,7 +3,7 @@ import { setupTestFolder } from "../../SQL/setup";
 import { Addressbook } from "../../../../../logic/Contacts/Addressbook";
 import { findOrCreatePersonUID, type PersonUID } from "../../../../../logic/Abstract/PersonUID";
 import type { EMail } from "../../../../../logic/Mail/EMail";
-import { kClearSigned } from "./signedMessages";
+import { kClearSigned, kOpaqueSigned } from "./signedMessages";
 import { expect, test, describe } from "vitest";
 
 // The browser has this, but Node does not.
@@ -34,11 +34,21 @@ async function readMessage(mime: string, from?: PersonUID): Promise<EMail> {
 function expectSigned(email: EMail) {
   expect(email.signedPublicKeyFingerprint).toBeTruthy();
   expect(email.signedPublicKeyFingerprint).toBe(email.signedPublicKey?.fingerprint);
+  expect(email.signedOnBehalfPublicKeyFingerprint).toBe(null);
 }
 
 function expectNotSigned(email: EMail) {
   expect(email.signedPublicKeyFingerprint).toBe(null);
+  expect(email.signedOnBehalfPublicKeyFingerprint).toBe(null);
   expect(email.signedPublicKey).toBe(null);
+}
+
+/** Code that knows only `signedPublicKeyFingerprint` sees it as unsigned */
+function expectSignedOnBehalf(email: EMail) {
+  expect(email.signedPublicKeyFingerprint).toBe(null);
+  expect(email.signedOnBehalfPublicKeyFingerprint).toBeTruthy();
+  expect(email.signedOnBehalfPublicKeyFingerprint).toBe(email.signedPublicKey?.fingerprint);
+  expect(email.signedBy(email.signedPublicKey).emailAddress).toBe("alice@example.com");
 }
 
 /** The outer headers are not signed, so anybody can change `From:`
@@ -59,11 +69,39 @@ describe("S/MIME signature with a certificate for another address than From:", (
   });
 });
 
+/** "Send on behalf of": Alice sends for the CEO and signs with her own certificate, RFC 8550 section 3 */
+const kOnBehalfOfCEO = "From: CEO <ceo@example.com>\nSender: Alice <alice@example.com>";
+const kClearSignedForCEO = kClearSigned.replace("From: Alice <alice@example.com>", kOnBehalfOfCEO);
+const kOpaqueSignedForCEO = kOpaqueSigned.replace("From: Alice <alice@example.com>", kOnBehalfOfCEO);
+
+describe("S/MIME signature with a certificate for the Sender: address", () => {
+  test("is signed on behalf by the sender, not signed by From:", async () => {
+    let email = await readMessage(kClearSignedForCEO);
+    expectSignedOnBehalf(email);
+  });
+
+  test("opaque-signed, as by Outlook, is signed on behalf by the sender", async () => {
+    let email = await readMessage(kOpaqueSignedForCEO);
+    expectSignedOnBehalf(email);
+  });
+
+  test("is not stored as the key of From:", async () => {
+    let email = await readMessage(kClearSignedForCEO);
+    expect(email.from.encryptionPublicKey).toBeFalsy();
+  });
+
+  test("of another person than Sender: is not signed", async () => {
+    let email = await readMessage(kClearSignedForCEO.replace("Sender: Alice <alice@example.com>", "Sender: Mallory <mallory@example.com>"));
+    expectNotSigned(email);
+  });
+});
+
 describe("S/MIME signature with a certificate for the From: address", () => {
   test("in another case is signed", async () => {
     let email = await readMessage(kClearSigned, findOrCreatePersonUID("Alice@Example.COM", "Alice"));
     expectSigned(email);
     expect(email.from.encryptionPublicKey).toBe(email.signedPublicKey);
+    expect(email.signedBy(email.signedPublicKey)).toBe(email.from);
   });
 
   test("only in the subject E= is signed", async () => {
