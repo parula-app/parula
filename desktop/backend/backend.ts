@@ -12,7 +12,7 @@ import { ImapFlow } from 'imapflow';
 import { Database, type Query } from "@radically-straightforward/sqlite"; // formerly @leafac/sqlite
 import Zip from "adm-zip";
 import ky from 'ky';
-import { shell, nativeTheme, Notification, Tray, nativeImage, app, BrowserWindow, webContents, Menu, MenuItemConstructorOptions, clipboard, NativeImage, session, desktopCapturer, type DesktopCapturerSource, autoUpdater, systemPreferences, powerMonitor } from "electron";
+import { shell, nativeTheme, Notification, Tray, nativeImage, app, BrowserWindow, webContents, Menu, MenuItemConstructorOptions, clipboard, NativeImage, session, desktopCapturer, type DesktopCapturerSource, autoUpdater, systemPreferences, powerMonitor, dialog } from "electron";
 import electronUpdater, { type UpdateCheckResult } from 'electron-updater';
 import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer';
@@ -110,6 +110,7 @@ async function createSharedAppObject() {
     getCACertificates,
     readFile,
     writeFile,
+    askWhereToSaveFile,
     deleteFile,
     statFile,
     getIconForLocalFile,
@@ -141,6 +142,15 @@ async function writeFile(path: string, permissions: number, contents: Uint8Array
   let fileHandle = await fsPromises.open(path, "w", permissions);
   await fileHandle.write(contents);
   await fileHandle.close();
+}
+/** For `saveBlobAsFile()` in `app/frontend/Util/util.ts`
+ * @param filename Proposed to the user
+ * @returns The path that the user chose. null, if the user cancelled. */
+async function askWhereToSaveFile(filename: string): Promise<string | null> {
+  let result = await dialog.showSaveDialog(BrowserWindow.getFocusedWindow() ?? mainWindow, {
+    defaultPath: sanitize.filename(filename, "file"), // no directory from a mail
+  });
+  return result.canceled ? null : result.filePath;
 }
 async function deleteFile(path: string): Promise<void> {
   await fsPromises.unlink(path);
