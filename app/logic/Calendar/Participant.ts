@@ -19,6 +19,12 @@ export class Participant extends PersonUID {
     this.response = response;
   }
 
+  clone(): Participant {
+    let clone = new Participant(this.emailAddress, this.name, this.response);
+    clone.lastUpdateTime = this.lastUpdateTime;
+    return clone;
+  }
+
   get isInvitee(): boolean {
     return kInviteeResponses.includes(this.response);
   }
