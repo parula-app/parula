@@ -3,6 +3,7 @@ import { Participant } from "../Participant";
 import { RecurrenceRule } from "../RecurrenceRule";
 import type { Calendar } from "../Calendar";
 import { type Attachment, ContentDisposition } from "../../Abstract/Attachment";
+import { getTagByName } from "../../Abstract/Tag";
 import { getDatabase } from "./SQLDatabase";
 import { appGlobal } from "../../app";
 import { getFilesDir } from "../../util/backend-wrapper";
@@ -83,6 +84,7 @@ export class SQLEvent extends Event {
       await this.saveExclusions(event);
       await this.saveParticipants(event);
       await this.saveAttachments(event);
+      await this.saveTags(event);
     } finally {
       lock.release();
     }
@@ -129,6 +131,21 @@ export class SQLEvent extends Event {
         ${event.dbID}, ${participant.emailAddress}, ${participant.name}, ${participant.response},
         ${JSON.stringify(json, null, 2)}
       )`);
+  }
+
+  protected static async saveTags(event: Event) {
+    await (await getDatabase()).runMultiple([
+      sql`
+        DELETE FROM eventTag
+        WHERE eventID = ${event.dbID}
+        `,
+      ...event.tags.contents.map(tag => sql`
+        INSERT OR IGNORE INTO eventTag (
+          eventID, tagName
+        ) VALUES (
+          ${event.dbID}, ${tag.name}
+        )`),
+    ]);
   }
 
   /** Updates the existing rows, keeping `filepathLocal`, and deletes only
@@ -221,7 +238,8 @@ export class SQLEvent extends Event {
           title, descriptionText, descriptionHTML,
           startTime, endTime, allDay, startTimeTZ,
           calUID, responseToOrganizer, pID, calendarID,
-          recurrenceRule, recurrenceMasterEventID, recurrenceStartTime, source, json
+          recurrenceRule, recurrenceMasterEventID, recurrenceStartTime, source, json,
+          (SELECT json_group_array(tagName) FROM eventTag WHERE eventID = event.id) AS tagNames
         FROM event
         WHERE id = ${dbID}
         `) as any;
@@ -240,6 +258,7 @@ export class SQLEvent extends Event {
     event.calUID = row.calUID;
     event.myParticipation = sanitize.integerRange(row.responseToOrganizer, 0, 5);
     event.pID = row.pID;
+    event.tags.replaceAll(sanitize.json(row.tagNames, []).map((name: string) => getTagByName(sanitize.label(name))));
     event.fromExtraJSON(sanitize.json(row.json, {}));
     if (row.source?.[0] == "{") {
       event.original = sanitize.json(row.source, undefined);
@@ -356,7 +375,8 @@ export class SQLEvent extends Event {
         title, descriptionText, descriptionHTML,
         startTime, endTime, allDay, startTimeTZ,
         calUID, responseToOrganizer, pID, id,
-        recurrenceRule, recurrenceMasterEventID, recurrenceStartTime, source, json
+        recurrenceRule, recurrenceMasterEventID, recurrenceStartTime, source, json,
+        (SELECT json_group_array(tagName) FROM eventTag WHERE eventID = event.id) AS tagNames
       FROM event
       WHERE calendarID = ${calendar.dbID}
       ORDER BY id

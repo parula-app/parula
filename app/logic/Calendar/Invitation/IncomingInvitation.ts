@@ -114,8 +114,10 @@ export class IncomingInvitation {
     let myParticipation = isMoved ? InvitationResponse.NoResponseReceived : event.myParticipation;
     let wasMoved = event.isMoved;
     let alarmBeforeStart = event.alarm ? event.startTime.getTime() - event.alarm.getTime() : null;
+    let tags = event.tags.contents; // the user's own, not the organizer's
     event.startEditing();
     event.copyEditableFieldsFrom(this.event);
+    event.tags.replaceAll(tags);
     event.recurrenceRule = this.event.recurrenceRule;
     let me = event.participants.find(participant => this.message.folder.account.isMyEMailAddress(participant.emailAddress));
     if (me) {

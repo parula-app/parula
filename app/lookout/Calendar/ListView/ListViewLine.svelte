@@ -1,7 +1,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="event-row" class:selected={isSelected} class:muted={look.status == "declined" || look.status == "cancelled"}
   role="row" aria-selected={isSelected}
-  style="--event-color: {$event.color ?? $calendar?.color ?? "var(--lo-accent)"}"
+  style="--event-color: {$event.tags.first?.color ?? $event.color ?? $calendar?.color ?? "var(--lo-accent)"}"
   on:click
   on:click={onSelect}
   on:dblclick={onOpen}

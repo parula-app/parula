@@ -1,6 +1,6 @@
 import sql, { type Database } from "../../../../lib/rs-sqlite/index";
 import { calendarDatabaseSchema } from "./createDatabase";
-import { addEventAttachmentTable, removeDuplicateEvents } from "./SQLEventMigrate";
+import { addEventAttachmentTable, addEventTagTable, removeDuplicateEvents } from "./SQLEventMigrate";
 import { getSQLiteDatabase } from "../../util/backend-wrapper";
 import { RunOnce } from "../../util/flow/RunOnce";
 
@@ -12,7 +12,7 @@ let openRunOnce = new RunOnce<Database>();
 export async function getDatabase(): Promise<Database> {
   return calendarDatabase ?? await openRunOnce.runOnce(async () => {
     let db = await getSQLiteDatabase("calendar.db");
-    await db.migrate(calendarDatabaseSchema, addEventAttachmentTable, removeDuplicateEvents);
+    await db.migrate(calendarDatabaseSchema, addEventAttachmentTable, removeDuplicateEvents, addEventTagTable);
     await db.pragma('foreign_keys = true');
     await db.pragma('journal_mode = WAL');
     return calendarDatabase = db;
@@ -27,7 +27,7 @@ export async function getDatabase(): Promise<Database> {
 export async function makeTestDatabase(): Promise<Database> {
   calendarDatabase = await getSQLiteDatabase("test-calendar.db");
   await deleteDatabase();
-  await calendarDatabase.migrate(calendarDatabaseSchema, addEventAttachmentTable, removeDuplicateEvents);
+  await calendarDatabase.migrate(calendarDatabaseSchema, addEventAttachmentTable, removeDuplicateEvents, addEventTagTable);
   await calendarDatabase.pragma('foreign_keys = true');
   return calendarDatabase;
 }

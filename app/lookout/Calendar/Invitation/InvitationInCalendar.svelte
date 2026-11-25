@@ -29,6 +29,10 @@
         <span class="url lo-secondary">{$event.onlineMeetingURL}</span>
       </hbox>
     {/if}
+    {#if $tags.hasItems}
+      <span class="row-label">{$t`Categories *=> Colored labels to organize emails and other items`}</span>
+      <EventCategories {event} />
+    {/if}
   </grid>
   <vbox class="preview">
     <EventInDayView {event} onShowInCalendar={showInCalendar} />
@@ -50,6 +54,7 @@
   import type { EventEditFlow } from "../EditEvent/EventEditFlow";
   import { eventWhenText, type InfoMessage } from "../EditEvent/EventFormInfo";
   import InfoBar from "../EditEvent/InfoBar.svelte";
+  import EventCategories from "../EditEvent/EventCategories.svelte";
   import ParticipantsDisplay from "../DisplayEvent/ParticipantsDisplay.svelte";
   import EventInDayView from "../DisplayEvent/EventInDayView.svelte";
   import AttachmentsUI from "../../Mail/Message/AttachmentsUI.svelte";
@@ -73,6 +78,7 @@
   $: organizer = $event.organizer;
   $: when = eventWhenText($event, getDateTimeLocale());
   $: attachments = event.attachments;
+  $: tags = event.tags;
 
   // <copied from="../../../frontend/Calendar/Invitation/InvitationInCalendar.svelte">
   let headHTML = `<style>\n${cssBody}\n${cssContent}\n</style>`;

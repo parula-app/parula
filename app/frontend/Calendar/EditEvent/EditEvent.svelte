@@ -20,6 +20,7 @@
                   <ExpanderButton bind:expanded={showParticipants} label={$t`Invite`} icon={ParticipantsIcon} on:expand={expandParticipants} />
                   <ExpanderButton bind:expanded={showLocation} label={$t`Location`} icon={LocationIcon} on:expand={expandLocation} />
                   <ExpanderButton bind:expanded={showOnlineMeeting} label={$t`Online meeting`} icon={OnlineMeetingIcon} on:expand={expandOnlineMeeting} />
+                  <ExpanderButton bind:expanded={showTags} label={$t`Tags`} icon={TagIcon} />
                   <ExpanderButton bind:expanded={showDescription} label={$t`Description`} icon={DescriptionIcon} on:expand={expandDescription} />
                   <ExpanderButton bind:expanded={showAttachments} label={$t`Attachment`} icon={AttachmentIcon} on:expand={() => catchErrors(expandAttachments)} />
                 </ExpanderButtons>
@@ -57,6 +58,11 @@
                   </SectionTitle>
                 </Section>
               {/if}
+              {#if showTags}
+                <Section label={$t`Tags`} icon={TagIcon}>
+                  <TagSelector tags={availableTags} selectedTags={event.tags} />
+                </Section>
+              {/if}
             {/if}
           </vbox>
           {#if !isAvailabilityEnlarged}
@@ -91,6 +97,7 @@
   import { Frequency } from "../../../logic/Calendar/RecurrenceRule";
   import { InvitationResponse } from "../../../logic/Calendar/Invitation/InvitationStatus";
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
+  import { availableTags } from "../../../logic/Abstract/Tag";
   import TitleBox from "./TitleBox.svelte";
   import TimeBox from "./TimeBox.svelte";
   import RepeatBox from './RepeatBox.svelte';
@@ -103,6 +110,7 @@
   import AttachmentsPane from "../../Mail/Composer/Attachments/AttachmentsPane.svelte";
   import FileSelector from "../../Mail/Composer/Attachments/FileSelector.svelte";
   import FileDropTarget from "../../Mail/Composer/Attachments/FileDropTarget.svelte";
+  import TagSelector from "../../Shared/Tag/TagSelector.svelte";
   import Section from "./Section.svelte";
   import SectionTitle from "./SectionTitle.svelte";
   import DialogHeader from "./DialogHeader.svelte";
@@ -116,6 +124,7 @@
   import LocationIcon from "lucide-svelte/icons/map-pin";
   import DescriptionIcon from "lucide-svelte/icons/notebook-pen";
   import AttachmentIcon from "lucide-svelte/icons/paperclip";
+  import TagIcon from "lucide-svelte/icons/tag";
   import { catchErrors } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
 
@@ -129,6 +138,7 @@
   $: showOnlineMeeting = $event.isOnline;
   $: showDescription = !!$event.descriptionHTML;
   $: showAttachments = $attachments.hasItems;
+  $: showTags = event.tags.hasItems; // On Event change, but keep section after removing last tag
 
   let width: number;
   let isAvailabilityExpanded = false;

@@ -6,6 +6,7 @@ import { OutgoingInvitation } from "./Invitation/OutgoingInvitation";
 import { InvitationResponse, type InvitationResponseInMessage } from "./Invitation/InvitationStatus";
 import type { MailAccount } from "../Mail/MailAccount";
 import type { MeetAccount } from "../Meet/MeetAccount";
+import type { Tag, TaggableObject } from "../Abstract/Tag";
 import { k1DayS, k1HourS, k1MinuteS, myTimezone } from "../util/date";
 import { convertHTMLToText, convertTextToHTML, sanitizeHTML } from "../util/convertHTML";
 import { Observable, notifyChangedAccessor, notifyChangedProperty, notifyChangedObservable } from "../util/Observable";
@@ -14,9 +15,9 @@ import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 import { randomID, AbstractFunction, assert } from "../util/util";
 import { dataError } from "../util/error";
 import { gt } from "../../l10n/l10n";
-import { ArrayColl } from "svelte-collections";
+import { ArrayColl, SetColl } from "svelte-collections";
 
-export class Event extends Observable {
+export class Event extends Observable implements TaggableObject {
   id: string;
   dbID: number;
   /** iCal UID if this is a meeting */
@@ -209,6 +210,12 @@ export class Event extends Observable {
   /** Files that the organizer attached to the event, e.g. the agenda */
   @notifyChangedObservable
   readonly attachments = new ArrayColl<Attachment>();
+  /** The user's own labels for the event, also for invitations. Exchange calls them categories.
+   * Editing changes them directly, and `save()` saves them with the other changes.
+   * @see addTag() outside of editing
+   * @see Tag */
+  @notifyChangedObservable
+  readonly tags = new SetColl<Tag>();
   @notifyChangedProperty
   myParticipation = InvitationResponse.Unknown;
   /** Only for incoming meetings
@@ -434,6 +441,7 @@ export class Event extends Observable {
     this.onlineMeetingURL = original.onlineMeetingURL;
     this.participants.replaceAll(original.participants);
     this.attachments.replaceAll(original.attachments);
+    this.tags.replaceAll(original.tags);
     this.myParticipation = original.myParticipation;
     this.isMoved = original.isMoved;
     this.lastUpdateTime = original.lastUpdateTime ? new Date(original.lastUpdateTime) : original.lastUpdateTime;
@@ -508,6 +516,8 @@ export class Event extends Observable {
       this.attachments.length == other.attachments.length &&
       (this.attachments.isEmpty || this.attachments.contents.every((aThis, i) =>
         aThis.filename == other.attachments.get(i).filename)) &&
+      this.tags.length == other.tags.length &&
+      this.tags.contents.every(tag => other.tags.contains(tag)) &&
       !this.recurrenceRule == !other.recurrenceRule &&
       (!this.recurrenceRule || this.recurrenceRule.matches(other.recurrenceRule)) &&
       this.exclusions.length == other.exclusions.length &&
@@ -610,6 +620,28 @@ export class Event extends Observable {
     }
     return this.unedited.attachments.contents.filter(removed =>
       removed.pID && !this.attachments.some(attachment => attachment.pID == removed.pID));
+  }
+
+  async addTag(tag: Tag) {
+    this.tags.add(tag);
+    await this.saveTagsUnlessEditing();
+  }
+
+  async removeTag(tag: Tag) {
+    this.tags.remove(tag);
+    await this.saveTagsUnlessEditing();
+  }
+
+  /** While the user edits the event, `save()` saves the tags with the other changes.
+   * Otherwise, save them right away. Also when the user has an invitation open,
+   * because the tags are the user's own, while the organizer owns the rest. */
+  protected async saveTagsUnlessEditing() {
+    if (this.unedited && this.isEditable) {
+      return;
+    }
+    // Closing the opened invitation cancels the editing, which must not undo the saved tags
+    this.unedited?.tags.replaceAll(this.tags);
+    await this.save();
   }
 
   get isNew(): boolean {

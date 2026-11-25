@@ -7,6 +7,7 @@ import type { ActiveSyncCalendar } from "./ActiveSyncCalendar";
 import { ActiveSyncOutgoingInvitation } from "./ActiveSyncOutgoingInvitation";
 import { ActiveSyncError } from "../../Mail/ActiveSync/ActiveSyncError";
 import { ContentDisposition } from "../../Abstract/Attachment";
+import { getTagByName } from "../../Abstract/Tag";
 import { k1MinuteMS } from "../../util/date";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert, ensureArray } from "../../util/util";
@@ -117,6 +118,10 @@ export class ActiveSyncEvent extends ExchangeEvent {
     if (wbxmljs.ResponseType) {
       this.myParticipation = sanitize.integer(wbxmljs.ResponseType, InvitationResponse.Unknown);
     }
+    // An exception without them has those of the master, which `copyFromRecurrenceMaster()` copied
+    if (wbxmljs.Categories != undefined || !this.parentEvent) {
+      this.tags.replaceAll(ensureArray(wbxmljs.Categories?.Category).map(name => getTagByName(sanitize.string(name))));
+    }
     if (wbxmljs.Attachments != undefined) {
       this.attachmentsFromWBXML(wbxmljs.Attachments);
     }
@@ -185,6 +190,7 @@ export class ActiveSyncEvent extends ExchangeEvent {
       // Since the above fields were in code page 4, we should keep that page.
       // Attendee is guaranteed in ActiveSync 16.1 and Timezone is in 14.x.
       AllDayEvent: this.allDay ? "1" : "0",
+      Categories: { Category: this.tags.contents.map(tag => tag.name) },
       EndTime: toCompact(this.endTime, version16_1 && this.allDay),
       Location: version16_1 ? [] : this.getLocationForServer() || {}, // Allows exception to have no location
       Reminder: this.alarm ? String((this.alarm.getTime() - this.startTime.getTime()) / -k1MinuteMS | 0) : version16_1 ? {} : [],

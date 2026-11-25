@@ -1,4 +1,4 @@
-import { eventAttachmentSchema, eventPIDIndex } from "./createDatabase";
+import { eventAttachmentSchema, eventPIDIndex, eventTagSchema } from "./createDatabase";
 import sql, { type Database } from "../../../../lib/rs-sqlite";
 
 /** Add table `eventAttachment` to pre-existing calendar.db.
@@ -78,4 +78,17 @@ export async function removeDuplicateEvents(database: Database): Promise<void> {
     DELETE FROM eventAttachment WHERE eventID NOT IN (SELECT id FROM event)
     `);
   await database.execute(eventPIDIndex);
+}
+
+/** Add table `eventTag` to pre-existing calendar.db.
+ * @see addEventAttachmentTable() */
+export async function addEventTagTable(database: Database): Promise<void> {
+  let existing = await database.get(sql`
+    SELECT name FROM sqlite_schema
+    WHERE type = 'table' AND name = 'eventTag'
+    `) as any;
+  if (existing) {
+    return;
+  }
+  await database.execute(eventTagSchema);
 }
