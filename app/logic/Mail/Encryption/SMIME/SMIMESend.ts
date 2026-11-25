@@ -4,8 +4,8 @@ import { getMySigningKey, getPublicKeyForPersonUID } from "../KeyUtils";
 import { CreateMIME } from "../../SMTP/CreateMIME";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
-import { Oid, UTCTime, Attributes, DigestInfo, SignedData, Certificate, RSAPublicKey, Null, OctetString, EnvelopedData, AuthEnvelopedData, GCMParameters, SMIMECapabilities } from "./SMIMEASN1";
-import { decrypt, padFF, padRandom, encrypt } from "./SMIMERSAES";
+import { Oid, UTCTime, Attributes, DigestAlgorithm, SignedData, Certificate, RSAPublicKey, Null, OctetString, EnvelopedData, AuthEnvelopedData, GCMParameters, SMIMECapabilities } from "./SMIMEASN1";
+import { padRandom, encrypt } from "./SMIMERSAES";
 import { splitMIMEHeaders, kLineBreak, newBoundary } from "../MIME";
 import { UserError, assert } from "../../../util/util";
 import { gt } from "../../../../l10n/l10n";
@@ -25,7 +25,6 @@ export class SMIMESend {
     let privateKey = getMySigningKey(mail, SMIMEPrivateKey);
     assert(privateKey, gt`Please first set up S/MIME encryption for yourself, in Settings | Mail | Identity | Encryption`);
     assert(privateKey.certificate, gt`Your S/MIME key does not have a certificate yet. Please add it, in Settings | Mail | Identity | Encryption`);
-    let rawKey = await privateKey.decryptKey();
     let result = SendEncrypted.cloneEMail(mail);
     let mime = await CreateMIME.getMIME(mail);
     let mimeAsText = new TextDecoder().decode(mime);
@@ -34,7 +33,9 @@ export class SMIMESend {
       // Only the body and the Content-* headers are signed, not the other headers.
       let { content, otherHeaders } = await SMIMESend.splitOffContent(mimeAsText);
       mimeAsText = content;
-      let messageDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(mimeAsText)));
+      let digestAlgorithm = privateKey.digestAlgorithm;
+      let hash = DigestAlgorithm[digestAlgorithm];
+      let messageDigest = new Uint8Array(await crypto.subtle.digest(hash, new TextEncoder().encode(mimeAsText)));
       // DER SET OF requires the elements sorted by their encoding (X.690
       // section 11.6). With these fixed value sizes, that is the order below:
       // the encodings differ first in their length byte.
@@ -52,16 +53,7 @@ export class SMIMESend {
         attrType: "smimeCapabilities",
         attrValue: [SMIMECapabilities.encode(kOurCapabilities)],
       }];
-      let encodedAttrs = Attributes.encode(signedAttributes);
-      let attributesDigest = new Uint8Array(await crypto.subtle.digest("SHA-256", encodedAttrs));
-      let digestInfo = {
-        digestAlgorithm: {
-          algorithm: "sha256",
-          parameters: Null.encode(),
-        },
-        digest: attributesDigest,
-      };
-      let signature = decrypt(padFF(DigestInfo.encode(digestInfo), rawKey), rawKey);
+      let { signatureAlgorithm, signature } = await privateKey.sign(Attributes.encode(signedAttributes));
       let myCertificate = Certificate.decodePEM(privateKey.certificate, { label: "CERTIFICATE" });
       let signerInfo = {
         version: 1n,
@@ -73,14 +65,11 @@ export class SMIMESend {
           },
         },
         digestAlgorithm: {
-          algorithm: "sha256",
+          algorithm: digestAlgorithm,
           parameters: Null.encode(),
         },
         signedAttrs: signedAttributes,
-        signatureAlgorithm: {
-          algorithm: "rsaEncryption",
-          parameters: Null.encode(),
-        },
+        signatureAlgorithm,
         signature: signature,
       };
       let signedData = {
@@ -88,7 +77,7 @@ export class SMIMESend {
         content: {
           version: 1n,
           digestAlgorithms: [{
-            algorithm: "sha256",
+            algorithm: digestAlgorithm,
             parameters: Null.encode(),
           }],
           contentInfo: {
@@ -103,7 +92,7 @@ export class SMIMESend {
       }
       let boundary = newBoundary();
       mimeAsText = [
-        `Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg=sha-256; boundary="${boundary}"`,
+        `Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg=${hash.toLowerCase()}; boundary="${boundary}"`,
         ...otherHeaders,
         '',
         `--${boundary}`,
@@ -176,28 +165,39 @@ export class SMIMESend {
       for (let recipientKey of recipientKeys) {
         let cert = Certificate.decodePEM(recipientKey.certificate, { label: "CERTIFICATE" });
         let publicKey = cert.tbsCertificate.publicKey;
-        if (publicKey.algorithmIdentifier.algorithm != "rsaEncryption") {
-          throw new UserError(gt`Cannot encrypt to ${recipientKey.userIDs.first}, because we can encrypt only to RSA certificates`);
+        switch (publicKey.algorithmIdentifier.algorithm) {
+        case "ecPublicKey":
+          if (!useGCM) {
+            // RFC 5652 section 6.1 EnvelopedData needs to be version 2 for EC
+            pkcs7.content.version = 2n;
+          }
+          pkcs7.content.recipientInfos.push(await recipientKey.keyAgreeRecipientInfo(symmetricKey));
+          break;
+        case "rsaEncryption": {
+          let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
+          pkcs7.content.recipientInfos.push({
+            type: "ktri",
+            value: {
+              version: 0n,
+              rid: {
+                type: "issuerAndSerialNumber",
+                value: {
+                  issuer: cert.tbsCertificate.issuer,
+                  serialNumber: cert.tbsCertificate.serialNumber,
+                }
+              },
+              keyEncryptionAlgorithm: {
+                algorithm: "rsaEncryption",
+                parameters: Null.encode(),
+              },
+              encryptedKey: encrypt(padRandom(symmetricKey, rsa), rsa),
+            },
+          });
+          break;
         }
-        let rsa = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
-        pkcs7.content.recipientInfos.push({
-          type: "ktri",
-          value: {
-            version: 0n,
-            rid: {
-              type: "issuerAndSerialNumber",
-              value: {
-                issuer: cert.tbsCertificate.issuer,
-                serialNumber: cert.tbsCertificate.serialNumber,
-              }
-            },
-            keyEncryptionAlgorithm: {
-              algorithm: "rsaEncryption",
-              parameters: Null.encode(),
-            },
-            encryptedKey: encrypt(padRandom(symmetricKey, rsa), rsa),
-          },
-        });
+        default:
+          throw new UserError(gt`Cannot encrypt to ${recipientKey.userIDs.first}, because we can encrypt only to RSA and EC certificates`);
+        }
       }
       let der = useGCM ? AuthEnvelopedData.encode(pkcs7) : EnvelopedData.encode(pkcs7);
       let base64 = der.toBase64?.() ?? toBase64(der);

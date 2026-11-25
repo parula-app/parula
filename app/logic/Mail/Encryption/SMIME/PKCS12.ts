@@ -1,5 +1,5 @@
-import { Any, AuthenticatedSafe, CertBag, Certificate, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, PrivateKeyInfo, RSAPrivateKey, RSAPublicKey, SafeContents, type AlgorithmIdentifier } from "./SMIMEASN1";
-import { sameName } from "./SMIMEVerify";
+import { Any, AuthenticatedSafe, CertBag, Certificate, EncryptedData, EncryptedPrivateKeyInfo, OctetString, PBEParams, PFX, PrivateKeyInfo, SafeContents, type AlgorithmIdentifier } from "./SMIMEASN1";
+import { sameName, isOfKey } from "./SMIMEVerify";
 import { decryptPBES2, encryptPrivateKey } from "./PBES2";
 import { rc2Decrypt, rc4Decrypt, tripleDESDecrypt } from "./legacyCiphers";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
@@ -71,17 +71,13 @@ export class PKCS12 {
   }
 
   /** The certificate that matches the private key first, then its issuer, and so on up to the root,
-   * then the rest in file order (all of them, for a key that is not RSA). `addCertificate()` takes
+   * then the rest in file order (all of them, for a key that is neither RSA nor EC). `addCertificate()` takes
    * the first as the key's own and the rest as its chain, which `keyStatus()` checks in this order. */
   protected certificatesSortedByChain(): Certificate[] {
     let unsorted = this.certificates.map(der => Certificate.decode(der));
     let privateKeyInfo = PrivateKeyInfo.decode(this.keys[0]);
-    if (privateKeyInfo.privateKeyAlgorithm.algorithm != "rsaEncryption") {
-      return unsorted;
-    }
-    let { n } = RSAPrivateKey.decode(privateKeyInfo.privateKey);
     let sorted: Certificate[] = [];
-    let next = unsorted.find(cert => RSAPublicKey.decode(cert.tbsCertificate.publicKey.subjectPublicKey.data).n == n);
+    let next = unsorted.find(cert => isOfKey(cert.tbsCertificate.publicKey, privateKeyInfo));
     while (next) {
       sorted.push(next);
       unsorted.splice(unsorted.indexOf(next), 1);
