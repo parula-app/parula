@@ -8,6 +8,7 @@ import type { VideoConfMeeting } from './Meet/VideoConfMeeting';
 import type { FileSharingAccount } from './Files/FileSharingAccount';
 import type { TopicAccount } from './Topic/TopicAccount';
 import type { Topic } from './Topic/Topic';
+import type { TopicLink } from './Topic/Link/TopicLink';
 import type { Workspace } from './Abstract/Workspace';
 import { WebApps } from './WebApps/WebApps';
 import { isMobile } from './build';
@@ -32,6 +33,8 @@ class AppGlobal extends Observable {
   collectedAddressbook: Addressbook;
   readonly persons: Collection<Person> = mergeColls(this.addressbooks.map(ab => ab.persons));
   readonly topics: Collection<Topic> = mergeColls(this.topicAccounts.map(acc => acc.topics));
+  /** From all topics to emails, contacts etc. */
+  readonly topicLinks: Collection<TopicLink> = mergeColls(this.topics.map(topic => topic.links));
   //readonly allContacts: Collection<Contact> = mergeColls(this.addressbooks.map(ab => ab.contacts));
   remoteApp: any;
   /** The user's real name. Obj set in `startup.ts`, and name when loading accounts. */

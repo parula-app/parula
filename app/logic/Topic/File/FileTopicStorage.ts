@@ -1,5 +1,6 @@
 import { Topic } from "../Topic";
 import { Paragraph } from "../PageContent";
+import { topicLinksFromJSONLD } from "../Link/TopicLinks";
 import type { TopicAccount, TopicAccountStorage } from "../TopicAccount";
 import { convertHTMLToMarkdown, convertMarkdownToHTML } from "../../util/convertHTML";
 import { Lock } from "../../util/flow/Lock";
@@ -230,6 +231,7 @@ export abstract class FileTopicStorage implements TopicAccountStorage {
         name: property.name,
         value: property.value,
       })),
+      mentions: topic.links.contents.map(link => link.toJSONLD()),
     };
   }
 
@@ -246,6 +248,7 @@ export abstract class FileTopicStorage implements TopicAccountStorage {
         topic.properties.add({ name: sanitize.label(property.name), value: property.value });
       }
     }
+    topic.links.replaceAll(topicLinksFromJSONLD(topic, json.mentions));
   }
 
   /** @returns where the files of `topic` must be, after a rename or move */

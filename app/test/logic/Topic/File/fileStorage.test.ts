@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // app first, to resolve the import cycle around Abstract/Account.ts
 import { appGlobal } from "../../../../logic/app";
-import { Person } from "../../../../logic/Abstract/Person";
+import { Person, ContactEntry } from "../../../../logic/Abstract/Person";
 import type { Topic } from "../../../../logic/Topic/Topic";
 import { Paragraph } from "../../../../logic/Topic/PageContent";
 import type { TopicAccount } from "../../../../logic/Topic/TopicAccount";
@@ -273,4 +273,24 @@ test("Files only when the user wants them", async () => {
   await account.save();
   await setContentStorage(account);
   expect(await fs.readFile(path.join(accountFolder(account), "Project.md"), "utf-8")).toContain("Text");
+});
+
+test("Links to emails etc. are in the .jsonld file", async () => {
+  let account = await newAccount();
+  let project = await newTopic(root, "Project");
+  let person = new Person();
+  person.name = "Fred Test";
+  person.emailAddresses.add(new ContactEntry("fred@example.com"));
+  await project.addLink(person);
+
+  let json = JSON.parse(await fs.readFile(path.join(accountFolder(account), "Project.jsonld"), "utf-8"));
+  expect(json.mentions[0]["@type"]).toBe("Person");
+  expect(json.mentions[0]["@id"]).toBe("mailto:fred@example.com");
+
+  let read = await readAgain();
+  let link = read.children.first.links.first;
+  expect(link.targetID).toBe("mailto:fred@example.com");
+  expect(link.name).toBe("Fred Test");
+  expect(link.topic).toBe(read.children.first);
+  expect(appGlobal.topicLinks.contains(link)).toBe(true);
 });
