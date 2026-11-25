@@ -43,7 +43,7 @@ function serverRules(): any[] {
 class TestOWAAccount extends OWAAccount {
   readonly requests: any[] = [];
   readonly rules = serverRules();
-  /** The copy of the rules that classic Outlook keeps, @see `OutlookRulesCopy` */
+  /** The copy of the rules that classic Outlook keeps, @see `OutlookFilterRules` */
   outlookRulesStreams: Uint8Array[] = [];
 
   async callOWA(request: any): Promise<any> {

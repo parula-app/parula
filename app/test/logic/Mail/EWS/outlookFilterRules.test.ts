@@ -1,4 +1,4 @@
-import { OutlookRulesCopy } from "../../../../logic/Mail/EWS/OutlookRulesCopy";
+import { OutlookFilterRules } from "../../../../logic/Mail/EWS/OutlookFilterRules";
 import type { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
 import { outlookRulesStream } from "./outlookRulesStream";
 import { expect, test } from "vitest";
@@ -9,7 +9,7 @@ function serverRules(...names: string[]): FilterRuleAction[] {
 
 test("Outlook's copy of the rules: name, state and moment of each rule", () => {
   let longName = "Newsletters ".repeat(30);
-  let copy = new OutlookRulesCopy(outlookRulesStream([
+  let copy = new OutlookFilterRules(outlookRulesStream([
     { name: "Invoices" },
     { name: "Cc my boss", isForSentMail: true },
     { name: "Old", isEnabled: false },
@@ -22,11 +22,11 @@ test("Outlook's copy of the rules: name, state and moment of each rule", () => {
 });
 
 test("Outlook's copy of the rules without rules", () => {
-  expect(new OutlookRulesCopy(outlookRulesStream([])).rules.isEmpty).toBe(true);
+  expect(new OutlookFilterRules(outlookRulesStream([])).rules.isEmpty).toBe(true);
 });
 
 test("Outlook's copy of the rules: The rules that only the copy has", () => {
-  let copy = new OutlookRulesCopy(outlookRulesStream([
+  let copy = new OutlookFilterRules(outlookRulesStream([
     { name: "Invoices" },
     { name: "Invoices", isForSentMail: true },
     { name: "Old", isEnabled: false },
@@ -42,7 +42,7 @@ test("Outlook's copy of the rules: The rules that only the copy has", () => {
 });
 
 test("Outlook's copy of the rules: Nothing is lost, if the server has all rules", () => {
-  let copy = new OutlookRulesCopy(outlookRulesStream([{ name: "Invoices" }, { name: "Old", isEnabled: false }]));
+  let copy = new OutlookFilterRules(outlookRulesStream([{ name: "Invoices" }, { name: "Old", isEnabled: false }]));
 
   expect(copy.lostRules(serverRules("Old", "Invoices")).isEmpty).toBe(true);
 });
@@ -51,15 +51,15 @@ test("Outlook's copy of the rules: A format that we don't know is refused", () =
   let stream = outlookRulesStream([{ name: "Invoices" }]);
   let outlook2000 = stream.slice();
   new DataView(outlook2000.buffer).setUint32(0, 980413, true);
-  expect(() => new OutlookRulesCopy(outlook2000)).toThrow();
+  expect(() => new OutlookFilterRules(outlook2000)).toThrow();
 
-  expect(() => new OutlookRulesCopy(stream.subarray(0, stream.length - 1))).toThrow();
-  expect(() => new OutlookRulesCopy(stream.subarray(0, 60))).toThrow();
-  expect(() => new OutlookRulesCopy(new Uint8Array([...stream, 0, 0]))).toThrow();
-  expect(() => new OutlookRulesCopy(new Uint8Array())).toThrow();
+  expect(() => new OutlookFilterRules(stream.subarray(0, stream.length - 1))).toThrow();
+  expect(() => new OutlookFilterRules(stream.subarray(0, 60))).toThrow();
+  expect(() => new OutlookFilterRules(new Uint8Array([...stream, 0, 0]))).toThrow();
+  expect(() => new OutlookFilterRules(new Uint8Array())).toThrow();
 
   let withoutMoment = stream.slice();
   let momentElement = withoutMoment.findIndex((byte, i) => byte == 0x90 && withoutMoment[i + 1] == 0x01);
   withoutMoment[momentElement] = 0x91;
-  expect(() => new OutlookRulesCopy(withoutMoment)).toThrow();
+  expect(() => new OutlookFilterRules(withoutMoment)).toThrow();
 });

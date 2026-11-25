@@ -80,7 +80,7 @@ function newTestAccount(rules: string[]) {
     rules,
     /** Classic Outlook saved its own copy of the rules */
     outlookRulesExist: false,
-    /** The copy, @see `OutlookRulesCopy`. Exchange says that it exists, but we can't find it, if empty. */
+    /** The copy, @see `OutlookFilterRules`. Exchange says that it exists, but we can't find it, if empty. */
     outlookRulesStreams: [] as Uint8Array[],
     /** The names of the operations, in the order of the requests */
     operations: [] as string[],

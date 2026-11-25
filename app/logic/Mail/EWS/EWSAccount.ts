@@ -5,7 +5,7 @@ import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShar
 import { EWSFolder, getEWSItem, getEWSItems } from "./EWSFolder";
 import { EWSSearchEMail } from "./EWSSearchEMail";
 import { EWSFilterRule } from "./EWSFilterRule";
-import { OutlookRulesCopy } from "./OutlookRulesCopy";
+import { OutlookFilterRules } from "./OutlookFilterRules";
 import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
 import { EWSAutoResponder } from "./EWSAutoResponder";
 import { EWSTags } from "./EWSTags";
@@ -1389,7 +1389,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
             },
             t$FieldURIOrConstant: {
               t$Constant: {
-                Value: OutlookRulesCopy.kItemClass,
+                Value: OutlookFilterRules.kItemClass,
               },
             },
           },
@@ -1410,7 +1410,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
             t$BaseShape: "IdOnly",
             t$AdditionalProperties: {
               t$ExtendedFieldURI: {
-                PropertyTag: OutlookRulesCopy.kPropertyTag,
+                PropertyTag: OutlookFilterRules.kPropertyTag,
                 PropertyType: "Binary",
               },
             },

@@ -4,7 +4,7 @@ import { Calendar } from "../../Calendar/Calendar";
 import { ExchangeCalendar } from "../../Calendar/EWS/ExchangeCalendar";
 import { PersonUID } from "../../Abstract/PersonUID";
 import { appGlobal } from "../../app";
-import { OutlookRulesCopy } from "./OutlookRulesCopy";
+import { OutlookFilterRules } from "./OutlookFilterRules";
 import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
 import { AbstractFunction, UserError } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
@@ -100,7 +100,7 @@ export class ExchangeMailAccount extends MailAccount {
         return;
       }
       lostRules = [...new Set(streams.flatMap(stream =>
-        new OutlookRulesCopy(stream).lostRules(serverRules).contents.map(rule => rule.name)))];
+        new OutlookFilterRules(stream).lostRules(serverRules).contents.map(rule => rule.name)))];
     } catch (ex) {
       this.dataError(ex);
       this.setOutlookRulesExist(exists ?? false);

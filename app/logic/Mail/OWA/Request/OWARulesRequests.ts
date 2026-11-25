@@ -1,5 +1,5 @@
 import { OWARequest } from "./OWARequest";
-import { OutlookRulesCopy } from "../../EWS/OutlookRulesCopy";
+import { OutlookFilterRules } from "../../EWS/OutlookFilterRules";
 
 /** The hidden messages in the Inbox with the copy of the rules that Outlook keeps */
 export function owaFindOutlookRulesCopyRequest(): OWARequest {
@@ -25,7 +25,7 @@ export function owaFindOutlookRulesCopyRequest(): OWARequest {
           __type: "FieldURIOrConstantType:#Exchange",
           Item: {
             __type: "Constant:#Exchange",
-            Value: OutlookRulesCopy.kItemClass,
+            Value: OutlookFilterRules.kItemClass,
           },
         },
       },
@@ -48,7 +48,7 @@ export function owaGetOutlookRulesStreamRequest(itemID: string): OWARequest {
       BaseShape: "IdOnly",
       AdditionalProperties: [{
         __type: "ExtendedPropertyUri:#Exchange",
-        PropertyTag: OutlookRulesCopy.kPropertyTag,
+        PropertyTag: OutlookFilterRules.kPropertyTag,
         PropertyType: "Binary",
       }],
     },

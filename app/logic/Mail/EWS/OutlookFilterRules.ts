@@ -9,7 +9,7 @@ import { ArrayColl } from "svelte-collections";
  *
  * Microsoft does not document the format. We read only the name, the state and
  * the moment of each rule, see <https://docs.grommunio.com/dev/gromox/outlook_rule_spec/>. */
-export class OutlookRulesCopy {
+export class OutlookFilterRules {
   readonly rules = new ArrayColl<OutlookRule>();
 
   static readonly kItemClass = "IPM.RuleOrganizer";
