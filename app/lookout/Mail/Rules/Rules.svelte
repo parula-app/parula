@@ -57,10 +57,10 @@
         disabled={cannotRunOnServer ?? false} />
     </hbox>
   {/if}
-  {#if readOnlyReason || notice || unknownParts.length}
+  {#if cannotRunOnServer || notice || unknownParts.length}
     <vbox class="server-notes lo-secondary">
-      {#if readOnlyReason}
-        <span>{readOnlyReason}</span>
+      {#if cannotRunOnServer}
+        <span>{cannotRunOnServer}</span>
       {:else if notice}
         <span>{notice}</span>
       {/if}

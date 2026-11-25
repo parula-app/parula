@@ -5,6 +5,7 @@ import { OWAError } from "../../../../logic/Mail/OWA/OWAError";
 import { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
 import { Person } from "../../../../logic/Abstract/Person";
 import { outlookRulesStream, base64 } from "../EWS/outlookRulesStream";
+import kInboxRule from "./TestData/InboxRule.json";
 import { expect, test } from "vitest";
 
 appGlobal.me ??= new Person();
@@ -170,6 +171,46 @@ test("OWA: The parts of a rule that we can't show are listed as text", async () 
   expect(parts.length).toBe(3); // my name in To, the exception, stop processing
   expect(parts.some(part => part.includes("urgent"))).toBe(true);
   expect(parts.some(part => /stop processing/i.test(part))).toBe(true);
+});
+
+/** With the rule that Exchange Online sent for a rule from classic Outlook, @see `TestData/InboxRule.json` */
+function newTestAccountWithInboxRule(json: any): TestOWAAccount {
+  let account = newTestAccount();
+  let testMails = account.newFolder();
+  testMails.name = "Test Mails";
+  testMails.id = "test-mails-id";
+  account.rootFolders.add(testMails);
+  account.rules.push(json);
+  return account;
+}
+
+test("OWA: A rule with all the parameters that Exchange Online sends is understood", async () => {
+  let account = newTestAccountWithInboxRule(structuredClone(kInboxRule));
+  await account.refreshServerFilterRules();
+  let testMail = rule(account, "Test Mail");
+
+  expect(testMail.criteria.bodyText).toBe("Test Mail");
+  expect(testMail.toFolder?.name).toBe("Test Mails");
+  expect(testMail.copy).toBe(true);
+  expect(testMail.readOnlyReason).toBeNull();
+  expect(testMail.serverRule.unknownParts).toEqual([]);
+});
+
+test("OWA: A rule from Exchange Online with a part that we can't show still lists it, and can't move to us", async () => {
+  let account = newTestAccountWithInboxRule({
+    ...structuredClone(kInboxRule),
+    ForwardTo: [{ DisplayName: "Bob", SmtpAddress: "bob@example.com", RoutingType: "SMTP" }],
+    WithImportance: "High",
+  });
+  await account.refreshServerFilterRules();
+  let testMail = rule(account, "Test Mail");
+
+  let parts = testMail.serverRule.unknownParts;
+  expect(parts.length).toBe(2);
+  expect(parts.join()).toContain("bob@example.com");
+  expect(parts.join()).toContain("High");
+  testMail.server = false;
+  await expect(account.saveServerFilterRules()).rejects.toThrow("Test Mail");
 });
 
 test("OWA: A folder that we can't find by its name is not shown, and stays", async () => {

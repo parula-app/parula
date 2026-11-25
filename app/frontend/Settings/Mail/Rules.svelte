@@ -63,10 +63,10 @@
                     </hbox>
                   {/if}
                 </grid>
-                {#if readOnlyReason || notice || unknownParts.length}
+                {#if cannotRunOnServer || notice || unknownParts.length}
                   <vbox class="server-notes">
-                    {#if readOnlyReason}
-                      <hbox>{readOnlyReason}</hbox>
+                    {#if cannotRunOnServer}
+                      <hbox>{cannotRunOnServer}</hbox>
                     {:else if notice}
                       <hbox>{notice}</hbox>
                     {/if}

@@ -300,3 +300,15 @@ test("A server rule with parts that we can't show stays editable, but can't move
   expect(runByRadio("Mustang").disabled).toBe(true);
   expect(runByRadio("The mail server").disabled).toBe(false);
 });
+
+test("While the server rules can't change, a new rule says why the mail server can't run it", () => {
+  account.hasServerRules = true;
+  // e.g. classic Outlook has rules that the server doesn't have
+  account.serverFilterRulesReadOnlyReason = "Outlook keeps a copy";
+  showRulesPage();
+
+  click(target.querySelector("button[title='Add new rule']"));
+
+  expect(runByRadio("The mail server").disabled).toBe(true);
+  expect(target.textContent).toContain("Outlook keeps a copy");
+});
