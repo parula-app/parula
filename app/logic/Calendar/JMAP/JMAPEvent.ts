@@ -1,4 +1,4 @@
-import { Event } from "../Event";
+import { Event, RecurrenceCase } from "../Event";
 import { JSCalendarEvent } from "./JSCalendarEvent";
 import type { TJMAPCalendarEvent } from "./TJSCalendar";
 import type { TID, TJMAPChangeResponse } from "../../Mail/JMAP/TJMAPGeneric";
@@ -32,6 +32,12 @@ export class JMAPEvent extends Event {
     this.isOrigin = sanitize.boolean(jmap.isOrigin, true);
     this.jmapID = sanitize.alphanumdash(jmap.id);
     this.original = jmap;
+    if (this.recurrenceCase == RecurrenceCase.Master) {
+      let overrides = Object.entries(jmap.recurrenceOverrides ?? {});
+      this.removeExceptionsNotOnServer(
+        overrides.filter(([, override]) => !override.excluded).map(([recurrenceID]) => JSCalendarEvent.toDate(recurrenceID, jmap)),
+        overrides.filter(([, override]) => override.excluded).map(([recurrenceID]) => JSCalendarEvent.toDate(recurrenceID, jmap)));
+    }
   }
 
   updateRecurrenceOverrides(exceptions: ArrayColl<Event>) {
