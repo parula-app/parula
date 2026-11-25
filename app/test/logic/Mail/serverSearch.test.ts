@@ -263,6 +263,20 @@ test("JMAP: The criteria become filter conditions", () => {
   ]);
 });
 
+test("IMAP and JMAP: The replies to an email are found by their `In-Reply-To:` header", () => {
+  let imap = new IMAPSearchEMail();
+  imap.inReplyTo = "<original@example.com>";
+  expect((imap as any).imapQuery()).toEqual({
+    header: { "in-reply-to": "<original@example.com>" },
+  });
+
+  let jmap = new JMAPSearchEMail();
+  jmap.inReplyTo = "original@example.com";
+  expect((jmap as any).filterConditions()).toEqual([
+    { header: ["In-Reply-To", "original@example.com"] },
+  ]);
+});
+
 test("Graph: The whole query is quoted once, so the text must not quote again", () => {
   // `$search="(subject:"x" OR body:"x")"` ends after `(subject:` and is a 400
   let search = new GraphSearchEMail();

@@ -23,7 +23,7 @@ export class ExchangeSearchEMail extends SearchEMail {
    * @returns null, if none of the criteria fits a restriction */
   protected conditions(): ExchangeCondition[] | null {
     if (booleanHasValue(this.isOutgoing) || booleanHasValue(this.isReplied) || this.threadID ||
-        this.includesPerson || this.hasAttachmentMIMETypes.hasItems) {
+        this.inReplyTo || this.includesPerson || this.hasAttachmentMIMETypes.hasItems) {
       this.unsupportedFilters = true; // Exchange has no property for these
     }
     let conditions: ExchangeCondition[] = [];
