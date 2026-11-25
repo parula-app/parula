@@ -14,7 +14,7 @@
             iconSize="16px"
             />
         {/if}
-        {#if !appGlobal.isMobile && appWindow.isMainWindow}
+        {#if isFullWindow && !appGlobal.isMobile && appWindow.isMainWindow}
           <RoundButton
             label={$t`Open in a separate window`}
             icon={PopOutIcon}

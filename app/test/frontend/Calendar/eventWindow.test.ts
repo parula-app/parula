@@ -70,9 +70,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test("Open in a separate window moves the event editor from the sidebar into its own window, with the changes", async () => {
+test("Open in a separate window moves the event editor from the full window into its own window, with the changes", async () => {
   let event = newTestEvent();
+  // In the full window, as `openEvent()` opens it
   selectedEvent.set(event);
+  calendarMustangApp.showEvent(event);
+  selectedApp.set(calendarMustangApp.subApps.first as CalendarEventMustangApp);
   event.startEditing();
   mountIn(AppWindow.main, ShowEvent, event);
   event.title = "Lunch with Anna";
@@ -83,6 +86,7 @@ test("Open in a separate window moves the event editor from the sidebar into its
 
   await vi.waitFor(() => expect(get(selectedEvent)).toBeNull());
   expect(open).toHaveBeenCalledWith(EventWindow, { event }, 1000);
+  expect(calendarMustangApp.subApps.length).toBe(0);
   expect(event.hasChanged()).toBe(true);
 });
 

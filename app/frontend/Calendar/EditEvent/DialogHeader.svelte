@@ -14,7 +14,7 @@
             iconSize="16px"
             />
         {/if}
-        {#if !appGlobal.isMobile && appWindow.isMainWindow}
+        {#if isFullWindow && !appGlobal.isMobile && appWindow.isMainWindow}
           <RoundButton
             label={$t`Open in a separate window`}
             icon={PopOutIcon}
@@ -333,10 +333,8 @@
   async function onPopOut() {
     await calendarMustangApp.showEventInNewWindow(event);
     calendarMustangApp.closeEvent(event);
-    if (isFullWindow) {
-      goBack();
-    }
-    $selectedEvent = null; // Clears our `event` prop, see `onClose()`
+    goBack();
+    $selectedEvent = null; // or the sidebar would show the editor, too
   }
 
   /** @param deselect The user is done with the event, so drop it from the sidebar as
@@ -400,7 +398,6 @@
     align-items: end;
     margin-inline-start: 6px;
     margin-block-end: 4px;
-    overflow: hidden; /* Keeps the buttons in the narrow sidebar, like the display's .account-name */
   }
   .account-icon-dummy {
     height: 24px;
