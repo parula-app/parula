@@ -13,6 +13,11 @@
         {$file.nameWithoutExt}
       </hbox>
     </hbox>
+    {#if showFolder}
+      <hbox class="folder" draggable="true">
+        {$file.parentDirs.contents.map(parent => parent.name).join(" / ")}
+      </hbox>
+    {/if}
     <hbox class="type" draggable="true">
       {$file.ext}
     </hbox>
@@ -37,6 +42,7 @@
 
   export let file: File;
   export let indent = 0;
+  export let showFolder = false;
 
   function onSelect() {
     $selectedFile = file;
@@ -55,7 +61,7 @@
     background-color: var(--selected-bg);
     color: var(--selected-fg);
   }
-  .name, .type, .size, .time {
+  .name, .folder, .type, .size, .time {
     padding-inline-start: 8px;
     padding-inline-end: 8px;
   }
@@ -89,7 +95,7 @@
     justify-content: end;
     min-width: 5em;
   }
-  .type, .size, .time {
+  .folder, .type, .size, .time {
     color: #91939D;
     font-size: 90%;
     font-weight: 300;

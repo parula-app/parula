@@ -1,8 +1,11 @@
 import { FileOrDirectory } from "./FileOrDirectory";
 import { checkExecutableFile, executableMessage, ExecutableKind } from "./FileType/ExecutableFile";
+import { odtToHTML } from "./FileType/ODT";
+import { docxToHTML } from "./FileType/MSWord";
 import type { WebAppListed } from "../WebApps/WebAppListed";
 import { openOSAppForFile } from "../util/os-integration";
 import { getFilesDir } from "../util/backend-wrapper";
+import { convertHTMLToText } from "../util/convertHTML";
 import { appGlobal } from "../app";
 import { RunOnce } from "../util/flow/RunOnce";
 import { notifyChangedProperty } from "../util/Observable";
@@ -35,6 +38,8 @@ export class File extends FileOrDirectory {
   protected readonly downloadRunOnce = new RunOnce<void>();
   protected readonly readFileRunOnce = new RunOnce<void>();
   protected readonly getURLRunOnce = new RunOnce<URLString | null>();
+  protected localTextVersion: string | null = null;
+  protected localTextRead: Promise<string | null> | null = null;
 
   /** If a File is GCed, the registered blob: URL is revoked automatically.
    * @see Abstract/Attachment. */
@@ -212,6 +217,42 @@ export class File extends FileOrDirectory {
       await this.readLocalFile();
     }
     this.executable = await checkExecutableFile(this.name, this.mimetype, this.filepathLocal, this.contents);
+  }
+
+  /** The text of a document in a format that we can read,
+   * if we already have its contents, in memory or on disk. Otherwise null. */
+  async localText(): Promise<string | null> {
+    const kMaxSize = 10 * 1024 * 1024;
+    let size = this.contents?.size ?? this.size;
+    if (!this.contents && !this.filepathLocal || !(size <= kMaxSize)) {
+      return null;
+    }
+    let version = `${this.lastMod?.getTime()} ${size}`;
+    if (this.localTextVersion != version) {
+      this.localTextVersion = version;
+      this.localTextRead = this.readText();
+    }
+    return await this.localTextRead;
+  }
+
+  protected async readText(): Promise<string | null> {
+    let format = this.ext?.toLowerCase();
+    let isHTML = format == "html" || format == "htm" || format == "shtml";
+    let isPlaintext = format == "md" || format == "txt";
+    if (format != "odt" && format != "docx" && !isHTML && !isPlaintext) {
+      return null;
+    }
+    let contents = new Blob([this.contents ?? await appGlobal.remoteApp.readFile(this.filepathLocal)]);
+    if (format == "odt") {
+      return convertHTMLToText(await odtToHTML(contents));
+    }
+    if (format == "docx") {
+      return convertHTMLToText(await docxToHTML(contents));
+    }
+    if (isHTML) {
+      return convertHTMLToText(await contents.text());
+    }
+    return await contents.text();
   }
   /** The `json` column of the DB row, for properties without a column of their own */
   toExtraJSON(): any {
