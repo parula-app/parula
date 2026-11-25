@@ -1,6 +1,6 @@
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../util/util";
-import PostalMIME, { type HeaderLine } from "postal-mime";
+import PostalMIME, { type HeaderLine, type Email as PostalEmail } from "postal-mime";
 
 /**
  * Parse parameters from MIME header values
@@ -91,6 +91,36 @@ export function parseMIMEDirectSubpartsBytes(mime: Uint8Array, contentType: stri
   }
   // Remove newline after boundary
   return parts.map(part => part[0] == 0x0D && part[1] == 0x0A ? part.subarray(2) : part);
+}
+
+/**
+ * Whether the reader shows exactly the signed part of a `multipart/signed` mail.
+ *
+ * We verify the signature over the part that `parseMIMEDirectSubpartsBytes()` cuts out,
+ * but the reader shows what postal-mime parsed from the whole mail. The two parsers
+ * can find different parts in the same mail, e.g. with a quoted `;` or RFC 2231
+ * continuations in the boundary, or with a second `Content-Type` header.
+ * Comparing the result works however they differ.
+ *
+ * @param mail postal-mime's result for the whole mail. Its last attachment is the signature.
+ * @param signedPart The bytes that the signature was verified over
+ */
+export async function showsSignedPart(mail: PostalEmail, signedPart: Uint8Array): Promise<boolean> {
+  // The line break before the boundary belongs to the boundary, but postal-mime keeps it in the content
+  let withLineBreak = new Uint8Array(signedPart.length + 2);
+  withLineBreak.set(signedPart);
+  withLineBreak.set([0x0D, 0x0A], signedPart.length);
+  let signed = await PostalMIME.parse(withLineBreak);
+  let shown = mail.attachments.slice(0, -1);
+  return mail.text == signed.text && mail.html == signed.html &&
+    shown.length == signed.attachments.length &&
+    signed.attachments.every((attachment, i) => {
+      let content = new Uint8Array(attachment.content as ArrayBuffer);
+      let shownContent = new Uint8Array(shown[i].content as ArrayBuffer);
+      // All other fields, e.g. filename, MIME type and content ID
+      return JSON.stringify({ ...attachment, content: null }) == JSON.stringify({ ...shown[i], content: null }) &&
+        content.length == shownContent.length && indexOfBytes(content, shownContent, 0) == 0;
+    });
 }
 
 function indexOfBytes(haystack: Uint8Array, needle: Uint8Array, from: number): number {
