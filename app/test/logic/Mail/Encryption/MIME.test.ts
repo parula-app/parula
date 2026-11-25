@@ -1,4 +1,5 @@
 import { parseHeaderParameters, parseMIMEDirectSubparts, splitMIMEHeaders, toCRLFBytes } from "../../../../logic/Mail/Encryption/MIME";
+import PostalMIME from "postal-mime";
 import { expect, test, describe } from "vitest";
 
 describe("MIME header parameters", () => {
@@ -27,6 +28,88 @@ describe("MIME header parameters", () => {
   test("parameter without a name is skipped", () => {
     let params = parseHeaderParameters(`text/plain; =nonsense; charset=utf-8`);
     expect(params.charset).toBe("utf-8");
+  });
+
+  test("`;` and `=` within quotes belong to the value, and backslashes escape", () => {
+    let params = parseHeaderParameters(`multipart/signed; boundary="A;B=C\\"D\\\\"; protocol="application/pgp-signature"`);
+    expect(params.boundary).toBe(`A;B=C"D\\`);
+    expect(params.protocol).toBe("application/pgp-signature");
+  });
+
+  test("comments are removed, but not within quotes", () => {
+    let params = parseHeaderParameters(`multipart/signed (a (nested) comment; boundary=WRONG); boundary=RIGHT(comment); name="(not a comment)"`);
+    expect(params.$main).toBe("multipart/signed");
+    expect(params.boundary).toBe("RIGHT");
+    expect(params.name).toBe("(not a comment)");
+  });
+
+  test("RFC 2231 continuations are joined, decoded, and replace a plain parameter", () => {
+    let params = parseHeaderParameters(`text/plain; name="plain.txt"; name*1="b.txt"; name*0*=utf-8'en'%E2%82%AC%20`);
+    expect(params.name).toBe("€ b.txt");
+    expect(params["name*0*"]).toBeUndefined();
+  });
+});
+
+/**
+ * A signature check verifies the parts that `parseMIMEDirectSubparts()` finds,
+ * but the reader shows what postal-mime parsed, so both must find the same parts.
+ * Each of these headers could be read as one of two boundaries.
+ */
+describe("Multipart is split into the parts that postal-mime shows", () => {
+  test.each([
+    [`boundary="EVIL;X"`, `EVIL;X`, `"EVIL`],
+    [`boundary="EV\\"IL"`, `EV"IL`, `EV\\"IL`],
+    [`boundary=EVIL(comment)`, `EVIL`, `EVIL(comment)`],
+    [`boundary=" EVIL "`, `EVIL`, ` EVIL `],
+    [`boundary="ORIG"; boundary*0="SHO"; boundary*1="WN"`, `SHOWN`, `ORIG`],
+    [`boundary*0*=utf-8''EV%49L; boundary=ORIG`, `EVIL`, `ORIG`],
+    [`"x=1; boundary=EVIL; y="; boundary=ORIG`, `EVIL`, `ORIG`],
+  ])("%s", async (parameters, boundary, otherBoundary) => {
+    let contentType = `multipart/mixed; ${parameters}`;
+    let mime = new TextEncoder().encode([
+      `Content-Type: ${contentType}`,
+      ``,
+      `--${otherBoundary}`,
+      `Content-Type: text/plain`,
+      ``,
+      `OTHER TEXT`,
+      `--${otherBoundary}--`,
+      `--${boundary}`,
+      `Content-Type: text/plain`,
+      ``,
+      `SHOWN TEXT`,
+      `--${boundary}--`,
+      ``,
+    ].join("\r\n"));
+    let shown = (await PostalMIME.parse(mime)).text;
+    expect(shown).toContain("TEXT");
+    let parts = parseMIMEDirectSubparts(mime, contentType);
+    expect(parts.length).toBe(1);
+    expect(parts[0]).toContain(shown.trim());
+  });
+
+  test("Boundary lines may end with LF only, or with spaces", async () => {
+    const contentType = `multipart/mixed; boundary="B"`;
+    let mime = new TextEncoder().encode(`Content-Type: ${contentType}\r\n\r\n--B \nContent-Type: text/plain\n\nSHOWN TEXT\n--B--\t\n`);
+    let parts = parseMIMEDirectSubparts(mime, contentType);
+    expect(parts).toEqual(["Content-Type: text/plain\n\nSHOWN TEXT"]);
+    expect((await PostalMIME.parse(mime)).text).toContain("SHOWN TEXT");
+  });
+
+  test("A line that only starts with the boundary is content", () => {
+    const contentType = `multipart/mixed; boundary="B"`;
+    let mime = new TextEncoder().encode([
+      `Content-Type: ${contentType}`,
+      ``,
+      `--B`,
+      ``,
+      `--BX`,
+      `--B--X`,
+      `--B--`,
+      ``,
+    ].join("\r\n"));
+    let parts = parseMIMEDirectSubparts(mime, contentType);
+    expect(parts).toEqual(["\r\n--BX\r\n--B--X"]);
   });
 });
 

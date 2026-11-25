@@ -74,8 +74,7 @@ export class PGPReadProcessor extends EMailProcessor {
       // TODO If inner MIME doesn't contain headers, keep the outer ones
       await this.updateMIME(email, decryptedResult.data, outerFrom, signer);
     } else if (detachedSignature) { // why `else`: don't overwrite the signature within the encrypted part
-      await email.parseHeaders();
-      let signedPart = getSignedCleartext(email);
+      let signedPart = getSignedCleartext(email, mime);
       if (!signedPart) {
         return;
       }
@@ -195,11 +194,16 @@ function attachmentOfType(email: EMail, mimeType: string): Attachment | undefine
   return email.attachments.find(a => a.mimeType.toLowerCase() == mimeType);
 }
 
-/** @returns null, if the signature is not the main content of the email,
+/** @param mime what postal-mime parsed from `email.mime`, i.e. what the mail shows
+ * @returns null, if the signature is not the main content of the email,
  * but nested, e.g. a mailing list wrapped the signed message */
-function getSignedCleartext(email: EMail): string | null {
-  assert(email.headers.length > 0, "parseHeaders first");
-  let contentType = email.headers.get("content-type");
+function getSignedCleartext(email: EMail, mime: MIME): string | null {
+  let contentTypes = mime.headers.filter(header => header.key == "content-type");
+  // RFC 2045 allows only one. Mailers differ in which one they use, so we can't tell what the sender signed.
+  if (contentTypes.length != 1) {
+    return null;
+  }
+  let contentType = contentTypes[0].value;
   let parameters = parseHeaderParameters(contentType);
   if (parameters.$main != "multipart/signed" ||
       parameters.protocol?.toLowerCase() != "application/pgp-signature") {
