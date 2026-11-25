@@ -14,6 +14,7 @@ import type { EMail } from "../../../../logic/Mail/EMail";
 import { SpecialFolder } from "../../../../logic/Mail/Folder";
 import type { MailAccount } from "../../../../logic/Mail/MailAccount";
 import { MailIdentity } from "../../../../logic/Mail/MailIdentity";
+import { applyPatch } from "./applyPatch";
 import { afterEach, beforeAll, expect, test } from "vitest";
 
 const kMe = "user2@example.com";
@@ -171,6 +172,7 @@ test("A changed time of an accepted invitation reaches the JMAP server, with the
   let email = await newInvitationEMail(account);
   await calendar.getIncomingInvitationForEMail(email).respondToInvitationFromMail(InvitationResponse.Accept);
   let event = calendar.events.first as JMAPEvent;
+  let onServer = structuredClone(Object.values(calls[0].args.create)[0]) as TJMAPCalendarEvent; // the update changes the created object
   let newStart = new Date(email.event.startTime.getTime() + 60 * 60 * 1000);
   let changedICal = invitationICal(kMe)
     .replace("DTSTAMP:20080507T170000Z", "DTSTAMP:20080508T170000Z")
@@ -185,7 +187,7 @@ test("A changed time of an accepted invitation reaches the JMAP server, with the
   expect(event.isMoved).toBe(true);
   expect(event.myParticipation).toEqual(InvitationResponse.NoResponseReceived);
   expect(calls.length).toEqual(2);
-  let updated = calls[1].args.update.serverEventID as TJMAPCalendarEvent;
+  let updated = applyPatch(onServer, calls[1].args.update.serverEventID);
   expect(updated.sequence).toEqual(1);
   expect(updated.start).toEqual(newStart.toISOString().replace(/\.\d+Z$/, ""));
   let participants = Object.values(updated.participants);
@@ -361,9 +363,12 @@ test("Accepting an invitation that the JMAP server added keeps the server's part
 
   expect(calls.length).toEqual(1);
   expect(calls[0].method).toEqual("CalendarEvent/set");
-  let updated = calls[0].args.update.serverEventID as TJMAPCalendarEvent;
+  let patch = calls[0].args.update.serverEventID;
+  // Only my answer, so that answers of the others that arrived in the meantime stay
+  expect(Object.keys(patch).filter(path => path.split("/")[0] == "participants" && path.split("/")[1] != "meID")).toEqual([]);
+  let updated = applyPatch(serverMeeting("needs-action"), patch);
   // The same participant entries as the server sent, not removed and added again
-  expect(Object.keys(updated.participants)).toEqual(["otherID", "meID"]);
+  expect(Object.keys(updated.participants).sort()).toEqual(["meID", "otherID"]);
   expect(updated.participants.meID.calendarAddress).toEqual("mailto:" + kMe);
   expect(updated.participants.meID.participationStatus).toEqual("accepted");
   expect(updated.organizerCalendarAddress).toEqual("mailto:" + kOrganizer);
@@ -386,7 +391,7 @@ test("Declining an invitation in the calendar without a reply tells only the ser
   expect(event.myParticipation).toEqual(InvitationResponse.Decline);
   expect(calls.length).toEqual(1);
   expect(calls[0].method).toEqual("CalendarEvent/set");
-  let updated = calls[0].args.update.serverEventID as TJMAPCalendarEvent;
+  let updated = applyPatch(serverMeeting("needs-action"), calls[0].args.update.serverEventID);
   expect(updated.participants.meID.participationStatus).toEqual("declined");
   expect(calls[0].args.sendSchedulingMessages).toBeFalsy();
   expect(sent.length).toEqual(0);
