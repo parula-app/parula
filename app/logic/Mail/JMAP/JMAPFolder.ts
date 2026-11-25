@@ -72,20 +72,28 @@ export class JMAPFolder extends Folder {
     const kMaxRounds = Math.min(5000, 1000000 / batchSize);
     let loop = new LoopGuard(kMaxRounds, () =>
       this.account.errorCallback(new Error(`${this.name}: Listing the emails: The server keeps returning more emails. Stopped.`)));
+    let onServer = new Set<string>();
     while (loop.nextRound()) {
-      let { newMessages, syncState, ids, limit } = await retryOnTransientError(() =>
+      let { newMessages, updatedMessages, syncState, ids, limit } = await retryOnTransientError(() =>
         this.fetchMessageList(position, batchSize));
       await saving; // Save the last page and fetch this one at the same time
       if (loop.isSameAsLastRound(ids.join(" "))) {
         break;
       }
+      ids.forEach(id => onServer.add(id));
       state ??= syncState;
       this.messages.addAll(newMessages);
       saving = this.saveNewMsgs(newMessages)
+        .then(() => this.saveMsgUpdates(updatedMessages))
         .catch(this.account.errorCallback);
       allNewMessages.addAll(newMessages);
       position += ids.length;
       if (ids.length < limit) {
+        for (let email of this.messages.contents) { // copy: deleteMessageLocally() removes from this.messages
+          if (email.jmapID && !onServer.has(email.jmapID)) {
+            await email.deleteMessageLocally();
+          }
+        }
         break;
       }
     }
@@ -102,17 +110,13 @@ export class JMAPFolder extends Folder {
     if (!this.account.syncState.has("Email")) {
       return await this.listAllMessages();
     }
+    return await this.fetchChangedMessagesForAllFolders();
+  }
 
-    try {
-      return await this.fetchChangedMessagesForAllFolders();
-    } catch (ex) {
-      if (ex.code == "cannotCalculateChanges") {
-        // Our sync state is too old <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
-        this.account.syncState.delete("Email");
-        return await this.listAllMessages();
-      }
-      throw ex;
-    }
+  /** Lists all emails of this folder again, if we have any. They are listed completely anyway when the folder is opened. */
+  async listAllMessagesAgain(): Promise<ArrayColl<JMAPEMail>> {
+    await this.readFolder();
+    return this.messages.hasItems ? await this.listAllMessages() : new ArrayColl<JMAPEMail>();
   }
 
   protected async fetchMessageList(start?: number, limit?: number, options?: any): Promise<{ newMessages: ArrayColl<JMAPEMail>, updatedMessages: ArrayColl<JMAPEMail>, syncState: string, ids: string[], limit: number }> {
@@ -168,6 +172,18 @@ export class JMAPFolder extends Folder {
    * @returns new messages of *this* folder
    */
   async fetchChangedMessagesForAllFolders(): Promise<ArrayColl<JMAPEMail>> {
+    try {
+      return await this.fetchChangesForAllFolders();
+    } catch (ex) {
+      if (ex.code == "cannotCalculateChanges") {
+        // Our sync state is too old <https://www.rfc-editor.org/rfc/rfc8620#section-5.2>
+        return (await this.account.listAllFoldersAgain()).get(this) ?? new ArrayColl<JMAPEMail>();
+      }
+      throw ex;
+    }
+  }
+
+  protected async fetchChangesForAllFolders(): Promise<ArrayColl<JMAPEMail>> {
     assert(this.account.syncState.has("Email"), "No sync state");
     let newMessagesOfThisFolder = new ArrayColl<JMAPEMail>();
     const kMaxRounds = 1000;
