@@ -7,7 +7,8 @@ import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert } from "../../util/util";
 import type { Collection } from "svelte-collections";
 
-export async function getICal(event: Event, method?: iCalMethod): Promise<string | null> {
+/** @param recurrenceRule (Optional) The `RRULE` line to write instead of `event.recurrenceRule` */
+export async function getICal(event: Event, method?: iCalMethod, recurrenceRule?: string | null): Promise<string | null> {
   assert(event, "Need event");
   /* We have to special-case RRULE as it contains ";"s
    * which must not be escaped as normal text values would */
@@ -19,7 +20,7 @@ export async function getICal(event: Event, method?: iCalMethod): Promise<string
   lines.push(["VERSION", "2.0"]);
   lines.push(["PRODID", `-//Beonex//${appName}//EN`]);
   addVTimezones(lines, event);
-  await addVEvent(lines, event, method);
+  await addVEvent(lines, event, method, recurrenceRule);
   for (let exception of event.exceptions) {
     await addVEvent(lines, exception, method);
   }
@@ -47,8 +48,9 @@ function timezoneOf(event: Event): string {
   return event.timezone || myTimezone();
 }
 
-/** @param method (Optional) The invitation action, only if this iCal is sent as an invitation email */
-async function addVEvent(lines: (string | string[])[], event: Event, method?: iCalMethod): Promise<void> {
+/** @param method (Optional) The invitation action, only if this iCal is sent as an invitation email
+ * @param recurrenceRule (Optional) The `RRULE` line to write instead of `event.recurrenceRule` */
+async function addVEvent(lines: (string | string[])[], event: Event, method?: iCalMethod, recurrenceRule?: string | null): Promise<void> {
   lines.push(["BEGIN", "VEVENT"]);
   lines.push(["DTSTAMP", utc2ical(new Date())]);
   lines.push(["UID", event.calUID]);
@@ -114,7 +116,7 @@ async function addVEvent(lines: (string | string[])[], event: Event, method?: iC
     lines.push(["ORGANIZER", "MAILTO:" + organizer.emailAddress]);
   }
   if (event.recurrenceRule) {
-    lines.push(event.recurrenceRule.getCalString(event.allDay) + "\r\n");
+    lines.push((recurrenceRule ?? event.recurrenceRule.getCalString(event.allDay)) + "\r\n");
     let timezone = timezoneOf(event);
     for (let exclusion of event.exclusions) {
       if (event.allDay) {
