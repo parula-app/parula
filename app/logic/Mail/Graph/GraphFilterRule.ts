@@ -17,11 +17,11 @@ export class GraphFilterRule extends ServerFilterRule {
   }
 
   get isReadOnly(): boolean {
-    return this.json.isReadOnly === true;
+    return sanitize.boolean(this.json.isReadOnly, false);
   }
 
   get isEnabled(): boolean {
-    return this.json.isEnabled !== false;
+    return sanitize.boolean(this.json.isEnabled ?? true, true);
   }
 
   get hasError(): boolean {
@@ -30,9 +30,9 @@ export class GraphFilterRule extends ServerFilterRule {
 
   protected get sections(): Record<string, Record<string, any>> {
     return {
-      conditions: this.json.conditions ?? {},
-      exceptions: this.json.exceptions ?? {},
-      actions: this.json.actions ?? {},
+      conditions: sanitize.object(this.json.conditions, {}),
+      exceptions: sanitize.object(this.json.exceptions, {}),
+      actions: sanitize.object(this.json.actions, {}),
     };
   }
 
@@ -44,11 +44,11 @@ export class GraphFilterRule extends ServerFilterRule {
       case "categories": // Exchange checks for any of the categories, we for all
         return this.strings(value).length == 1;
       case "fromAddresses":
-        return Array.isArray(value) && value.length == 1 && !!sanitize.emailAddress(value[0]?.emailAddress?.address, null);
+        return sanitize.array(value, []).length == 1 && !!sanitize.emailAddress(value[0]?.emailAddress?.address, null);
       case "hasAttachments":
-        return value === true;
+        return sanitize.boolean(value, false);
       case "messageActionFlag":
-        return value == "any";
+        return !!sanitize.enum(value, ["any"], null);
       case "withinSizeRange":
         return Object.values(value).every((size: any) => sanitize.integer(size, null) != null);
       }
@@ -60,9 +60,9 @@ export class GraphFilterRule extends ServerFilterRule {
       case "assignCategories":
         return this.strings(value).length > 0;
       case "moveToFolder":
-        return typeof value == "string";
+        return !!sanitize.nonemptystring(value, null);
       case "copyToFolder":
-        return typeof value == "string" && this.isEmpty(this.json.actions.moveToFolder);
+        return !!sanitize.nonemptystring(value, null) && this.isEmpty(this.json.actions.moveToFolder);
       case "markAsRead":
       case "delete":
       case "permanentDelete":

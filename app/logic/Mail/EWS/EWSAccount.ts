@@ -300,7 +300,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     let inboxRules = responseXML.querySelector("GetInboxRulesResponse, UpdateInboxRulesResponse");
     if (inboxRules) {
       let message: any = XML2JSON(inboxRules);
-      if (message.ResponseClass == "Error") {
+      if (sanitize.enum(message.ResponseClass, ["Success", "Warning", "Error"], null) == "Error") {
         throw new EWSItemError(message, aRequest);
       }
       return message;
