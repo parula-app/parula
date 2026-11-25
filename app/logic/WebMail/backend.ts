@@ -17,12 +17,14 @@ export class WebMailBackend {
         let kyFetch = kyFunc[name](input, options);
         let resultType = options?.result || defaultOptions?.result;
         if (resultType &&
-          ["text", "json", "formData", "blob", "arrayBuffer"].includes(resultType) &&
+          ["text", "json", "formData", "blob", "arrayBuffer", "response"].includes(resultType) &&
           ["get", "put", "post", "patch", "delete", "head"].includes(name)) {
           try {
             // console.log("Calling server", "input", input, "options", options, "defaults", defaultOptions);
             // let json = await resultKy.json();
-            return await kyFetch[resultType]();
+            return resultType == "response"
+              ? await httpResponse(kyFetch)
+              : await kyFetch[resultType]();
           } catch (ex) {
             let error = new HTTPFetchError(ex);
             error.responseBody = await ex.response?.text().catch(() => undefined);
@@ -70,6 +72,30 @@ export class WebMailBackend {
   async getCACertificates(type: string): Promise<string[]> {
     return [];
   }
+}
+
+/** The entire HTTP response: `{ ok, status, statusText, headers, body }`,
+ * with lowercase header names, repeated headers (e.g. `set-cookie`) as string
+ * arrays, and the body as raw bytes.
+ * For callers that need the response headers, or the body of a failed call,
+ * which `HTTPFetchError` drops. Combine it with ky's `throwHttpErrors: false`. */
+async function httpResponse(kyFetch) {
+  let response = await kyFetch;
+  let headers = {};
+  for (let [name, value] of response.headers) {
+    headers[name] = value;
+  }
+  let setCookies = response.headers.getSetCookie?.();
+  if (setCookies?.length) {
+    headers["set-cookie"] = setCookies;
+  }
+  return {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    headers: headers,
+    body: new Uint8Array(await response.arrayBuffer()),
+  };
 }
 
 export class HTTPFetchError extends Error {

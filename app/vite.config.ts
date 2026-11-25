@@ -5,6 +5,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import wasm from 'vite-plugin-wasm';
 import conditionalCompile from "vite-plugin-conditional-compile";
 import { webMail, isMobile, includeProprietary, production } from './logic/build';
+import { fileURLToPath } from 'node:url';
 
 const conditionalCompilePlugin: any = conditionalCompile({ // its types say that it returns an array, but it returns one plugin
   // <https://github.com/LZS911/vite-plugin-conditional-compile/blob/master/README.md>
@@ -42,6 +43,7 @@ export default defineConfig({
   resolve: {
     // Explicitly set the resolve conditions for Vite 7+
     conditions: [...defaultClientConditions],
+    alias: nodePolyfillShims(),
   },
   optimizeDeps: {
     exclude: ['@matrix-org/matrix-sdk-crypto-wasm'],
@@ -62,3 +64,18 @@ export default defineConfig({
   },
   base: './',
 });
+
+/**
+ * `nodePolyfills()` injects imports of its shims into every file it transforms,
+ * including the files in `lib/`. `lib/` is a sibling of `app/`, so there is no
+ * `node_modules` above it that has the plugin, and the imports fail to resolve.
+ * Map the shims to their real files.
+ */
+function nodePolyfillShims(): Record<string, string> {
+  let shims: Record<string, string> = {};
+  for (let name of ['buffer', 'global', 'process']) {
+    let specifier = `vite-plugin-node-polyfills/shims/${name}`;
+    shims[specifier] = fileURLToPath(import.meta.resolve(specifier));
+  }
+  return shims;
+}
