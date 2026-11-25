@@ -161,7 +161,7 @@ export function convertICalContainerToEvent(vevent: ICalContainer, event: Event)
   // RFC 5545 3.8.1.2: Several names per line, and several lines
   event.tags.replaceAll((vevent.entries.categories ?? [])
     .flatMap(entry => entry.listValues)
-    .filter(name => name)
+    .filter(Boolean)
     .map(name => getTagByName(name)));
   readAttachments(vevent, event);
 }
