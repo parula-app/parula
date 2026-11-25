@@ -15,6 +15,7 @@ import { afterEach, expect, test, vi } from "vitest";
 afterEach(() => {
   AppWindow["acting"] = null;
   getLocalStorage("mail.send.newWindow", false).value = false;
+  getLocalStorage("lookout.mail.compose.repliesInNewWindow", false).value = false;
   vi.restoreAllMocks();
 });
 
@@ -54,6 +55,20 @@ test("A reply in the window of a single email opens Lookout's composer in a new 
   let message = { subject: "Shown" } as EMail;
   let reply = { subject: "Re: Shown" } as EMail;
   AppWindow["acting"] = new EMailWindow();
+  await MessageActions.respond(message, reply);
+  expect(open).toHaveBeenCalledWith(ComposerWindow, { mail: reply }, 1000);
+  expect(writeMail).not.toHaveBeenCalled();
+});
+
+test("With the setting to open replies and forwards in a new window, a reply in the main window opens Lookout's composer in a new window", async () => {
+  let open = vi.spyOn(AppWindow.prototype, "open").mockImplementation(async () => null);
+  let writeMail = vi.spyOn(mailMustangApp, "writeMail").mockImplementation(() => {});
+  let message = { subject: "Shown" } as EMail;
+  let reply = { subject: "Re: Shown" } as EMail;
+  selectedApp.set(mailMustangApp);
+  selectedMessage.set(message);
+  selectedMessages.set(new ArrayColl([message]));
+  getLocalStorage("lookout.mail.compose.repliesInNewWindow", false).value = true;
   await MessageActions.respond(message, reply);
   expect(open).toHaveBeenCalledWith(ComposerWindow, { mail: reply }, 1000);
   expect(writeMail).not.toHaveBeenCalled();
