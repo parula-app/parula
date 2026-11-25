@@ -1,16 +1,18 @@
 import type { TopicAccount } from "./TopicAccount";
 import { Paragraph, type PageContent } from "./PageContent";
+import type { TopicLink } from "./Link/TopicLink";
+import { newTopicLinkForTarget } from "./Link/TopicLinks";
 import type { Person } from "../Abstract/Person";
 import type { Group } from "../Abstract/Group";
 import type { Message } from "../Abstract/Message";
 import type { Event } from "../Calendar/Event";
 import type { File } from "../Files/File";
-import { convertHTMLToText } from "../util/convertHTML";
+import { convertHTMLToMarkdown } from "../util/convertHTML";
 import { fileExtensionForMIMEType } from "../Files/FileType/MIMETypes";
 import { Observable, notifyChangedProperty } from "../util/Observable";
-import { NotReached, assert } from "../util/util";
+import { NotReached, NotSupported, assert } from "../util/util";
 import { gt } from "../../l10n/l10n";
-import { ArrayColl, MapColl } from "svelte-collections";
+import { ArrayColl } from "svelte-collections";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 
 export class Topic extends Observable {
@@ -23,18 +25,15 @@ export class Topic extends Observable {
   @notifyChangedProperty
   name: string;
   dbID: number;
+  /** When the topic was last changed, to know whether its files are newer @see `FileTopicStorage` */
+  lastMod: Date | null = null;
 
   parent: Topic | null = null;
   /** Sub-topics */
   readonly children = new ArrayColl<Topic>();
-  /** Connections to other objects (other than child/parent).
-   * In LinkedData, these are the object properties.
-   * Has to be lazy-loaded.
-   *
-   * map key: The link target
-   * map value: the nature of the link, e.g. a schema.org property name
-   */
-  readonly links = new MapColl<LinkTarget, LinkType>();
+  /** Connections to other objects (other than child/parent), e.g. emails and contacts.
+   * In LinkedData, these are the object properties. */
+  readonly links = new ArrayColl<TopicLink>();
 
   /**
    * Structured information about the topic.
@@ -81,7 +80,7 @@ export class Topic extends Observable {
     if (mimeType == "text/html") {
       fileContent = html;
     } else if (mimeType == "text/markdown") {
-      fileContent = convertHTMLToText(html);
+      fileContent = convertHTMLToMarkdown(html);
     } else {
       throw new NotReached(gt`File type ${mimeType} is not supported`);
     }
@@ -98,19 +97,51 @@ export class Topic extends Observable {
     topic.account = this.account;
     topic.parent = this;
     this.children.add(topic);
+    this.account.topics.add(topic);
     topic.name = name;
     await topic.save();
     return topic;
   }
 
+  /** Links an email, contact, event, chat message or file to this topic */
+  async addLink(target: LinkTarget): Promise<void> {
+    let link = newTopicLinkForTarget(this, target);
+    if (!link.targetID) {
+      throw new NotSupported(gt`${link.name} has no ID that others can find, so it cannot be added to a topic`);
+    }
+    if (this.links.find(other => other.targetID == link.targetID)) {
+      return;
+    }
+    this.links.add(link);
+    await this.save();
+  }
+
+  async removeLink(link: TopicLink): Promise<void> {
+    this.links.remove(link);
+    await this.save();
+  }
+
   async save() {
+    this.lastMod = new Date();
     await this.account.storage.saveTopic(this);
+    for (let storage of this.account.contentStorage) {
+      await storage.saveTopic(this);
+    }
     this.notifyObservers("content");
   }
 
+  /** Also deletes the sub-topics */
   async deleteIt() {
+    // From the last, so that the others keep their position
+    for (let child of this.children.contents.toReversed()) {
+      await child.deleteIt();
+    }
     this.parent.children.remove(this);
+    this.account.topics.remove(this);
     await this.account.storage.deleteTopic(this);
+    for (let storage of this.account.contentStorage) {
+      await storage.deleteTopic(this);
+    }
   }
 }
 

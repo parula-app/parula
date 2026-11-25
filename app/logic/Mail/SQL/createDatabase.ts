@@ -12,6 +12,12 @@ export const emailPersonLowercaseIndex = sql`
   CREATE INDEX IF NOT EXISTS index_emailPerson_emailAddress_lower ON emailPerson (lower(emailAddress));
 `;
 
+/** Finds an email by its Message-ID, e.g. for the links of a topic.
+ * Separate from the schema below, for the migration of pre-existing databases. */
+export const emailMessageIDIndex = sql`
+  CREATE INDEX IF NOT EXISTS index_email_messageID ON email (messageID);
+`;
+
 export const mailDatabaseSchema = sql`
   -- Email addresses, as found in received emails.
   -- They are not necessarily in the personal address book.

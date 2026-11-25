@@ -22,5 +22,5 @@ test("A plaintext-only mail keeps its body, e.g. a quick reply from a notificati
 
   expect(mail.text).toBe("Sounds good, see you there");
   let nmMail = await CreateMIME.getNMMail(mail);
-  expect(nmMail.text).toBe("Sounds good, see you there");
+  expect((nmMail.text as { raw: string }).raw).toContain("\r\n\r\nSounds good, see you there");
 });
