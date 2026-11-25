@@ -23,11 +23,11 @@ export class OWAFilterRule extends ServerFilterRule {
   }
 
   get isReadOnly(): boolean {
-    return this.json.SupportedByTask === false;
+    return !sanitize.boolean(this.json.SupportedByTask ?? true, true);
   }
 
   get isEnabled(): boolean {
-    return this.json.Enabled !== false;
+    return sanitize.boolean(this.json.Enabled ?? true, true);
   }
 
   get hasError(): boolean {
@@ -51,13 +51,13 @@ export class OWAFilterRule extends ServerFilterRule {
     case "SubjectOrBodyContainsWords":
       return this.strings(value).length == 1;
     case "From":
-      return Array.isArray(value) && value.length == 1 && !!sanitize.emailAddress(value[0]?.SmtpAddress, null);
+      return sanitize.array(value, []).length == 1 && !!sanitize.emailAddress(value[0]?.SmtpAddress, null);
     case "HasAttachment":
     case "MarkAsRead":
     case "DeleteMessage":
       return sanitize.boolean(value, false);
     case "FlaggedForAction":
-      return value == "Any";
+      return !!sanitize.enum(value, ["Any"], null);
     case "WithinSizeRangeMinimum":
     case "WithinSizeRangeMaximum":
       return sanitize.integer(value, null) != null;

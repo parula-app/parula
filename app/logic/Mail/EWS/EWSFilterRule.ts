@@ -33,9 +33,9 @@ export class EWSFilterRule extends ServerFilterRule {
 
   protected get sections(): Record<string, Record<string, any>> {
     return {
-      Conditions: this.json.Conditions || {},
-      Exceptions: this.json.Exceptions || {},
-      Actions: this.json.Actions || {},
+      Conditions: sanitize.object(this.json.Conditions, {}),
+      Exceptions: sanitize.object(this.json.Exceptions, {}),
+      Actions: sanitize.object(this.json.Actions, {}),
     };
   }
 
@@ -51,9 +51,9 @@ export class EWSFilterRule extends ServerFilterRule {
         return addresses.length == 1 && !!sanitize.emailAddress(addresses[0]?.EmailAddress, null);
       }
       case "HasAttachments":
-        return value == "true";
+        return sanitize.boolean(value, false);
       case "FlaggedForAction":
-        return value == "Any";
+        return !!sanitize.enum(value, ["Any"], null);
       case "WithinSizeRange":
         return Object.values(value).every((size: any) => sanitize.integer(size, null) != null);
       case "WithinDateRange":
@@ -67,9 +67,9 @@ export class EWSFilterRule extends ServerFilterRule {
       case "AssignCategories":
         return this.strings(value).length > 0;
       case "MoveToFolder":
-        return !!value.FolderId?.Id;
+        return !!sanitize.nonemptystring(value.FolderId?.Id, null);
       case "CopyToFolder":
-        return !!value.FolderId?.Id && this.isEmpty(this.json.Actions.MoveToFolder);
+        return !!sanitize.nonemptystring(value.FolderId?.Id, null) && this.isEmpty(this.json.Actions.MoveToFolder);
       case "Delete":
       case "MarkAsRead":
       case "PermanentDelete":

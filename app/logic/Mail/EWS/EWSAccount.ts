@@ -299,7 +299,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     let inboxRules = responseXML.querySelector("GetInboxRulesResponse, UpdateInboxRulesResponse");
     if (inboxRules) {
       let message: any = XML2JSON(inboxRules);
-      if (message.ResponseClass == "Error") {
+      if (sanitize.enum(message.ResponseClass, ["Success", "Warning", "Error"], null) == "Error") {
         throw new EWSItemError(message, aRequest);
       }
       return message;
@@ -1361,7 +1361,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
 
   protected async fetchServerFilterRules(): Promise<FilterRuleAction[]> {
     let response = await this.callEWS({ m$GetInboxRules: {} });
-    this.setOutlookRulesExist(response.OutlookRuleBlobExists == "true");
+    this.setOutlookRulesExist(sanitize.boolean(response.OutlookRuleBlobExists, false));
     return ensureArray(response.InboxRules?.Rule)
       .map(json => this.newServerFilterRule(json))
       .sort((a, b) => a.priority - b.priority)

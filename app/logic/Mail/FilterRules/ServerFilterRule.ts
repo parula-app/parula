@@ -21,7 +21,7 @@ export class ServerFilterRule {
 
   constructor(account: MailAccount, json: any) {
     this.account = account;
-    this.json = json ?? {};
+    this.json = sanitize.object(json, {});
   }
 
   get id(): string | null {
@@ -69,7 +69,7 @@ export class ServerFilterRule {
     for (let [section, values] of Object.entries(this.sections)) {
       for (let key of this.unknownKeys(section)) {
         let name = (section ? this.words(section) + ": " : "") + this.words(key);
-        let text = values[key] === true || values[key] === "true" ? "" : this.plainText(values[key]);
+        let text = sanitize.boolean(values[key], false) ? "" : this.plainText(values[key]);
         parts.push(text ? `${name}: ${text}` : name);
       }
     }
@@ -192,7 +192,7 @@ export class ServerFilterRule {
 
   /** An unset property. The formats set it to null, false, an empty list or an empty element. */
   protected isEmpty(value: any): boolean {
-    if (value == null || value === false || value === "false" || value === "") {
+    if (!sanitize.boolean(value, true) || value === "") {
       return true;
     }
     if (Array.isArray(value)) {
