@@ -5,6 +5,7 @@ import { OWAFolder } from "../../../../logic/Mail/OWA/OWAFolder";
 import type { OWAEMail } from "../../../../logic/Mail/OWA/OWAEMail";
 import { OWACalendar } from "../../../../logic/Calendar/OWA/OWACalendar";
 import { OWAAddressbook } from "../../../../logic/Contacts/OWA/OWAAddressbook";
+import { DummyMailStorage } from "../../../../logic/Mail/Store/DummyMailStorage";
 import { waitTime } from "../../../../logic/util/util";
 import { ArrayColl } from "svelte-collections";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -15,12 +16,49 @@ class TestOWAAccount extends OWAAccount {
   messages = 0;
   /** How often we checked the inbox for new mail */
   inboxChecks = 0;
+  /** All requests that we sent to the server */
+  readonly requests: any[] = [];
+  /** The number of mails in each mail folder on the server, by folder ID */
+  readonly serverCounts = new Map<string, number>();
+  /** The next folder listings fail with these errors, one each */
+  readonly folderListingErrors: Error[] = [];
 
   async callOWA(request: any): Promise<any> {
+    this.requests.push(request);
     if (request.action == "GetAccessTokenforResource") {
       return { AccessToken: "notification-token" };
     }
+    if (request.action == "FindFolder") {
+      let error = this.folderListingErrors.shift();
+      if (error) {
+        throw error;
+      }
+      let folders = [...this.serverCounts.keys()].map(folderID => this.serverFolderJSON(folderID));
+      return { RootFolder: { ParentFolder: { FolderId: { Id: "msgfolderroot-id" } }, Folders: folders } };
+    }
+    if (request.action == "GetFolder") {
+      // Like `callOWAShared()`, which unpacks a response with only one folder
+      let responses = request.Body.FolderIds.map(folder => ({ ResponseClass: "Success", Folders: [this.serverFolderJSON(folder.Id)] }));
+      return responses.length == 1 ? responses[0] : { ResponseMessages: { Items: responses } };
+    }
+    if (request.action == "FindItem") {
+      // Which mails arrived is not part of these tests
+      return { RootFolder: { Items: [], IncludesLastItemInRange: true } };
+    }
     throw new Error("Unexpected OWA call " + request.action);
+  }
+
+  serverFolderJSON(folderID: string): any {
+    let count = this.serverCounts.get(folderID);
+    return {
+      FolderId: { Id: folderID },
+      ParentFolderId: { Id: "msgfolderroot-id" },
+      DisplayName: folderID,
+      FolderClass: "IPF.Note",
+      DistinguishedFolderId: folderID == "inbox-folder" ? "inbox" : null,
+      TotalCount: count,
+      UnreadCount: count,
+    };
   }
 
   async onNotificationMessages(messages: any[][]) {
@@ -39,25 +77,38 @@ function newTestAccount(): TestOWAAccount {
   account.emailAddress = account.username;
   account.url = "https://exchange.example.com/owa/";
   account.errorCallback = ex => account.errors.push(ex);
+  account.storage = new DummyMailStorage();
   newMailFolder(account, "inbox-folder", true, () => account.inboxChecks++);
   return account;
 }
 
-/** A mail folder. `OWAFolder.listMessages()` subscribed it to row notifications, if `listening`.
- * @param onFetch Called when we fetch its new mail */
-function newMailFolder(account: OWAAccount, folderID: string, listening: boolean, onFetch: () => void): OWAFolder {
+/** A mail folder, empty here and on the server.
+ * `OWAFolder.listMessages()` subscribed it to row notifications, if `listening`.
+ * @param onFetch Called when we fetch its new mail. Without it, the real `getNewMessages()` runs. */
+function newMailFolder(account: TestOWAAccount, folderID: string, listening: boolean, onFetch?: () => void): OWAFolder {
   let folder = new OWAFolder(account);
   folder.id = folderID;
   folder.listening = listening;
-  folder.getNewMessages = async () => {
-    if (!serverReachable) {
-      throw new Error("net::ERR_NAME_NOT_RESOLVED");
-    }
-    onFetch();
-    return new ArrayColl<OWAEMail>();
-  };
+  if (onFetch) {
+    folder.getNewMessages = async () => {
+      if (!serverReachable) {
+        throw new Error("net::ERR_NAME_NOT_RESOLVED");
+      }
+      onFetch();
+      return new ArrayColl<OWAEMail>();
+    };
+  }
+  account.rootFolders.add(folder);
   account.folderMap.set(folderID, folder);
+  account.serverCounts.set(folderID, 0);
   return folder;
+}
+
+/** A mail arrived in each of these folders on the server */
+function newMailOnServer(account: TestOWAAccount, ...folderIDs: string[]) {
+  for (let folderID of folderIDs) {
+    account.serverCounts.set(folderID, account.serverCounts.get(folderID) + 1);
+  }
 }
 
 function waitForever(): Promise<void> {
@@ -214,6 +265,7 @@ test("OWA: After the notifications were opened again, we fetch what changed mean
   expect(account.inboxChecks).toBe(0);
   expect(synced).toEqual([]);
 
+  newMailOnServer(account, "inbox-folder", "listed-folder", "unlisted-folder");
   await vi.advanceTimersByTimeAsync(3 * 60 * 1000);
   expect(listeners()).toBe(2);
   expect(account.inboxChecks).toBeGreaterThan(0);
@@ -230,6 +282,7 @@ test("OWA: When the server was reachable again only later, e.g. a late VPN, we f
   let account = newTestAccount();
   let unreachable = new Error("net::ERR_NAME_NOT_RESOLVED");
   let listeners = serveExchange([() => exchangeStream(1), unreachable, exchangeStream]);
+  newMailOnServer(account, "inbox-folder");
 
   account.listenForNotifications();
   await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
@@ -237,6 +290,96 @@ test("OWA: When the server was reachable again only later, e.g. a late VPN, we f
   expect(listeners()).toBe(3);
   expect(account.inboxChecks).toBeGreaterThan(0);
   expect(account.errors).toEqual([]);
+  await account.disconnect();
+});
+
+test("OWA: After the notifications were opened again, one request gets the counts of all listed mail folders, and only the folder with new mail is fetched", async () => {
+  let account = newTestAccount();
+  for (let i = 1; i <= 5; i++) {
+    newMailFolder(account, "listed-folder-" + i, true);
+  }
+  let listeners = serveExchange([() => exchangeStream(2), exchangeStream]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(30 * 1000);
+  newMailOnServer(account, "listed-folder-3");
+  await vi.advanceTimersByTimeAsync(3 * 60 * 1000);
+
+  expect(listeners()).toBe(2);
+  let countRequests = account.requests.filter(request => request.action == "GetFolder" || request.action == "FindFolder");
+  expect(countRequests.length).toBe(1);
+  let fetchedFolderIDs = account.requests
+    .filter(request => request.action == "FindItem")
+    .map(request => request.Body.ParentFolderIds[0].Id);
+  expect(fetchedFolderIDs.length).toBeGreaterThan(0);
+  expect(new Set(fetchedFolderIDs)).toEqual(new Set(["listed-folder-3"]));
+  expect(account.inboxChecks).toBe(0);
+  expect(account.errors).toEqual([]);
+  await account.disconnect();
+});
+
+test("OWA: When the folder listing after the notifications were opened again fails, the error is reported once, and no mail folder is fetched", async () => {
+  let account = newTestAccount();
+  newMailFolder(account, "listed-folder", true);
+  let listeners = serveExchange([() => exchangeStream(2), exchangeStream, exchangeStream]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(30 * 1000);
+  newMailOnServer(account, "inbox-folder", "listed-folder");
+  account.folderListingErrors.push(new Error("Folder listing failed"));
+  await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+
+  expect(account.errors.length).toBe(1);
+  expect(account.errors[0].message).toContain("Folder listing failed");
+  // An error that won't go away by itself is not tried again
+  expect(listeners()).toBe(2);
+  expect(account.inboxChecks).toBe(0);
+  expect(account.requests.filter(request => request.action == "FindItem")).toEqual([]);
+  await account.disconnect();
+});
+
+test("OWA: When the folder listing after the notifications were opened again fails only for a while, e.g. the network changed, we fetch what changed meanwhile later", async () => {
+  let account = newTestAccount();
+  let listeners = serveExchange([() => exchangeStream(2), exchangeStream, exchangeStream]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(30 * 1000);
+  newMailOnServer(account, "inbox-folder");
+  account.folderListingErrors.push(new Error("net::ERR_NETWORK_CHANGED"));
+  await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+  expect(account.inboxChecks).toBeGreaterThan(0);
+  expect(account.errors).toEqual([]);
+  // Tried again after a while, not right away
+  expect(listeners()).toBeLessThanOrEqual(3);
+  await account.disconnect();
+});
+
+test("OWA: When fetching one mail folder fails after the notifications were opened again, the other folders are still fetched", async () => {
+  synced = [];
+  let account = newTestAccount();
+  newMailFolder(account, "listed-folder-1", true, () => synced.push("listed-folder-1"));
+  newMailFolder(account, "broken-folder", true, () => {
+    throw new Error("Folder fetch failed");
+  });
+  newMailFolder(account, "listed-folder-2", true, () => synced.push("listed-folder-2"));
+  let listeners = serveExchange([() => exchangeStream(2), exchangeStream]);
+
+  account.listenForNotifications();
+  await vi.advanceTimersByTimeAsync(30 * 1000);
+  newMailOnServer(account, "inbox-folder", "listed-folder-1", "broken-folder", "listed-folder-2");
+  await vi.advanceTimersByTimeAsync(3 * 60 * 1000);
+
+  expect(listeners()).toBe(2);
+  expect(account.inboxChecks).toBeGreaterThan(0);
+  expect(synced).toContain("listed-folder-1");
+  expect(synced).toContain("listed-folder-2");
+  expect(account.errors.length).toBe(1);
+  expect(account.errors[0].message).toContain("Folder fetch failed");
+  // The notifications stay open
+  let messages = account.messages;
+  await vi.advanceTimersByTimeAsync(60 * 1000);
+  expect(account.messages).toBeGreaterThan(messages);
   await account.disconnect();
 });
 
@@ -295,6 +438,7 @@ test("OWA: Office 365: After the notifications were opened again, we fetch what 
   let account = newTestAccount();
   account.authorizationHeader = "Bearer main-token";
   let streams = serveOffice365([3, Infinity]);
+  newMailOnServer(account, "inbox-folder");
 
   account.listenForNotifications();
   await vi.advanceTimersByTimeAsync(20 * 1000);

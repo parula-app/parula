@@ -16,7 +16,7 @@ export class OWAExchangeNotifications extends OWANotifications {
       if (!stream.ok) {
         throw new Error(`stream fetch failed with HTTP ${stream.status} ${stream.statusText}`);
       }
-      this.connected();
+      await this.connected();
       const endScript = "</script>";
       let data = "";
       for await (let chunk of stream.body) {

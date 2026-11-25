@@ -43,10 +43,10 @@ export class OWANotifications {
   }
 
   /** Call when the server accepted the stream */
-  protected connected(): void {
+  protected async connected(): Promise<void> {
     if (this.isReconnect) {
       this.isReconnect = false;
-      this.account.fetchChangesMissedByNotifications();
+      await this.account.fetchChangesMissedByNotifications();
     }
   }
 
