@@ -68,6 +68,9 @@ export function updatePerson(vcard: ICalContainer, person: Person) {
   }
   person.lastName = vcard.entries.n?.[0].values[0] ?? "";
   person.firstName = vcard.entries.n?.[0].values[1] ?? "";
+  if (!person.name) {
+    person.name = sanitize.label([person.firstName, person.lastName].filter(name => name).join(" "), "");
+  }
   person.emailAddresses.clear();
   if (vcard.entries.email) {
     for (let entry of vcard.entries.email) {
