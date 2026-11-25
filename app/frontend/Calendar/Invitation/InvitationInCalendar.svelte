@@ -3,15 +3,18 @@
   <vbox class="content">
     <InvitationDisplay {event} />
 
+    <hbox class="tags">
+      <ExpanderButton bind:expanded={showTags} label={$t`Tags`} icon={TagIcon} />
+      {#if showTags}
+        <TagSelector tags={availableTags} selectedTags={event.tags} object={event} />
+      {/if}
+    </hbox>
+
     {#if $attachments.hasItems}
       <vbox class="attachments">
         <Attachments {attachments} />
       </vbox>
     {/if}
-
-    <hbox class="tags">
-      <TagSelector tags={availableTags} selectedTags={event.tags} object={event} />
-    </hbox>
 
     {#if $event.isCancelled }
       <hbox class="cancelled-text">
@@ -41,6 +44,8 @@
   import Attachments from "../../Mail/Message/AttachmentsUI.svelte";
   import DialogHeader from "../DisplayEvent/DialogHeader.svelte";
   import TagSelector from "../../Shared/Tag/TagSelector.svelte";
+  import ExpanderButton from "../../Shared/ExpanderButton.svelte";
+  import TagIcon from "lucide-svelte/icons/tag";
   import WebView from "../../Shared/WebView.svelte";
   import Paper from "../../Shared/Paper.svelte";
   import cssContent from "../../Mail/Message/content.css?inline";
@@ -50,6 +55,7 @@
   export let event: Event;
 
   $: attachments = $event.attachments;
+  $: showTags = event.tags.hasItems; // On Event change, but keep section after removing last tag
 
   let headHTML = `<style>\n${cssBody}\n${cssContent}\n</style>`;
 </script>

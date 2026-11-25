@@ -8,6 +8,11 @@
   <vbox class="details-grid">
     <DetailsGrid {event} />
   </vbox>
+  {#if $tags.hasItems}
+    <hbox class="tags">
+      <TagSelector tags={$tags} canAdd={false} />
+    </hbox>
+  {/if}
   {#if $attachments.hasItems}
     <vbox class="attachments">
       <Attachments {attachments} />
@@ -27,12 +32,14 @@
   import DialogHeader from "./DialogHeader.svelte";
   import DetailsGrid from "./DetailsGrid.svelte";
   import Attachments from "../../Mail/Message/AttachmentsUI.svelte";
+  import TagSelector from "../../Shared/Tag/TagSelector.svelte";
   import Paper from "../../Shared/Paper.svelte";
   import WebView from "../../Shared/WebView.svelte";
 
   export let event: Event;
 
   $: attachments = $event.attachments;
+  $: tags = event.tags;
 
   let headHTML = `<style>\n${cssBody}\n${cssContent}\n</style>`;
 </script>
@@ -53,7 +60,8 @@
   .details-grid {
     margin: 20px 16px;
   }
-  .attachments {
+  .attachments,
+  .tags {
     margin: 0px 12px 12px 12px;
   }
 </style>
