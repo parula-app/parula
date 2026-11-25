@@ -77,6 +77,22 @@ export const OAuth2URLs = [
   },
   {
     provider: null,
+    domains: ["icloud.com", "me.com", "mac.com"],
+    hostnames: ["imap.mail.me.com", "smtp.mail.me.com"],
+    // Apple's "Account & Organizational Data Sharing" OAuth2 service, not Sign in with Apple
+    authURL: "https://appleid.apple.com/auth/oauth2/v2/authorize",
+    tokenURL: "https://appleid.apple.com/auth/oauth2/v2/token",
+    // Apple allows only HTTPS redirects registered for the client ID.
+    // The embedded browser stops loading when it reaches this URL, and we take the auth code from it.
+    authDoneURL: "https://outlook.office.com/mail/oauthRedirect.html?app=native",
+    scope: "openid icloud-mail-name icloud-mail-aliases icloud-mail-all icloud-contacts-all icloud-calendar-all",
+    // TODO Temporarily borrowed from Microsoft Outlook, until Apple gives us our own client ID
+    clientID: "com.microsoft.outlookccClient",
+    clientSecret: null,
+    doPKCE: true,
+  },
+  {
+    provider: null,
     domains: ["mustang.im"],
     hostnames: ["controller.mustang.im"],
     // Configured in KeyCloak <https://accounts.mustang.im/auth/admin/master/console/#/mustang/clients/>

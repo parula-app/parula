@@ -2,6 +2,7 @@
   title={$t`Authentication`}
   url={startURL}
   autofill={autoFillLoginPage(dialog.oAuth2.account)}
+  stopAtURL={startURL && dialog.oAuth2.authDoneURL}
   on:page-change={onPageChange}
   on:close={onClose}
   sessionID={dialog.oAuth2.account?.webSessionID}

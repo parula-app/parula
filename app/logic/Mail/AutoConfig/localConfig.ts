@@ -4,7 +4,7 @@ import { getConfigDir } from "../../util/backend-wrapper";
 import { assert } from "../../util/util";
 import type { MailAccount } from "../MailAccount";
 import { readConfigFromXML } from "./readConfig";
-import { SetupInfo } from "./SetupInfo";
+import { SetupInfo, type SetupInstruction } from "./SetupInfo";
 import type { ArrayColl } from "svelte-collections";
 
 /** Hardcoded, or on the hardisk in the user directory */
@@ -33,6 +33,35 @@ export function builtinConfig(domain: string): ArrayColl<MailAccount> {
 }
 
 const kBuiltinConfigs = [
+  {
+    // ISPDB has only password auth, but iCloud now supports OAuth2 for IMAP and SMTP
+    domains: ["icloud.com", "me.com", "mac.com"],
+    xml: `<clientConfig version="1.1">
+  <emailProvider id="me.com">
+    <domain>icloud.com</domain>
+    <domain>me.com</domain>
+    <domain>mac.com</domain>
+    <displayName>Apple iCloud</displayName>
+    <displayShortName>iCloud</displayShortName>
+    <incomingServer type="imap">
+      <hostname>imap.mail.me.com</hostname>
+      <port>993</port>
+      <socketType>SSL</socketType>
+      <username>%EMAILADDRESS%</username>
+      <authentication>OAuth2</authentication>
+    </incomingServer>
+    <outgoingServer type="smtp">
+      <hostname>smtp.mail.me.com</hostname>
+      <port>587</port>
+      <socketType>STARTTLS</socketType>
+      <username>%EMAILADDRESS%</username>
+      <authentication>OAuth2</authentication>
+    </outgoingServer>
+  </emailProvider>
+</clientConfig>
+`,
+    instructions: null as SetupInstruction[] | null,
+  },
 ];
 
 /**
