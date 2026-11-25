@@ -55,8 +55,7 @@ export async function saveBlobAsFile(blob: Blob, filename?: string) {
   if (!filePath) {
     return;
   }
-    await appGlobal.remoteApp.writeFile(filePath, 0o644, new Uint8Array(await blob.arrayBuffer()));
-  }
+  await appGlobal.remoteApp.writeFile(filePath, 0o644, new Uint8Array(await blob.arrayBuffer()));
   // #else
   const showSaveFilePicker = (window as any).showSaveFilePicker;
   if (typeof(showSaveFilePicker) != "function") { // Fallback
