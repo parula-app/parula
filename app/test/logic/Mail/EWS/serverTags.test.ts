@@ -200,6 +200,20 @@ test("Tagging a message with a new tag adds it as category to the server", async
   expect(account.reportedErrors).toEqual([]);
 });
 
+test("A new tag gets the category color that the server has for it", async () => {
+  let account = newTestAccount();
+  await account.tags.load();
+  let email = account.inbox.messages.first as EWSEMail;
+  let tag = newTag("Customer", "#108310");
+
+  await email.addTag(tag);
+  await tagsSavedOnServer(account);
+
+  expect(tagsOnServer(account)).toContainEqual({ name: "Customer", color: 19 });
+  expect(tag.color).toBe("#35792B");
+  expect(JSON.parse(localStorage.getItem("tags"))).toContainEqual({ name: "Customer", color: "#35792B" });
+});
+
 test("Tagging a message with an existing category does not change the category list", async () => {
   let account = newTestAccount();
   await account.tags.load();
