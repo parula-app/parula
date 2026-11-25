@@ -4,6 +4,7 @@ import type { TJMAPContact } from './TJSContact';
 import type { TID, TJMAPChangeResponse } from '../../Mail/JMAP/TJMAPGeneric';
 import type { JMAPAddressbook } from './JMAPAddressbook';
 import { checkChangeError } from '../../Mail/JMAP/JMAPError';
+import { JMAPPatchObject } from '../../Mail/JMAP/JMAPPatchObject';
 import { sanitize } from '../../../../lib/util/sanitizeDatatypes';
 import { assert } from '../../util/util';
 
@@ -29,21 +30,24 @@ export class JMAPPerson extends Person {
 
   async saveToServer() {
     let isNew = !this.original;
-    let jscontact = this.original ?? {} as TJMAPContact;
+    let jscontact = structuredClone(this.original) ?? {} as TJMAPContact;
     JSContact.fromPerson(this, jscontact); // overwrites `jscontact`, so must be first
     jscontact.addressBookIds ??= {};
     jscontact.addressBookIds[this.addressbook.jmapID] = true;
-    if (!isNew) {
-      delete jscontact.id; // immutable
-      delete jscontact.uid; // ditto, and sending `null` deletes it on the server
-    }
     assert(this.id, "ContactBase ctor should set this");
 
+    let change: Record<string, any>;
+    if (isNew) {
+      change = { create: { [this.id]: jscontact } };
+    } else {
+      let patch = JMAPPatchObject.diff(this.original, jscontact);
+      delete patch.id; // immutable
+      delete patch.uid; // ditto, and sending `null` deletes it on the server
+      change = { update: { [this.jmapID]: patch } };
+    }
     let results = await this.account.makeSingleCall("ContactCard/set", {
       accountId: this.account.accountID,
-      [isNew ? "create" : "update"]: {
-        [isNew ? this.id : this.jmapID]: jscontact,
-      },
+      ...change,
     }) as TJMAPChangeResponse<TJMAPContact>;
     checkChangeError(results);
 
