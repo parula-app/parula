@@ -7,7 +7,7 @@ import { getTagByName } from "../../Abstract/Tag";
 import { ICalContainer, ICalParser } from "./ICalParser";
 import { ICalTimezone } from "./ICalTimezone";
 import { WindowsToIANATimezone } from "./WindowsTimezone";
-import { fileExtensionForMIMEType } from "../../util/util";
+import { ensureArray, fileExtensionForMIMEType } from "../../util/util";
 import { base64ToUint8Array, stringFromDataURL } from "../../util/blob";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../l10n/l10n";
@@ -159,7 +159,7 @@ export function convertICalContainerToEvent(vevent: ICalContainer, event: Event)
     }
   }
   // RFC 5545 3.8.1.2: Several names per line, and several lines
-  event.tags.replaceAll((vevent.entries.categories ?? [])
+  event.tags.replaceAll(ensureArray(vevent.entries.categories)
     .flatMap(entry => entry.listValues)
     .filter(Boolean)
     .map(name => getTagByName(name)));
