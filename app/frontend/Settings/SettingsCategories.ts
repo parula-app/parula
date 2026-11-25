@@ -6,6 +6,7 @@ import { contactsMustangApp } from "../Contacts/ContactsMustangApp";
 import { calendarMustangApp } from "../Calendar/CalendarMustangApp";
 import { chatMustangApp } from "../Chat/ChatMustangApp";
 import { filesMustangApp } from "../Files/FilesMustangApp";
+import { topicMustangApp } from "../Topic/TopicMustangApp";
 import { myHarddrive } from "../../logic/Files/Harddrive/HarddriveAccount";
 import { appGlobal } from "../../logic/app";
 import GlobalAppearance from "./Global/Appearance.svelte";
@@ -50,6 +51,8 @@ import MailConnectedAccounts from "./Mail/ConnectedAccounts.svelte";
 import CalendarConnectedAccounts from "./Calendar/ConnectedAccounts.svelte";
 import ContactsImportExport from "./Contacts/ImportExport.svelte";
 import CalendarImportExport from "./Calendar/ImportExport.svelte";
+import TopicFiles from "./Topic/Files.svelte";
+import { TopicAccount } from "../../logic/Topic/TopicAccount";
 // #if [PROPRIETARY]
 import { meetMustangApp } from "../Meet/MeetMustangApp";
 import { M3Account } from "../../logic/Meet/M3/M3Account";
@@ -140,6 +143,14 @@ contactsSettings.forApp = contactsMustangApp;
 settingsCategories.add(contactsSettings);
 accountSettings.add(new AccSetting(Addressbook, "contacts-import", gt`Import/Export`, ContactsImportExport, true));
 accountSettings.add(new AccSetting(CardDAVAddressbook, "contacts-server", gt`Server`, AccountURLServer));
+
+// #if [!WEBMAIL]
+const topicSettings = new SettingsCategory("topic", gt`Topics`, null, true);
+topicSettings.accounts = appGlobal.topicAccounts;
+topicSettings.forApp = topicMustangApp;
+settingsCategories.add(topicSettings);
+accountSettings.add(new AccSetting(TopicAccount, "topic-files", gt`Files`, TopicFiles, true));
+// #endif
 
 // #if [PROPRIETARY]
 const meetSettings = new SettingsCategory("meet", gt`Meet`, null, true);

@@ -5,7 +5,7 @@ import type { Group } from "../Abstract/Group";
 import type { Message } from "../Abstract/Message";
 import type { Event } from "../Calendar/Event";
 import type { File } from "../Files/File";
-import { convertHTMLToText } from "../util/convertHTML";
+import { convertHTMLToMarkdown } from "../util/convertHTML";
 import { fileExtensionForMIMEType } from "../Files/FileType/MIMETypes";
 import { Observable, notifyChangedProperty } from "../util/Observable";
 import { NotReached, assert } from "../util/util";
@@ -23,6 +23,8 @@ export class Topic extends Observable {
   @notifyChangedProperty
   name: string;
   dbID: number;
+  /** When the topic was last changed, to know whether its files are newer @see `FileTopicStorage` */
+  lastMod: Date | null = null;
 
   parent: Topic | null = null;
   /** Sub-topics */
@@ -81,7 +83,7 @@ export class Topic extends Observable {
     if (mimeType == "text/html") {
       fileContent = html;
     } else if (mimeType == "text/markdown") {
-      fileContent = convertHTMLToText(html);
+      fileContent = convertHTMLToMarkdown(html);
     } else {
       throw new NotReached(gt`File type ${mimeType} is not supported`);
     }
@@ -104,13 +106,20 @@ export class Topic extends Observable {
   }
 
   async save() {
+    this.lastMod = new Date();
     await this.account.storage.saveTopic(this);
+    for (let storage of this.account.contentStorage) {
+      await storage.saveTopic(this);
+    }
     this.notifyObservers("content");
   }
 
   async deleteIt() {
     this.parent.children.remove(this);
     await this.account.storage.deleteTopic(this);
+    for (let storage of this.account.contentStorage) {
+      await storage.deleteTopic(this);
+    }
   }
 }
 

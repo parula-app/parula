@@ -20,6 +20,8 @@ export const topicDatabaseSchema = sql`
     "linksJSON" TEXT default null,
     -- Additional data
     "json" TEXT default null,
+    -- When the topic was last changed, as Unix time in ms
+    "lastMod" INTEGER default null,
     FOREIGN KEY (accountID)
       REFERENCES topicAccount (ID)
       ON DELETE CASCADE

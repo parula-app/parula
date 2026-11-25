@@ -1,3 +1,6 @@
+// @vitest-environment happy-dom
+// The draft gets its plaintext with `DOMParser`
+import "../../../../frontend/Util/happyDOMForDOMPurify";
 import "../../../../../logic/app";
 import { setupTestFolder } from "../../SQL/setup";
 import { appGlobal } from "../../../../../logic/app";
