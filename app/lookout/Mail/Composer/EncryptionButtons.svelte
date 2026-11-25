@@ -3,12 +3,12 @@
     <RibbonToggleButton label={$t`Encrypt`} icon={EncryptIcon}
       tooltip={$t`Only the recipients can read the email`}
       selected={!!$mail.shouldEncrypt}
-      disabled={$mail.mustEncrypt && $t`Policy requires that this email stays encrypted, to keep protect secret information`}
+      disabled={$mail.mustEncrypt && $t`Policy requires that this email stays encrypted, to protect secret information`}
       onClick={toggleEncrypted} />
     <RibbonToggleButton label={$t`Sign *=> Digitally sign this email`} icon={SignIcon}
       tooltip={$t`This proves that I wrote this email`}
       selected={$mail.shouldSign}
-      disabled={$mail.mustEncrypt && $t`Policy requires that this email stays encrypted, to keep protect secret information`}
+      disabled={$mail.mustEncrypt && $t`Policy requires that this email stays encrypted, to protect secret information`}
       onClick={toggleSigned} />
   {:else}
     <RibbonButton label={$t`Encrypt`} icon={EncryptIcon}
@@ -66,7 +66,7 @@
       return;
     }
     let encryptDisabledReason = mail.mustEncrypt
-      ? $t`Policy requires that this email stays encrypted, to keep protect secret information`
+      ? $t`Policy requires that this email stays encrypted, to protect secret information`
       : null;
     if (!mail.shouldEncrypt && encryptDisabledReason) {
       showError(new UserError(encryptDisabledReason));

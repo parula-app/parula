@@ -7,6 +7,7 @@ import { SQLEMail } from "../../../../logic/Mail/SQL/SQLEMail";
 import { SQLMailStorage } from "../../../../logic/Mail/SQL/SQLMailStorage";
 import { SQLSourceEMail } from "../../../../logic/Mail/SQL/Source/SQLSourceEMail";
 import { getDatabase } from "../../../../logic/Mail/SQL/SQLDatabase";
+import { getDatabase as getSourceDatabase } from "../../../../logic/Mail/SQL/Source/SQLSourceDatabase";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { beforeAll, expect, test } from "vitest";
@@ -67,4 +68,16 @@ test("A mail gets its own MIME back", async () => {
   await storage.read(reread);
   expect(new TextDecoder().decode(reread.mime)).toBe(
     new TextDecoder().decode(testMIME("own@example.com")));
+});
+
+test("A mail gets its own MIME back, which was saved when we stored the Message-ID with <>", async () => {
+  let storage = new SQLSourceEMail();
+  let email = await newSavedEMail("old@example.com");
+  await (await getSourceDatabase()).run(sql`
+    INSERT INTO emailMIME (emailID, messageID, mime) VALUES (${email.dbID}, ${"<old@example.com>"}, ${email.mime})`);
+
+  let reread = newTestEMail(folder, "old@example.com");
+  reread.dbID = email.dbID;
+  await storage.read(reread);
+  expect(reread.mime).toBeTruthy();
 });

@@ -55,9 +55,4 @@ class OWAUpdateMasterCategoryListRequest {
   get action() {
     return "UpdateMasterCategoryList";
   }
-
-  /** Office 365 reads this action only from the `x-owa-urlpostdata` header, Exchange on-premise from the body */
-  get inURLPostData() {
-    return true;
-  }
 }

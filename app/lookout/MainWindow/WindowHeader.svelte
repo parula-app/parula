@@ -24,6 +24,12 @@
     {/if}
   </hbox>
   <hbox class="window-buttons">
+    {#if appWindow.isMainWindow}
+      <button class="window-button new-window" title={$t`Open a new window`} aria-label={$t`Open a new window`}
+        on:click={() => catchErrors(onNewWindow)}>
+        <NewWindowIcon size="16" />
+      </button>
+    {/if}
     {#if !webMail}
       <button class="window-button minimize" title={$t`Minimize`} aria-label={$t`Minimize`}
         on:click={() => catchErrors(onMinimize)}>
@@ -73,9 +79,11 @@
   import MaximizeIcon from "lucide-svelte/icons/square";
   import UnmaximizeIcon from "lucide-svelte/icons/copy";
   import XIcon from "lucide-svelte/icons/x";
+  import NewWindowIcon from "lucide-svelte/icons/app-window";
   import { getOSName } from "../../frontend/Util/util";
   import { catchErrors } from "../../frontend/Util/error";
   import { AppWindow } from "../../frontend/MainWindow/AppWindow";
+  import MainWindow from "../../frontend/MainWindow/MainWindow.svelte";
   import { rtlLocales } from "../../l10n/list";
   import { t } from "../../l10n/l10n";
 
@@ -127,6 +135,10 @@
   /* <copied from="../../frontend/MainWindow/WindowHeader.svelte"> */
   const mac = (!webMail && getOSName() == "macintosh") ? true : false;
   const osRTL = (rtlLocales.includes(navigator.language) && mac) ? true : false;
+
+  async function onNewWindow() {
+    await AppWindow.openMainWindow(MainWindow, {}, appWindow.window.outerWidth, appWindow.window.outerHeight);
+  }
 
   async function onMinimize() {
     await appWindow.minimize();
@@ -291,7 +303,7 @@
     color: var(--lo-danger-fg);
   }
 
-  .mac .window-buttons {
+  .mac .window-button:not(.new-window) {
     display: none;
   }
   .mac .app-logo,
@@ -302,12 +314,12 @@
   .mac.os-rtl .app-logo {
     padding-inline-start: 14px;
   }
-  /* UI and macOS writing directions differ: The traffic lights are at the end, after the search */
-  :global([dir="rtl"]) .mac:not(.os-rtl) .search-area,
-  .mac.os-rtl .search-area {
+  /* UI and macOS writing directions differ: The traffic lights are at the end, after the New window button */
+  :global([dir="rtl"]) .mac:not(.os-rtl) .window-buttons,
+  .mac.os-rtl .window-buttons {
     padding-inline-end: 80px;
   }
-  :global([dir="rtl"]) .mac .search-area {
-    padding-inline-end: 8px;
+  :global([dir="rtl"]) .mac .window-buttons {
+    padding-inline-end: 0;
   }
 </style>

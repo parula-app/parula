@@ -10,7 +10,9 @@ import { EncryptionSystem } from "../../../../../logic/Mail/Encryption/enums";
 import { CreateMIME } from "../../../../../logic/Mail/SMTP/CreateMIME";
 import type { EMail } from "../../../../../logic/Mail/EMail";
 import { Folder, SpecialFolder } from "../../../../../logic/Mail/Folder";
+import { ContentInfo, AuthEnvelopedData } from "../../../../../logic/Mail/Encryption/SMIME/SMIMEASN1";
 import { kP256Certificate } from "./ellipticCurves";
+import { kAlice } from "./certificateChains";
 import { expect, test, describe, beforeAll } from "vitest";
 
 // The browser has these, but Node does not.
@@ -88,6 +90,51 @@ describe("A plain-text message that we send with S/MIME arrives as written", () 
   });
 });
 
+/** The CMS blob of a message from `SMIMESend` */
+function cmsOf(sendRawMIME: string): Uint8Array {
+  return new Uint8Array(Buffer.from(sendRawMIME.split("\r\n\r\n")[1], "base64"));
+}
+
+test("A message only to ourselves is encrypted with AES-GCM, so that nobody can change it unnoticed", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  mail.to.add(mail.from);
+  mail.shouldEncrypt = true;
+  let sent = await SMIMESend.encryptAndSign(mail);
+  let [headers] = sent.sendRawMIME.split("\r\n\r\n");
+  let cms = AuthEnvelopedData.decode(cmsOf(sent.sendRawMIME));
+  expect(cms.contentType).toBe("authEnvelopedData");
+
+  // Without the authentication, this would change only the last character of the text
+  let encrypted = cms.content.authEncryptedContentInfo.encryptedContent;
+  encrypted[encrypted.length - 1] ^= 1;
+  let received = newTestEMail(folder, "changed@example.com");
+  received.from = mail.from;
+  received.mime = new TextEncoder().encode(headers + "\r\n\r\n" + Buffer.from(AuthEnvelopedData.encode(cms)).toString("base64") + "\r\n");
+  await received.parseMIME();
+  expect(received.text ?? "").not.toContain("Köln");
+});
+
+test("A message to others is encrypted with AES-CBC, because many of them can't read AES-GCM yet", async () => {
+  let mail = folder.newEMail();
+  mail.identity = identity;
+  mail.from = findOrCreatePersonUID("user@example.com", "User");
+  let recipient = findOrCreatePersonUID("alice@example.com", "Alice");
+  recipient.encryptionPublicKey = await SMIMEPublicKey.importPublicKey(kAlice);
+  mail.to.add(recipient);
+  mail.shouldEncrypt = true;
+  let sent = await SMIMESend.encryptAndSign(mail);
+  expect(ContentInfo.decode(cmsOf(sent.sendRawMIME)).contentType).toBe("envelopedData");
+
+  // We can read it, too, e.g. in the Sent folder
+  let received = newTestEMail(folder, "to-alice@example.com");
+  received.from = mail.from;
+  received.mime = new TextEncoder().encode(sent.sendRawMIME);
+  await received.parseMIME();
+  expect(received.text.replace(/\r\n/g, "\n").trim()).toBe(kText);
+});
+
 test("Encrypting to a recipient with an EC certificate says that we can't", async () => {
   let mail = folder.newEMail();
   mail.identity = identity;
@@ -123,6 +170,11 @@ describe("A draft", () => {
     await mail.compose.saveAsDraft();
     return savedMIME;
   }
+
+  test("that is encrypted uses AES-GCM, because only we read it", async () => {
+    let mime = new TextDecoder().decode(await saveDraft(true));
+    expect(ContentInfo.decode(cmsOf(mime)).contentType).toBe("authEnvelopedData");
+  });
 
   test("that is encrypted is saved without the text in clear", async () => {
     let mime = new TextDecoder().decode(await saveDraft(true));

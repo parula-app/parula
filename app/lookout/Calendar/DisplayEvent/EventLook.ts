@@ -62,7 +62,8 @@ export class EventLook {
   }
 
   tooltip(locale: string): string {
-    return [ this.timeText(locale), this.title, this.event.location, this.organizerName ]
+    let tagNames = this.event.tags.contents.map(tag => tag.name).join(", ");
+    return [ this.timeText(locale), this.title, this.event.location, this.organizerName, tagNames ]
       .filter(line => line?.trim())
       .join("\n");
   }

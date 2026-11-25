@@ -58,9 +58,9 @@ export const mailDatabaseSchema = sql`
     -- EWS: ItemID as string
     -- Data type can be either string or integer or null (sqlite supports dynamic typing, per cell).
     "pID" ANY default null,
-    -- RFC822 header
+    -- RFC822 header Message-ID, without <>
     "messageID" TEXT default null,
-    -- In-Reply-To header
+    -- In-Reply-To header, without <>
     "parentMsgID" TEXT default null,
     -- Msg-ID of the first (=top-level) message in a thread
     -- All msgs in the thread should have the same threadID, making them easy and fast to find in the DB.

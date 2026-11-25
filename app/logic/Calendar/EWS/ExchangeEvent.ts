@@ -1,4 +1,5 @@
 import { Event } from "../Event";
+import type { ExchangeMailAccount } from "../../Mail/EWS/ExchangeMailAccount";
 
 export class ExchangeEvent extends Event {
   /** The time zone in which the server sent the times of this all-day event.
@@ -37,6 +38,17 @@ export class ExchangeEvent extends Event {
       return date;
     }
     return new Date(date.toLocaleDateString('lt', { timeZone: this.allDayTimezone }) + "T00:00:00");
+  }
+
+  /** Outlook shows a tag without its color, until the tag is in the category list of the mailbox.
+   * @see ExchangeEMail.addTagOnServer() */
+  async prepareSaveToServer(): Promise<void> {
+    await super.prepareSaveToServer();
+    let account = this.calendar.mainAccount as ExchangeMailAccount;
+    for (let tag of this.tags) {
+      account.tags.add(tag)
+        .catch(account.errorCallback);
+    }
   }
 
   /** ActiveSync sends the exceptions of an all-day event without the time zone

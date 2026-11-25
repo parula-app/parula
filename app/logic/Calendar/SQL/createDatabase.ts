@@ -27,6 +27,24 @@ export const eventAttachmentSchema = sql`
 `;
 
 /** Separate from the schema below, so that the migration for
+ * pre-existing databases can create the same table. */
+export const eventTagSchema = sql`
+  --- The user's tags of the event, see Tag.ts
+  CREATE TABLE "eventTag" (
+    "id" INTEGER PRIMARY KEY,
+    "eventID" INTEGER not null,
+    "tagName" TEXT not null,
+    -- Additional data
+    "json" TEXT default null,
+    UNIQUE("eventID", "tagName"),
+    FOREIGN KEY (eventID)
+      REFERENCES event (ID)
+      ON DELETE CASCADE
+  );
+  CREATE INDEX index_eventTag_tagName ON eventTag (tagName);
+`;
+
+/** Separate from the schema below, so that the migration for
  * pre-existing databases can create the same index. */
 export const eventPIDIndex = sql`
   CREATE UNIQUE INDEX index_event_pID ON event (calendarID, pID);
@@ -171,4 +189,6 @@ export const calendarDatabaseSchema = sql`
   CREATE INDEX index_groupMember_eventID ON eventParticipant (eventID);
 
   $${eventAttachmentSchema}
+
+  $${eventTagSchema}
 `;

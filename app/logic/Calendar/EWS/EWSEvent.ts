@@ -11,6 +11,7 @@ import { EWSDeleteItemRequest } from "../../Mail/EWS/Request/EWSDeleteItemReques
 import { EWSUpdateItemRequest } from "../../Mail/EWS/Request/EWSUpdateItemRequest";
 import { getEmailAddressOrX400 } from "../../Mail/EWS/EWSEMail";
 import { ContentDisposition } from "../../Abstract/Attachment";
+import { getTagByName } from "../../Abstract/Tag";
 import { k1MinuteMS } from "../../util/date";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { assert, ensureArray } from "../../util/util";
@@ -124,6 +125,7 @@ export class EWSEvent extends ExchangeEvent {
     if (xmljs.LastModifiedTime) {
       this.lastMod = sanitize.date(xmljs.LastModifiedTime);
     }
+    this.tags.replaceAll(ensureArray(xmljs.Categories?.String).map(name => getTagByName(sanitize.string(name))));
     this.attachmentsFromXML(xmljs);
   }
 
@@ -270,7 +272,9 @@ export class EWSEvent extends ExchangeEvent {
       this.parentEvent ?
       new EWSUpdateOccurrenceRequest(this, { SendMeetingInvitationsOrCancellations: "SendToAllAndSaveCopy" }) :
       new EWSCreateItemRequest({ m$SavedItemFolderId: { t$FolderId: { Id: this.calendar.folderID } }, SendMeetingInvitations: withoutAttendees ? "SendToNone" : "SendToAllAndSaveCopy" });
+    let categories = this.tags.hasItems ? { t$String: this.tags.contents.map(tag => tag.name) } : null;
     if (this.isIncomingMeeting) {
+      request.addField("CalendarItem", "Categories", categories, "item:Categories");
       request.addField("CalendarItem", "ReminderIsSet", this.alarm != null, "item:ReminderIsSet");
       request.addField("CalendarItem", "ReminderMinutesBeforeStart", this.alarmMinutesBeforeStart(), "item:ReminderMinutesBeforeStart");
       await this.calendar.account.callEWS(request);
@@ -278,6 +282,7 @@ export class EWSEvent extends ExchangeEvent {
     }
     request.addField("CalendarItem", "Subject", this.title, "item:Subject");
     request.addField("CalendarItem", "Body", this.rawHTMLDangerous ? { BodyType: "HTML", _TextContent_: this.rawHTMLDangerous } : { BodyType: "Text", _TextContent_: this.descriptionText }, "item:Body");
+    request.addField("CalendarItem", "Categories", categories, "item:Categories");
     request.addField("CalendarItem", "ReminderIsSet", this.alarm != null, "item:ReminderIsSet");
     request.addField("CalendarItem", "ReminderMinutesBeforeStart", this.alarmMinutesBeforeStart(), "item:ReminderMinutesBeforeStart");
     if (this.calUID && !this.itemID && !this.parentEvent) {
@@ -453,6 +458,8 @@ export class EWSEvent extends ExchangeEvent {
               FieldURI: "item:Body",
             }, {
               FieldURI: "item:Attachments",
+            }, {
+              FieldURI: "item:Categories",
             }, {
               FieldURI: "item:ReminderIsSet",
             }, {

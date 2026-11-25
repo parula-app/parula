@@ -28,6 +28,9 @@
   .webapps.running.no-title-bar {
     top: 0px;
   }
+  .webapps.no-title-bar {
+    left: var(--appbar-width-no-title-bar);
+  }
   .webapps:not(.running) {
     height: 0px;
   }
@@ -39,5 +42,8 @@
   }
   .webapp:not(.running) {
     visibility: collapse;
+  }
+  :global(.lookout-window) .webapps.no-title-bar {
+    left: var(--lo-nav-rail-width);
   }
 </style>

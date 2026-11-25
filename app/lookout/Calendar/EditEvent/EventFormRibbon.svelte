@@ -33,11 +33,11 @@
             onClick={onDelete} />
         {/if}
         <RibbonButton label={$t`Reply`} icon={ReplyIcon}
-          onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, false))} />
+          onClick={() => MessageActions.writeMail(IncomingInvitation.replyToEventByMail(event, false))} />
         <RibbonButton label={$t`Reply All`} icon={ReplyAllIcon}
-          onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, true))} />
+          onClick={() => MessageActions.writeMail(IncomingInvitation.replyToEventByMail(event, true))} />
         <RibbonButton label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
-          onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
+          onClick={async () => MessageActions.writeMail(await IncomingInvitation.forwardEventByMail(event))} />
       </RibbonGroup>
       <RibbonGroup label={$t`Calendar`}>
         <RibbonButton label={$t`Calendar… *=> Show this day in the calendar`} icon={CalendarIcon}
@@ -79,7 +79,7 @@
         {/if}
         <RibbonButton label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
           disabled={!flow.isSaved && (isMeeting ? $t`Send the meeting first` : $t`Save the appointment first`)}
-          onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
+          onClick={async () => MessageActions.writeMail(await IncomingInvitation.forwardEventByMail(event))} />
       </RibbonGroup>
       <RibbonGroup label={$t`Online Meeting`}>
         {#if $event.isOnline}
@@ -130,6 +130,27 @@
           onClick={onEditRecurrence} />
       </RibbonGroup>
     {/if}
+    <RibbonGroup label={$t`Tags`}>
+      <RibbonMenuButton label={$t`Categorize *=> Assign a category to the event`} icon={CategorizeIcon}>
+        <!-- <copied from="../../Mail/Message/CategorizeMenuItems.svelte"> for one event -->
+        <MenuItem label={$t`Clear All Categories`} icon={ClearIcon}
+          disabled={$eventTags.isEmpty && $t`The event has no categories`}
+          onClick={clearTags} />
+        <MenuDivider />
+        {#each $tags.each as tag (tag)}
+          <MenuItem label={tag.name} selected={$eventTags.contains(tag)}
+            onClick={() => toggleTag(tag)}>
+            <CategorySquare slot="icon" {tag} state={$eventTags.contains(tag) ? TagState.All : TagState.None} />
+          </MenuItem>
+        {:else}
+          <MenuLabel label={$t`No categories yet`} />
+        {/each}
+        <MenuDivider />
+        <MenuItem label={$t`All Categories…`} icon={AllCategoriesIcon}
+          onClick={() => { isColorCategoriesOpen = true; }} />
+        <!-- </copied> -->
+      </RibbonMenuButton>
+    </RibbonGroup>
   </RibbonTab>
 
   {#if !isIncoming}
@@ -166,10 +187,14 @@
   {/if}
 </Ribbon>
 <FileSelector bind:this={fileSelector} />
+{#if isColorCategoriesOpen}
+  <ColorCategoriesDialog items={[event]} on:close={() => isColorCategoriesOpen = false} />
+{/if}
 
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
   import { InvitationResponse } from "../../../logic/Calendar/Invitation/InvitationStatus";
+  import { availableTags, type Tag } from "../../../logic/Abstract/Tag";
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
   import { eventTabLabel, attendanceLabel, responseLabel } from "./EventFormInfo";
   import { reminderMinutesBefore, setReminderMinutesBefore, reminderChoicesWith, reminderMinutesLabel } from "./Reminder";
@@ -191,12 +216,17 @@
   import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
   import { openExternalURL } from "../../../logic/util/os-integration";
   import { appGlobal } from "../../../logic/app";
-  import { openComposer } from "../../../frontend/Mail/open";
+  import { MessageActions } from "../../Mail/MessageActions";
+  import { openEvent } from "../../../frontend/Calendar/open";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import { selectedDate, selectedEvent, startDate } from "../../../frontend/Calendar/selected";
   import { askYesNo } from "../../Shared/Dialog/MessageBox";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import ResponseMenuItems from "../Invitation/ResponseMenuItems.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
+  import MenuLabel from "../../Shared/Menu/MenuLabel.svelte";
+  import CategorySquare, { TagState } from "../../Shared/Tag/CategorySquare.svelte";
+  import ColorCategoriesDialog from "../../Shared/Tag/ColorCategoriesDialog.svelte";
   import SaveIcon from "lucide-svelte/icons/save";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import CancelIcon from "lucide-svelte/icons/calendar-x-2";
@@ -221,6 +251,9 @@
   import RefreshIcon from "lucide-svelte/icons/refresh-cw";
   import SignatureIcon from "lucide-svelte/icons/stamp";
   import CopyIcon from "lucide-svelte/icons/clipboard-copy";
+  import CategorizeIcon from "lucide-svelte/icons/tag";
+  import ClearIcon from "lucide-svelte/icons/eraser";
+  import AllCategoriesIcon from "lucide-svelte/icons/tags";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -239,6 +272,8 @@
   export let onCheckNames: () => Promise<void>;
   export let onRefreshAvailability: () => void;
 
+  const appWindow = AppWindow.current();
+
   $: participants = event.participants;
   $: isMeeting = $participants.hasItems;
   $: isIncoming = $event.isIncomingMeeting;
@@ -250,6 +285,9 @@
   $: reminderChoices = reminderChoicesWith(reminderMinutes);
   $: saveDisabled = ($event && flow.missingPropsReason) ?? false;
   const meetAccounts = appGlobal.meetAccounts.filterObservable(account => account.canCreateURL);
+  const tags = availableTags;
+  $: eventTags = event.tags;
+  let isColorCategoriesOpen = false;
 
   function onOnline(account: MeetAccount | null) {
     event.createOnlineMeetingWithAccount = account;
@@ -292,6 +330,20 @@
   }
   // </copied>
 
+  async function toggleTag(tag: Tag) {
+    if (event.tags.contains(tag)) {
+      await event.removeTag(tag);
+    } else {
+      await event.addTag(tag);
+    }
+  }
+
+  async function clearTags() {
+    for (let tag of event.tags.contents) {
+      await event.removeTag(tag);
+    }
+  }
+
   async function copyTrackingStatus() {
     let lines = event.participants.contents.map(participant => [
       participant.name || participant.emailAddress,
@@ -310,6 +362,10 @@
   function showInCalendar() {
     let day = new Date(event.startTime);
     flow.close();
+    if (!appWindow.isMainWindow) {
+      openEvent(event, false); // The event's own window closed, so in its main window
+      return;
+    }
     $selectedEvent = event;
     $selectedDate = day;
     $startDate = day;

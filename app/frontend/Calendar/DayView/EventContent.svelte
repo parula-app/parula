@@ -11,6 +11,13 @@
       </hbox>
     {/if}
     <hbox class="title">{$event.title}</hbox>
+    {#if $tags.hasItems}
+      <hbox class="tags">
+        {#each $tags.each as tag (tag)}
+          <hbox class="tag" style:background-color={tag.color} title={tag.name} />
+        {/each}
+      </hbox>
+    {/if}
   </hbox>
 </Clickable>
 
@@ -25,10 +32,12 @@
   export let event: Event;
   export let showTime = true;
 
+  $: tags = event.tags;
   $: startTime = $event.startTime.toLocaleString(getDateTimeLocale(), { hour: "numeric", minute: "2-digit" });
   $: eventAsText = ($event.allDay ? "" : `${startTime} – ${getDurationString(event.endTime.getTime() - event.startTime.getTime())}\n`) +
      event.title +
-     (event.participants.isEmpty ? "" : "\n" + event.participants.getIndexRange(0, 4).map(person => person.name).join(", "));
+     (event.participants.isEmpty ? "" : "\n" + event.participants.getIndexRange(0, 4).map(person => person.name).join(", ")) +
+     (event.tags.isEmpty ? "" : "\n" + event.tags.contents.map(tag => tag.name).join(", "));
 
   function onSelect(ev: MouseEvent) {
     $selectedEvent = event;
@@ -103,6 +112,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .tags {
+    flex-shrink: 0;
+    align-items: center;
+    gap: 3px;
+    height: 1lh;
+    margin-inline: auto 4px;
+    margin-block-start: 5px;
+  }
+  .tag {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  }
   .without-ampm {
     display: none;
   }
@@ -121,6 +144,15 @@
       white-space: nowrap;
       font-size: clamp(8px, (100cqh - 2px) / 1.2, 1em);
       line-height: 1.2;
+    }
+    .tags {
+      height: auto;
+      margin-block: auto;
+    }
+  }
+  @container (width < 12ch) { /* The title is more important */
+    .tags {
+      display: none;
     }
   }
   @container (width < 5.3ch) {

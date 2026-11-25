@@ -17,17 +17,12 @@ class TestOWAAccount extends OWAAccount {
     { __type: "CategoryType:#Exchange", Name: "Customer", Color: 7, Id: "a2" },
     { __type: "CategoryType:#Exchange", Name: "Uncolored", Color: -1, Id: "a3" },
   ];
-  readonly calls: { action: string, body: any, urlPostData?: any }[] = [];
+  readonly calls: { action: string, body: any }[] = [];
   readonly reportedErrors: Error[] = [];
 
   async callOWAShared(url: string, options: any): Promise<any> {
     let action = options.headers.Action;
-    let urlPostData = options.headers["x-owa-urlpostdata"];
-    this.calls.push({
-      action,
-      body: JSON.parse(options.body),
-      urlPostData: urlPostData && JSON.parse(decodeURIComponent(urlPostData)),
-    });
+    this.calls.push({ action, body: JSON.parse(options.body) });
     if (action == "GetOwaUserConfiguration") {
       return { MasterCategoryList: { MasterList: this.masterList, DefaultList: [] } };
     }
@@ -125,8 +120,6 @@ test("Tagging a message with a new tag adds it as master category", async () => 
   expect(update.body.request.__type).toBe("UpdateMasterCategoryListRequest:#Exchange");
   expect(update.body.request.AddCategoryList).toHaveLength(1);
   expect(update.body.request.AddCategoryList[0]).toMatchObject({ Name: "Project", Color: 4 });
-  // Office 365 reads this action only from the header, Exchange on-premise from the body
-  expect(update.urlPostData).toEqual(update.body);
   expect(account.masterList.map(category => category.Name)).toEqual(["Red category", "Customer", "Uncolored", "Project"]);
   expect(account.reportedErrors).toEqual([]);
 });
@@ -141,12 +134,4 @@ test("Tagging a message with an existing category does not change the master lis
   await tagsSavedOnServer(account);
 
   expect(account.calls.map(call => call.action)).toEqual(["UpdateItem"]);
-});
-
-test("Other requests are not duplicated into the header", async () => {
-  let account = newTestAccount();
-
-  await account.tags.load();
-
-  expect(account.calls[0].urlPostData).toBeUndefined();
 });

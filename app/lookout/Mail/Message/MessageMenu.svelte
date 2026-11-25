@@ -40,7 +40,7 @@
 <JunkMenuItem messages={messages.contents} />
 <MenuItem label={$t`Delete`} icon={DeleteIcon} shortCutInfo={$t`Del *=> Delete key`}
   onClick={async () => { await Promise.all(messages.contents.map(message => message.deleteMessage())); }} />
-<MenuItem label={$t`Archive`} icon={ArchiveIcon} shortCutInfo={$t`Backspace *=> Backspace key`}
+<MenuItem label={$t`Archive *=> Move the message to the Archive folder`} icon={ArchiveIcon} shortCutInfo={$t`Backspace *=> Backspace key`}
   onClick={() => MessageActions.archive(messages.contents)} />
 {#if single}
   <MenuDivider />

@@ -142,6 +142,11 @@ async function addVEvent(lines: (string | string[])[], event: Event, method?: iC
     }
   }
   if (!method) {
+    // The tags are the user's own, not for the attendees.
+    // One line per tag, the general rule of RFC 5545 3.1.1, so that `escaped()` keeps a comma in a name.
+    for (let tag of event.tags) {
+      lines.push(["CATEGORIES", tag.name]);
+    }
     await addAttachments(lines, event);
   } // else: Invitations send the files as email attachments @see OutgoingInvitation.addAttachments()
   lines.push(["END", "VEVENT"]);

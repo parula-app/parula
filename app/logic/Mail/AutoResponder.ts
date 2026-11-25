@@ -39,17 +39,23 @@ export class AutoResponder extends Observable {
   externalHTML = "";
   /** Which senders outside the organization get `externalHTML` */
   @notifyChangedProperty
-  externalAudience = AutoResponderAudience.None;
+  externalAudience = AutoResponderAudience.Internal;
+  /** Limit of `externalAudience`, set by the admin.
+   * Only EWS reports it. OWA, Graph and ActiveSync don't. */
+  @notifyChangedProperty
+  maxAudience = AutoResponderAudience.All;
+  /** `loadForStatus()` loaded it or is loading it */
+  protected isLoaded = false;
 
   constructor(account: MailAccount) {
     super();
     this.account = account;
-    // Default: From today until tomorrow, at the times of day of the last saved time range, else 0:00 to 23:00
+    // Default: From today until tomorrow, at the times of day of the last saved time range, else 2:00 to 22:00
     this.startTime = new Date();
-    this.startTime.setHours(0, getUserPreference("mail.autoResponder.startMinutes", 0), 0, 0);
+    this.startTime.setHours(0, getUserPreference("mail.autoResponder.startMinutes", 2 * 60), 0, 0);
     this.endTime = new Date();
     this.endTime.setDate(this.endTime.getDate() + 1);
-    this.endTime.setHours(0, getUserPreference("mail.autoResponder.endMinutes", 23 * 60), 0, 0);
+    this.endTime.setHours(0, getUserPreference("mail.autoResponder.endMinutes", 22 * 60), 0, 0);
   }
 
   get supported(): boolean {
@@ -76,6 +82,27 @@ export class AutoResponder extends Observable {
     throw new AbstractFunction();
   }
 
+  /** For showing whether the replies are on, e.g. in the mail window.
+   * Only once, not on every account switch, and only when logged in, so that it doesn't ask for a login. */
+  async loadForStatus(): Promise<void> {
+    if (this.isLoaded || !this.account.isLoggedIn || !this.supported) {
+      return;
+    }
+    this.isLoaded = true; // also while it loads
+    try {
+      await this.load();
+    } catch (ex) {
+      this.isLoaded = false;
+      throw ex;
+    }
+  }
+
+  /** The server replies to mail that arrives now */
+  isReplyingNow(now = new Date()): boolean {
+    return this.isOn && (!this.scheduled ||
+      this.startTime.getTime() <= now.getTime() && now.getTime() < this.endTime.getTime());
+  }
+
   /** For the default time range of the next automatic replies. Call after `save()`. */
   rememberTimes() {
     if (this.isOn && this.scheduled) {
@@ -91,8 +118,7 @@ export class AutoResponder extends Observable {
   }
 
   protected setTimes(startTime: Date | null, endTime: Date | null) {
-    // Old dates of a past vacation are useless as defaults
-    if (startTime && endTime && (this.scheduled || endTime > new Date())) {
+    if (startTime && endTime && this.scheduled) {
       this.startTime = startTime;
       this.endTime = endTime;
     }
@@ -111,16 +137,14 @@ export class AutoResponder extends Observable {
  * The user chooses it separately from the message, because a reply tells
  * the sender that the user is away and that the address is valid. That's fine
  * for colleagues and contacts, but the user may not want to tell spammers and strangers.
- * Exchange stores it as `ExternalAudience`, and the server enforces the admin's limit.
+ * Exchange stores it as `ExternalAudience`, and the admin may limit it (`maxAudience`).
  *
  * It matters only if `supportsInternal`, i.e. for Exchange.
  * Protocols without this distinction (e.g. JMAP or Sieve) reply to all senders
- * with `externalHTML`, so their audience is `All`.
- *
- * The values are Graph's `externalAudience`. */
+ * with `externalHTML`, so their audience is `All`. */
 export enum AutoResponderAudience {
-  /** No replies outside the organization */
-  None = "none",
+  /** Only recipients inside the organization. No replies outside. */
+  Internal = "internal",
   /** Only senders in the user's addressbook */
   Contacts = "contactsOnly",
   /** Everybody */

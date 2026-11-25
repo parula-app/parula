@@ -207,6 +207,8 @@ export class ComposeActions {
     redirect.compose.needsFooter = false;
     redirect.replyTo = this.email.from;
     redirect.subject = this.email.subject;
+    redirect.mustEncrypt = this.email.wasEncrypted;
+    redirect.system = this.email.system;
     redirect.html = this.email.html;
     redirect.attachments.addAll(this.email.attachments.map(a => a.cloneTo(redirect)));
     return redirect;
@@ -219,6 +221,8 @@ export class ComposeActions {
     clone.to.addAll(this.email.to);
     clone.cc.addAll(this.email.cc);
     clone.subject = this.email.subject;
+    clone.mustEncrypt = this.email.wasEncrypted;
+    clone.system = this.email.system;
     clone.html = this.email.html;
     clone.attachments.addAll(this.email.attachments.map(a => a.cloneTo(clone)));
     return clone;

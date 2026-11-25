@@ -116,7 +116,7 @@ Rules and Alerts and Create Rule. All Mustang rules are client rules that run wh
 | Outlook feature | Where in Outlook | What the logic would need |
 |---|---|---|
 | Automatic replies for IMAP accounts | File > Info > Automatic Replies | ManageSieve `vacation`, as an `AutoResponder` subclass |
-| Font, size, color, lists and indent for the messages | Automatic Replies dialog | More buttons in Lookout's editor toolbar, which has bold, italic, underline and links |
+| Font, size, color, underline and indent for the messages | Automatic Replies dialog | More buttons in the editor toolbar, which has bold, italic, strike-through, lists, headings and links. Underline works with Ctrl+U. |
 | Updating the bar while the app runs | Below the ribbon | A periodic `autoResponder.load()`. Lookout reads the state when you go to the account. |
 | Automatic Reply Rules | Automatic Replies > Rules | Exchange OOF rules |
 | Block my calendar, decline new invitations, cancel my meetings during the period | Automatic replies (new Outlook) | Calendar integration of the above |
@@ -130,7 +130,7 @@ Date navigator, calendar list, Day / Work Week / Week / Month and split view.
 |---|---|---|
 | Show As (Free, Working Elsewhere, Tentative, Busy, Out of Office), with its patterns on the event blocks | Event blocks; Appointment tab > Options; context menu | `Event.showAs`, mapped to EWS `LegacyFreeBusyStatus`, JMAP `freeBusyStatus`, iCalendar `TRANSP` / `X-MICROSOFT-CDO-BUSYSTATUS`. Lookout shows own events as Busy, and invitations by their response. |
 | Private appointments (lock icon) | Event blocks; Appointment tab > Tags | `Event.isPrivate` (EWS `Sensitivity`, iCalendar `CLASS`, JSCalendar `privacy`) |
-| Categories with colors on events | Event blocks; Categorize; Appointment tab > Tags | `Event.categories` and category colors per account. Only JMAP has `Event.color`, which Lookout uses like `frontend/`. |
+| Categorize an event in the calendar without opening it | Event context menu; ribbon of the selected event > Tags | *UI only*: `Event.addTag()` and `removeTag()` save right away outside of editing. |
 | First day of the week, first week of the year | File > Options > Calendar > Work time | A week start setting. `logic/util/date.ts getWeekStart()` always starts the week on Monday. |
 | Work hours: off-work time shaded per calendar (also in the Schedule View and for shared calendars), the Work Week view with the work days, scrolling to the work start, new events at the work start; editing the work hours per weekday | Calendar views; File > Options > Calendar > Work time | Work hours per calendar, read from and saved on the server: PR #1495. Lookout's code for it is commented out until #1495 is in master; `Calendar/WorkingHours.ts`, `Settings/Calendar/WorkHours.svelte` and `test/Calendar/WorkingHours.test.ts` come back from the branch history (fe7fd83f8). Until then, Lookout shades no off-work time, the Work Week is Monday to Friday, and new events and the scroll position start at 8:00. |
 | Changing the calendar's own time zone; Swap Time Zones | File > Options > Calendar > Time zones | A display time zone other than the system's. `logic/` and Lookout compute days, all-day events and times in the time zone of the operating system (JS `Date`), as Outlook does with the Windows time zone. Lookout shows that zone in Options and adds the second and third time zone as rulers. |
@@ -153,7 +153,7 @@ Appointment and meeting form, recurrence, Scheduling Assistant and Tracking.
 
 | Outlook feature | Where in Outlook | What the logic would need |
 |---|---|---|
-| High / Low Importance of events (Show As, Private and Categorize: see Calendar views) | Appointment tab > Tags | `Event.importance` (EWS `Importance`, iCalendar `PRIORITY`) |
+| High / Low Importance of events (Show As and Private: see Calendar views) | Appointment tab > Tags | `Event.importance` (EWS `Importance`, iCalendar `PRIORITY`) |
 | Optional attendees and resources (rooms) | Optional field; Scheduling Assistant | `Participant.role` mapped to EWS `OptionalAttendees` / `Resources`, iCalendar `ROLE` / `CUTYPE`, JSCalendar `roles` / `kind`. Lookout has one Required field. |
 | Room Finder, Add Rooms, location suggestions | Location; Scheduling Assistant | A room list API (EWS `GetRoomLists` / `GetRooms`) |
 | AutoPick, suggested times | Scheduling Assistant | Availability suggestions (EWS `GetUserAvailability` with suggestions) |

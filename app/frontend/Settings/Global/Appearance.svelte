@@ -79,6 +79,7 @@
   import { getLocalStorage } from "../../Util/LocalStorage";
   import { openApp } from "../../AppsBar/selectedApp";
   import { mailMustangApp } from "../../Mail/MailMustangApp";
+  import { selectedCategory } from "../Window/selected";
   import ThemeSwitcher from "./ThemeSwitcher.svelte";
   import AppThemeColors from "./AppThemeColors.svelte";
   import LanguageDropDown from "./LanguageDropDown.svelte";
@@ -95,6 +96,7 @@
 
   function onSaveFrontend() {
     openApp(mailMustangApp, {});
+    $selectedCategory = null; // The other frontend has its own settings categories
     frontendSetting.value = frontend;
   }
 

@@ -9,9 +9,12 @@ import { Frequency } from "../../../../logic/Calendar/RecurrenceRule";
 import { DummyCalendarStorage } from "../../../../logic/Calendar/SQL/DummyCalendarStorage";
 import { EventEditFlow } from "../../../Calendar/EditEvent/EventEditFlow";
 import { EventTimeEditor } from "../../../Calendar/EditEvent/EventTimeEditor";
+import EventWindow from "../../../Calendar/EditEvent/EventWindow.svelte";
+import { AppWindow } from "../../../../frontend/MainWindow/AppWindow";
+import { calendarMustangApp } from "../../../../frontend/Calendar/CalendarMustangApp";
 import { mockMessageBox } from "../../Shared/Dialog/mockMessageBox";
 import { expectDaylightSavingTime } from "../../../../test/logic/Calendar/timeZone";
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 // A time zone with daylight saving time, which changes on 2026-03-29 and 2026-10-25
 test("The time zone has daylight saving time", () => {
@@ -22,6 +25,9 @@ const messageBox = mockMessageBox();
 beforeEach(() => {
   messageBox.mockReset();
   messageBox.mockResolvedValue(true);
+});
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 function newCalendar(): Calendar {
@@ -80,6 +86,57 @@ test("Cancel reverts the changes", () => {
   event.title = "Something else";
   flow.cancel();
   expect(event.title).toBe("Planning");
+});
+
+test("Pop Out moves the form into the event's own window, where the user keeps editing", async () => {
+  let event = newEvent();
+  calendarMustangApp.showEvent(event);
+  event.startEditing();
+  let onClosed = vi.fn();
+  let flow = new EventEditFlow(event, onClosed);
+  event.title = "Planning session";
+  let open = vi.spyOn(AppWindow.prototype, "open").mockResolvedValue(null);
+  await flow.popOut();
+  expect(open).toHaveBeenCalledWith(EventWindow, { event }, 1000);
+  expect(calendarMustangApp.subApps.find(app => app.windowParams?.event == event)).toBeUndefined();
+  expect(onClosed).toHaveBeenCalledOnce();
+  expect(event.hasChanged()).toBe(true);
+});
+
+// Stands in for the event's own window
+class EventsOwnWindow extends AppWindow {
+  constructor() {
+    super(window, "event", AppWindow.main);
+  }
+}
+
+/** `acting` is what `AppWindow.current()` returns first, so the flow belongs to `appWindow` */
+function newFlowIn(appWindow: AppWindow, event: Event, onClosed: () => void): EventEditFlow {
+  AppWindow["acting"] = appWindow;
+  try {
+    return new EventEditFlow(event, onClosed);
+  } finally {
+    AppWindow["acting"] = null;
+  }
+}
+
+test("In the event's own window, Save and Cancel close that window", async () => {
+  let ownWindow = new EventsOwnWindow();
+  let close = vi.spyOn(ownWindow, "close").mockReturnValue();
+  let onClosed = vi.fn();
+  let event = newEvent();
+  event.startEditing();
+  event.title = "Planning session";
+  await newFlowIn(ownWindow, event, onClosed).saveWith(null);
+  expect(event.calendar.events.contains(event)).toBe(true);
+  expect(close).toHaveBeenCalledOnce();
+
+  event.startEditing();
+  event.title = "Something else";
+  newFlowIn(ownWindow, event, onClosed).cancel();
+  expect(event.title).toBe("Planning session");
+  expect(close).toHaveBeenCalledTimes(2);
+  expect(onClosed).not.toHaveBeenCalled();
 });
 
 test("An occurrence asks which part of the series to change", async () => {

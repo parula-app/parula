@@ -3,6 +3,8 @@
   The frame of a secondary window, which shows only one thing, e.g. an email or the composer,
   instead of the whole app with all apps. It adds the window header with the title,
   notifications, theme colors and text direction.
+  Without title bar, the header of the content moves the window (`window-drag`)
+  and has `<SecondaryWindowButtons />` at its start.
 
   Usage: A component wraps its content in this, e.g. `ComposerWindow.svelte`:
   `<SecondaryWindow title={...}><MailComposer {mail} /></SecondaryWindow>`.
@@ -22,14 +24,17 @@
     see `AppWindow.current()`.
   - The window closes when the first main window closes or reloads.
 -->
-<vbox flex class="secondary-window" dir={rtl ? "rtl" : null}>
-  <WindowHeader {title} />
+<vbox flex class="secondary-window" dir={rtl ? "rtl" : null} class:no-title-bar={$noTitleBar}>
+  {#if !$noTitleBar}
+    <WindowHeader {title} />
+  {/if}
   <NotificationBar notifications={$notifications} />
   <slot />
 </vbox>
 
 <script lang="ts">
   import { AppWindow } from "./AppWindow";
+  import { noTitleBar } from "./Selected";
   import { notifications } from "../../logic/util/Notification";
   import WindowHeader from "./WindowHeader.svelte";
   import NotificationBar from "./NotificationBar.svelte";

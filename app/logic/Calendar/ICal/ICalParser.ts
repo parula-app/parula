@@ -10,6 +10,8 @@ export class ICalEntry {
   name: string;
   value: string;
   values: string[];
+  /** The values of a property that has several, separated by commas, e.g. `CATEGORIES`, RFC 5545 3.1.1 */
+  listValues: string[];
   line: string;
   constructor(line: string) {
     this.line = line;
@@ -23,6 +25,7 @@ export class ICalEntry {
     }
     this.value = unescaped(line.slice(1));
     this.values = line.match(/(^:|;)(\\?.)*?(?=;|$)/g)?.map(value => unescaped(value.slice(1))) ?? [];
+    this.listValues = line.match(/(^:|,)(\\?.)*?(?=,|$)/g)?.map(value => unescaped(value.slice(1))) ?? [];
   }
 }
 

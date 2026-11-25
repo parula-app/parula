@@ -351,7 +351,7 @@ export class OWAAccount extends ExchangeMailAccount {
         })), null);
       }
       if (email.inReplyTo) {
-        request.addField("Message", "InReplyTo", email.inReplyTo, "item:InReplyTo");
+        request.addField("Message", "InReplyTo", "<" + email.inReplyTo + ">", "item:InReplyTo");
       }
       if (email.replyTo) {
         addRecipients(request, "ReplyTo", [email.replyTo]);
@@ -432,14 +432,9 @@ export class OWAAccount extends ExchangeMailAccount {
       let mainAccount = this.mainAccount as OWAAccount;
       return await mainAccount.callOWA(aRequest, this.username);
     }
-    let body = JSON.stringify(aRequest);
-    let headers = this.getRequestHeaders(aRequest.action, mailbox);
-    if (aRequest.inURLPostData) {
-      headers["x-owa-urlpostdata"] = encodeURIComponent(body);
-    }
     return await this.callOWAShared(this.url + "service.svc", {
-      body,
-      headers,
+      body: JSON.stringify(aRequest),
+      headers: this.getRequestHeaders(aRequest.action, mailbox),
       method: "POST",
     });
   }

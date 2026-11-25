@@ -162,6 +162,7 @@ export class EMail extends Message {
     this.folder = folder;
   }
 
+  /** RFC 822 Message-ID, without <>, @see msgIDWithoutBrackets() */
   @addon("mail")
   get messageID(): string {
     return this.id;
@@ -397,7 +398,7 @@ export class EMail extends Message {
     let postalMIME = new PostalMIME();
     let mail = await postalMIME.parse(this.mime);
 
-    this.id ??= sanitize.string(mail.messageId, this.id ?? "");
+    this.id ??= msgIDWithoutBrackets(mail.messageId) ?? "";
     this.subject ||= sanitize.string(mail.subject, "");
     this.sent ??= sanitize.date(mail.date, this.sent ?? new Date());
     if (!this.from || this.from.emailAddress == kDummyPerson.emailAddress) {
@@ -419,9 +420,9 @@ export class EMail extends Message {
         sanitize.nonemptylabel(p.name, null));
     }
     if (!this.inReplyTo) {
-      this.inReplyTo = sanitize.string(mail.inReplyTo, null);
+      this.inReplyTo = msgIDWithoutBrackets(mail.inReplyTo);
     }
-    this.references = sanitize.string(mail.references, null)?.split(" ");
+    this.references = sanitize.string(mail.references, null)?.split(" ").map(id => msgIDWithoutBrackets(id));
     // RFC 4021 `Importance:`, RFC 2156 `Priority:`, and the de-facto `X-Priority: 1` = highest
     this.isImportant ||= this.mimeHeader(mail, "importance") == "high" ||
       this.mimeHeader(mail, "priority") == "urgent" ||
@@ -672,9 +673,10 @@ export class EMail extends Message {
   }
 
   /** The user allowed images from the Internet in all mails from the sender.
-   * Not for junk, because spammers forge the sender address. */
+   * Not for junk, because spammers forge the sender address.
+   * Not for encrypted mails, which an attacker can change to load an image with the decrypted text in its URL (EFAIL). */
   loadExternalImagesFromSender(): boolean {
-    if (this.isSpam || this.folder?.specialFolder == SpecialFolder.Spam) {
+    if (this.isSpam || this.folder?.specialFolder == SpecialFolder.Spam || this.wasEncrypted) {
       return false;
     }
     return sanitize.array(getUserPreference("mail.externalImages.senders", []), []).includes(this.from.emailAddress?.toLowerCase());
@@ -687,10 +689,11 @@ export class EMail extends Message {
     if (!emailAddress || emailAddress == kDummyPerson.emailAddress) {
       return;
     }
-    if (allow == this.loadExternalImagesFromSender()) {
+    let senders = sanitize.array(getUserPreference("mail.externalImages.senders", []), []);
+    if (allow == senders.includes(emailAddress)) { // not `loadExternalImagesFromSender()`, which is false for junk and encrypted mails
       return;
     }
-    let otherSenders = sanitize.array(getUserPreference("mail.externalImages.senders", []), []).filter(sender => sender != emailAddress);
+    let otherSenders = senders.filter(sender => sender != emailAddress);
     setUserPreference("mail.externalImages.senders", allow ? [...otherSenders, emailAddress] : otherSenders);
   }
 
@@ -873,4 +876,11 @@ export function setPersons(targetList: ArrayColl<PersonUID>, personList: { addre
   targetList.addAll(personList.map(p => findOrCreatePersonUID(
     sanitize.emailAddress(p.address, null),
     sanitize.label(p.name, null))));
+}
+
+/** We store Message-IDs, also in `inReplyTo` and `references`, without <>. Where we write headers, we add them again.
+ * @returns null, if empty */
+export function msgIDWithoutBrackets(messageID: string | null | undefined): string | null {
+  messageID = sanitize.nonemptystring(messageID, null);
+  return messageID?.startsWith("<") && messageID.endsWith(">") ? messageID.slice(1, -1) : messageID;
 }

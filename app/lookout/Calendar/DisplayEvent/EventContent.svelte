@@ -1,7 +1,7 @@
 <div class="event status-{status}"
   class:past={$event.endTime <= $now}
   class:selected={$selectedEvent == event}
-  style="--event-color: {$event.color ?? $calendar?.color ?? "var(--lo-accent)"}">
+  style="--event-color: {$event.tags.first?.color ?? $event.color ?? $calendar?.color ?? "var(--lo-accent)"}">
   <div class="bar" />
   <slot />
 </div>

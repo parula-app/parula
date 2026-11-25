@@ -29,6 +29,10 @@
         <span class="url lo-secondary">{$event.onlineMeetingURL}</span>
       </hbox>
     {/if}
+    {#if $tags.hasItems}
+      <span class="row-label">{$t`Categories *=> Colored labels to organize emails and other items`}</span>
+      <EventCategories {event} />
+    {/if}
   </grid>
   <vbox class="preview">
     <EventInDayView {event} onShowInCalendar={showInCalendar} />
@@ -50,6 +54,7 @@
   import type { EventEditFlow } from "../EditEvent/EventEditFlow";
   import { eventWhenText, type InfoMessage } from "../EditEvent/EventFormInfo";
   import InfoBar from "../EditEvent/InfoBar.svelte";
+  import EventCategories from "../EditEvent/EventCategories.svelte";
   import ParticipantsDisplay from "../DisplayEvent/ParticipantsDisplay.svelte";
   import EventInDayView from "../DisplayEvent/EventInDayView.svelte";
   import AttachmentsUI from "../../Mail/Message/AttachmentsUI.svelte";
@@ -59,6 +64,8 @@
   import { catchErrors } from "../../../frontend/Util/error";
   import { openExternalURL } from "../../../logic/util/os-integration";
   import { selectedDate, selectedEvent, startDate } from "../../../frontend/Calendar/selected";
+  import { openEvent } from "../../../frontend/Calendar/open";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import JoinIcon from "lucide-svelte/icons/video";
   import { getDateTimeLocale, t } from "../../../l10n/l10n";
 
@@ -66,9 +73,12 @@
   export let flow: EventEditFlow;
   export let messages: InfoMessage[];
 
+  const appWindow = AppWindow.current();
+
   $: organizer = $event.organizer;
   $: when = eventWhenText($event, getDateTimeLocale());
   $: attachments = event.attachments;
+  $: tags = event.tags;
 
   // <copied from="../../../frontend/Calendar/Invitation/InvitationInCalendar.svelte">
   let headHTML = `<style>\n${cssBody}\n${cssContent}\n</style>`;
@@ -78,6 +88,10 @@
   function showInCalendar() {
     let day = new Date(event.startTime);
     flow.close();
+    if (!appWindow.isMainWindow) {
+      openEvent(event, false); // The event's own window closed, so in its main window
+      return;
+    }
     $selectedEvent = event;
     $selectedDate = day;
     $startDate = day;

@@ -10,6 +10,9 @@
     <OptionsRow icon={SpellingIcon}>
       <Checkbox label={$t`Check spelling as you type`} bind:checked={$spellcheckSetting.value} />
     </OptionsRow>
+    <OptionsRow icon={NewWindowIcon}>
+      <Checkbox label={$t`Always open the composer in a new window`} bind:checked={$newWindowSetting.value} />
+    </OptionsRow>
   </OptionsSection>
 
   <OptionsSection title={$t`${appName} panes`}>
@@ -115,6 +118,7 @@
   import MailIcon from "lucide-svelte/icons/mail";
   import ComposeIcon from "lucide-svelte/icons/file-pen-line";
   import SpellingIcon from "lucide-svelte/icons/spell-check";
+  import NewWindowIcon from "lucide-svelte/icons/square-arrow-out-up-right";
   import ReadingPaneIcon from "lucide-svelte/icons/panel-right";
   import AccountListIcon from "lucide-svelte/icons/list-tree";
   import ArrivalIcon from "lucide-svelte/icons/bell";
@@ -126,6 +130,7 @@
 
   const formatSetting = getLocalStorage<string>("mail.send.format", "html");
   const spellcheckSetting = getLocalStorage<boolean>("mail.send.spellcheck.enabled", false);
+  const newWindowSetting = getLocalStorage<boolean>("mail.send.newWindow", false);
   const quoteSetting = getLocalStorage<string>("mail.send.quote", "below");
   const forwardSetting = getLocalStorage<string>("mail.send.forward", "inline");
   const stripSignaturesSetting = getLocalStorage<boolean>("mail.send.quote.stripSignatures", true);

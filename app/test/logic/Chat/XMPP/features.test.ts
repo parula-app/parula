@@ -3,6 +3,7 @@ import "../../../../logic/app";
 import { setupChatTestEnv } from "./setup";
 import { XMPPAccount } from "../../../../logic/Chat/XMPP/XMPPAccount";
 import { XMPP1to1Chat } from "../../../../logic/Chat/XMPP/XMPP1to1Chat";
+import { XMPPGroupChat } from "../../../../logic/Chat/XMPP/XMPPGroupChat";
 import { DummyChatStorage } from "../../../../logic/Chat/SQL/DummyChatStorage";
 import { DeliveryStatus } from "../../../../logic/Chat/ChatMessage";
 import { XMPPChatMessage } from "../../../../logic/Chat/XMPP/XMPPChatMessage";
@@ -10,6 +11,7 @@ import { beforeAll, beforeEach, describe, expect, test } from "vitest";
 
 const kMe = "me@localhost";
 const kAlice = "alice@localhost";
+const kRoom = "fans@conference.localhost";
 
 let account: XMPPAccount;
 let chat: XMPP1to1Chat;
@@ -70,6 +72,42 @@ describe("XMPP message features — receiving", () => {
     let m3 = chat.messages.find(m => m.id == "m3") as XMPPChatMessage;
     expect(m3.retracted).toBe(true);
     expect(m3.text).not.toBe("oops secret");
+  });
+
+  test("the chat partner can't edit or delete our messages", async () => {
+    let ours = chat.newMessage();
+    ours.text = "I'll pay 10 €";
+    await chat.sendMessage(ours);
+    await incoming({ id: "c2", body: "I'll pay 1000 €", replace: ours.id });
+    await incoming({ retract: { id: ours.id } });
+    expect(ours.text).toBe("I'll pay 10 €");
+    expect(ours.edited).toBe(false);
+    expect(ours.retracted).toBe(false);
+  });
+
+  test("in a group chat, only the author can edit or delete a message", async () => {
+    let room = new XMPPGroupChat(account);
+    room.id = kRoom;
+    room.nick = "me";
+    let alices = await room.addMessage({ type: "groupchat", from: `${kRoom}/alice`, id: "g1", body: "I like cats" } as any);
+    await room.addMessage({ type: "groupchat", from: `${kRoom}/mallory`, id: "g2", body: "I hate cats", replace: "g1" } as any);
+    await room.addMessage({ type: "groupchat", from: `${kRoom}/mallory`, retract: { id: "g1" } } as any);
+    expect(alices!.text).toBe("I like cats");
+    expect(alices!.retracted).toBe(false);
+
+    await room.addMessage({ type: "groupchat", from: `${kRoom}/alice`, id: "g3", body: "I love cats", replace: "g1" } as any);
+    expect(alices!.text).toBe("I love cats");
+    await room.addMessage({ type: "groupchat", from: `${kRoom}/alice`, retract: { id: "g1" } } as any);
+    expect(alices!.retracted).toBe(true);
+  });
+
+  test("an unencrypted edit or deletion can't change an encrypted message", async () => {
+    let msg = await incoming({ id: "e1", body: "the code is 1234" });
+    msg!.encrypted = true; // as if it came OMEMO-encrypted
+    await incoming({ id: "e2", body: "the code is 0000", replace: "e1" });
+    await incoming({ retract: { id: "e1" } });
+    expect(msg!.text).toBe("the code is 1234");
+    expect(msg!.retracted).toBe(false);
   });
 
   test("a delivery receipt and read marker update the delivery status", async () => {

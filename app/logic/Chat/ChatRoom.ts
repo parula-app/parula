@@ -1,11 +1,12 @@
 import { type RoomMessage, ChatMessage, DeliveryStatus } from "./ChatMessage";
-import { ChatRoomEvent, IncomingCall, Invite, JoinLeave, RoomEventKind, RoomNameChange } from "./RoomEvent";
+import { ChatRoomEvent, IdentityChange, IncomingCall, Invite, JoinLeave, RoomEventKind, RoomNameChange } from "./RoomEvent";
 import type { ChatAccount } from "./ChatAccount";
 import { ChatPersonUID } from "./ChatPersonUID";
 import { Group } from "../Abstract/Group";
 import { Observable, notifyChangedProperty } from "../util/Observable";
 import { addon } from "../Addons/API/addon";
 import { AbstractFunction } from "../util/util";
+import { gt } from "../../l10n/l10n";
 import { ArrayColl } from 'svelte-collections';
 
 /**
@@ -131,9 +132,23 @@ export class ChatRoom extends Observable {
         return new RoomNameChange(this);
       case RoomEventKind.IncomingCall:
         return new IncomingCall(this);
+      case RoomEventKind.IdentityChange:
+        return new IdentityChange(this);
       default:
         return new ChatRoomEvent(this);
     }
+  }
+
+  /** Tells the user that the contact's end-to-end encryption key changed. Only the
+   * user can find out whether the contact got a new phone, or whether someone else,
+   * e.g. the server, is reading along. */
+  async addIdentityChange(): Promise<void> {
+    let event = this.newRoomEvent(RoomEventKind.IdentityChange);
+    event.text = gt`The security code of ${this.name} changed. This is normal if they got a new phone or reinstalled the app. Otherwise, someone else might be reading your messages. If in doubt, ask them in person.`;
+    event.sent = new Date();
+    event.received = new Date(event.sent);
+    this.messages.add(event);
+    await event.save();
   }
 
   async save(): Promise<void> {

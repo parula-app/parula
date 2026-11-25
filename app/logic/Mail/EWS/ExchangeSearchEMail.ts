@@ -41,7 +41,7 @@ export class ExchangeSearchEMail extends SearchEMail {
       conditions.push(tagged);
     }
     if (this.messageID) {
-      conditions.push(new ExchangeCondition("IsEqualTo", "message:InternetMessageId", this.messageID));
+      conditions.push(new ExchangeCondition("IsEqualTo", "message:InternetMessageId", "<" + this.messageID + ">"));
     }
     if (booleanHasValue(this.isRead)) {
       conditions.push(new ExchangeCondition("IsEqualTo", "message:IsRead", this.isRead));

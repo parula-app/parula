@@ -18,7 +18,9 @@ export class ICalIncomingInvitation extends IncomingInvitation {
       await event.adoptAttachmentsFrom(this.event);
       this.calendar.events.add(event);
     } else if (!event.isNewerVersionThan(this.event)) {
+      let tags = event.tags.contents; // the user's own, not the organizer's
       event.copyFrom(this.event);
+      event.tags.replaceAll(tags);
       await event.adoptAttachmentsFrom(this.event);
     }
     let { myParticipant } = ICalIncomingInvitation.participantMe(this.event, this.message.folder.account);

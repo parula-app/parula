@@ -3,10 +3,10 @@ import { SetColl } from "svelte-collections";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
 
 /**
- * Defines a tag/keyword that can be set on an email.
+ * Defines a tag/keyword that can be set on an email, chat msg, calendar event or file
  *
  * This describes the generic class of a tag.
- * The instance of a tag is represented by `EMail.tags`.
+ * The instance of a tag is represented by `EMail.tags` and `Event.tags`.
  */
 export class Tag extends Observable {
   /** ID of the tag. Usually identical to what is displayed to the user.

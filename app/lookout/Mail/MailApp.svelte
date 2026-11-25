@@ -15,7 +15,7 @@
         onOpenTool={$inlineRibbon.onOpenTool} />
     {/if}
   </Ribbon>
-  <AutomaticRepliesBar account={$selectedAccount} />
+  <AutoResponderBar account={$selectedAccount} />
   <ThreePane bind:messageList
     {accounts}
     messages={listMessages}
@@ -118,7 +118,7 @@
   import { kSearchLimit, hasRefiners, isRealFolder, isRealAccount, newMailSearch, SearchScope, defaultSearchOptions } from "./Search/MailSearch";
   import { FolderTreeActions } from "./LeftPane/FolderTreeActions";
   import Ribbon from "../Shared/Ribbon/Ribbon.svelte";
-  import AutomaticRepliesBar from "./AutomaticReplies/AutomaticRepliesBar.svelte";
+  import AutoResponderBar from "../../frontend/Mail/AutoResponderBar.svelte";
   import HomeTab from "./Ribbon/HomeTab.svelte";
   import SendReceiveTab from "./Ribbon/SendReceiveTab.svelte";
   import FolderTab from "./Ribbon/FolderTab.svelte";

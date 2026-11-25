@@ -4,7 +4,7 @@ import { getMySigningKey, getPublicKeyForPersonUID } from "../KeyUtils";
 import { CreateMIME } from "../../SMTP/CreateMIME";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { SMIMEPrivateKey } from "./SMIMEPrivateKey";
-import { Oid, UTCTime, Attributes, DigestInfo, SignedData, Certificate, RSAPublicKey, Null, OctetString, EnvelopedData, SMIMECapabilities } from "./SMIMEASN1";
+import { Oid, UTCTime, Attributes, DigestInfo, SignedData, Certificate, RSAPublicKey, Null, OctetString, EnvelopedData, AuthEnvelopedData, GCMParameters, SMIMECapabilities } from "./SMIMEASN1";
 import { decrypt, padFF, padRandom, encrypt } from "./SMIMERSAES";
 import { splitMIMEHeaders, kLineBreak, newBoundary } from "../MIME";
 import { UserError, assert } from "../../../util/util";
@@ -127,15 +127,38 @@ export class SMIMESend {
         getPublicKeyForPersonUID(puid, SMIMEPublicKey));
       assert(recipientKeys.every(key => key), gt`Cannot encrypt to all recipients using S/MIME`);
       let myPublicKey = privateKey.decodedCertificate.tbsCertificate.publicKey;
-      if (!(await Promise.all(recipientKeys.map(key => key.matches(myPublicKey)))).some(Boolean)) {
+      let isMyKey = await Promise.all(recipientKeys.map(key => key.matches(myPublicKey)));
+      if (!isMyKey.some(Boolean)) {
         recipientKeys.push(privateKey);
       }
+      // AES-GCM notices when somebody changed the ciphertext, AES-CBC does not.
+      // So we use this to encrypt drafts and verify that they were not tampered with (EFAIL).
+      // But only we are known to read AES-GCM. E.g. Thunderbird before 154 can't.
+      let useGCM = isMyKey.every(Boolean);
       let symmetricKey = new Uint8Array(32);
-      let vector = new Uint8Array(16);
+      let vector = new Uint8Array(useGCM ? 12 : 16);
       crypto.getRandomValues(symmetricKey);
       crypto.getRandomValues(vector);
-      let key = await crypto.subtle.importKey("raw", symmetricKey, "AES-CBC", false, ["encrypt"]);
-      let pkcs7 = {
+      let cipher = useGCM ? "AES-GCM" : "AES-CBC";
+      let key = await crypto.subtle.importKey("raw", symmetricKey, cipher, false, ["encrypt"]);
+      let encryptedContent = new Uint8Array(await crypto.subtle.encrypt({ name: cipher, iv: vector }, key, mime));
+      let pkcs7 = useGCM ? {
+        contentType: "authEnvelopedData",
+        content: {
+          version: 0n,
+          recipientInfos: [],
+          authEncryptedContentInfo: {
+            contentType: "data",
+            contentEncryptionAlgorithm: {
+              algorithm: "aes256gcm",
+              parameters: GCMParameters.encode({ nonce: vector, icvLen: 16n }),
+            },
+            // WebCrypto appends the authentication tag, whereas CMS sends it separately, in `mac`
+            encryptedContent: encryptedContent.subarray(0, -16),
+          },
+          mac: encryptedContent.subarray(-16),
+        }
+      } : {
         contentType: "envelopedData",
         content: {
           version: 0n,
@@ -146,7 +169,7 @@ export class SMIMESend {
               algorithm: "aes256cbc",
               parameters: OctetString.encode(vector),
             },
-            encryptedContent: new Uint8Array(await crypto.subtle.encrypt({ name: "AES-CBC", iv: vector }, key, mime)),
+            encryptedContent,
           }
         }
       };
@@ -176,10 +199,10 @@ export class SMIMESend {
           },
         });
       }
-      let der = EnvelopedData.encode(pkcs7);
+      let der = useGCM ? AuthEnvelopedData.encode(pkcs7) : EnvelopedData.encode(pkcs7);
       let base64 = der.toBase64?.() ?? toBase64(der);
       mimeAsText = [
-        'Content-Type: application/pkcs7-mime; smime-type=enveloped-data; name="smime.p7m"',
+        `Content-Type: application/pkcs7-mime; smime-type=${useGCM ? "authEnveloped-data" : "enveloped-data"}; name="smime.p7m"`,
         'Content-Transfer-Encoding: base64',
         `Content-Disposition: attachment; filename="smime.p7m"`,
         ...otherHeaders,
