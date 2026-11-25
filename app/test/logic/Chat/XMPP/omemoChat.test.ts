@@ -155,4 +155,41 @@ describe("OMEMO end-to-end through a chat", () => {
     expect(received!.html).toContain("meet at 1 pm");
     expect(received!.html).not.toContain("midnight");
   });
+
+  test("An OMEMO message shows its *bold* text in bold, for both sides", async () => {
+    pep = new FakePEPServer();
+    let aliceSent: any[] = [];
+    let alice = newAccount(kAlice, aliceSent);
+    let bob = newAccount(kBob, []);
+    await alice.omemo.publishOwnKeys();
+    await bob.omemo.publishOwnKeys();
+
+    let aliceToBob = new XMPP1to1Chat(alice);
+    aliceToBob.id = kBob;
+    aliceToBob.contact = await alice.getRosterPerson(kBob, "Bob") as any;
+    aliceToBob.encryption = Encryption.OMEMO;
+
+    let bobToAlice = new XMPP1to1Chat(bob);
+    bobToAlice.id = kAlice;
+    bobToAlice.contact = await bob.getRosterPerson(kAlice, "Alice") as any;
+
+    // As from the editor, which OMEMO doesn't send
+    let outgoing = aliceToBob.newMessage();
+    outgoing.html = "<p>this is *important*</p>";
+    await aliceToBob.sendMessage(outgoing);
+    let received = await bobToAlice.addMessage(overTheWire(aliceSent[0], kAlice));
+    expect(received!.encrypted).toBe(true);
+    expect(received!.html).toContain("<strong>");
+    expect(received!.html).toContain("important");
+    expect(outgoing.html).toContain("<strong>");
+
+    let edit = aliceToBob.newMessage();
+    edit.isEdit = outgoing.id;
+    edit.html = "<p>this is _urgent_</p>";
+    await edit.sendEdit();
+    await bobToAlice.addMessage(overTheWire(aliceSent[1], kAlice));
+    expect(received!.html).toContain("<em>");
+    expect(received!.html).toContain("urgent");
+    expect(outgoing.html).toContain("<em>");
+  });
 });
