@@ -13,7 +13,7 @@
     <vbox class="all-day">
       {#each allDayItems as item}
         <hbox class="event status-{item.look.status}" class:current={item.isCurrent}
-          style:--event-color={item.event.color ?? item.event.calendar?.color ?? "var(--lo-accent)"} title={item.look.tooltip(locale)}>
+          style:--event-color={item.event.tags.first?.color ?? item.event.color ?? item.event.calendar?.color ?? "var(--lo-accent)"} title={item.look.tooltip(locale)}>
           <hbox class="bar" />
           <span class="title">{item.look.title}</span>
         </hbox>
@@ -33,7 +33,7 @@
         {/each}
         {#each timedItems as item}
           <hbox class="event status-{item.look.status}" class:current={item.isCurrent}
-            style:--event-color={item.event.color ?? item.event.calendar?.color ?? "var(--lo-accent)"}
+            style:--event-color={item.event.tags.first?.color ?? item.event.color ?? item.event.calendar?.color ?? "var(--lo-accent)"}
             style:top="{item.top}px" style:height="{Math.max(item.height - 1, 14)}px"
             style:left="calc({item.lane} * 100% / {item.lanes})" style:width="calc(100% / {item.lanes} - 2px)"
             title={item.look.tooltip(locale)}>
