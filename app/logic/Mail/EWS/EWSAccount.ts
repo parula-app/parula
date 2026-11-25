@@ -141,6 +141,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     await this.loginRunOnce.runOnce(async () => {
       if (this.mainAccount) {
         await this.mainAccount.login(interactive);
+        await (this.mainAccount as EWSAccount).subscribeToNotificationsForSubaccount(this);
         return;
       }
       await ensureLicensed(); // Not in generic `Account`, to keep license code in the proprietary parts
@@ -156,8 +157,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
       try {
         await super.syncOnStartup();
         if (this.isDependentAccount) {
-          await (this.mainAccount as EWSAccount).subscribeToNotificationsForSubaccount(this);
-          return;
+          return; // `login()` subscribed us to the notifications
         }
         if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new EWSGAL(this));
@@ -1230,7 +1230,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     account.identities.add(identity);
     await account.save();
     appGlobal.emailAccounts.add(account);
-    await account.syncOnStartup();
+    await account.loginAndStartup(false);
     return account;
   }
 
@@ -1268,7 +1268,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     addressbook.username = person.emailAddress;
     addressbook.folderID = folderID;
     appGlobal.addressbooks.add(addressbook);
-    await addressbook.syncOnStartup();
+    await addressbook.loginAndStartup(false);
     return addressbook;
   }
 
@@ -1307,7 +1307,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     calendar.folderID = folderID;
     calendar.useForInvitations = true;
     appGlobal.calendars.add(calendar);
-    await calendar.syncOnStartup();
+    await calendar.loginAndStartup(false);
     return calendar;
   }
 

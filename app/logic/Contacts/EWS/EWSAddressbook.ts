@@ -40,9 +40,10 @@ export class EWSAddressbook extends ExchangeAddressbook implements EWSSubscribab
     await this.account.unsubscribeNotifications(this);
   }
 
-  async syncOnStartup(): Promise<void> {
-    await super.syncOnStartup();
+  async login(interactive: boolean): Promise<void> {
+    await super.login(interactive);
     if (this.username != this.account.username) {
+      // Folders of the main user are covered by its `SubscribeToAllFolders`
       await this.account.subscribeToNotificationsForSubaccount(this);
     }
   }
