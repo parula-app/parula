@@ -1,6 +1,7 @@
 import { FileSharingAccount } from "../FileSharingAccount";
 import { HarddriveDirectory } from "./HarddriveDirectory";
 import { appGlobal } from "../../app";
+import { UserError } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 
 export class HarddriveAccount extends FileSharingAccount {
@@ -45,14 +46,14 @@ export class HarddriveAccount extends FileSharingAccount {
 
   protected addRootDir(label: string, path: string) {
     let dir = this.newDirectory(label);
-    dir.path = dir.filepathLocal = path;
+    dir.path = dir.filepathLocal = path.endsWith("/") ? path : path + "/";
     this.rootDirs.add(dir);
   }
 
   protected async addSpecialDir(label: string, dirname: string) {
     try {
       let path = await appGlobal.remoteApp.directory(dirname);
-      if (this.rootDirs.find(dir => dir.path == path)) {
+      if (this.rootDirs.find(dir => dir.path == path + "/")) {
         return;
       }
       let entries = await appGlobal.remoteApp.listDirectoryContents(path, false, false);
@@ -63,6 +64,42 @@ export class HarddriveAccount extends FileSharingAccount {
     } catch (ex) {
       this.errorCallback(ex);
     }
+  }
+
+  async move(fromPath: string, toPath: string) {
+    await this.checkFree(toPath);
+    try {
+      await appGlobal.remoteApp.fs.rename(fromPath, toPath);
+    } catch (ex) {
+      if (ex.code == "EXDEV") { // to another drive
+        await this.copy(fromPath, toPath);
+        await appGlobal.remoteApp.fs.rm(fromPath);
+        return;
+      }
+      throw ex;
+    }
+  }
+
+  async copy(fromPath: string, toPath: string) {
+    await this.checkFree(toPath);
+    await appGlobal.remoteApp.fs.cp(fromPath, toPath, {
+      errorOnExist: true,
+      force: false,
+      preserveTimestamps: true,
+    });
+  }
+
+  /** @throws if there is already a file or directory at `path` */
+  async checkFree(path: string) {
+    try {
+      await appGlobal.remoteApp.fs.access(path);
+    } catch (ex) {
+      if (ex.code == "ENOENT") {
+        return;
+      }
+      throw ex;
+    }
+    throw new UserError(gt`${path} already exists`);
   }
 }
 
