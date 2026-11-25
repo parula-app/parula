@@ -21,7 +21,7 @@
     "preference": 100
   }],
   "chatAccounts": [{
-    "value": "xmpp:jabber@jabber.com",
+    "value": "jabber@jabber.com",
     "purpose": "home",
     "protocol": "xmpp",
     "preference": 1
