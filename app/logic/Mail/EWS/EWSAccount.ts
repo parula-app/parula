@@ -1377,6 +1377,11 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         m$ItemShape: {
           t$BaseShape: "IdOnly",
         },
+        m$IndexedPageItemView: {
+          BasePoint: "Beginning",
+          Offset: 0,
+          MaxEntriesReturned: 10,
+        },
         m$Restriction: {
           t$IsEqualTo: {
             t$FieldURI: {

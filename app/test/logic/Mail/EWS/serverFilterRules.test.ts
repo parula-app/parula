@@ -95,6 +95,7 @@ function newTestAccount(rules: string[]) {
     server.operations.push(request.getElementsByTagName("s:Body")[0]?.firstElementChild?.localName);
     if (request.getElementsByTagName("m:FindItem").length) {
       expect(request.getElementsByTagName("m:FindItem")[0].getAttribute("Traversal")).toBe("Associated");
+      expect(request.getElementsByTagName("m:IndexedPageItemView").length, "Exchange needs paging for FindItem").toBe(1);
       let copies = server.outlookRulesExist ? server.outlookRulesStreams : [];
       return { status: 200, text: async () => success("FindItem", `<RootFolder TotalItemsInView="${copies.length}" IncludesLastItemInRange="true"><Items ${kTypes}>
         ${copies.map((_stream, i) => `<Message><ItemId Id="copy-${i}" ChangeKey="AQAAAA=="/></Message>`).join("")}
