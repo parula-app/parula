@@ -138,8 +138,7 @@
   $: showOnlineMeeting = $event.isOnline;
   $: showDescription = !!$event.descriptionHTML;
   $: showAttachments = $attachments.hasItems;
-  // Only when another event loads, so that the section stays when the user removes the last tag
-  $: showTags = event.tags.hasItems;
+  $: showTags = event.tags.hasItems; // On Event change, but keep section after removing last tag
 
   let width: number;
   let isAvailabilityExpanded = false;
