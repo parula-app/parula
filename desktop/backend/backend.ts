@@ -147,7 +147,6 @@ async function writeFile(path: string, permissions: number, contents: Uint8Array
  * @param filename Proposed to the user
  * @returns The path that the user chose. null, if the user cancelled. */
 async function askWhereToSaveFile(filename: string): Promise<string | null> {
-  // The window where the user clicked, e.g. a popped-out email
   let result = await dialog.showSaveDialog(BrowserWindow.getFocusedWindow() ?? mainWindow, {
     defaultPath: sanitize.filename(filename, "file"), // no directory from a mail
   });
