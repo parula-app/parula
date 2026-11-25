@@ -2,7 +2,9 @@ import "../../../../../logic/app";
 import { setupTestFolder } from "../../SQL/setup";
 import { getPublicKeyByFingerprint } from "../../../../../logic/Mail/Encryption/KeyUtils";
 import { EncryptionSystem, TrustLevel } from "../../../../../logic/Mail/Encryption/enums";
-import { expect, test } from "vitest";
+import { SQLMailStorage } from "../../../../../logic/Mail/SQL/SQLMailStorage";
+import type { EMail } from "../../../../../logic/Mail/EMail";
+import { expect, test, describe } from "vitest";
 
 /**
  * The sender is not in the addressbook, and we have no private key of our own.
@@ -103,3 +105,121 @@ Content-Type: text/plain; charset=utf-8
 Mailing list footer
 ------=_Part_List--
 `;
+
+/**
+ * A forged mail from Alice that carries her real signed part and signature
+ * from an earlier mail, but puts them where only our `multipart/signed`
+ * splitter finds them, and other text where postal-mime finds it.
+ * If the mail shows as signed by Alice, it must show what she signed.
+ */
+describe("Signed part that postal-mime doesn't find", () => {
+  // Alice's signed part and signature, from `kSignedPart`
+  let body = kSignedPart.split("\n\n").slice(1).join("\n\n");
+  let oldBoundary = "----=_Part_PGP_1";
+  let alicesParts = body.slice(body.indexOf("--" + oldBoundary));
+  let signaturePart = alicesParts.slice(alicesParts.lastIndexOf("--" + oldBoundary + "\nContent-Type: application/pgp-signature"));
+  signaturePart = signaturePart.slice(signaturePart.indexOf("\n") + 1, signaturePart.indexOf("\n--" + oldBoundary + "--"));
+
+  /** @param mime with LF, which becomes CRLF */
+  async function readMessage(mime: string): Promise<EMail> {
+    let { folder } = await setupTestFolder();
+    let email = folder.newEMail();
+    email.mime = new TextEncoder().encode(mime.replace(/\n/g, "\r\n"));
+    await email.parseMIME();
+    return email;
+  }
+
+  /** Whatever shows as signed by Alice is what she signed */
+  function expectSignedContent(email: EMail) {
+    if (email.signedPublicKeyFingerprint) {
+      expect(email.text).toContain("Hello, this is PGP signed.");
+      expect(email.text).not.toContain("OTHER TEXT");
+      expect(email.html).not.toContain("OTHER TEXT");
+    }
+  }
+
+  test("Alice's original mail is signed", async () => {
+    let email = await readMessage(kPGPSignedAutoCrypt);
+    expect(email.signedPublicKeyFingerprint).toBeTruthy();
+  });
+
+  let quotedSemicolon = kHeaders + `Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha256; boundary="EVIL;X"
+
+--EVIL;X
+Content-Type: text/plain; charset=utf-8
+
+OTHER TEXT
+--EVIL;X
+${signaturePart}
+--EVIL;X--
+${alicesParts.replaceAll(oldBoundary, '"EVIL')}`;
+
+  test("Boundary with a quoted ;", async () => {
+    let email = await readMessage(quotedSemicolon);
+    expectSignedContent(email);
+  });
+
+  test("Opened again from the database", async () => {
+    let { folder } = await setupTestFolder();
+    folder.account.storage = new SQLMailStorage();
+    let email = folder.newEMail();
+    email.received = new Date(); // from the server's listing
+    email.mime = new TextEncoder().encode(quotedSemicolon.replace(/\n/g, "\r\n"));
+    await email.parseMIME();
+    await email.saveCompleteMessage();
+
+    let reopened = folder.newEMail(); // as after the app restart
+    reopened.dbID = email.dbID;
+    await reopened.storage.readMessage(reopened);
+    await reopened.loadBody();
+    expect(reopened.signedPublicKeyFingerprint).toBe(email.signedPublicKeyFingerprint);
+    expectSignedContent(reopened);
+  });
+
+  test("Boundary in RFC 2231 continuations, next to a plain one", async () => {
+    let email = await readMessage(kHeaders + `Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha256; boundary="ORIG"; boundary*0="SHO"; boundary*1="WN"
+
+--SHOWN
+Content-Type: text/plain; charset=utf-8
+
+OTHER TEXT
+--SHOWN
+${signaturePart}
+--SHOWN--
+${alicesParts.replaceAll(oldBoundary, "ORIG")}`);
+    expectSignedContent(email);
+  });
+
+  test("Two Content-Type headers", async () => {
+    let email = await readMessage(kHeaders + `Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha256; boundary="ORIG"
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha256; boundary="SHOWN"
+
+--SHOWN
+Content-Type: text/plain; charset=utf-8
+
+OTHER TEXT
+--SHOWN
+${signaturePart}
+--SHOWN--
+${alicesParts.replaceAll(oldBoundary, "ORIG")}`);
+    expectSignedContent(email);
+  });
+
+  test("Boundary lines with LF only, which only postal-mime splits on", async () => {
+    let { folder } = await setupTestFolder();
+    let email = folder.newEMail();
+    let crlf = (text: string) => text.replace(/\n/g, "\r\n");
+    email.mime = new TextEncoder().encode(crlf(kHeaders + `Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha256; boundary="B"
+`) + `
+--B
+Content-Type: text/plain; charset=utf-8
+
+OTHER TEXT
+--B
+${signaturePart}
+--B--
+` + crlf("\n" + alicesParts.replaceAll(oldBoundary, "B")));
+    await email.parseMIME();
+    expectSignedContent(email);
+  });
+});

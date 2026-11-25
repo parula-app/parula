@@ -118,3 +118,98 @@ ${signedFile}
     expect(new TextDecoder().decode(email.mime)).toBe(toCRLF(mime));
   });
 });
+
+/**
+ * A forged mail from Alice that carries her real signed part and signature
+ * from an earlier mail, but puts them where only our `multipart/signed`
+ * splitter finds them, and other text where postal-mime finds it.
+ * If the mail shows as signed by Alice, it must show what she signed.
+ */
+describe("Signed part that postal-mime doesn't find", () => {
+  let headers = kClearSigned.split("\n\n")[0].split("\nContent-Type:")[0];
+  // Alice's signed part and signature, from `kClearSigned`
+  let body = kClearSigned.split("\n\n").slice(1).join("\n\n");
+  let oldBoundary = "----3120AE5FA6844B38B313D9FF5848BBF0";
+  let alicesParts = body.slice(body.indexOf("--" + oldBoundary));
+  let signaturePart = alicesParts.slice(alicesParts.lastIndexOf("--" + oldBoundary + "\nContent-Type: application/x-pkcs7-signature"));
+  signaturePart = signaturePart.slice(signaturePart.indexOf("\n") + 1, signaturePart.indexOf("\n--" + oldBoundary + "--"));
+  let contentType = `Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"`;
+
+  /** Whatever shows as signed by Alice is what she signed */
+  function expectSignedContent(email: EMail) {
+    if (email.signedPublicKeyFingerprint) {
+      expect(email.text).toContain("Hello, this is signed.");
+      expect(email.text).not.toContain("OTHER TEXT");
+      expect(email.html).not.toContain("OTHER TEXT");
+    }
+  }
+
+  test("Alice's original mail is signed", async () => {
+    let email = await readMessage(kClearSigned);
+    expect(email.signedPublicKeyFingerprint).toBeTruthy();
+  });
+
+  test("Boundary with a quoted ;", async () => {
+    let email = await readMessage(`${headers}
+${contentType}; boundary="EVIL;X"
+
+--EVIL;X
+Content-Type: text/plain; charset=utf-8
+
+OTHER TEXT
+--EVIL;X
+${signaturePart}
+--EVIL;X--
+${alicesParts.replaceAll(oldBoundary, '"EVIL')}`);
+    expectSignedContent(email);
+  });
+
+  test("Boundary in RFC 2231 continuations, next to a plain one", async () => {
+    let email = await readMessage(`${headers}
+${contentType}; boundary="ORIG"; boundary*0="SHO"; boundary*1="WN"
+
+--SHOWN
+Content-Type: text/plain; charset=utf-8
+
+OTHER TEXT
+--SHOWN
+${signaturePart}
+--SHOWN--
+${alicesParts.replaceAll(oldBoundary, "ORIG")}`);
+    expectSignedContent(email);
+  });
+
+  test("Two Content-Type headers", async () => {
+    let email = await readMessage(`${headers}
+${contentType}; boundary="ORIG"
+Content-Type: multipart/mixed; boundary="SHOWN"
+
+--SHOWN
+Content-Type: text/plain; charset=utf-8
+
+OTHER TEXT
+--SHOWN
+${signaturePart}
+--SHOWN--
+${alicesParts.replaceAll(oldBoundary, "ORIG")}`);
+    expectSignedContent(email);
+  });
+
+  test("Boundary lines with LF only, which only postal-mime splits on", async () => {
+    let { folder } = await setupTestFolder();
+    let email = folder.newEMail();
+    email.mime = new TextEncoder().encode(toCRLF(`${headers}
+${contentType}; boundary="B"
+`) + `
+--B
+Content-Type: text/plain; charset=utf-8
+
+OTHER TEXT
+--B
+${signaturePart}
+--B--
+` + toCRLF("\n" + alicesParts.replaceAll(oldBoundary, "B")));
+    await email.parseMIME();
+    expectSignedContent(email);
+  });
+});

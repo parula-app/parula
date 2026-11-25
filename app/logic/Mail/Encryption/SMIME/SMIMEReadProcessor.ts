@@ -11,7 +11,7 @@ import { parseMIMEDirectSubpartsBytes, parseHeaderParameters } from "../MIME";
 import { assert } from "../../../util/util";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../../l10n/l10n";
-import type { Email as PostalEmail } from "postal-mime";
+import PostalMIME, { type Email as PostalEmail } from "postal-mime";
 
 export class SMIMEReadProcessor extends EMailProcessor {
   runOn = ProcessingStartOn.Parse;
@@ -149,8 +149,12 @@ export class SMIMEReadProcessor extends EMailProcessor {
     }
     let signedData = SignedData.decodeFromBase64(signatureBase64, { berToDER: true });
     let signer = await verifySignedData(signedData, clearText, email.received);
-    let innerFrom = (await EMail.getHeadersFromMIME(clearText)).from;
-    email.rememberSigner(!innerFrom || innerFrom.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
+    let signed = await PostalMIME.parse(clearText);
+    email.rememberSigner(!signed.from || signed.from.address?.toLowerCase() == email.from.emailAddress.toLowerCase() ? signer : null);
+    if (email.signedPublicKey) {
+      // Show exactly what was signed. postal-mime may find other parts in the whole mail than our splitter.
+      await email.setBodyAndAttachments(signed);
+    }
   }
 
   /** Replaces the message with the MIME entity extracted from the CMS

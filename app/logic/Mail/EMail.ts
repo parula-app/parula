@@ -378,6 +378,46 @@ export class EMail extends Message {
     });
   }
 
+  /** Sets the text, HTML and attachments that the user sees
+   * @param mail postal-mime's result for the whole mail, or only for its signed part */
+  async setBodyAndAttachments(mail: MIME) {
+    // Body
+    this.text = mail.text;
+    let html = sanitize.string(mail.html, null);
+    if (html) {
+      this.html = html;
+    }
+
+    // Attachments
+    let fallbackID = 0;
+    let oldAttachments = new ArrayColl<Attachment>(this.attachments);
+    this.attachments.replaceAll(mail.attachments.map(a => {
+      try {
+        let attachment = this.newAttachment();
+        attachment.contentID = sanitize.nonemptystring(a.contentId, "" + ++fallbackID);
+        attachment.mimeType = sanitize.nonemptystring(a.mimeType, "application/octet-stream");
+        attachment.filename = sanitize.nonemptystring(a.filename, "attachment-" + fallbackID + "." + fileExtensionForMIMEType(attachment.mimeType));
+        attachment.filepathLocal = oldAttachments.find(old =>
+          old.contentID == attachment.contentID &&
+          old.filename == attachment.filename)
+          ?.filepathLocal;
+        attachment.disposition = sanitize.translate(a.disposition, {
+          attachment: ContentDisposition.attachment,
+          inline: ContentDisposition.inline,
+        }, ContentDisposition.unknown);
+        attachment.related = sanitize.boolean(a.related, false);
+        attachment.content = new File([a.content], attachment.filename, { type: attachment.mimeType });
+        attachment.size = sanitize.integer(attachment.content.size, -1);
+        return attachment;
+      } catch (ex) {
+        this.folder.account.errorCallback(ex);
+        return null;
+      }
+    }).filter(attachment => !!attachment));
+    oldAttachments.clear();
+    await Promise.all(this.attachments.contents.map(a => a.checkExecutable()));
+  }
+
   protected processorLoop: LoopGuard | null = null;
   async parseMIME(): Promise<MIME> {
     assert(this.mime?.length, "MIME source not yet downloaded");
@@ -417,41 +457,7 @@ export class EMail extends Message {
       this.mimeHeader(mail, "priority") == "urgent" ||
       ["1", "2"].includes(this.mimeHeader(mail, "x-priority")[0]);
 
-    // Body
-    this.text = mail.text;
-    let html = sanitize.string(mail.html, null);
-    if (html) {
-      this.html = html;
-    }
-
-    // Attachments
-    let fallbackID = 0;
-    let oldAttachments = new ArrayColl<Attachment>(this.attachments);
-    this.attachments.replaceAll(mail.attachments.map(a => {
-      try {
-        let attachment = this.newAttachment();
-        attachment.contentID = sanitize.nonemptystring(a.contentId, "" + ++fallbackID);
-        attachment.mimeType = sanitize.nonemptystring(a.mimeType, "application/octet-stream");
-        attachment.filename = sanitize.nonemptystring(a.filename, "attachment-" + fallbackID + "." + fileExtensionForMIMEType(attachment.mimeType));
-        attachment.filepathLocal = oldAttachments.find(old =>
-          old.contentID == attachment.contentID &&
-          old.filename == attachment.filename)
-          ?.filepathLocal;
-        attachment.disposition = sanitize.translate(a.disposition, {
-          attachment: ContentDisposition.attachment,
-          inline: ContentDisposition.inline,
-        }, ContentDisposition.unknown);
-        attachment.related = sanitize.boolean(a.related, false);
-        attachment.content = new File([a.content], attachment.filename, { type: attachment.mimeType });
-        attachment.size = sanitize.integer(attachment.content.size, -1);
-        return attachment;
-      } catch (ex) {
-        this.folder.account.errorCallback(ex);
-        return null;
-      }
-    }).filter(attachment => !!attachment));
-    oldAttachments.clear();
-    await Promise.all(this.attachments.contents.map(a => a.checkExecutable()));
+    await this.setBodyAndAttachments(mail);
 
     // Run processors, filters, calendar invitations, SML, etc.
     const kMaxLayers = 10;
@@ -497,14 +503,6 @@ export class EMail extends Message {
         this.folder.account.errorCallback(ex);
       }
     }
-  }
-
-  /** Parses raw MIME text message and returns only the headers parsed. */
-  static async getHeadersFromMIME(mime: Uint8Array): Promise<MIME> {
-    let mimeAsText = new TextDecoder().decode(mime);
-    let headerEnd = mimeAsText.indexOf("\r\n\r\n");
-    let headersStr = headerEnd < 0 ? mimeAsText : mimeAsText.slice(0, headerEnd);
-    return await new PostalMIME().parse(headersStr);
   }
 
   /** @param name must be lowercase
