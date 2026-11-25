@@ -857,7 +857,7 @@ export class Event extends Observable implements TaggableObject {
 
   async deleteFromServer(): Promise<void> {
     try {
-      if (!this.participants.length) {
+      if (!this.participants.length || this.isCancelled) {
         return;
       }
       if (this.isOutgoingMeeting) {
