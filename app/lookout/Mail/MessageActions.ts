@@ -96,6 +96,7 @@ export class MessageActions {
   static respondsInline(original: EMail): boolean {
     return AppWindow.current().isMainWindow &&
       !getLocalStorage<boolean>("lookout.mail.compose.repliesInNewWindow", false).value &&
+      !getLocalStorage<boolean>("mail.send.newWindow", false).value &&
       getLocalStorage<ReadingPanePosition>("lookout.mail.readingPane", "right").value != "off" &&
       get(selectedApp) == mailMustangApp &&
       get(selectedMessage) == original &&

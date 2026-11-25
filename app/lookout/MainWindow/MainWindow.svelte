@@ -49,6 +49,8 @@
   import { ContactActions } from "../Contacts/ContactActions";
   import { selectedFolder } from "../../frontend/Mail/Selected";
   import { mailMustangApp } from "../../frontend/Mail/MailMustangApp";
+  import ComposerWindow from "../Mail/Composer/ComposerWindow.svelte";
+  import ClassicComposerWindow from "../../frontend/Mail/Composer/ComposerWindow.svelte";
   import { calendarMustangApp } from "../../frontend/Calendar/CalendarMustangApp";
   import { contactsMustangApp } from "../../frontend/Contacts/ContactsMustangApp";
   import { catchErrors } from "../../frontend/Util/error";
@@ -101,6 +103,10 @@
   }
 
   const appWindow = AppWindow.current();
+
+  // The composer windows that shared code opens, e.g. for a mailto: link
+  appWindow.uiState(mailMustangApp.composerWindow).set(ComposerWindow);
+  onDestroy(() => appWindow.uiState(mailMustangApp.composerWindow).set(ClassicComposerWindow));
 
   function onKeyDownCapture() {
     // Appended anew for every key, so that it runs after the pages' own window listeners, which take precedence

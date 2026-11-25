@@ -8,11 +8,13 @@ import { selectedMessage, selectedMessages } from "../../../frontend/Mail/Select
 import { selectedApp } from "../../../frontend/AppsBar/selectedApp";
 import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
 import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
 import { ArrayColl } from "svelte-collections";
 import { afterEach, expect, test, vi } from "vitest";
 
 afterEach(() => {
   AppWindow["acting"] = null;
+  getLocalStorage("mail.send.newWindow", false).value = false;
   vi.restoreAllMocks();
 });
 
@@ -34,6 +36,15 @@ test("Replies are inline in the main window, but not in the window of a single e
   emailWindow.uiState(selectedMessage).set(message);
   emailWindow.uiState(selectedMessages).set(new ArrayColl([message]));
   AppWindow["acting"] = emailWindow;
+  expect(MessageActions.respondsInline(message)).toBe(false);
+});
+
+test("With the setting to always open the composer in a new window, replies are not inline", () => {
+  let message = { subject: "Shown" } as EMail;
+  selectedApp.set(mailMustangApp);
+  selectedMessage.set(message);
+  selectedMessages.set(new ArrayColl([message]));
+  getLocalStorage("mail.send.newWindow", false).value = true;
   expect(MessageActions.respondsInline(message)).toBe(false);
 });
 
