@@ -6,11 +6,12 @@ import type { Attachment } from "../../Abstract/Attachment";
 import type { PersonUID } from "../../Abstract/PersonUID";
 import { OWAEvent } from "./OWAEvent";
 import { OWAIncomingInvitation } from "./OWAIncomingInvitation";
-import { type OWAAccount, kMaxFetchCount } from "../../Mail/OWA/OWAAccount";
+import { type OWAAccount, type OWARowNotification, type OWANotifyable, kMaxFetchCount } from "../../Mail/OWA/OWAAccount";
 import { owaGetPermissionsRequest, owaSetCalendarPermissionsRequest } from "../../Mail/OWA/Request/OWAFolderRequests";
 import { OWAGetUserAvailabilityRequest } from "./Request/OWAGetUserAvailabilityRequest";
 import type { OWAEMail } from "../../Mail/OWA/OWAEMail";
 import { owaFindEventsRequest, owaGetCalendarEventsRequest, owaGetEventsRequest } from "./Request/OWAEventRequests";
+import { OWASubscribeToRowNotificationRequest } from "../../Mail/OWA/Request/OWASubscribeToNotificationRequest";
 import { getSharedPersons, ExchangePermission, deleteExchangePermissions, setExchangePermissions } from "../../Mail/EWS/ExchangePermission";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { Lock } from "../../util/flow/Lock";
@@ -19,13 +20,17 @@ import { assert, ensureArray } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
 
-export class OWACalendar extends ExchangeCalendar {
+export class OWACalendar extends ExchangeCalendar implements OWANotifyable {
   readonly protocol: string = "calendar-owa";
   declare readonly events: ArrayColl<OWAEvent>;
   /** Exchange FolderID for this calendar. Not DistinguishedFolderId */
   folderID: string;
   protected listEventsRunOnce = new RunOnce();
   protected readonly listEventsLock = new Lock();
+  // Whether this calendar has been subscribed to RowNotification events
+  listening: boolean = false;
+  // Mapping from OWA InstanceKey to ItemId
+  instanceMap = new Map<string, string>;
 
   get account(): OWAAccount {
     assert(this.mainAccount, gt`Calendar ${this.name} lost the connection to its account`);
@@ -88,6 +93,32 @@ export class OWACalendar extends ExchangeCalendar {
     return availabilities;
   }
 
+  handleRowNotification(notification: OWARowNotification, pendingEventIDs: string[]) {
+    switch (notification.EventType) {
+    case "RowAdded":
+    case "RowModified":
+      this.instanceMap.set(notification.Item.InstanceKey, notification.Item.ItemId.Id);
+      pendingEventIDs.push(notification.Item.ItemId.Id);
+      break;
+    case "RowDeleted":
+      let id = this.instanceMap.get(notification.Item.InstanceKey);
+      if (id) {
+        let event = this.getEventByItemID(id);
+        event?.deleteLocally().catch(this.errorCallback);
+      }
+      break;
+    }
+  }
+
+  async processPendingItems(eventIDs: string[]) {
+    let lock = await this.listEventsLock.lock();
+    try {
+      await this.getEvents(eventIDs, new ArrayColl<OWAEvent>());
+    } finally {
+      lock.release();
+    }
+  }
+
   protected getEventByItemID(id: string): OWAEvent | undefined {
     return this.events.find(p => p.itemID == id);
   }
@@ -99,6 +130,10 @@ export class OWACalendar extends ExchangeCalendar {
   async listEventsSlow() {
     let lock = await this.listEventsLock.lock();
     try {
+      if (!this.listening) {
+        this.account.callOWA(new OWASubscribeToRowNotificationRequest(this.folderID));
+        this.listening = true;
+      }
       let events = new ArrayColl<OWAEvent>;
       await this.listFolder(events);
       for (let event of this.events.subtract(events).contents) { // copy: delete alters events
@@ -122,6 +157,9 @@ export class OWACalendar extends ExchangeCalendar {
       request.Body.Paging.Offset = sanitize.integer(result.RootFolder.IndexedPagingOffset);
       let eventIDs: string[] = [];
       for (let item of result.RootFolder.Items) {
+        if (item.InstanceKey) {
+          this.instanceMap.set(item.InstanceKey, item.ItemId.Id);
+        }
         let event = this.getEventByItemID(item.ItemId.Id);
         if (event?.lastMod.getTime() == sanitize.date(item.LastModifiedTime, null)?.getTime()) {
           // Our local event is up-to-date, so just add it directly to the results.
