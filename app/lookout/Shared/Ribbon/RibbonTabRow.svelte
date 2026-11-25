@@ -83,7 +83,7 @@
     display: flex;
     align-items: center;
     min-width: 0;
-    padding: 0;
+    padding: 0 6px;
     margin: 2px 1px;
     border: none;
     border-radius: var(--lo-radius-small);
@@ -94,11 +94,11 @@
     white-space: nowrap;
     app-region: no-drag;
   }
-  /* The padding. If the tabs don't fit, the padding shrinks first, then the label. */
+  /* More padding. If the tabs don't fit, it shrinks first, then the label. The 6px padding stays as space between the tabs. */
   .tab::before,
   .tab::after {
     content: "";
-    width: 12px;
+    width: 6px;
   }
   .tab-label {
     flex-shrink: 0;
