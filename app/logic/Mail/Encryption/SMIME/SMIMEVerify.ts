@@ -1,4 +1,4 @@
-import { DigestAlgorithm, Attributes, SubjectPublicKeyInfo, OctetString, Oid, KeyUsageBit, type TBSCertificate } from "./SMIMEASN1";
+import { DigestAlgorithm, Attributes, SubjectPublicKeyInfo, OctetString, Oid, KeyUsageBit, ECPrivateKey, RSAPrivateKey, RSAPublicKey, type PrivateKeyInfo, type TBSCertificate } from "./SMIMEASN1";
 import { SMIMEPublicKey } from "./SMIMEPublicKey";
 import { sanitize } from "../../../../../lib/util/sanitizeDatatypes";
 
@@ -97,4 +97,25 @@ export function sameName(a: TBSCertificate["issuer"], b: TBSCertificate["issuer"
   // Attribute types that our OID map lacks, e.g. domainComponent, decode to number arrays
   return a.length == b.length &&
     a.every((attr, i) => String(attr.type) == String(b[i].type) && attr.value.value == b[i].value.value);
+}
+
+/** Whether the public key of a certificate belongs to the private key: the same RSA modulus and exponent, or the same EC point */
+export function isOfKey(publicKey: SubjectPublicKeyInfo, privateKeyInfo: PrivateKeyInfo): boolean {
+  let algorithm = privateKeyInfo.privateKeyAlgorithm.algorithm;
+  if (publicKey.algorithmIdentifier.algorithm != algorithm) {
+    return false;
+  }
+  switch (algorithm) {
+  case "ecPublicKey": {
+    let point = ECPrivateKey.decode(privateKeyInfo.privateKey).publicKey?.data;
+    return !!point && !indexedDB.cmp(point, publicKey.subjectPublicKey.data);
+  }
+  case "rsaEncryption": {
+    let key = RSAPublicKey.decode(publicKey.subjectPublicKey.data);
+    let rawKey = RSAPrivateKey.decode(privateKeyInfo.privateKey);
+    return key.n == rawKey.n && key.e == rawKey.e;
+  }
+  default:
+    return false;
+  }
 }
