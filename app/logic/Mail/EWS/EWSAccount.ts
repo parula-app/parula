@@ -1366,7 +1366,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
       .map(json => this.newServerFilterRule(json))
       .sort((a, b) => a.priority - b.priority)
       .map(serverRule => serverRule.toFilterRule());
-    await this.checkOutlookRulesCopy(rules, response.OutlookRuleBlobExists == "true");
+    await this.checkOutlookRulesCopy(rules, sanitize.boolean(response.OutlookRuleBlobExists, false));
     return rules;
   }
 
