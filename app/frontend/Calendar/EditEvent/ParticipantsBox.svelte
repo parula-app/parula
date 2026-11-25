@@ -16,7 +16,7 @@
   </SectionTitle>
 </hbox>
 <vbox class="participants">
-  <PersonsAutocomplete persons={event.participants} placeholder={$t`Add participants`} {onAddPerson}>
+  <PersonsAutocomplete persons={event.participants} placeholder={$t`Add participants`} {onAddPerson} bind:this={personsAutocomplete}>
     <hbox slot="person-pill-before-avatar" let:person={participant}>
       <ParticipantConfirmIcon {participant} />
     </hbox>
@@ -55,6 +55,11 @@
   /** Whether the availability fills the dialog
    * in/out */
   export let isAvailabilityEnlarged = false;
+
+  let personsAutocomplete: PersonsAutocomplete;
+  export function focus() {
+    personsAutocomplete.focus();
+  }
 
   function onAddPerson(person: PersonUID) {
     let participant = new Participant(person.emailAddress, person.name, InvitationResponse.Unknown);
