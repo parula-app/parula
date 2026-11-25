@@ -315,11 +315,14 @@ export class OAuth2 extends WebBasedAuth {
   /** Helper for auth Done URL */
   async isAuthDoneURL(url: URLString): Promise<boolean> {
     let pageURL = new URL(url);
+    let doneURL = new URL(this.authDoneURL);
     let urlParams = Object.fromEntries(pageURL.searchParams);
+    // The done URL exactly, not a longer path or host. Not `origin`, which is "null" for custom schemes.
+    let matches = pageURL.protocol + pageURL.host + pageURL.pathname == doneURL.protocol + doneURL.host + doneURL.pathname;
     // Log without query and fragment, because the done URL has the auth code
-    console.log("OAuth2 page change to", pageURL.origin + pageURL.pathname, "doneURL is", this.authDoneURL, "matches", url.startsWith(this.authDoneURL),
-      "is auth done", url.startsWith(this.authDoneURL) && this.verificationToken && urlParams.state == this.verificationToken);
-    return url.startsWith(this.authDoneURL) &&
+    console.log("OAuth2 page change to", pageURL.origin + pageURL.pathname, "doneURL is", this.authDoneURL, "matches", matches,
+      "is auth done", matches && this.verificationToken && urlParams.state == this.verificationToken);
+    return matches &&
       this.verificationToken && urlParams.state == this.verificationToken;
   }
 
