@@ -1,8 +1,12 @@
 import { startupBackend, shutdownBackend, createJPCSecret } from './backend';
+// #if [IOS]
+import fs from 'node:fs';
+// #else
 import { createRequire } from 'node:module';
 // `bridge` is a runtime-provided module from capacitor-nodejs, registered only as CJS
 const require = createRequire(import.meta.url);
 const { channel } = require('bridge') as { channel: any };
+// #endif
 
 const jpcSecret = createJPCSecret();
 
@@ -11,16 +15,25 @@ const jpcSecret = createJPCSecret();
 let resolveStarted: () => void;
 const started = new Promise<void>(resolve => { resolveStarted = resolve; });
 
+// #if [!IOS]
 channel.addListener('jpc:get-secret', async () => {
   await started;
   channel.send('jpc:secret', jpcSecret);
 });
+// #endif
 
 async function startup(): Promise<void> {
   try {
     console.log(`Backend starting with node.js ${process.version}`);
     await startupBackend(jpcSecret);
     resolveStarted();
+    // #if [IOS]
+    // `NodeRunner.swift` passes the write end of a pipe as first argument,
+    // and gives the frontend what we wrote there, once we closed it
+    let pipe = Number(process.argv[2]);
+    fs.writeSync(pipe, jpcSecret);
+    fs.closeSync(pipe);
+    // #endif
   } catch (ex) {
     console.error(ex);
   }
