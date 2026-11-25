@@ -153,6 +153,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
 
   async syncOnStartup() {
     await this.startupRunOnce.runOnce(async () => {
+      let firstSync = this.rootFolders.isEmpty;
       try {
         await super.syncOnStartup();
         if (this.isDependentAccount) {
@@ -161,6 +162,9 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
         }
         if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new EWSGAL(this));
+        }
+        if (firstSync) {
+          await this.addSharedCalendarsFromOutlook();
         }
         // `listFolders()` will subscribe to new user-added addressbooks and calendars
 
@@ -1174,7 +1178,11 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     return calendar;
   }
 
-  async listSharedAccountsFromOutlook(): Promise<PersonUID[]> {
+  async listSharedCalendarsFromOutlook(): Promise<EWSCalendar[]> {
+    return await EWSCalendarShortcut.listCalendars(this);
+  }
+
+  async listSharedMailAccountsFromOutlook(): Promise<PersonUID[]> {
     let config = await this.getUserConfigurationXML("OWA.OtherMailbox", "root") as any;
     return ensureArray(config?.OtherMailbox?.entry)
       .map(entry => this.newSharedAccountPerson(entry?.principalSMTPAddress, entry?.displayName))
