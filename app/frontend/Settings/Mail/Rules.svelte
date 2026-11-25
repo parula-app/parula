@@ -63,10 +63,10 @@
                     </hbox>
                   {/if}
                 </grid>
-                {#if readOnlyReason || unknownParts.length}
+                {#if cannotRunOnServer || unknownParts.length}
                   <vbox class="server-notes">
-                    {#if readOnlyReason}
-                      <hbox>{readOnlyReason}</hbox>
+                    {#if cannotRunOnServer}
+                      <hbox>{cannotRunOnServer}</hbox>
                     {/if}
                     {#if unknownParts.length}
                       <hbox>{$t`Parts of this rule that ${appName} cannot show or change`}</hbox>

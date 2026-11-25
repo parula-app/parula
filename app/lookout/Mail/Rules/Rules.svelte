@@ -57,10 +57,10 @@
         disabled={cannotRunOnServer ?? false} />
     </hbox>
   {/if}
-  {#if readOnlyReason || unknownParts.length}
+  {#if cannotRunOnServer || unknownParts.length}
     <vbox class="server-notes lo-secondary">
-      {#if readOnlyReason}
-        <span>{readOnlyReason}</span>
+      {#if cannotRunOnServer}
+        <span>{cannotRunOnServer}</span>
       {/if}
       {#if unknownParts.length}
         <span>{$t`Parts of this rule that ${appName} cannot show or change`}</span>
