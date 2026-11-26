@@ -20,7 +20,7 @@ import { EWSGAL } from "../../Contacts/EWS/EWSGAL";
 import { newAccountForProtocol } from "../AccountsList/MailAccounts";
 import { newAddressbookForProtocol } from "../../Contacts/AccountsList/Addressbooks";
 import { newCalendarForProtocol} from "../../Calendar/AccountsList/Calendars";
-import type { PersonUID } from "../../Abstract/PersonUID";
+import { PersonUID } from "../../Abstract/PersonUID";
 import { getOAuth2BuiltIn } from "../../Auth/OAuth2Util";
 import { NTLMConnectionPool } from "../../Auth/NTLM/NTLMConnectionPool";
 import { NTLMChromiumSession } from "../../Auth/NTLM/NTLMChromiumSession";
@@ -1193,6 +1193,28 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
       .filter(Boolean);
   }
 
+  /** The user with this X.500 address, which Exchange uses for its users, e.g. in rules and calendar shortcuts */
+  async resolveLegacyDN(legacyDN: string): Promise<PersonUID | null> {
+    let request = {
+      m$ResolveNames: {
+        ReturnFullContactData: false,
+        SearchScope: "ActiveDirectory",
+        m$UnresolvedEntry: legacyDN,
+      },
+    };
+    let response = await this.callEWS(request);
+    let resolutions = ensureArray(response.ResolutionSet?.Resolution);
+    if (resolutions.length != 1) {
+      return null;
+    }
+    let mailbox = resolutions[0].Mailbox;
+    let emailAddress = sanitize.emailAddress(mailbox?.EmailAddress, null);
+    if (!emailAddress) {
+      return null;
+    }
+    return new PersonUID(emailAddress, sanitize.nonemptylabel(mailbox.Name, null) ?? undefined);
+  }
+
   async findSharedFolders(person: PersonUID, DistinguishedIDs: string[]): Promise<string[]> {
     if (this.mainAccount) {
       throw new NotReached();
@@ -1362,8 +1384,9 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
 
   protected async fetchServerFilterRules(): Promise<FilterRuleAction[]> {
     let response = await this.callEWS({ m$GetInboxRules: {} });
-    let rules = ensureArray(response.InboxRules?.Rule)
-      .map(json => this.newServerFilterRule(json))
+    let serverRules = ensureArray(response.InboxRules?.Rule).map(json => this.newServerFilterRule(json));
+    await Promise.all(serverRules.map(serverRule => serverRule.resolveAddresses()));
+    let rules = serverRules
       .sort((a, b) => a.priority - b.priority)
       .map(serverRule => serverRule.toFilterRule());
     await this.checkOutlookRulesCopy(rules, sanitize.boolean(response.OutlookRuleBlobExists, false));

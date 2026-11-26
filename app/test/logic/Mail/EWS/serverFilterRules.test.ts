@@ -114,6 +114,16 @@ function newTestAccount(rules: string[]) {
       server.onUpdate();
       return { status: 200, text: async () => envelope(server.updateResponse) };
     }
+    if (request.getElementsByTagName("m:ResolveNames").length) {
+      let emailAddress = kColleagues[request.getElementsByTagName("m:UnresolvedEntry")[0].textContent];
+      return { status: 200, text: async () => emailAddress
+        ? success("ResolveNames", `<ResolutionSet TotalItemsInView="1" IncludesLastItemInRange="true"><Resolution ${kTypes}>
+          <Mailbox><EmailAddress>${emailAddress}</EmailAddress><RoutingType>SMTP</RoutingType><MailboxType>Mailbox</MailboxType></Mailbox>
+        </Resolution></ResolutionSet>`)
+        : envelope(`<ResolveNamesResponse xmlns="http://schemas.microsoft.com/exchange/services/2006/messages"><ResponseMessages>
+          <ResolveNamesResponseMessage ResponseClass="Error"><ResponseCode>ErrorNameResolutionNoResults</ResponseCode></ResolveNamesResponseMessage>
+        </ResponseMessages></ResolveNamesResponse>`) };
+    }
     return {
       status: 200,
       text: async () => envelope(`<GetInboxRulesResponse ResponseClass="Success" xmlns="http://schemas.microsoft.com/exchange/services/2006/messages">
@@ -449,4 +459,58 @@ test("EWS: A rule with parts that we can't run does not move to us", async () =>
 
   await expect(account.saveServerFilterRules()).rejects.toThrow();
   expect(updates).toEqual([]);
+});
+
+/** Exchange gives its users as X.500 address */
+const kBobDN = "/o=ExchangeLabs/ou=Exchange Administrative Group (FYDIBOHF23SPDLT)/cn=Recipients/cn=0123456789abcdef0123456789abcdef-bob";
+const kCarolDN = "/o=ExchangeLabs/ou=Exchange Administrative Group (FYDIBOHF23SPDLT)/cn=Recipients/cn=fedcba9876543210fedcba9876543210-carol";
+const kFormerColleagueDN = "/o=ExchangeLabs/ou=Exchange Administrative Group (FYDIBOHF23SPDLT)/cn=Recipients/cn=00000000000000000000000000000000-dave";
+
+/** The SMTP addresses of the users that Exchange knows, by X.500 address */
+const kColleagues: Record<string, string> = {
+  [kBobDN]: "bob@example.com",
+  [kCarolDN]: "carol@example.com",
+};
+
+function fromColleaguesRule(legacyDNs: string[]): string {
+  return `
+    <Rule xmlns="http://schemas.microsoft.com/exchange/services/2006/types">
+      <RuleId>rule-5</RuleId>
+      <DisplayName>Colleagues</DisplayName>
+      <Priority>1</Priority>
+      <IsEnabled>true</IsEnabled>
+      <Conditions>
+        <FromAddresses>
+          ${legacyDNs.map(legacyDN => `<Address><Name>Colleague</Name><EmailAddress>${legacyDN}</EmailAddress><RoutingType>EX</RoutingType><MailboxType>Mailbox</MailboxType></Address>`).join("")}
+        </FromAddresses>
+      </Conditions>
+      <Actions>
+        <MarkImportance>High</MarkImportance>
+      </Actions>
+    </Rule>`;
+}
+
+test("EWS: A sender that Exchange gives as X.500 address is the person with the SMTP address", async () => {
+  let { account, updates } = newTestAccount([fromColleaguesRule([kBobDN])]);
+  await account.refreshServerFilterRules();
+  let colleagues = rule(account, "Colleagues");
+
+  expect(colleagues.criteria.includesPerson?.emailAddresses.first?.value).toBe("bob@example.com");
+  expect(colleagues.serverRule.unknownParts.join()).not.toMatch(/from addresses/i);
+
+  await account.saveServerFilterRules();
+  expect(updates).toEqual([]);
+});
+
+test("EWS: Several senders that Exchange gives as X.500 address are listed with their SMTP address, if Exchange still knows them", async () => {
+  let { account } = newTestAccount([fromColleaguesRule([kBobDN, kCarolDN, kFormerColleagueDN])]);
+  await account.refreshServerFilterRules();
+  let colleagues = rule(account, "Colleagues");
+
+  expect(colleagues.criteria.includesPersonEMail).toBeNull();
+  let parts = colleagues.serverRule.unknownParts.join();
+  expect(parts).toContain("bob@example.com");
+  expect(parts).toContain("carol@example.com");
+  expect(parts).not.toContain(kBobDN);
+  expect(parts).toContain(kFormerColleagueDN);
 });

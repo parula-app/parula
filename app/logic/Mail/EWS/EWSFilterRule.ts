@@ -1,5 +1,6 @@
 import { ServerFilterRule } from "../FilterRules/ServerFilterRule";
 import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
+import type { EWSAccount } from "./EWSAccount";
 import { getTagByName } from "../../Abstract/Tag";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { ensureArray } from "../../util/util";
@@ -8,6 +9,7 @@ import { ensureArray } from "../../util/util";
  * in the notation of `XML2JSON()`.
  * <https://learn.microsoft.com/en-us/exchange/client-developer/exchange-web-services/inbox-rules-in-ews-for-exchange> */
 export class EWSFilterRule extends ServerFilterRule {
+  declare readonly account: EWSAccount;
   protected readonly canReorderReadOnly = true;
 
   get id(): string | null {
@@ -29,6 +31,27 @@ export class EWSFilterRule extends ServerFilterRule {
 
   get hasError(): boolean {
     return sanitize.boolean(this.json.IsInError, false);
+  }
+
+  /** Exchange gives senders who are its users as X.500 address. Replaces it with their SMTP address, which we can show and check. */
+  async resolveAddresses() {
+    for (let address of ensureArray(this.json.Conditions?.FromAddresses?.Address)) {
+      let legacyDN = address?.RoutingType == "EX" ? sanitize.nonemptystring(address.EmailAddress, null) : null;
+      if (!legacyDN) {
+        continue;
+      }
+      try {
+        let person = await this.account.resolveLegacyDN(legacyDN);
+        if (person) {
+          address.EmailAddress = person.emailAddress;
+          address.RoutingType = "SMTP";
+        }
+      } catch (ex) {
+        if (ex.type != "ErrorNameResolutionNoResults") { // e.g. a former colleague, whom we show as text
+          throw ex;
+        }
+      }
+    }
   }
 
   protected get sections(): Record<string, Record<string, any>> {
