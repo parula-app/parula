@@ -17,8 +17,8 @@ class TestOWAAccount extends OWAAccount {
   inboxChecks = 0;
 
   async callOWA(request: any): Promise<any> {
-    if (request.action == "GetAccessTokenforResource") {
-      return { AccessToken: "notification-token" };
+    if (request.action == "SubscribeToNotification") {
+      return {};
     }
     throw new Error("Unexpected OWA call " + request.action);
   }
@@ -240,19 +240,22 @@ test("OWA: When the server was reachable again only later, e.g. a late VPN, we f
   await account.disconnect();
 });
 
-/** An Office 365 server-sent event stream that sends a keep-alive every 10 s, `count` times,
- * and then nothing anymore. It ends only when the client aborts it. */
+/** An Office 365 SignalR v2 event stream: the handshake answer and `ChannelReady`, then a keep-alive
+ * every 10 s, `count` times, and then nothing anymore. It ends only when the client aborts it. */
 function office365Stream(count: number, signal: AbortSignal): ReadableStream {
   return new ReadableStream({
     start(controller) {
+      let send = (message: any) => controller.enqueue(new TextEncoder().encode("data: " + JSON.stringify(message) + "\x1e\n\n"));
+      send({});
+      send({ type: 1, target: "syncMessage", arguments: [[{ id: "ChannelReady", EventType: "0" }]] });
       let sent = 0;
-      function send() {
+      function keepAlive() {
         if (sent++ < count && !signal.aborted) {
-          controller.enqueue(new TextEncoder().encode(sent == 1 ? "data: initialized\n\n" : "data: {}\n\n"));
-          setTimeout(send, 10 * 1000);
+          send({ type: 6 });
+          setTimeout(keepAlive, 10 * 1000);
         }
       }
-      send();
+      keepAlive();
       signal.addEventListener("abort", () => controller.error(new DOMException("Aborted", "AbortError")));
     },
   });
@@ -265,13 +268,13 @@ function serveOffice365(keepAlives: number[]): AbortSignal[] {
   let streams: AbortSignal[] = [];
   globalThis.fetch = (async (url: string, options: any) => {
     if (url.includes("notificationchannel/negotiate")) {
-      return { ok: true, status: 200, json: async () => ({ ConnectionToken: "token", KeepAliveTimeout: 20, TransportConnectTimeout: 5 }) };
+      return { ok: true, status: 200, json: async () => ({ connectionToken: "token", availableTransports: [{ transport: "ServerSentEvents" }] }) };
     }
-    if (url.includes("notificationchannel/connect")) {
+    if (options.headers.Accept == "text/event-stream") {
       streams.push(options.signal);
       return { ok: true, status: 200, body: office365Stream(keepAlives[streams.length - 1], options.signal) };
     }
-    return { ok: true, status: 200 }; // start, ping, abort
+    return { ok: true, status: 200 }; // handshake, ping
   }) as any;
   return streams;
 }
