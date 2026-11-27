@@ -57,7 +57,7 @@ export class OWAFilterRule extends ServerFilterRule {
     case "DeleteMessage":
       return sanitize.boolean(value, false);
     case "FlaggedForAction":
-      return !!sanitize.enum(value, ["Any"], null);
+      return value == "Any";
     case "WithinSizeRangeMinimum":
     case "WithinSizeRangeMaximum":
       return sanitize.integer(value, null) != null;

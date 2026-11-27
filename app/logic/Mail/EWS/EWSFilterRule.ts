@@ -56,9 +56,9 @@ export class EWSFilterRule extends ServerFilterRule {
 
   protected get sections(): Record<string, Record<string, any>> {
     return {
-      Conditions: sanitize.object(this.json.Conditions, {}),
-      Exceptions: sanitize.object(this.json.Exceptions, {}),
-      Actions: sanitize.object(this.json.Actions, {}),
+      Conditions: this.json.Conditions || {},
+      Exceptions: this.json.Exceptions || {},
+      Actions: this.json.Actions || {},
     };
   }
 
@@ -76,7 +76,7 @@ export class EWSFilterRule extends ServerFilterRule {
       case "HasAttachments":
         return sanitize.boolean(value, false);
       case "FlaggedForAction":
-        return !!sanitize.enum(value, ["Any"], null);
+        return value == "Any";
       case "WithinSizeRange":
         return Object.values(value).every((size: any) => sanitize.integer(size, null) != null);
       case "WithinDateRange":

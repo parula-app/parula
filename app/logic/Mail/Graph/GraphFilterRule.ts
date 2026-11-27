@@ -30,9 +30,9 @@ export class GraphFilterRule extends ServerFilterRule {
 
   protected get sections(): Record<string, Record<string, any>> {
     return {
-      conditions: sanitize.object(this.json.conditions, {}),
-      exceptions: sanitize.object(this.json.exceptions, {}),
-      actions: sanitize.object(this.json.actions, {}),
+      conditions: this.json.conditions ?? {},
+      exceptions: this.json.exceptions ?? {},
+      actions: this.json.actions ?? {},
     };
   }
 
@@ -48,7 +48,7 @@ export class GraphFilterRule extends ServerFilterRule {
       case "hasAttachments":
         return sanitize.boolean(value, false);
       case "messageActionFlag":
-        return !!sanitize.enum(value, ["any"], null);
+        return value == "any";
       case "withinSizeRange":
         return Object.values(value).every((size: any) => sanitize.integer(size, null) != null);
       }
