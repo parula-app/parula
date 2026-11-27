@@ -21,7 +21,7 @@ export class ServerFilterRule {
 
   constructor(account: MailAccount, json: any) {
     this.account = account;
-    this.json = sanitize.object(json, {});
+    this.json = json ?? {};
   }
 
   get id(): string | null {
