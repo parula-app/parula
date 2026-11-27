@@ -4,6 +4,7 @@ import { OWAAccount } from "../../../../logic/Mail/OWA/OWAAccount";
 import { OWAError } from "../../../../logic/Mail/OWA/OWAError";
 import { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
 import { Person } from "../../../../logic/Abstract/Person";
+import { getTagByName } from "../../../../logic/Abstract/Tag";
 import { outlookRulesStream, base64 } from "../EWS/outlookRulesStream";
 import kInboxRule from "./TestData/InboxRule.json";
 import { expect, test } from "vitest";
@@ -211,6 +212,60 @@ test("OWA: A rule from Exchange Online with a part that we can't show still list
   expect(parts.join()).toContain("High");
   testMail.server = false;
   await expect(account.saveServerFilterRules()).rejects.toThrow("Test Mail");
+});
+
+/** A rule from classic Outlook with a category, exceptions and a desktop alert, as Exchange Online sends it */
+function newTestAccountWithOutlookRule(): TestOWAAccount {
+  return newTestAccountWithInboxRule({
+    ...structuredClone(kInboxRule),
+    Name: "test rule",
+    SubjectOrBodyContainsWords: null,
+    CopyToFolder: null,
+    AssignedCategories: ["Rote Kategorie"],
+    HeaderContainsWords: ["X-MS-Exchange-Inbox-Rules-Loop: ben@bexchange.net"],
+    MessageTypeMatches: "Calendaring",
+    WithImportance: "High",
+    ExceptIfHasAttachment: true,
+    ExceptIfMyNameInToBox: true,
+    MarkImportance: "High",
+    StopProcessingRules: true,
+    DisplayAlert: "Default",
+  });
+}
+
+test("OWA: The category of a rule from Exchange Online is a criterion", async () => {
+  let account = newTestAccountWithOutlookRule();
+  await account.refreshServerFilterRules();
+  let testRule = rule(account, "test rule");
+
+  expect(testRule.criteria.tags.contents.map(tag => tag.name)).toEqual(["Rote Kategorie"]);
+  expect(testRule.serverRule.unknownParts.join()).not.toContain("Rote Kategorie");
+});
+
+test("OWA: Exchange Online can check a category, Exchange on premises cannot", async () => {
+  let account = newTestAccount();
+  await account.refreshServerFilterRules();
+  rule(account, "Invoices").criteria.tags.add(getTagByName("Finance"));
+
+  await expect(account.saveServerFilterRules()).rejects.toThrow("Invoices");
+  expect(account.changes).toEqual([]);
+
+  account.authorizationHeader = "Bearer token"; // Exchange Online
+  await account.saveServerFilterRules();
+  expect(account.changes[0].json.InboxRule.AssignedCategories).toEqual(["Finance"]);
+});
+
+test("OWA: The parts that we can't show are listed as conditions, exceptions and actions, as for EWS and Graph", async () => {
+  let account = newTestAccountWithOutlookRule();
+  await account.refreshServerFilterRules();
+
+  let parts = rule(account, "test rule").serverRule.unknownParts;
+
+  expect(parts.length).toBe(8);
+  expect(parts.filter(part => part.startsWith("Conditions: ")).length).toBe(3); // header, message type, importance
+  expect(parts.filter(part => part.startsWith("Exceptions: ")).length).toBe(2);
+  expect(parts.filter(part => part.startsWith("Actions: ")).length).toBe(3); // importance, stop processing, alert
+  expect(parts.join()).not.toContain("Except if");
 });
 
 test("OWA: A folder that we can't find by its name is not shown, and stays", async () => {
