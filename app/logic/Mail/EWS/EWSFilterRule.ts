@@ -35,7 +35,8 @@ export class EWSFilterRule extends ServerFilterRule {
 
   /** Exchange gives senders who are its users as X.500 address. Replaces it with their SMTP address, which we can show and check. */
   async resolveAddresses() {
-    for (let address of ensureArray(this.json.Conditions?.FromAddresses?.Address)) {
+    let addresses = Object.values(this.sections).flatMap(section => Object.values(section).flatMap(value => ensureArray(value?.Address)));
+    for (let address of addresses) {
       let legacyDN = address?.RoutingType == "EX" ? sanitize.nonemptystring(address.EmailAddress, null) : null;
       if (!legacyDN) {
         continue;

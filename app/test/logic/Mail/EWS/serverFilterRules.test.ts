@@ -548,3 +548,26 @@ test("EWS: Several senders that Exchange gives as X.500 address are listed with 
   expect(parts).not.toContain(kBobDN);
   expect(parts).toContain(kFormerColleagueDN);
 });
+
+test("EWS: Recipients that Exchange gives as X.500 address are listed with their SMTP address", async () => {
+  let { account } = newTestAccount([`
+    <Rule xmlns="http://schemas.microsoft.com/exchange/services/2006/types">
+      <RuleId>rule-6</RuleId>
+      <DisplayName>To Bob</DisplayName>
+      <Priority>1</Priority>
+      <IsEnabled>true</IsEnabled>
+      <Conditions>
+        <SentToAddresses><Address><Name>Bob</Name><EmailAddress>${kBobDN}</EmailAddress><RoutingType>EX</RoutingType><MailboxType>Mailbox</MailboxType></Address></SentToAddresses>
+      </Conditions>
+      <Actions>
+        <ForwardToRecipients><Address><Name>Carol</Name><EmailAddress>${kCarolDN}</EmailAddress><RoutingType>EX</RoutingType><MailboxType>Mailbox</MailboxType></Address></ForwardToRecipients>
+      </Actions>
+    </Rule>`]);
+  await account.refreshServerFilterRules();
+  let parts = rule(account, "To Bob").serverRule.unknownParts.join();
+
+  expect(parts).toContain("bob@example.com");
+  expect(parts).toContain("carol@example.com");
+  expect(parts).not.toContain(kBobDN);
+  expect(parts).not.toContain(kCarolDN);
+});
