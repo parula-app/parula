@@ -5,8 +5,9 @@ import { ChatPersonUID } from "../Chat/ChatPersonUID";
 import type { Attachment } from "./Attachment";
 import { convertHTMLToText, convertTextToHTML, sanitizeHTML, sanitizeHTMLExternal } from "../util/convertHTML";
 import { Observable, notifyChangedProperty } from "../util/Observable";
+import { addon } from "../Addons/API/addon";
 import { dataError } from "../util/error";
-import { AbstractFunction } from "../util/util";
+import { AbstractFunction, type HTMLString } from "../util/util";
 import { ArrayColl, MapColl } from "svelte-collections";
 
 export class Message extends Observable {
@@ -22,12 +23,15 @@ export class Message extends Observable {
   @notifyChangedProperty
   contact: PersonUID | Person | Group;
   /** Who sent this message. If outgoing = true, this is always our user. */
+  @addon("message")
   @notifyChangedProperty
   from: PersonUID;
   /** When the message was sent */
+  @addon("message")
   @notifyChangedProperty
   sent: Date;
   /** When the message was received */
+  @addon("message")
   @notifyChangedProperty
   received: Date;
   /** This message just arrived in the inbox and this is the first
@@ -35,23 +39,28 @@ export class Message extends Observable {
   @notifyChangedProperty
   isNewArrived = false;
   /** User has read the contents of the message */
+  @addon("message")
   @notifyChangedProperty
   isRead = false;
   /** User marked this message as special to remember */
+  @addon("message")
   @notifyChangedProperty
   isStarred = false;
   /** Msg ID of another message that this one is a reply of */
   inReplyTo: string | null = null;
+  @addon("message")
   readonly attachments = new ArrayColl<Attachment>();
 
   /** Contains all reactions, as seen by the server, including mine */
   readonly reactions = new MapColl<PersonUID, string>();
 
+  @addon("message", "mail.compose")
   @notifyChangedProperty
   subject: string = "";
   @notifyChangedProperty
   protected _text: string = null;
   /** Plaintext version of the message */
+  @addon("message")
   get text(): string {
     if (this._text) {
       return this._text;
@@ -96,7 +105,8 @@ export class Message extends Observable {
 
   /** HTML version of the message.
    * Sanitized. */
-  get html(): string {
+  @addon("message", "mail.compose")
+  get html(): HTMLString {
     if (this._sanitizedHTML) {
       return this._sanitizedHTML;
     }
@@ -117,7 +127,7 @@ export class Message extends Observable {
 
   /** Must also set `.text` (or at least get `.text` to auto-generate it),
    * to keep them in sync. */
-  set html(val: string) {
+  set html(val: HTMLString) {
     this._rawHTML = val;
     this._sanitizedHTML = null;
   }

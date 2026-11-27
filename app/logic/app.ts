@@ -10,6 +10,7 @@ import type { TopicAccount } from './Topic/TopicAccount';
 import type { Topic } from './Topic/Topic';
 import type { Workspace } from './Abstract/Workspace';
 import { WebApps } from './WebApps/WebApps';
+import { Addons } from './Addons/Addons';
 import { isMobile } from './build';
 import { Observable, notifyChangedProperty } from './util/Observable';
 import { ArrayColl, Collection, mergeColls } from 'svelte-collections';
@@ -27,6 +28,7 @@ class AppGlobal extends Observable {
   readonly topicAccounts = new ArrayColl<TopicAccount>();
   readonly workspaces = new ArrayColl<Workspace>();
   readonly webApps = new WebApps();
+  readonly addons = new Addons();
 
   personalAddressbook: Addressbook;
   collectedAddressbook: Addressbook;

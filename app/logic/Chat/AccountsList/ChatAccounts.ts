@@ -1,5 +1,6 @@
 import { ChatAccount } from '../ChatAccount';
 import { XMPPAccount } from '../XMPP/XMPPAccount';
+import { AddonChatAccount } from '../Addon/AddonChatAccount';
 // #if [!WEBMAIL && PROPRIETARY]
 import { GraphChatAccount } from '../Graph/GraphChatAccount';
 // #endif
@@ -27,6 +28,9 @@ export function newChatAccountForProtocol(protocol: string): ChatAccount {
 }
 
 function _newChatAccountForProtocol(protocol: string): ChatAccount {
+  if (protocol.startsWith("addon-")) {
+    return new AddonChatAccount(protocol);
+  }
   if (protocol == "xmpp") {
     return new XMPPAccount() as any as ChatAccount;
   }

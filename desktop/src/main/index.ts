@@ -7,6 +7,9 @@ import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../build/icon.png?asset'
 import { installSignalServiceCATrust } from './signalServiceCA'
 import { appName, dataAppName } from '../../../app/logic/build'
+import { AddonFrameGuard } from './addonSandbox'
+
+const addonFrameGuard = new AddonFrameGuard();
 
 const windowFrame: BrowserWindowConstructorOptions = {
   autoHideMenuBar: true,
@@ -170,6 +173,7 @@ async function whenReady() {
   handleCommandline(process.argv.splice(1));
 
   allowCrossDomainRequestsFromFrontend();
+  addonFrameGuard.install(session.defaultSession);
   installSignalServiceCATrust(); // renderer's HTTPS REST to *.signal.org (the wss socket runs in the backend with its own CA)
 
   createMenu();
@@ -206,6 +210,7 @@ async function whenReady() {
 app.on('web-contents-created', (event, webContents) => {
   setWindowOpenHandler(webContents);
   restrictWebViews(webContents);
+  addonFrameGuard.protect(webContents);
   restrictPermissions(webContents.session);
 });
 
@@ -329,6 +334,7 @@ function allowCrossDomainRequestsFromFrontend() {
           break;
         }
       }
+      addonFrameGuard.removeRequestCookies(details.frame, requestHeaders);
       callback({ requestHeaders: requestHeaders });
     }
   );
@@ -348,6 +354,7 @@ function allowCrossDomainRequestsFromFrontend() {
       responseHeaders["Access-Control-Allow-Methods"] = ["*"];
       responseHeaders["Access-Control-Allow-Headers"] = ["*"];
       responseHeaders["Access-Control-Expose-Headers"] = ["*"];
+      addonFrameGuard.removeResponseCookies(details.frame, responseHeaders);
       // Pretend that all CORS preflight requests succeed
       let statusLine = details.method == "OPTIONS" ? "HTTP/1.1 200 OK" : details.statusLine;
       // console.log("Response", details.url, responseHeaders);
@@ -383,14 +390,15 @@ function restrictWebViews(webContents: WebContents) {
  * Pages other than our app, i.e. in a `<webview>` (a web app, a login page or a mail)
  * and in the login window, get only what web apps need for calls and notifications.
  * They must not e.g. start other apps with an `openExternal` URL, read the clipboard,
- * or know where the user is. Our app keeps all permissions.
+ * or know where the user is. Our app keeps all permissions, but not the addon frames in it.
  * Links that the user clicks in a `<webview>` don't need `openExternal`: `WebView.svelte` opens them
  * with `openExternalURL()` in `desktop/backend/backend.ts`, which allows only some URL schemes. */
 function restrictPermissions(session: Session) {
-  session.setPermissionRequestHandler((webContents, permission, callback) => {
-    callback(isPermissionAllowed(webContents, permission));
+  session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    callback(isPermissionAllowed(webContents, permission) && addonFrameGuard.mayRequestPermission(webContents, details));
   });
-  session.setPermissionCheckHandler((webContents, permission) => isPermissionAllowed(webContents, permission));
+  session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) =>
+    isPermissionAllowed(webContents, permission) && addonFrameGuard.mayHavePermission(webContents, requestingOrigin, details));
 }
 
 /** Our app window. Only it gets all permissions. */

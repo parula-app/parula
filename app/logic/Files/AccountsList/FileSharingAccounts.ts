@@ -2,6 +2,7 @@ import type { FileSharingAccount } from '../FileSharingAccount';
 import { WebDAVAccount } from '../WebDAV/WebDAVAccount';
 import { NextcloudAccount } from '../Nextcloud/NextcloudAccount';
 import { OpenCloudAccount } from '../OpenCloud/OpenCloudAccount';
+import { AddonFileSharingAccount } from '../Addon/AddonFileSharingAccount';
 // #if [!WEBMAIL]
 import { myHarddrive } from '../Harddrive/HarddriveAccount';
 import { SQLFileSharingAccount } from '../SQL/SQLFileSharingAccount';
@@ -18,6 +19,9 @@ export function newFileSharingAccountForProtocol(protocol: string): FileSharingA
 }
 
 function _newFileSharingAccountForProtocol(protocol: string): FileSharingAccount {
+  if (protocol.startsWith("addon-")) {
+    return new AddonFileSharingAccount(protocol);
+  }
   if (protocol == "webdav-nextcloud") {
     return new NextcloudAccount();
   } else if (protocol == "webdav-opencloud") {

@@ -123,6 +123,7 @@
         slot="before-undo"
         />
       <hbox slot="end" bind:this={smlAddAnchor}>
+        <AddonButtons place="composer-toolbar" {mail} />
         <SignatureButton {editor} identity={fromIdentity} />
         <Button
           label={$t`Actions`}
@@ -213,6 +214,7 @@
   import FileDropTarget from "./Attachments/FileDropTarget.svelte";
   import HTMLEditor from "../../Shared/Editor/HTMLEditor.svelte";
   import HTMLEditorToolbar from "../../Shared/Editor/HTMLEditorToolbar.svelte";
+  import AddonButtons from "../../Addons/AddonButtons.svelte";
   import IdentitySelector from "./IdentitySelector.svelte";
   import EncryptionButtons from "./EncryptionButtons.svelte";
   import EncryptionDetails from "./EncryptionDetails.svelte";

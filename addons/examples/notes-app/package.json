@@ -1,0 +1,17 @@
+{
+  "name": "@mustang-examples/notes-app",
+  "version": "1.0.0",
+  "description": "Adds a Notes app to the app bar",
+  "author": "Mustang",
+  "mustang": {
+    "name": "Notes",
+    "icon": "icons/notes.svg",
+    "apps": [
+      {
+        "id": "notes",
+        "name": "Notes",
+        "entry": "dist/app.js"
+      }
+    ]
+  }
+}

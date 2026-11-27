@@ -19,6 +19,7 @@ import { Addressbook } from './Contacts/Addressbook';
 import { Event } from './Calendar/Event';
 import { EMail } from './Mail/EMail';
 import { ComposeActions } from './Mail/ComposeActions';
+import { hookPoints } from './Addons/API/HookPoint';
 import { MailIdentity } from './Mail/MailIdentity';
 import { FakeMeetAccount } from './Meet/FakeMeeting';
 import { DummyMailStorage } from './Mail/Store/DummyMailStorage';
@@ -348,6 +349,7 @@ class FakeComposeActions extends ComposeActions {
     await this.deleteDrafts();
   }
 }
+hookPoints.get("mail.send").addSubclass(FakeComposeActions);
 
 export class FakeMailPerson extends PersonUID {
   constructor() {

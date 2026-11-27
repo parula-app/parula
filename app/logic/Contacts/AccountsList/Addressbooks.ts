@@ -1,4 +1,5 @@
 import { Addressbook } from '../Addressbook';
+import { AddonAddressbook } from '../Addon/AddonAddressbook';
 // #if [!WEBMAIL || WEBMAIL=JMAP]
 import { JMAPAddressbook } from '../JMAP/JMAPAddressbook';
 // #endif
@@ -28,6 +29,9 @@ export function newAddressbookForProtocol(protocol: string): Addressbook {
 }
 
 function _newAddressbookForProtocol(protocol: string): Addressbook {
+  if (protocol.startsWith("addon-")) {
+    return new AddonAddressbook(protocol);
+  }
   if (protocol == "addressbook-local") {
     return new Addressbook();
   }

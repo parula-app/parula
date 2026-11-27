@@ -1,7 +1,7 @@
 <vbox class="protocol-selector">
   {#each protocols as protocol}
     <label class="protocol">
-      <input type="radio" bind:group={selectedDescr} value={protocol} name="protocol" />
+      <input type="radio" bind:group={selectedProtocol} value={protocol.protocolID} name="protocol" />
       <span class="name">{protocol.label}</span>
     </label>
   {/each}
@@ -19,8 +19,12 @@
   /** in/out */
   export let selectedProtocol: string = protocols[0]?.protocolID;
 
-  let selectedDescr: ProtocolDescription = protocols.find(p => p.protocolID == selectedProtocol) ?? protocols[0];
-  $: selectedProtocol = selectedDescr?.protocolID;
+  $: removeSelectionIfGone(protocols);
+  function removeSelectionIfGone(protocols: ProtocolDescription[]) {
+    if (!protocols.some(protocol => protocol.protocolID == selectedProtocol)) {
+      selectedProtocol = null;
+    }
+  }
 </script>
 
 <style>

@@ -3,7 +3,7 @@
   class="protocol"
   {tabindex}
   >
-  {#each listMailProtocols() as protocol}
+  {#each protocols as protocol}
     <option value={protocol}>{labelForMailProtocol(protocol)}</option>
   {/each}
 </select>
@@ -21,6 +21,9 @@
   export let config: MailAccount;
   export let isSetup: boolean;
   export let tabindex: number | undefined = undefined;
+
+  /** Also an addon protocol whose addon doesn't run */
+  $: protocols = [...new Set([...listMailProtocols(), $config.protocol])];
 
   function onProtocolChanged(event: Event) {
     let el = event.target as HTMLSelectElement;
