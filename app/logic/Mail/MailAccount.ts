@@ -6,7 +6,7 @@ import type { EMail } from "./EMail";
 import type { SMTPAccount } from "./SMTP/SMTPAccount";
 import { ContactEntry } from "../Abstract/Person";
 import type { PersonUID } from "../Abstract/PersonUID";
-import { FilterRuleAction } from "./FilterRules/FilterRuleAction";
+import { FilterRuleAction, LocalFilterRule } from "./FilterRules/FilterRuleAction";
 import type { ServerFilterRule } from "./FilterRules/ServerFilterRule";
 import { AutoResponder } from "./AutoResponder";
 import { OAuth2 } from "../Auth/OAuth2";
@@ -18,9 +18,8 @@ import type { Addressbook } from "../Contacts/Addressbook";
 import type { SetupInfo } from "./AutoConfig/SetupInfo";
 import type { SearchEMail } from "./Store/SearchEMail";
 import { appGlobal } from "../app";
-import { appName } from "../build";
 import { sanitize } from "../../../lib/util/sanitizeDatatypes";
-import { AbstractFunction, assert, NotSupported } from "../util/util";
+import { AbstractFunction, assert } from "../util/util";
 import { notifyChangedProperty } from "../util/Observable";
 import { RunOnce } from "../util/flow/RunOnce";
 import { Collection, ArrayColl } from 'svelte-collections';
@@ -309,6 +308,11 @@ export class MailAccount extends TCPAccount {
     return false;
   }
 
+  /** @param server The mail server runs the rule, not we. @see `canServerFilterRules` */
+  newFilterRule(server: boolean): FilterRuleAction {
+    return server ? this.newServerFilterRule(null) : new LocalFilterRule(this);
+  }
+
   /** @param json As the server sent the rule. null for a new rule. */
   newServerFilterRule(json: any): ServerFilterRule {
     throw new AbstractFunction();
@@ -354,18 +358,8 @@ export class MailAccount extends TCPAccount {
     if (!this.canServerFilterRules) {
       return;
     }
-    let rules = this.filterRuleActions.contents.filter(rule => rule.server);
-    let movedHere = this.filterRuleActions.find(rule => !rule.server && rule.serverRule?.unknownParts.length > 0);
-    if (movedHere) {
-      throw new NotSupported(gt`${appName} cannot run all parts of the rule ${movedHere.name}`);
-    }
+    let rules = this.filterRuleActions.contents.filter(rule => rule.server) as ServerFilterRule[];
     let deletedIDs = [...this.knownServerFilterRuleIDs].filter(id => !rules.some(rule => rule.serverID == id));
-    for (let rule of this.filterRuleActions) {
-      if (rule.serverID && !rule.server) {
-        rule.serverID = null;
-        rule.serverJSON = null;
-      }
-    }
     try {
       await this.uploadServerFilterRules(rules, deletedIDs);
     } finally {
@@ -382,7 +376,7 @@ export class MailAccount extends TCPAccount {
   /** Changes only the rules that changed, and sets the `serverID` of the created rules.
    * @param rules All server rules, in the order in which the server should run them
    * @param deletedIDs The server rules that the user removed */
-  protected async uploadServerFilterRules(rules: FilterRuleAction[], deletedIDs: string[]): Promise<void> {
+  protected async uploadServerFilterRules(rules: ServerFilterRule[], deletedIDs: string[]): Promise<void> {
     throw new AbstractFunction();
   }
 
@@ -402,7 +396,7 @@ export class MailAccount extends TCPAccount {
     this.filterRuleActions.clear();
     for (let filterJSON of sanitize.array(json.filterRuleActions, [])) {
       try {
-        let rule = new FilterRuleAction(this);
+        let rule = this.newFilterRule(sanitize.boolean(filterJSON.server, false));
         rule.fromJSON(filterJSON);
         this.filterRuleActions.add(rule);
       } catch (ex) {

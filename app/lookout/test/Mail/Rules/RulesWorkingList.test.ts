@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { RulesTestAccount } from "./RulesTestAccount";
-import { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { FilterRuleAction, LocalFilterRule } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { ServerFilterRule } from "../../../../logic/Mail/FilterRules/ServerFilterRule";
 import { RulesWorkingList } from "../../../Mail/Rules/RulesWorkingList";
 import { RuleListActions } from "../../../Mail/Rules/RuleListActions";
 import type { MailAccount } from "../../../../logic/Mail/MailAccount";
@@ -10,7 +11,7 @@ let account: MailAccount;
 let saved: number;
 
 function newRule(name: string): FilterRuleAction {
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.name = name;
   rule.markAsRead = true;
   account.filterRuleActions.add(rule);
@@ -50,7 +51,7 @@ test("Added and removed rules are applied, Apply without changes doesn't save", 
   expect(saved).toBe(0);
 
   list.rules.removeAll(list.rules.contents);
-  let added = new FilterRuleAction(account);
+  let added = new LocalFilterRule(account);
   added.name = "new";
   added.toFolder = RulesTestAccount.folder(account, "Archive");
   list.rules.add(added);
@@ -67,11 +68,19 @@ test("Added and removed rules are applied, Apply without changes doesn't save", 
   expect(account.filterRuleActions.first.name).toBe("changed again");
 });
 
+/** A server rule without parts that we can't show */
+class TestServerRule extends ServerFilterRule {
+  protected get sections(): Record<string, Record<string, any>> {
+    return {};
+  }
+}
+
 /** @returns The names of the server rules, for each save. "(new)", if the server should create it. */
 function letServerRunRules(account: MailAccount): string[][] {
   let uploads: string[][] = [];
   Object.defineProperty(account, "canServerFilterRules", { get: () => true });
   let server = account as any;
+  server.newServerFilterRule = () => new TestServerRule(account, null);
   server.fetchServerFilterRules = async () => account.filterRuleActions.contents
     .filter(rule => rule.serverID)
     .map(rule => rule.clone());
@@ -87,9 +96,8 @@ function letServerRunRules(account: MailAccount): string[][] {
 test("A rule that the server created is not created again at the next Apply", async () => {
   let uploads = letServerRunRules(account);
   let list = new RulesWorkingList(account);
-  let added = new FilterRuleAction(account);
+  let added = account.newFilterRule(true);
   added.name = "Newsletters";
-  added.server = true;
   list.rules.add(added);
   await list.apply();
 
@@ -99,6 +107,58 @@ test("A rule that the server created is not created again at the next Apply", as
   expect(uploads).toEqual([["Newsletters (new)"], ["Newsletters"]]);
   expect(account.filterRuleActions.length).toBe(1);
   expect(list.isChanged).toBe(false);
+});
+
+test("The user lets the mail server run a rule, and then us again", async () => {
+  let uploads = letServerRunRules(account);
+  newRule("Newsletters");
+  let list = new RulesWorkingList(account);
+
+  let serverRule = list.rules.first.runBy(true, list.rules);
+  expect(list.rules.contents).toEqual([serverRule]);
+  expect(list.isChanged).toBe(true);
+  await list.apply();
+  expect(account.filterRuleActions.first.server).toBe(true);
+  expect(account.filterRuleActions.first.markAsRead).toBe(true);
+
+  list.rules.first.runBy(false, list.rules);
+  await list.apply();
+  expect(account.filterRuleActions.first.server).toBe(false);
+  expect(account.filterRuleActions.first.markAsRead).toBe(true);
+  expect(uploads).toEqual([["Newsletters (new)"], []]);
+});
+
+test("A rule that the mail server cannot run stays with us", () => {
+  letServerRunRules(account);
+  newRule("Unread").criteria.isRead = false;
+  let list = new RulesWorkingList(account);
+  let copy = list.rules.first;
+
+  expect(() => copy.runBy(true, list.rules)).toThrow("Unread");
+
+  expect(list.rules.contents).toEqual([copy]);
+  expect(list.isChanged).toBe(false);
+});
+
+test("A copy of a server rule for another account: That server runs it, if it can, otherwise we", () => {
+  letServerRunRules(account);
+  let secondAccount = RulesTestAccount.create("b", ["Inbox"]);
+  letServerRunRules(secondAccount);
+  let rule = account.newServerFilterRule(null);
+  rule.name = "Newsletters";
+  rule.markAsRead = true;
+  rule.serverID = "rule-1";
+  rule.json = { RuleId: "rule-1" };
+
+  let copy = RuleListActions.copyToAccount(rule, secondAccount, secondAccount.filterRuleActions) as ServerFilterRule;
+  expect(copy.server).toBe(true);
+  expect(copy.markAsRead).toBe(true);
+  expect(copy.serverID).toBeNull();
+  expect(copy.json).toEqual({});
+  expect(secondAccount.filterRuleActions.contents).toEqual([copy]);
+
+  rule.criteria.isRead = false;
+  expect(RuleListActions.copyToAccount(rule, secondAccount, secondAccount.filterRuleActions).server).toBe(false);
 });
 
 test("Copy to another account only without folders", () => {

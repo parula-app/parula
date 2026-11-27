@@ -1,5 +1,5 @@
 import type { MailAccount } from "../../../logic/Mail/MailAccount";
-import { FilterRuleAction } from "../../../logic/Mail/FilterRules/FilterRuleAction";
+import { FilterRuleAction, LocalFilterRule } from "../../../logic/Mail/FilterRules/FilterRuleAction";
 import { FilterMoment } from "../../../logic/Mail/FilterRules/FilterMoments";
 import { ruleDescriptionLines, type RuleDescriptionLine } from "./RuleDescription";
 import { ruleConditions, ruleActions, allRuleItems, tagNames, type RuleItem } from "./RuleItems";
@@ -51,7 +51,7 @@ export class RuleWizardModel {
   }
 
   static forNewRule(account: MailAccount): RuleWizardModel {
-    return new RuleWizardModel(new FilterRuleAction(account), true, true);
+    return new RuleWizardModel(new LocalFilterRule(account), true, true);
   }
 
   static forRule(rule: FilterRuleAction, isNew = false): RuleWizardModel {
@@ -106,7 +106,7 @@ export class RuleWizardModel {
 
   selectTemplate(template: RuleTemplate) {
     this.template = template;
-    this.rule = new FilterRuleAction(this.account);
+    this.rule = new LocalFilterRule(this.account);
     this.rule.when = template.when;
     this.checked.clear();
     for (let id of [...template.conditionIDs, ...template.actionIDs]) {

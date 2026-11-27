@@ -51,9 +51,9 @@
   {#if account.canServerFilterRules && selected}
     <hbox class="run-by">
       <span>{$t`Run by *=> Who runs the rule: this app, or the mail server`}</span>
-      <Radio label={appName} name="run-by" value={false} group={selected.server} on:change={() => onRunBy(false)}
+      <Radio label={appName} name="run-by" value={false} group={selected.server} on:change={() => catchErrors(() => onRunBy(false))}
         disabled={cannotRunHere ?? false} />
-      <Radio label={$t`The mail server`} name="run-by" value={true} group={selected.server} on:change={() => onRunBy(true)}
+      <Radio label={$t`The mail server`} name="run-by" value={true} group={selected.server} on:change={() => catchErrors(() => onRunBy(true))}
         disabled={cannotRunOnServer ?? false} />
     </hbox>
   {/if}
@@ -191,9 +191,9 @@
   $: canMoveDown = !!selected && $rules && rules.indexOf(selected) >= 0 && rules.indexOf(selected) < rules.length - 1;
   $: descriptionLines = selected && version >= 0 ? ruleDescriptionLines(selected) : [];
   $: readOnlyReason = selected && version >= 0 && $account ? selected.readOnlyReason : null;
-  $: unknownParts = selected?.server && version >= 0 ? selected.serverRule?.unknownParts ?? [] : [];
+  $: unknownParts = selected && version >= 0 ? selected.unknownParts : [];
   $: cannotRunHere = readOnlyReason ?? (unknownParts.length ? $t`${appName} cannot run all parts of this rule` : null);
-  $: cannotRunOnServer = readOnlyReason ?? (selected?.server ? null : $account.serverFilterRulesReadOnlyReason);
+  $: cannotRunOnServer = readOnlyReason ?? (selected?.server || !$account.canServerFilterRules || version < 0 ? null : selected?.cannotRunOnServer);
 
   function workingList(mailAccount: MailAccount): RulesWorkingList {
     let existing = workingLists.get(mailAccount);
@@ -224,7 +224,7 @@
   }
 
   function onRunBy(server: boolean) {
-    selected.server = server;
+    selected = selected.runBy(server, rules);
     changed();
   }
 

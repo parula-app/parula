@@ -52,6 +52,7 @@ export class EWSFilterRule extends ServerFilterRule {
         }
       }
     }
+    this.fillFilterRule(this); // with the senders that we can show now
   }
 
   protected get sections(): Record<string, Record<string, any>> {

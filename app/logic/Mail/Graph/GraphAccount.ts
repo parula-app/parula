@@ -446,16 +446,15 @@ export class GraphAccount extends ExchangeMailAccount {
     let rules = await this.graphGetAll<any>("mailFolders/inbox/messageRules");
     return rules
       .map(json => this.newServerFilterRule(json))
-      .sort((a, b) => a.priority - b.priority)
-      .map(serverRule => serverRule.toFilterRule());
+      .sort((a, b) => a.priority - b.priority);
   }
 
-  protected async uploadServerFilterRules(rules: FilterRuleAction[], deletedIDs: string[]): Promise<void> {
+  protected async uploadServerFilterRules(rules: GraphFilterRule[], deletedIDs: string[]): Promise<void> {
     for (let id of deletedIDs) {
       await this.graphDelete("mailFolders/inbox/messageRules/" + id);
     }
     for (let [i, rule] of rules.entries()) {
-      let serverRule = this.newServerFilterRule(rule.serverJSON);
+      let serverRule = this.newServerFilterRule(rule.json);
       let changed = serverRule.withChangesFrom(rule, i + 1) as GraphFilterRule;
       if (!rule.serverID) {
         let created = await this.graphPost("mailFolders/inbox/messageRules", changed.newProperties);

@@ -4,8 +4,9 @@ import { appGlobal } from "../../../../logic/app";
 import { MailAccount } from "../../../../logic/Mail/MailAccount";
 import { Folder, SpecialFolder } from "../../../../logic/Mail/Folder";
 import { DummyMailStorage } from "../../../../logic/Mail/Store/DummyMailStorage";
-import { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { FilterRuleAction, LocalFilterRule } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
 import { ServerFilterRule } from "../../../../logic/Mail/FilterRules/ServerFilterRule";
+import { FilterMoment } from "../../../../logic/Mail/FilterRules/FilterMoments";
 import { availableTags, getTagByName } from "../../../../logic/Abstract/Tag";
 import Rules from "../../../../frontend/Settings/Mail/Rules.svelte";
 import { flushSync, mount, unmount } from "svelte";
@@ -89,8 +90,18 @@ function showRulesPage() {
 }
 
 function newRule(name: string): FilterRuleAction {
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.name = name;
+  account.filterRuleActions.add(rule);
+  return rule;
+}
+
+/** @param json @see `TestServerRule` */
+function newServerRule(name: string, json: any): ServerFilterRule {
+  let rule = account.newServerFilterRule(null);
+  rule.name = name;
+  rule.serverID = "rule-1";
+  rule.json = json;
   account.filterRuleActions.add(rule);
   return rule;
 }
@@ -239,6 +250,7 @@ test("Only an account whose server runs rules offers to let the server run the r
 test("The user lets the mail server run a rule", async () => {
   account.hasServerRules = true;
   let rule = newRule("Newsletters");
+  rule.markAsRead = true;
   showRulesPage();
   expect(runByRadio("The mail server").checked).toBe(false);
 
@@ -246,7 +258,11 @@ test("The user lets the mail server run a rule", async () => {
   radio.checked = true;
   radio.dispatchEvent(new Event("change", { bubbles: true }));
   flushSync();
+  rule = account.filterRuleActions.first;
+  expect(account.filterRuleActions.length).toBe(1);
   expect(rule.server).toBe(true);
+  expect(rule.markAsRead).toBe(true);
+  expect(runByRadio("The mail server").checked).toBe(true);
   let save = [...target.querySelectorAll("button")].find(button => button.textContent.includes("Save"));
   click(save);
 
@@ -254,12 +270,38 @@ test("The user lets the mail server run a rule", async () => {
   expect(rule.serverID).toBe("id-Newsletters");
 });
 
+test("The user lets Mustang run a server rule again", async () => {
+  account.hasServerRules = true;
+  newServerRule("Newsletters", {}).markAsRead = true;
+  showRulesPage();
+  await account.refreshServerFilterRules(); // after the refresh of the page
+
+  let radio = runByRadio("Mustang");
+  radio.checked = true;
+  radio.dispatchEvent(new Event("change", { bubbles: true }));
+  flushSync();
+  let rule = account.filterRuleActions.first;
+  expect(rule.server).toBe(false);
+  expect(rule.markAsRead).toBe(true);
+  let save = [...target.querySelectorAll("button")].find(button => button.textContent.includes("Save"));
+  click(save);
+
+  await vi.waitFor(() => expect(account.uploads).toEqual([[]]));
+  expect(account.filterRuleActions.contents).toEqual([rule]);
+});
+
+test("A rule that the mail server cannot run says why, and stays with us", () => {
+  account.hasServerRules = true;
+  newRule("Sent mails").when = FilterMoment.Outgoing;
+  showRulesPage();
+
+  expect(runByRadio("The mail server").disabled).toBe(true);
+  expect(target.querySelector(".server-notes").textContent).toContain("Sent mails");
+});
+
 test("A server rule that the server doesn't allow to change is read-only, and shows the parts that we can't show", () => {
   account.hasServerRules = true;
-  let rule = newRule("Newsletters");
-  rule.server = true;
-  rule.serverID = "rule-1";
-  rule.serverJSON = { readOnly: true, parts: { StopProcessingRules: true } };
+  newServerRule("Newsletters", { readOnly: true, parts: { StopProcessingRules: true } });
   showRulesPage();
 
   expect(target.textContent).toContain("Stop processing rules");
@@ -271,10 +313,7 @@ test("A server rule that the server doesn't allow to change is read-only, and sh
 
 test("When the server rules become read-only while the page is open, the page shows it", async () => {
   account.hasServerRules = true;
-  let rule = newRule("Newsletters");
-  rule.server = true;
-  rule.serverID = "rule-1";
-  rule.serverJSON = {};
+  newServerRule("Newsletters", {});
   showRulesPage();
   await vi.waitFor(() => expect(account.filterRuleActions.first.serverID).toBe("rule-1"));
   expect(target.querySelector("input[name=name]").hasAttribute("inert")).toBe(false);
@@ -289,10 +328,7 @@ test("When the server rules become read-only while the page is open, the page sh
 
 test("A server rule with parts that we can't show stays editable, but can't move to us", () => {
   account.hasServerRules = true;
-  let rule = newRule("Newsletters");
-  rule.server = true;
-  rule.serverID = "rule-1";
-  rule.serverJSON = { parts: { StopProcessingRules: true } };
+  newServerRule("Newsletters", { parts: { StopProcessingRules: true } });
   showRulesPage();
 
   expect(target.textContent).toContain("Stop processing rules");
