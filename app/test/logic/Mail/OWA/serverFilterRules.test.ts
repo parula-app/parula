@@ -197,6 +197,12 @@ test("OWA: A rule with all the parameters that Exchange Online sends is understo
   expect(testMail.serverRule.unknownParts).toEqual([]);
 });
 
+test("OWA: A rule for the word 0 is understood, not dropped", async () => {
+  let account = newTestAccountWithInboxRule({ ...structuredClone(kInboxRule), SubjectOrBodyContainsWords: ["0"] });
+  await account.refreshServerFilterRules();
+  expect(rule(account, "Test Mail").criteria.bodyText).toBe("0");
+});
+
 test("OWA: A rule from Exchange Online with a part that we can't show still lists it, and can't move to us", async () => {
   let account = newTestAccountWithInboxRule({
     ...structuredClone(kInboxRule),

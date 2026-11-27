@@ -195,7 +195,7 @@ export class ServerFilterRule {
 
   /** An unset property. The formats set it to null, false, an empty list or an empty element. */
   protected isEmpty(value: any): boolean {
-    if (!sanitize.boolean(value, true) || value === "") {
+    if (value == null || value === false || value === "false" || value === "") {
       return true;
     }
     if (Array.isArray(value)) {
