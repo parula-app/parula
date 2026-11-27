@@ -73,6 +73,9 @@ export class ServerFilterRule {
         parts.push(text ? `${name}: ${text}` : name);
       }
     }
+    if (this.isReadOnly) { // The server leaves out the parts that make the rule read-only, e.g. a desktop alert of classic Outlook
+      parts.push(gt`The mail server does not report all parts of this rule`);
+    }
     return parts;
   }
 

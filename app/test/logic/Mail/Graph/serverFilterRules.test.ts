@@ -154,3 +154,43 @@ test("Graph: A read-only rule is neither changed nor moved", async () => {
   newsletters.markAsRead = true;
   await expect(account.saveServerFilterRules()).rejects.toThrow();
 });
+
+/** A rule with a category, exceptions and more conditions and actions */
+const kTestRule = {
+  id: "rule-6",
+  displayName: "test rule",
+  sequence: 3,
+  isEnabled: true,
+  hasError: false,
+  isReadOnly: false,
+  conditions: {
+    categories: ["Rote Kategorie"],
+    headerContains: ["X-MS-Exchange-Inbox-Rules-Loop: ben@bexchange.net"],
+    importance: "high",
+    isMeetingRequest: true,
+  },
+  exceptions: { hasAttachments: true, sentToMe: true },
+  actions: { markImportance: "high", stopProcessingRules: true },
+};
+
+test("Graph: The parts of a rule in all sections are shown", async () => {
+  let account = new TestGraphAccount();
+  account.rules.push(structuredClone(kTestRule));
+  await account.refreshServerFilterRules();
+  let testRule = rule(account, "test rule");
+
+  expect(testRule.criteria.tags.contents.map(tag => tag.name)).toEqual(["Rote Kategorie"]);
+  let parts = testRule.serverRule.unknownParts;
+  expect(parts.length).toBe(7);
+  expect(parts.filter(part => part.startsWith("Conditions: ")).length).toBe(3);
+  expect(parts.filter(part => part.startsWith("Exceptions: ")).length).toBe(2);
+  expect(parts.filter(part => part.startsWith("Actions: ")).length).toBe(2);
+});
+
+test("Graph: A rule with a desktop alert of classic Outlook, which Graph gives read-only and without its parts, says so", async () => {
+  let account = new TestGraphAccount();
+  account.rules.push({ id: "rule-6", displayName: "test rule", sequence: 3, isEnabled: true, hasError: false, isReadOnly: true });
+  await account.refreshServerFilterRules();
+
+  expect(rule(account, "test rule").serverRule.unknownParts.join()).toMatch(/does not report/);
+});

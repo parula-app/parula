@@ -374,6 +374,40 @@ test("EWS: A rule with parts that we can't run does not move to us", async () =>
   expect(updates).toEqual([]);
 });
 
+/** A rule from classic Outlook with a category, exceptions and a desktop alert. Exchange does not support the alert,
+ * and leaves out all actions: the alert, "mark importance" and "stop processing rules". */
+const kOutlookRule = `
+  <Rule xmlns="http://schemas.microsoft.com/exchange/services/2006/types">
+    <RuleId>rule-6</RuleId>
+    <DisplayName>test rule</DisplayName>
+    <Priority>1</Priority>
+    <IsEnabled>true</IsEnabled>
+    <IsNotSupported>true</IsNotSupported>
+    <IsInError>false</IsInError>
+    <Conditions>
+      <Categories><String>Rote Kategorie</String></Categories>
+      <ContainsHeaderStrings><String>X-MS-Exchange-Inbox-Rules-Loop: ben@bexchange.net</String></ContainsHeaderStrings>
+      <Importance>High</Importance>
+      <IsMeetingRequest>true</IsMeetingRequest>
+    </Conditions>
+    <Exceptions>
+      <HasAttachments>true</HasAttachments>
+      <SentToMe>true</SentToMe>
+    </Exceptions>
+  </Rule>`;
+
+test("EWS: A rule with parts that Exchange leaves out says so, and lists all its exceptions", async () => {
+  let { account } = newTestAccount([kOutlookRule]);
+  await account.refreshServerFilterRules();
+  let testRule = rule(account, "test rule");
+
+  expect(testRule.criteria.tags.contents.map(tag => tag.name)).toEqual(["Rote Kategorie"]);
+  let parts = testRule.serverRule.unknownParts;
+  expect(parts.length).toBe(6); // 3 conditions, 2 exceptions, and that the server does not report all parts
+  expect(parts.filter(part => part.startsWith("Exceptions: ")).length).toBe(2);
+  expect(parts.join()).toMatch(/does not report/);
+});
+
 /** Exchange gives its users as X.500 address */
 const kBobDN = "/o=ExchangeLabs/ou=Exchange Administrative Group (FYDIBOHF23SPDLT)/cn=Recipients/cn=0123456789abcdef0123456789abcdef-bob";
 const kCarolDN = "/o=ExchangeLabs/ou=Exchange Administrative Group (FYDIBOHF23SPDLT)/cn=Recipients/cn=fedcba9876543210fedcba9876543210-carol";
