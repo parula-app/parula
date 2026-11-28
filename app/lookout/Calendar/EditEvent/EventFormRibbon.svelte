@@ -132,23 +132,7 @@
     {/if}
     <RibbonGroup label={$t`Tags`}>
       <RibbonMenuButton label={$t`Categorize *=> Assign a category to the event`} icon={CategorizeIcon}>
-        <!-- <copied from="../../Mail/Message/CategorizeMenuItems.svelte"> for one event -->
-        <MenuItem label={$t`Clear All Categories`} icon={ClearIcon}
-          disabled={$eventTags.isEmpty && $t`The event has no categories`}
-          onClick={clearTags} />
-        <MenuDivider />
-        {#each $tags.each as tag (tag)}
-          <MenuItem label={tag.name} selected={$eventTags.contains(tag)}
-            onClick={() => toggleTag(tag)}>
-            <CategorySquare slot="icon" {tag} state={$eventTags.contains(tag) ? TagState.All : TagState.None} />
-          </MenuItem>
-        {:else}
-          <MenuLabel label={$t`No categories yet`} />
-        {/each}
-        <MenuDivider />
-        <MenuItem label={$t`All Categories…`} icon={AllCategoriesIcon}
-          onClick={() => { isColorCategoriesOpen = true; }} />
-        <!-- </copied> -->
+        <EventCategorizeMenuItems {event} onAllCategories={() => { isColorCategoriesOpen = true; }} />
       </RibbonMenuButton>
     </RibbonGroup>
   </RibbonTab>
@@ -194,7 +178,6 @@
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
   import { InvitationResponse } from "../../../logic/Calendar/Invitation/InvitationStatus";
-  import { availableTags, type Tag } from "../../../logic/Abstract/Tag";
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
   import { eventTabLabel, attendanceLabel, responseLabel } from "./EventFormInfo";
   import { reminderMinutesBefore, setReminderMinutesBefore, reminderChoicesWith, reminderMinutesLabel } from "./Reminder";
@@ -224,9 +207,8 @@
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import ResponseMenuItems from "../Invitation/ResponseMenuItems.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
-  import MenuLabel from "../../Shared/Menu/MenuLabel.svelte";
-  import CategorySquare, { TagState } from "../../Shared/Tag/CategorySquare.svelte";
   import ColorCategoriesDialog from "../../Shared/Tag/ColorCategoriesDialog.svelte";
+  import EventCategorizeMenuItems from "../DisplayEvent/EventCategorizeMenuItems.svelte";
   import SaveIcon from "lucide-svelte/icons/save";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import CancelIcon from "lucide-svelte/icons/calendar-x-2";
@@ -252,8 +234,6 @@
   import SignatureIcon from "lucide-svelte/icons/stamp";
   import CopyIcon from "lucide-svelte/icons/clipboard-copy";
   import CategorizeIcon from "lucide-svelte/icons/tag";
-  import ClearIcon from "lucide-svelte/icons/eraser";
-  import AllCategoriesIcon from "lucide-svelte/icons/tags";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -285,8 +265,6 @@
   $: reminderChoices = reminderChoicesWith(reminderMinutes);
   $: saveDisabled = ($event && flow.missingPropsReason) ?? false;
   const meetAccounts = appGlobal.meetAccounts.filterObservable(account => account.canCreateURL);
-  const tags = availableTags;
-  $: eventTags = event.tags;
   let isColorCategoriesOpen = false;
 
   function onOnline(account: MeetAccount | null) {
@@ -329,20 +307,6 @@
     addFilesAsAttachments(event, files);
   }
   // </copied>
-
-  async function toggleTag(tag: Tag) {
-    if (event.tags.contains(tag)) {
-      await event.removeTag(tag);
-    } else {
-      await event.addTag(tag);
-    }
-  }
-
-  async function clearTags() {
-    for (let tag of event.tags.contents) {
-      await event.removeTag(tag);
-    }
-  }
 
   async function copyTrackingStatus() {
     let lines = event.participants.contents.map(participant => [
