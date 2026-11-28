@@ -1,5 +1,6 @@
 import type { Event } from "../../logic/Calendar/Event";
 import type { Calendar } from "../../logic/Calendar/Calendar";
+import type { TaggableObject } from "../../logic/Abstract/Tag";
 import type { CalendarPropertiesTab } from "./CalendarPropertiesDialog.svelte";
 import { shownCalendars } from "../../frontend/Calendar/selected";
 import { k1MinuteMS } from "../../logic/util/date";
@@ -67,6 +68,7 @@ export const inlineTitle = AppWindow.perWindow(() => writable<string | null>(nul
 export const isGoToDateOpen = AppWindow.perWindow(() => writable(false));
 export const openCalendarProperties = AppWindow.perWindow(() => writable<{ calendar: Calendar, tab: CalendarPropertiesTab } | null>(null));
 export const openSharedCalendar = AppWindow.perWindow(() => writable<{ fromAddressBook: boolean } | null>(null));
+export const openColorCategories = AppWindow.perWindow(() => writable<TaggableObject[] | null>(null));
 // <copied from="../../frontend/Calendar/CurrentTimeMarker.svelte">
 export const now = readable(new Date(), set => {
   let timeout: ReturnType<typeof setTimeout>;
