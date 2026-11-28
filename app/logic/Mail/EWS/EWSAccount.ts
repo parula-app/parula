@@ -1387,16 +1387,15 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     let serverRules = ensureArray(response.InboxRules?.Rule).map(json => this.newServerFilterRule(json));
     await Promise.all(serverRules.map(serverRule => serverRule.resolveAddresses()));
     return serverRules
-      .sort((a, b) => a.priority - b.priority)
-      .map(serverRule => serverRule.toFilterRule());
+      .sort((a, b) => a.priority - b.priority);
   }
 
-  protected async uploadServerFilterRules(rules: FilterRuleAction[], deletedIDs: string[]): Promise<void> {
+  protected async uploadServerFilterRules(rules: EWSFilterRule[], deletedIDs: string[]): Promise<void> {
     let created: FilterRuleAction[] = [];
     let createOperations = [];
     let setOperations = [];
     for (let [i, rule] of rules.entries()) {
-      let serverRule = this.newServerFilterRule(rule.serverJSON);
+      let serverRule = this.newServerFilterRule(rule.json);
       let changed = serverRule.withChangesFrom(rule, i + 1) as EWSFilterRule;
       if (!rule.serverID) {
         createOperations.push({ t$Rule: changed.toRequest(true) });

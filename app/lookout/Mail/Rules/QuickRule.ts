@@ -2,7 +2,7 @@ import type { EMail } from "../../../logic/Mail/EMail";
 import type { MailAccount } from "../../../logic/Mail/MailAccount";
 import type { Folder } from "../../../logic/Mail/Folder";
 import type { Person } from "../../../logic/Abstract/Person";
-import { FilterRuleAction } from "../../../logic/Mail/FilterRules/FilterRuleAction";
+import { FilterRuleAction, LocalFilterRule } from "../../../logic/Mail/FilterRules/FilterRuleAction";
 import { assert } from "../../../logic/util/util";
 import { gt } from "../../../l10n/l10n";
 
@@ -49,7 +49,7 @@ export class QuickRule {
   }
 
   createRule(): FilterRuleAction {
-    let rule = new FilterRuleAction(this.account);
+    let rule = new LocalFilterRule(this.account);
     if (this.fromSender && this.sender) {
       rule.criteria.includesPerson = this.sender;
     }

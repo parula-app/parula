@@ -9,19 +9,27 @@ import { gt } from "../../../l10n/l10n";
 /** A filter rule that the server runs, in the format of the protocol.
  * We show and change only the parts that we understand. The other parts
  * stay as they are, and the user sees them as plain text. */
-export class ServerFilterRule {
-  readonly account: MailAccount;
+export class ServerFilterRule extends FilterRuleAction {
   /** As the server sent it */
-  readonly json: any;
+  json: any;
   protected readonly canCheckDates: boolean = true;
   protected readonly canCheckCategories: boolean = true;
   protected readonly canDeleteImmediately: boolean = true;
   /** The server allows to change the order of the rules that it doesn't allow to change otherwise */
   protected readonly canReorderReadOnly: boolean = false;
 
+  /** @param json As the server sent the rule. Fills the parts that we understand. null for a new rule. */
   constructor(account: MailAccount, json: any) {
-    this.account = account;
+    super(account);
     this.json = json ?? {};
+    if (json) {
+      this.serverID = this.id;
+      this.fillFilterRule(this);
+    }
+  }
+
+  get server(): boolean {
+    return true;
   }
 
   get id(): string | null {
@@ -36,6 +44,11 @@ export class ServerFilterRule {
   /** The server doesn't allow to change the rule */
   get isReadOnly(): boolean {
     return false;
+  }
+
+  get readOnlyReason(): string | null {
+    return this.account.serverFilterRulesReadOnlyReason ??
+      (this.isReadOnly ? gt`The mail server does not allow changes to this rule` : null);
   }
 
   get isEnabled(): boolean {
@@ -79,27 +92,20 @@ export class ServerFilterRule {
     return parts;
   }
 
-  /** Our rule, with the parts of the server rule that we understand */
-  toFilterRule(): FilterRuleAction {
-    let rule = new FilterRuleAction(this.account);
-    rule.server = true;
-    rule.serverID = this.id;
-    rule.serverJSON = this.json;
-    this.fillFilterRule(rule);
-    return rule;
-  }
-
   /** Sets only the parts that `isUnderstood()` */
   protected fillFilterRule(rule: FilterRuleAction) {
     throw new AbstractFunction();
   }
 
-  /** The server rule, changed as the user changed `rule`.
+  /** The server rule, changed as the user changed `rule`. `this` is as the server sent it.
    * Leaves the parts of the server rule as they are that the user did not change. */
   withChangesFrom(rule: FilterRuleAction, priority: number): ServerFilterRule {
-    this.checkSupported(rule);
+    let unsupported = this.unsupportedReason(rule);
+    if (unsupported) {
+      throw new NotSupported(unsupported);
+    }
     let json = structuredClone(this.json);
-    this.writeChanges(json, rule, this.toFilterRule());
+    this.writeChanges(json, rule, this);
     let changed = new (this.constructor as any)(this.account, json) as ServerFilterRule;
     if (this.isReadOnly && changed.isChangedFrom(this)) {
       throw new NotSupported(gt`The mail server does not allow changes to the rule ${rule.name}`);
@@ -138,8 +144,8 @@ export class ServerFilterRule {
     return changes;
   }
 
-  /** Throws, if the server cannot run the rule as the user defined it */
-  protected checkSupported(rule: FilterRuleAction) {
+  /** Why the server cannot run `rule` as the user defined it. null, if it can. */
+  unsupportedReason(rule: FilterRuleAction): string | null {
     let criteria = rule.criteria;
     if (rule.when == FilterMoment.Outgoing ||
         booleanHasValue(criteria.isOutgoing) || booleanHasValue(criteria.isRead) || booleanHasValue(criteria.isReplied) ||
@@ -147,12 +153,13 @@ export class ServerFilterRule {
         criteria.messageID || criteria.threadID || criteria.folderID || criteria.hasAttachmentMIMETypes.hasItems ||
         !this.canCheckDates && (criteria.sentDateMin || criteria.sentDateMax) ||
         !this.canCheckCategories && criteria.tags.hasItems) {
-      throw new NotSupported(gt`The mail server cannot check all criteria of the rule ${rule.name}`);
+      return gt`The mail server cannot check all criteria of the rule ${rule.name}`;
     }
     if (rule.markAsRead === false || booleanHasValue(rule.markAsStarred) || rule.markAsSpam ||
         !this.canDeleteImmediately && rule.deleteImmediately) {
-      throw new NotSupported(gt`The mail server cannot do all actions of the rule ${rule.name}`);
+      return gt`The mail server cannot do all actions of the rule ${rule.name}`;
     }
+    return null;
   }
 
   /** Writes the properties that the user changed into a section of the server rule.
@@ -226,5 +233,20 @@ export class ServerFilterRule {
 
   protected strings(json: any): string[] {
     return sanitize.array(json, []).map(value => sanitize.nonemptystring(value, null)).filter(value => value);
+  }
+
+  fromJSON(json: any) {
+    super.fromJSON(json);
+    this.serverID = sanitize.nonemptystring(json.serverID, null);
+    this.json = json.serverJSON ?? {};
+  }
+
+  toJSON() {
+    return {
+      ...super.toJSON(),
+      server: this.server,
+      serverID: this.serverID,
+      serverJSON: this.json,
+    };
   }
 }

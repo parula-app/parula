@@ -42,7 +42,7 @@ export class RulesWorkingList {
       return;
     }
     let originals = this.rules.contents.map(copy => {
-      let original = this.originalOf.get(copy) ?? new FilterRuleAction(this.account);
+      let original = this.originalOf.get(copy) ?? this.account.newFilterRule(copy.server);
       RuleWizardModel.copyInto(copy, original);
       this.originalOf.set(copy, original);
       return original;

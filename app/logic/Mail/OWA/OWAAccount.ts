@@ -934,17 +934,16 @@ export class OWAAccount extends ExchangeMailAccount {
     let response = await this.callOWAOptions(new OWAOptionsRequest("GetInboxRule"));
     return ensureArray(response.InboxRuleCollection?.InboxRules)
       .map(json => this.newServerFilterRule(json))
-      .sort((a, b) => a.priority - b.priority)
-      .map(serverRule => serverRule.toFilterRule());
+      .sort((a, b) => a.priority - b.priority);
   }
 
-  protected async uploadServerFilterRules(rules: FilterRuleAction[], deletedIDs: string[]): Promise<void> {
+  protected async uploadServerFilterRules(rules: OWAFilterRule[], deletedIDs: string[]): Promise<void> {
     const kKeepOutlookRules = { AlwaysDeleteOutlookRulesBlob: false, Force: false };
     for (let id of deletedIDs) {
       await this.callOWAOptions(new OWAOptionsRequest("RemoveInboxRule", { Identity: { RawIdentity: id }, ...kKeepOutlookRules }));
     }
     for (let [i, rule] of rules.entries()) {
-      let serverRule = this.newServerFilterRule(rule.serverJSON);
+      let serverRule = this.newServerFilterRule(rule.json);
       let changed = serverRule.withChangesFrom(rule, i + 1) as OWAFilterRule;
       if (!rule.serverID) {
         let response = await this.callOWAOptions(new OWAOptionsRequest("NewInboxRule", { InboxRule: changed.newParameters, ...kKeepOutlookRules }));
