@@ -5,10 +5,11 @@ import { DeleteStrategy, type MailAccount } from "../MailAccount";
 import type { Folder } from "../Folder";
 import { getTagByName, type Tag } from "../../Abstract/Tag";
 import { notifyChangedProperty, Observable } from "../../util/Observable";
-import { assert, booleanHasValue } from "../../util/util";
+import { AbstractFunction, assert, booleanHasValue, NotSupported } from "../../util/util";
+import { appName } from "../../build";
 import { gt } from "../../../l10n/l10n";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { SetColl } from "svelte-collections";
+import { SetColl, type ArrayColl } from "svelte-collections";
 
 /** Does automatic user-defined actions on emails,
  * on defined moments (e.g. new email arrived, email sent etc.),
@@ -21,6 +22,27 @@ export class FilterRuleAction extends Observable {
   when: FilterMoment = FilterMoment.IncomingBeforeSpam;
   /** For which subset of emails the filter should run */
   readonly criteria = new SearchEMail();
+  /** The server runs this rule, not we. @see `MailAccount.canServerFilterRules` */
+  get server(): boolean {
+    throw new AbstractFunction();
+  }
+  /** The ID of the rule on the server. null, if it's not on the server yet. */
+  serverID: string | null = null;
+
+  /** Why the user cannot change this rule. null, if they can. */
+  get readonly(): string | null {
+    return null;
+  }
+
+  /** The parts of the rule that we can't show or change, as plain text */
+  get unknownParts(): string[] {
+    return [];
+  }
+
+  /** Why the mail server cannot run this rule. null, if it can. */
+  get cannotRunOnServer(): string | null {
+    return this.account.serverFilterRulesReadonly ?? this.account.newServerFilterRule(null).unsupported(this);
+  }
 
   /** The following actions cannot be combined:
    * - Delete/spam actions with toFolder or markAsStarred
@@ -111,6 +133,28 @@ export class FilterRuleAction extends Observable {
     }
   }
 
+  /** Lets the mail server run the rule, if `server`, otherwise us. Throws, if that side cannot run all parts of it.
+   * @returns The rule of the other class, which replaces this rule in `rules` */
+  runBy(server: boolean, rules: ArrayColl<FilterRuleAction>): FilterRuleAction {
+    if (server == this.server) {
+      return this;
+    }
+    if (!server && this.unknownParts.length) {
+      throw new NotSupported(gt`${appName} cannot run all parts of the rule ${this.name}`);
+    }
+    if (server && this.cannotRunOnServer) {
+      throw new NotSupported(this.cannotRunOnServer);
+    }
+    let rule = this.account.newFilterRule(server);
+    rule.fromJSON(this.toJSON());
+    rule.name = this.name;
+    let index = rules.indexOf(this);
+    if (index >= 0) {
+      rules.splice(index, 1, rule);
+    }
+    return rule;
+  }
+
   fromJSON(json: any) {
     this.name = sanitize.nonemptystring(json.name, "-");
     this.when = sanitize.enum<FilterMoment>(json.when, Object.values(FilterMoment));
@@ -152,5 +196,13 @@ export class FilterRuleAction extends Observable {
     let clone = new (this as any).constructor(this.account);
     clone.fromJSON(this.toJSON());
     return clone;
+  }
+}
+
+/** A filter rule that we run, on the emails that we download. @see `ServerFilterRule` */
+// Not in its own file, because `MailAccount` creates it, and this file imports `MailAccount`: the import cycle would break `extends`.
+export class LocalFilterRule extends FilterRuleAction {
+  get server(): boolean {
+    return false;
   }
 }

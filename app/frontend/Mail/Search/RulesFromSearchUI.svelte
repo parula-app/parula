@@ -27,7 +27,7 @@
   import { t } from "../../../l10n/l10n";
   import RuleActions from "./RuleActions.svelte";
   import { catchErrors } from "../../Util/error";
-  import { FilterRuleAction } from "../../../logic/Mail/FilterRules/FilterRuleAction";
+  import { FilterRuleAction, LocalFilterRule } from "../../../logic/Mail/FilterRules/FilterRuleAction";
   const dispatchEvent = createEventDispatcher();
 
   /** in */
@@ -37,7 +37,7 @@
 
   onMount(() => catchErrors(onCreate));
   async function onCreate() {
-    rule = new FilterRuleAction($selectedAccount, search);
+    rule = new LocalFilterRule($selectedAccount, search);
   }
 
   async function onSave() {

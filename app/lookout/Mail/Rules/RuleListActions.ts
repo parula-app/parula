@@ -1,6 +1,7 @@
-import { FilterRuleAction } from "../../../logic/Mail/FilterRules/FilterRuleAction";
+import { FilterRuleAction, LocalFilterRule } from "../../../logic/Mail/FilterRules/FilterRuleAction";
 import type { Folder } from "../../../logic/Mail/Folder";
 import type { MailAccount } from "../../../logic/Mail/MailAccount";
+import { appName } from "../../../logic/build";
 import { gt } from "../../../l10n/l10n";
 import type { ArrayColl } from "svelte-collections";
 
@@ -18,6 +19,7 @@ export class RuleListActions {
   static copy(rules: ArrayColl<FilterRuleAction>, rule: FilterRuleAction): FilterRuleAction {
     let copy = rule.clone();
     copy.name = gt`Copy of ${rule.name}`;
+    copy.serverID = null;
     let index = rules.indexOf(rule);
     if (index < 0) {
       rules.add(copy);
@@ -34,6 +36,9 @@ export class RuleListActions {
     if (rule.toFolderID || rule.criteria.folderID) {
       return gt`This rule uses a folder of ${rule.account.name}, so it can only be copied within that account`;
     }
+    if (rule.unknownParts.length) {
+      return gt`This rule has parts that ${appName} cannot show, so it can only be copied within ${rule.account.name}`;
+    }
     return false;
   }
 
@@ -41,11 +46,12 @@ export class RuleListActions {
     if (account == rule.account) {
       return RuleListActions.copy(rules, rule);
     }
-    let copy = new FilterRuleAction(account);
+    let copy = new LocalFilterRule(account);
     copy.fromJSON(rule.toJSON());
     copy.name = rule.name;
     rules.add(copy);
-    return copy;
+    // The other server runs it, if it can, but without the parts that only the server of `rule` knows
+    return rule.server && account.canServerFilterRules && !copy.cannotRunOnServer ? copy.runBy(true, rules) : copy;
   }
 
   static moveToFolder(rule: FilterRuleAction, folder: Folder, copy: boolean) {

@@ -34,33 +34,65 @@
                   label={$t`Delete rule`}
                   icon={DeleteIcon}
                   onClick={onDelete}
+                  disabled={readonly}
                   />
               </hbox>
               <vbox class="content">
                 <grid class="name-grid">
                   <label for="name">{$t`Rule name`}</label>
-                  <input type="text" bind:value={rule.name} name="name" autofocus />
+                  <input type="text" bind:value={rule.name} name="name" autofocus inert={!!readonly} />
 
                   <label for="when">{$t`When`}</label>
-                  <select bind:value={rule.when}>
+                  <select bind:value={rule.when} inert={!!readonly}>
                     <option value={FilterMoment.IncomingBeforeSpam}>{$t`New mail arrives`}</option>
                     <option value={FilterMoment.IncomingAfterSpam}>{$t`New mail arrives, after spam filtering`}</option>
                     <option value={FilterMoment.Outgoing}>{$t`I send mail`}</option>
                   </select>
+
+                  {#if account.canServerFilterRules}
+                    <label>{$t`Run by *=> Who runs the rule: this app, or the mail server`}</label>
+                    <hbox class="run-by">
+                      <label class="radio" title={cannotRunHere || null}>
+                        <input type="radio" name="run-by" checked={!rule.server} on:change={() => catchErrors(() => onRunBy(false))} disabled={!!cannotRunHere} />
+                        {appName}
+                      </label>
+                      <label class="radio" title={cannotRunOnServer || null}>
+                        <input type="radio" name="run-by" checked={rule.server} on:change={() => catchErrors(() => onRunBy(true))} disabled={!!cannotRunOnServer} />
+                        {$t`The mail server`}
+                      </label>
+                    </hbox>
+                  {/if}
                 </grid>
+                {#if cannotRunOnServer || notice || unknownParts.length}
+                  <vbox class="server-notes">
+                    {#if cannotRunOnServer}
+                      <hbox>{cannotRunOnServer}</hbox>
+                    {:else if notice}
+                      <hbox>{notice}</hbox>
+                    {/if}
+                    {#if unknownParts.length}
+                      <hbox>{$t`Parts of this rule that ${appName} cannot show or change`}</hbox>
+                      <ul>
+                        {#each unknownParts as part}
+                          <li>{part}</li>
+                        {/each}
+                      </ul>
+                    {/if}
+                  </vbox>
+                {/if}
               </vbox>
             </HeaderGroupBox>
 
             <HeaderGroupBox>
               <hbox slot="header">{$t`Criteria`}</hbox>
-              <vbox class="content">
+              <vbox class="content" inert={!!readonly}>
                 <SearchCriteria search={rule.criteria} showAccount={false} />
               </vbox>
             </HeaderGroupBox>
 
             <HeaderGroupBox>
               <hbox slot="header">{$t`Action`}</hbox>
-              <vbox class="content">
+              <vbox class="content" inert={!!readonly}>
                 <RuleActions {rule} />
               </vbox>
             </HeaderGroupBox>
@@ -71,6 +103,7 @@
             icon={SaveIcon}
             label={$t`Save`}
             onClick={onSave}
+            disabled={readonly}
           />
         </hbox>
       {/if}
@@ -80,7 +113,7 @@
 
 <script lang="ts">
   import { MailAccount } from "../../../logic/Mail/MailAccount";
-  import { FilterRuleAction } from "../../../logic/Mail/FilterRules/FilterRuleAction";
+  import { FilterRuleAction, LocalFilterRule } from "../../../logic/Mail/FilterRules/FilterRuleAction";
   import { FilterMoment } from "../../../logic/Mail/FilterRules/FilterMoments";
   import SearchCriteria from "../../Mail/Search/SearchCriteria.svelte";
   import RuleActions from "../../Mail/Search/RuleActions.svelte";
@@ -94,6 +127,8 @@
   import AddIcon from "lucide-svelte/icons/plus";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import SaveIcon from "lucide-svelte/icons/save";
+  import { appName } from "../../../logic/build";
+  import { catchErrors } from "../../Util/error";
   import { t } from "../../../l10n/l10n";
 
   export let account: MailAccount;
@@ -107,9 +142,20 @@
     rule = account.filterRuleActions.first;
   }
 
+  $: account, catchErrors(() => account.refreshServerFilterRules());
+  $: readonly = $account && $rule ? rule.readonly : null;
+  $: unknownParts = $rule?.unknownParts ?? [];
+  $: notice = $rule?.server ? $account.serverFilterRulesNotice : null;
+  $: cannotRunHere = readonly ?? (unknownParts.length ? $t`${appName} cannot run all parts of this rule` : null);
+  $: cannotRunOnServer = readonly ?? ($rule?.server || !$account.canServerFilterRules ? null : $rule?.cannotRunOnServer);
+
   function onAdd() {
-    rule = new FilterRuleAction(account);
+    rule = new LocalFilterRule(account);
     rule.name = "-";
+  }
+
+  function onRunBy(server: boolean) {
+    rule = rule.runBy(server, rules);
   }
 
   async function onDelete() {
@@ -120,6 +166,7 @@
     account.filterRuleActions.remove(rule);
     await account.save();
     rule = null;
+    await account.saveServerFilterRules();
   }
 
   async function onSave() {
@@ -127,6 +174,7 @@
       rule.account.filterRuleActions.add(rule);
     }
     await rule.account.save();
+    await rule.account.saveServerFilterRules();
   }
 </script>
 
@@ -149,6 +197,20 @@
   .name-grid {
     grid-template-columns: max-content auto;
     gap: 8px 24px;
+  }
+  .run-by {
+    gap: 24px;
+  }
+  .server-notes {
+    gap: 4px;
+    margin-block-start: 16px;
+  }
+  .server-notes ul {
+    margin: 0;
+    padding-inline-start: 20px;
+  }
+  .radio {
+    align-items: center;
   }
   .buttons {
     justify-content: end;
