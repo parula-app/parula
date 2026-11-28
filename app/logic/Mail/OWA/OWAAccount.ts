@@ -5,6 +5,8 @@ import type { EMail } from "../EMail";
 import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShareIndividualPermissions } from "../Folder";
 import { OWAFolder } from "./OWAFolder";
 import { OWASearchEMail } from "./OWASearchEMail";
+import { OWAFilterRule } from "./OWAFilterRule";
+import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
 import { OWAAutoResponder } from "./OWAAutoResponder";
 import { OWATags } from "./OWATags";
 import { OWAError } from "./OWAError";
@@ -18,6 +20,7 @@ import type { OWAAddressbook } from "../../Contacts/OWA/OWAAddressbook";
 import { newCalendarForProtocol} from "../../Calendar/AccountsList/Calendars";
 import type { OWACalendar } from "../../Calendar/OWA/OWACalendar";
 import { OWARequest } from "./Request/OWARequest";
+import { OWAOptionsRequest } from "./Request/OWAOptionsRequest";
 import { OWACreateItemRequest } from "./Request/OWACreateItemRequest";
 import { OWAUpdateItemRequest } from "./Request/OWAUpdateItemRequest";
 import { OWASubscribeToHierarchyNotificationRequest } from "./Request/OWASubscribeToNotificationRequest";
@@ -38,7 +41,7 @@ import { Semaphore } from "../../util/flow/Semaphore";
 import { RunOnce } from "../../util/flow/RunOnce";
 import { notifyChangedProperty } from "../../util/Observable";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { assert, ensureArray, NotSupported, NotReached } from "../../util/util";
+import { assert, ensureArray, NotSupported, NotReached, UserError } from "../../util/util";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
 
@@ -911,6 +914,53 @@ export class OWAAccount extends ExchangeMailAccount {
     let foldersToShare = (!mailFolder ? this.getAllFolders() : includeSubfolders ? mailFolder.getInclusiveDescendants() : new ArrayColl<Folder>([mailFolder]));
     for (let folder of foldersToShare) {
       await setExchangePermissions(folder as OWAFolder, otherPerson, access, ...permissions);
+    }
+  }
+
+  get canServerFilterRules(): boolean {
+    return !this.isDependentAccount;
+  }
+
+  newServerFilterRule(json: any): OWAFilterRule {
+    return new OWAFilterRule(this, json);
+  }
+
+  protected async fetchServerFilterRules(): Promise<FilterRuleAction[]> {
+    let response = await this.callOWAOptions(new OWAOptionsRequest("GetInboxRule"));
+    return ensureArray(response.InboxRuleCollection?.InboxRules)
+      .map(json => this.newServerFilterRule(json))
+      .sort((a, b) => a.priority - b.priority);
+  }
+
+  protected async uploadServerFilterRules(rules: OWAFilterRule[], deletedIDs: string[]): Promise<void> {
+    const kKeepOutlookRules = { AlwaysDeleteOutlookRulesBlob: false, Force: false };
+    for (let id of deletedIDs) {
+      await this.callOWAOptions(new OWAOptionsRequest("RemoveInboxRule", { Identity: { RawIdentity: id }, ...kKeepOutlookRules }));
+    }
+    for (let [i, rule] of rules.entries()) {
+      let serverRule = this.newServerFilterRule(rule.json);
+      let changed = serverRule.withChangesFrom(rule, i + 1) as OWAFilterRule;
+      if (!rule.serverID) {
+        let response = await this.callOWAOptions(new OWAOptionsRequest("NewInboxRule", { InboxRule: changed.newParameters, ...kKeepOutlookRules }));
+        rule.serverID = this.newServerFilterRule(response.InboxRule).id;
+      } else if (changed.isChangedFrom(serverRule)) {
+        await this.callOWAOptions(new OWAOptionsRequest("SetInboxRule", { InboxRule: changed.setParameters(serverRule), ...kKeepOutlookRules }));
+      }
+    }
+  }
+
+  /** The rule commands of the OWA options may answer with a question, which `callOWA()` throws as `OWAError` */
+  protected async callOWAOptions(request: OWAOptionsRequest): Promise<any> {
+    try {
+      return await this.callOWA(request);
+    } catch (ex) {
+      const kPromptUser = ["ErrorCode 4", "ErrorCode PromptUser"]; // `OWAError.type`
+      if (ex instanceof OWAError && kPromptUser.includes(ex.type)) {
+        // The only question of the rule commands: Delete the copy of the rules that Outlook keeps?
+        this.setOutlookRulesExist(true);
+        throw new UserError(this.serverFilterRulesReadonly);
+      }
+      throw ex;
     }
   }
 

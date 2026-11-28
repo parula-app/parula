@@ -11,16 +11,30 @@ export class RulesWorkingList {
 
   constructor(account: MailAccount) {
     this.account = account;
-    for (let original of account.filterRuleActions) {
-      let copy = RuleWizardModel.copyOf(original);
-      this.originalOf.set(copy, original);
-      this.rules.add(copy);
-    }
-    this.savedJSON = this.json();
+    this.reload();
   }
 
   get isChanged(): boolean {
     return this.json() != this.savedJSON;
+  }
+
+  /** Takes the rules of the account again, e.g. after the server sent its rules.
+   * Keeps our copies of the rules that are still there. */
+  reload() {
+    let copyOf = new Map([...this.originalOf].map(([copy, original]) => [original, copy]));
+    this.originalOf.clear();
+    let copies = this.account.filterRuleActions.contents.map(original => {
+      let copy = copyOf.get(original);
+      if (copy) {
+        RuleWizardModel.copyInto(original, copy);
+      } else {
+        copy = RuleWizardModel.copyOf(original);
+      }
+      this.originalOf.set(copy, original);
+      return copy;
+    });
+    this.rules.replaceAll(copies);
+    this.savedJSON = this.json();
   }
 
   async apply() {
@@ -28,14 +42,18 @@ export class RulesWorkingList {
       return;
     }
     let originals = this.rules.contents.map(copy => {
-      let original = this.originalOf.get(copy) ?? new FilterRuleAction(this.account);
+      let original = this.originalOf.get(copy) ?? this.account.newFilterRule(copy.server);
       RuleWizardModel.copyInto(copy, original);
       this.originalOf.set(copy, original);
       return original;
     });
     this.account.filterRuleActions.replaceAll(originals);
     await this.account.save();
-    this.savedJSON = this.json();
+    try {
+      await this.account.saveServerFilterRules();
+    } finally {
+      this.reload(); // the IDs of the rules that the server created
+    }
   }
 
   protected json(): string {

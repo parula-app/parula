@@ -4,6 +4,8 @@ import type { EMail } from "../EMail";
 import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShareIndividualPermissions } from "../Folder";
 import { EWSFolder, getEWSItem } from "./EWSFolder";
 import { EWSSearchEMail } from "./EWSSearchEMail";
+import { EWSFilterRule } from "./EWSFilterRule";
+import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
 import { EWSAutoResponder } from "./EWSAutoResponder";
 import { EWSTags } from "./EWSTags";
 import { deleteExchangePermissions, setExchangePermissions } from "./ExchangePermission";
@@ -17,7 +19,7 @@ import { EWSGAL } from "../../Contacts/EWS/EWSGAL";
 import { newAccountForProtocol } from "../AccountsList/MailAccounts";
 import { newAddressbookForProtocol } from "../../Contacts/AccountsList/Addressbooks";
 import { newCalendarForProtocol} from "../../Calendar/AccountsList/Calendars";
-import type { PersonUID } from "../../Abstract/PersonUID";
+import { PersonUID } from "../../Abstract/PersonUID";
 import { getOAuth2BuiltIn } from "../../Auth/OAuth2Util";
 import { NTLMConnectionPool } from "../../Auth/NTLM/NTLMConnectionPool";
 import { NTLMChromiumSession } from "../../Auth/NTLM/NTLMChromiumSession";
@@ -37,7 +39,7 @@ import { notifyChangedProperty } from "../../util/Observable";
 import { isNetworkError } from "../../util/netUtil";
 import { logErrorToServer } from "../../util/error";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
-import { assert, ensureArray, sleep, NotReached, NotSupported, type Json } from "../../util/util";
+import { assert, ensureArray, sleep, NotReached, NotSupported, UserError, type Json } from "../../util/util";
 import { base64ToUint8Array } from "../../util/blob";
 import { gt } from "../../../l10n/l10n";
 import { ArrayColl } from "svelte-collections";
@@ -292,6 +294,15 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     let delegate = responseXML.querySelector("GetDelegateResponse");
     if (delegate?.getAttribute("ResponseClass") == "Success") {
       return [...responseXML.querySelectorAll("DelegateUser")].map(user => XML2JSON(user));
+    }
+    // Inbox rules have their own response element, without `ResponseMessages`
+    let inboxRules = responseXML.querySelector("GetInboxRulesResponse, UpdateInboxRulesResponse");
+    if (inboxRules) {
+      let message: any = XML2JSON(inboxRules);
+      if (message.ResponseClass == "Error") {
+        throw new EWSItemError(message, aRequest);
+      }
+      return message;
     }
     // OOF has a single `ResponseMessage` without `ResponseMessages`
     let oof = responseXML.querySelector("GetUserOofSettingsResponse, SetUserOofSettingsResponse");
@@ -1181,6 +1192,28 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
       .filter(Boolean);
   }
 
+  /** The user with this X.500 address, which Exchange uses for its users, e.g. in rules and calendar shortcuts */
+  async resolveLegacyDN(legacyDN: string): Promise<PersonUID | null> {
+    let request = {
+      m$ResolveNames: {
+        ReturnFullContactData: false,
+        SearchScope: "ActiveDirectory",
+        m$UnresolvedEntry: legacyDN,
+      },
+    };
+    let response = await this.callEWS(request);
+    let resolutions = ensureArray(response.ResolutionSet?.Resolution);
+    if (resolutions.length != 1) {
+      return null;
+    }
+    let mailbox = resolutions[0].Mailbox;
+    let emailAddress = sanitize.emailAddress(mailbox?.EmailAddress, null);
+    if (!emailAddress) {
+      return null;
+    }
+    return new PersonUID(emailAddress, sanitize.nonemptylabel(mailbox.Name, null) ?? undefined);
+  }
+
   async findSharedFolders(person: PersonUID, DistinguishedIDs: string[]): Promise<string[]> {
     if (this.mainAccount) {
       throw new NotReached();
@@ -1337,6 +1370,71 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     let foldersToShare = (!mailFolder ? this.getAllFolders() : includeSubfolders ? mailFolder.getInclusiveDescendants() : new ArrayColl<Folder>([mailFolder]));
     for (let folder of foldersToShare) {
       await setExchangePermissions(folder as EWSFolder, otherPerson, access, ...permissions);
+    }
+  }
+
+  get canServerFilterRules(): boolean {
+    return !this.isDependentAccount;
+  }
+
+  newServerFilterRule(json: any): EWSFilterRule {
+    return new EWSFilterRule(this, json);
+  }
+
+  protected async fetchServerFilterRules(): Promise<FilterRuleAction[]> {
+    let response = await this.callEWS({ m$GetInboxRules: {} });
+    this.setOutlookRulesExist(sanitize.boolean(response.OutlookRuleBlobExists, false));
+    let serverRules = ensureArray(response.InboxRules?.Rule).map(json => this.newServerFilterRule(json));
+    await Promise.all(serverRules.map(serverRule => serverRule.resolveAddresses()));
+    return serverRules
+      .sort((a, b) => a.priority - b.priority);
+  }
+
+  protected async uploadServerFilterRules(rules: EWSFilterRule[], deletedIDs: string[]): Promise<void> {
+    let created: FilterRuleAction[] = [];
+    let createOperations = [];
+    let setOperations = [];
+    for (let [i, rule] of rules.entries()) {
+      let serverRule = this.newServerFilterRule(rule.json);
+      let changed = serverRule.withChangesFrom(rule, i + 1) as EWSFilterRule;
+      if (!rule.serverID) {
+        createOperations.push({ t$Rule: changed.toRequest(true) });
+        created.push(rule);
+      } else if (changed.isChangedFrom(serverRule)) {
+        setOperations.push({ t$Rule: changed.toRequest() });
+      }
+    }
+    if (!createOperations.length && !setOperations.length && !deletedIDs.length) {
+      return;
+    }
+    let request = {
+      m$UpdateInboxRules: {
+        m$RemoveOutlookRuleBlob: false,
+        m$Operations: {
+          t$CreateRuleOperation: createOperations,
+          t$SetRuleOperation: setOperations,
+          t$DeleteRuleOperation: deletedIDs.map(id => ({ t$RuleId: id })),
+        },
+      },
+    };
+    try {
+      await this.callEWS(request);
+    } catch (ex) {
+      if (ex.type == "ErrorOutlookRuleBlobExists") {
+        this.setOutlookRulesExist(true);
+        throw new UserError(this.serverFilterRulesReadonly);
+      }
+      throw ex;
+    }
+    if (!created.length) {
+      return;
+    }
+    // Exchange does not return the IDs of the created rules
+    let knownIDs = new Set(rules.map(rule => rule.serverID));
+    let newOnServer = (await this.fetchServerFilterRules()).filter(fetched => !knownIDs.has(fetched.serverID));
+    for (let rule of created) {
+      let index = Math.max(0, newOnServer.findIndex(fetched => fetched.name == rule.name));
+      rule.serverID = newOnServer.splice(index, 1)[0]?.serverID ?? null;
     }
   }
 

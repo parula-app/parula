@@ -1,7 +1,6 @@
 import type { EWSCalendar } from "./EWSCalendar";
 import type { EWSAccount } from "../../Mail/EWS/EWSAccount";
 import { MAPIAddressBookEntryID, MAPIEntryID, MAPIStoreEntryID } from "../../Mail/EWS/MAPIEntryID";
-import { PersonUID } from "../../Abstract/PersonUID";
 import { ensureArray } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 
@@ -143,7 +142,7 @@ export class EWSCalendarShortcut {
   }
 
   async createCalendar(): Promise<EWSCalendar | null> {
-    let owner = await this.resolveOwner();
+    let owner = await this.account.resolveLegacyDN(this.ownerLegacyDN);
     if (!owner || this.account.isMyEMailAddress(owner.emailAddress)) {
       return null;
     }
@@ -186,27 +185,6 @@ export class EWSCalendarShortcut {
       username: owner.emailAddress,
       color: this.account.colorForSharedAccount(owner),
     });
-  }
-
-  protected async resolveOwner(): Promise<PersonUID | null> {
-    let request = {
-      m$ResolveNames: {
-        ReturnFullContactData: false,
-        SearchScope: "ActiveDirectory",
-        m$UnresolvedEntry: this.ownerLegacyDN,
-      },
-    };
-    let response = await this.account.callEWS(request);
-    let resolutions = ensureArray(response.ResolutionSet?.Resolution);
-    if (resolutions.length != 1) {
-      return null;
-    }
-    let mailbox = resolutions[0].Mailbox;
-    let emailAddress = sanitize.emailAddress(mailbox?.EmailAddress, null);
-    if (!emailAddress) {
-      return null;
-    }
-    return new PersonUID(emailAddress, sanitize.nonemptylabel(mailbox.Name, null) ?? undefined);
   }
 
   protected async convertFolderEntryID(mailbox: string): Promise<string> {
