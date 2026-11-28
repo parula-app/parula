@@ -5,7 +5,7 @@ import { ExchangeCalendar } from "../../Calendar/EWS/ExchangeCalendar";
 import { PersonUID } from "../../Abstract/PersonUID";
 import { appGlobal } from "../../app";
 import { OutlookFilterRules } from "./OutlookFilterRules";
-import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
+import type { ServerFilterRule } from "../FilterRules/ServerFilterRule";
 import { AbstractFunction, UserError } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { gt } from "../../../l10n/l10n";
@@ -78,7 +78,7 @@ export class ExchangeMailAccount extends MailAccount {
   protected setOutlookRulesExist(exist: boolean) {
     this.mayDeleteOutlookRulesCopy = false;
     this.serverFilterRulesNotice = null;
-    this.serverFilterRulesReadOnlyReason = exist
+    this.serverFilterRulesReadonly = exist
       ? gt`Classic Outlook keeps its own copy of the rules for this account. Exchange would delete it when the rules change here, and the rules in Outlook for sent mail and the rules that are turned off in Outlook would be lost. You can change the rules in Outlook.`
       : null;
   }
@@ -87,7 +87,7 @@ export class ExchangeMailAccount extends MailAccount {
    * if the copy has no rules that the server does not have. Then, Outlook can make the same copy again.
    * @param serverRules All rules on the server
    * @param exists Whether the server said that the copy exists. null, if it did not say. */
-  protected async checkOutlookRulesCopy(serverRules: FilterRuleAction[], exists: boolean | null) {
+  protected async checkOutlookRulesCopy(serverRules: ServerFilterRule[], exists: boolean | null) {
     if (exists === false) {
       this.setOutlookRulesExist(false);
       return;
@@ -108,10 +108,10 @@ export class ExchangeMailAccount extends MailAccount {
     }
     this.setOutlookRulesExist(true);
     if (lostRules.length) {
-      this.serverFilterRulesReadOnlyReason = gt`Classic Outlook keeps its own copy of the rules for this account. Exchange would delete it when the rules change here, and these rules would be lost, because only Outlook has them: ${lostRules.join(", ")}. You can change the rules in Outlook.`;
+      this.serverFilterRulesReadonly = gt`Classic Outlook keeps its own copy of the rules for this account. Exchange would delete it when the rules change here, and these rules would be lost, because only Outlook has them: ${lostRules.join(", ")}. You can change the rules in Outlook.`;
       return;
     }
-    this.serverFilterRulesReadOnlyReason = null;
+    this.serverFilterRulesReadonly = null;
     this.serverFilterRulesNotice = gt`Classic Outlook keeps its own copy of the rules for this account. When the rules change here, Exchange deletes it, and Outlook makes a new one.`;
     this.mayDeleteOutlookRulesCopy = true;
   }
@@ -123,8 +123,8 @@ export class ExchangeMailAccount extends MailAccount {
       return;
     }
     await this.fetchServerFilterRules();
-    if (this.serverFilterRulesReadOnlyReason) {
-      throw new UserError(this.serverFilterRulesReadOnlyReason);
+    if (this.serverFilterRulesReadonly) {
+      throw new UserError(this.serverFilterRulesReadonly);
     }
   }
 

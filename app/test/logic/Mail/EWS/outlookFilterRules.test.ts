@@ -1,10 +1,10 @@
 import { OutlookFilterRules } from "../../../../logic/Mail/EWS/OutlookFilterRules";
-import type { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import type { ServerFilterRule } from "../../../../logic/Mail/FilterRules/ServerFilterRule";
 import { outlookRulesStream } from "./outlookRulesStream";
 import { expect, test } from "vitest";
 
-function serverRules(...names: string[]): FilterRuleAction[] {
-  return names.map(name => ({ name }) as FilterRuleAction);
+function serverRules(...names: string[]): ServerFilterRule[] {
+  return names.map(name => ({ name }) as ServerFilterRule);
 }
 
 test("Outlook's copy of the rules: name, state and moment of each rule", () => {

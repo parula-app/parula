@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { appGlobal } from "../../../../logic/app.ts"; // defeats circular import
 import { GraphAccount } from "../../../../logic/Mail/Graph/GraphAccount";
-import { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { GraphFilterRule } from "../../../../logic/Mail/Graph/GraphFilterRule";
+import { FilterRuleAction, LocalFilterRule } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
 import { Person } from "../../../../logic/Abstract/Person";
 import { expect, test } from "vitest";
 
@@ -101,9 +102,8 @@ test("Graph: Create a server rule, and delete one", async () => {
   await account.refreshServerFilterRules();
   account.filterRuleActions.remove(rule(account, "Invoices"));
   account.rules.splice(0, 1); // The server deleted it
-  let created = new FilterRuleAction(account);
+  let created = account.newFilterRule(true);
   created.name = "Offers";
-  created.server = true;
   created.criteria.bodyText = "offer";
   created.deleteTrash = true;
   account.filterRuleActions.add(created);
@@ -130,11 +130,35 @@ test("Graph: A date span is not saved to the server, because Graph cannot check 
   expect(account.requests).toEqual([]);
 });
 
+test("Graph: A local rule with a date span does not move to the server, because Graph cannot check it", async () => {
+  let account = new TestGraphAccount();
+  let local = new LocalFilterRule(account);
+  local.name = "Old mails";
+  local.criteria.sentDateMax = new Date("2026-01-01T00:00:00Z");
+  local.markAsRead = true;
+
+  expect(() => local.runBy(true, account.filterRuleActions)).toThrow("Old mails");
+});
+
+test("Graph: After a restart, the server rules are Graph rules, and saving them changes nothing", async () => {
+  let account = new TestGraphAccount();
+  account.emailAddress = "alice@example.com";
+  await account.refreshServerFilterRules();
+
+  let restarted = new TestGraphAccount();
+  restarted.fromConfigJSON(JSON.parse(JSON.stringify(account.toConfigJSON())));
+
+  expect(restarted.filterRuleActions.contents.every(rule => rule instanceof GraphFilterRule)).toBe(true);
+  expect(rule(restarted, "Newsletters").unknownParts.length).toBe(3);
+  await restarted.saveServerFilterRules();
+  expect(restarted.requests).toEqual([]);
+});
+
 test("Graph: The parts of a rule that we can't show are listed as text", async () => {
   let account = new TestGraphAccount();
   await account.refreshServerFilterRules();
 
-  let parts = rule(account, "Newsletters").serverRule.unknownParts;
+  let parts = rule(account, "Newsletters").unknownParts;
 
   expect(parts.length).toBe(3); // sent to me, the exception, stop processing
   expect(parts.some(part => part.includes("urgent"))).toBe(true);
@@ -145,7 +169,7 @@ test("Graph: A read-only rule is neither changed nor moved", async () => {
   account.rules[1].isReadOnly = true; // "Newsletters", which runs first
   await account.refreshServerFilterRules();
   let newsletters = rule(account, "Newsletters");
-  expect(newsletters.readOnlyReason).toBeTruthy();
+  expect(newsletters.readonly).toBeTruthy();
 
   account.filterRuleActions.replaceAll([rule(account, "Invoices"), newsletters]);
   await account.saveServerFilterRules();
@@ -180,7 +204,7 @@ test("Graph: The parts of a rule in all sections are shown", async () => {
   let testRule = rule(account, "test rule");
 
   expect(testRule.criteria.tags.contents.map(tag => tag.name)).toEqual(["Rote Kategorie"]);
-  let parts = testRule.serverRule.unknownParts;
+  let parts = testRule.unknownParts;
   expect(parts.length).toBe(7);
   expect(parts.filter(part => part.startsWith("Conditions: ")).length).toBe(3);
   expect(parts.filter(part => part.startsWith("Exceptions: ")).length).toBe(2);
@@ -192,5 +216,5 @@ test("Graph: A rule with a desktop alert of classic Outlook, which Graph gives r
   account.rules.push({ id: "rule-6", displayName: "test rule", sequence: 3, isEnabled: true, hasError: false, isReadOnly: true });
   await account.refreshServerFilterRules();
 
-  expect(rule(account, "test rule").serverRule.unknownParts.join()).toMatch(/does not report/);
+  expect(rule(account, "test rule").unknownParts.join()).toMatch(/does not report/);
 });

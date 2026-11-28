@@ -4,7 +4,8 @@ import { ContactEntry, Person } from "../../../../logic/Abstract/Person";
 import { DeleteStrategy, MailAccount } from "../../../../logic/Mail/MailAccount";
 import { Folder, SpecialFolder } from "../../../../logic/Mail/Folder";
 import { EMail } from "../../../../logic/Mail/EMail";
-import { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { LocalFilterRule } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { ServerFilterRule } from "../../../../logic/Mail/FilterRules/ServerFilterRule";
 import { FilterMoment } from "../../../../logic/Mail/FilterRules/FilterMoments";
 import { SQLMailStorage } from "../../../../logic/Mail/SQL/SQLMailStorage";
 import { getDatabase } from "../../../../logic/Mail/SQL/SQLDatabase";
@@ -22,7 +23,7 @@ appGlobal.me = new Person(); // as `startup.ts` does
 
 test("The tags of a rule survive saving and reading the config", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.name = "Newsletters";
   rule.addTags.add(getTagByName("Newsletter"));
   account.filterRuleActions.add(rule);
@@ -37,7 +38,7 @@ test("The tags of a rule survive saving and reading the config", async () => {
 
 test("The target folder of a rule survives saving and reading the config", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.name = "Newsletters";
   rule.toFolder = account.findFolder(folder => folder.name == "Newsletters");
   account.filterRuleActions.add(rule);
@@ -52,7 +53,7 @@ test("The target folder of a rule survives saving and reading the config", async
 // The config is read before the address books, and the sender may be in none of them
 test("A rule for the mails of one sender stays limited to that sender after reading the config", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   let sender = new Person();
   sender.emailAddresses.add(new ContactEntry("bob@example.com", "primary"));
   rule.criteria.includesPerson = sender;
@@ -71,7 +72,7 @@ test("A rule for the mails of one sender stays limited to that sender after read
 
 test("A rule marks the mail as read and tags it, in the database", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.markAsRead = true;
   rule.addTags.add(getTagByName("Newsletter"));
   account.filterRuleActions.add(rule);
@@ -86,7 +87,7 @@ test("A rule marks the mail as read and tags it, in the database", async () => {
 
 test("A rule moves the mail out of the inbox, and it does not come back", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.toFolder = account.findFolder(folder => folder.name == "Newsletters");
   account.filterRuleActions.add(rule);
 
@@ -100,7 +101,7 @@ test("A rule moves the mail out of the inbox, and it does not come back", async 
 
 test("A rule copies the mail, and the original stays in the inbox", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.toFolder = account.findFolder(folder => folder.name == "Newsletters");
   rule.copy = true;
   account.filterRuleActions.add(rule);
@@ -115,7 +116,7 @@ test("A rule copies the mail, and the original stays in the inbox", async () => 
 
 test("A delete rule deletes with the strategy that the rule asks for", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.deleteImmediately = true;
   account.filterRuleActions.add(rule);
 
@@ -126,7 +127,7 @@ test("A delete rule deletes with the strategy that the rule asks for", async () 
 
 test("Rules do not run on the mail in other folders", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.markAsRead = true;
   account.filterRuleActions.add(rule);
 
@@ -139,8 +140,7 @@ test("Rules do not run on the mail in other folders", async () => {
 
 test("A rule that the server runs does not run here", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
-  rule.server = true;
+  let rule = new ServerFilterRule(account, null);
   rule.markAsRead = true;
   account.filterRuleActions.add(rule);
 
@@ -153,7 +153,7 @@ test("A rule that the server runs does not run here", async () => {
 
 test("A rule for mails that I send does not run on incoming mail", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.when = FilterMoment.Outgoing;
   rule.markAsRead = true;
   account.filterRuleActions.add(rule);
@@ -167,7 +167,7 @@ test("A rule for mails that I send does not run on incoming mail", async () => {
 
 test("A rule for mails that I send runs on the mails in the Sent folder", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.when = FilterMoment.Outgoing;
   rule.addTags.add(getTagByName("Sent by me"));
   account.filterRuleActions.add(rule);
@@ -182,7 +182,7 @@ test("A rule for mails that I send runs on the mails in the Sent folder", async 
 
 test("A rule that marks as not spam leaves the mail in the inbox, also without a spam folder", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.markAsSpam = false;
   rule.markAsRead = true;
   account.filterRuleActions.add(rule);
@@ -197,7 +197,7 @@ test("A rule that marks as not spam leaves the mail in the inbox, also without a
 
 test("A rule whose criteria do not match leaves the mail alone", async () => {
   let account = await setupAccount();
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.criteria.bodyText = "invoice";
   rule.markAsRead = true;
   account.filterRuleActions.add(rule);
@@ -213,10 +213,10 @@ test("A rule whose action fails does not stop the other rules", async () => {
   let account = await setupAccount();
   let errors = new ArrayColl<Error>();
   account.errorCallback = ex => errors.add(ex);
-  let broken = new FilterRuleAction(account);
+  let broken = new LocalFilterRule(account);
   broken.toFolderID = "folder that the user deleted on the server";
   account.filterRuleActions.add(broken);
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.addTags.add(getTagByName("Newsletter"));
   account.filterRuleActions.add(rule);
 

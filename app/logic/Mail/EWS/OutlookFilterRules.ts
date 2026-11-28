@@ -1,4 +1,4 @@
-import type { FilterRuleAction } from "../FilterRules/FilterRuleAction";
+import type { ServerFilterRule } from "../FilterRules/ServerFilterRule";
 import { NotSupported } from "../../util/util";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { ArrayColl } from "svelte-collections";
@@ -76,7 +76,7 @@ export class OutlookFilterRules {
   /** The rules that exist only in this copy. They would be lost, if Exchange deleted it:
    * The server has no rules for sent mail, and not all rules that are turned off in Outlook.
    * @param serverRules All rules on the server */
-  lostRules(serverRules: FilterRuleAction[]): ArrayColl<OutlookRule> {
+  lostRules(serverRules: ServerFilterRule[]): ArrayColl<OutlookRule> {
     let serverNames = serverRules.map(rule => rule.name);
     let lost = new ArrayColl<OutlookRule>();
     for (let rule of this.rules) {

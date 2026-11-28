@@ -1386,11 +1386,9 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     let response = await this.callEWS({ m$GetInboxRules: {} });
     let serverRules = ensureArray(response.InboxRules?.Rule).map(json => this.newServerFilterRule(json));
     await Promise.all(serverRules.map(serverRule => serverRule.resolveAddresses()));
-    let rules = serverRules
-      .sort((a, b) => a.priority - b.priority)
-      .map(serverRule => serverRule.toFilterRule());
-    await this.checkOutlookRulesCopy(rules, sanitize.boolean(response.OutlookRuleBlobExists, false));
-    return rules;
+    serverRules.sort((a, b) => a.priority - b.priority);
+    await this.checkOutlookRulesCopy(serverRules, sanitize.boolean(response.OutlookRuleBlobExists, false));
+    return serverRules;
   }
 
   protected async fetchOutlookRulesStreams(): Promise<Uint8Array[]> {
@@ -1450,12 +1448,12 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     return streams;
   }
 
-  protected async uploadServerFilterRules(rules: FilterRuleAction[], deletedIDs: string[]): Promise<void> {
+  protected async uploadServerFilterRules(rules: EWSFilterRule[], deletedIDs: string[]): Promise<void> {
     let created: FilterRuleAction[] = [];
     let createOperations = [];
     let setOperations = [];
     for (let [i, rule] of rules.entries()) {
-      let serverRule = this.newServerFilterRule(rule.serverJSON);
+      let serverRule = this.newServerFilterRule(rule.json);
       let changed = serverRule.withChangesFrom(rule, i + 1) as EWSFilterRule;
       if (!rule.serverID) {
         createOperations.push({ t$Rule: changed.toRequest(true) });
@@ -1483,7 +1481,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     } catch (ex) {
       if (ex.type == "ErrorOutlookRuleBlobExists") {
         this.setOutlookRulesExist(true);
-        throw new UserError(this.serverFilterRulesReadOnlyReason);
+        throw new UserError(this.serverFilterRulesReadonly);
       }
       throw ex;
     }

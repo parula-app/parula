@@ -7,7 +7,7 @@
   <hbox class="toolbar">
     <DialogButton label={$t`New Rule…`} icon={NewIcon} classes="plain" onClick={onNew} />
     <DialogButton label={$t`Change Rule`} icon={EditIcon} classes="plain" hasMenu
-      disabled={!selected ? noSelection : readOnlyReason ?? false}
+      disabled={!selected ? noSelection : readonly ?? false}
       onClick={() => { isChangeMenuOpen = !isChangeMenuOpen; }}
       bind:buttonEl={changeButton} />
     <Menu bind:isMenuOpen={isChangeMenuOpen} anchor={changeButton} placement="bottom-start">
@@ -19,17 +19,17 @@
       <MenuItem label={$t`Delete Message *=> Change the rule so that it deletes the emails`} icon={DeleteMessageIcon} onClick={onDeleteMessage} />
     </Menu>
     <DialogButton label={$t`Copy… *=> Copy the selected rule to another account`} icon={CopyIcon} classes="plain"
-      disabled={!selected ? noSelection : readOnlyReason ?? false} onClick={() => { isCopying = true; }} />
+      disabled={!selected ? noSelection : readonly ?? false} onClick={() => { isCopying = true; }} />
     <DialogButton label={$t`Delete`} icon={DeleteIcon} classes="plain"
-      disabled={!selected ? noSelection : readOnlyReason ?? false} onClick={onDelete} />
+      disabled={!selected ? noSelection : readonly ?? false} onClick={onDelete} />
     <hbox class="separator" />
     <DialogButton label="" icon={MoveUpIcon} classes="plain"
       tooltip={$t`Move Up *=> Move the selected rule up in the list`}
-      disabled={readOnlyReason ?? (!canMoveUp && $t`This rule runs first`)}
+      disabled={readonly ?? (!canMoveUp && $t`This rule runs first`)}
       onClick={() => onMove(-1)} />
     <DialogButton label="" icon={MoveDownIcon} classes="plain"
       tooltip={$t`Move Down *=> Move the selected rule down in the list`}
-      disabled={readOnlyReason ?? (!canMoveDown && $t`This rule runs last`)}
+      disabled={readonly ?? (!canMoveDown && $t`This rule runs last`)}
       onClick={() => onMove(1)} />
   </hbox>
   <vbox flex class="list">
@@ -47,13 +47,13 @@
     {/if}
   </vbox>
   <span class="description-label">{$t`Rule description (click an underlined value to edit)`}</span>
-  <RuleDescriptionBox lines={descriptionLines} readOnly={!!readOnlyReason} on:edit={event => onValueClick(event.detail)} />
+  <RuleDescriptionBox lines={descriptionLines} readOnly={!!readonly} on:edit={event => onValueClick(event.detail)} />
   {#if account.canServerFilterRules && selected}
     <hbox class="run-by">
       <span>{$t`Run by *=> Who runs the rule: this app, or the mail server`}</span>
-      <Radio label={appName} name="run-by" value={false} group={selected.server} on:change={() => onRunBy(false)}
+      <Radio label={appName} name="run-by" value={false} group={selected.server} on:change={() => catchErrors(() => onRunBy(false))}
         disabled={cannotRunHere ?? false} />
-      <Radio label={$t`The mail server`} name="run-by" value={true} group={selected.server} on:change={() => onRunBy(true)}
+      <Radio label={$t`The mail server`} name="run-by" value={true} group={selected.server} on:change={() => catchErrors(() => onRunBy(true))}
         disabled={cannotRunOnServer ?? false} />
     </hbox>
   {/if}
@@ -192,11 +192,11 @@
   $: canMoveUp = !!selected && $rules && rules.indexOf(selected) > 0;
   $: canMoveDown = !!selected && $rules && rules.indexOf(selected) >= 0 && rules.indexOf(selected) < rules.length - 1;
   $: descriptionLines = selected && version >= 0 ? ruleDescriptionLines(selected) : [];
-  $: readOnlyReason = selected && version >= 0 && $account ? selected.readOnlyReason : null;
-  $: unknownParts = selected?.server && version >= 0 ? selected.serverRule?.unknownParts ?? [] : [];
+  $: readonly = selected && version >= 0 && $account ? selected.readonly : null;
+  $: unknownParts = selected && version >= 0 ? selected.unknownParts : [];
   $: notice = selected?.server && version >= 0 ? $account.serverFilterRulesNotice : null;
-  $: cannotRunHere = readOnlyReason ?? (unknownParts.length ? $t`${appName} cannot run all parts of this rule` : null);
-  $: cannotRunOnServer = readOnlyReason ?? (selected?.server ? null : $account.serverFilterRulesReadOnlyReason);
+  $: cannotRunHere = readonly ?? (unknownParts.length ? $t`${appName} cannot run all parts of this rule` : null);
+  $: cannotRunOnServer = readonly ?? (selected?.server || !$account.canServerFilterRules || version < 0 ? null : selected?.cannotRunOnServer);
 
   function workingList(mailAccount: MailAccount): RulesWorkingList {
     let existing = workingLists.get(mailAccount);
@@ -227,7 +227,7 @@
   }
 
   function onRunBy(server: boolean) {
-    selected.server = server;
+    selected = selected.runBy(server, rules);
     changed();
   }
 
@@ -237,7 +237,7 @@
   }
 
   function onEdit() {
-    if (!selected || readOnlyReason) {
+    if (!selected || readonly) {
       return;
     }
     editedRule = selected;

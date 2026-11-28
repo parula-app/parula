@@ -2,7 +2,9 @@
 import { appGlobal } from "../../../../logic/app.ts"; // defeats circular import
 import { OWAAccount } from "../../../../logic/Mail/OWA/OWAAccount";
 import { OWAError } from "../../../../logic/Mail/OWA/OWAError";
-import { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { OWAFilterRule } from "../../../../logic/Mail/OWA/OWAFilterRule";
+import { FilterRuleAction, LocalFilterRule } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { getTagByName } from "../../../../logic/Abstract/Tag";
 import { Person } from "../../../../logic/Abstract/Person";
 import { getTagByName } from "../../../../logic/Abstract/Tag";
 import { outlookRulesStream, base64 } from "../EWS/outlookRulesStream";
@@ -132,9 +134,8 @@ test("OWA: Create and delete server rules", async () => {
   let account = newTestAccount();
   await account.refreshServerFilterRules();
   account.filterRuleActions.remove(rule(account, "Invoices"));
-  let created = new FilterRuleAction(account);
+  let created = account.newFilterRule(true);
   created.name = "Offers";
-  created.server = true;
   created.criteria.bodyText = "offer";
   created.toFolder = account.findFolder(folder => folder.name == "Newsletters");
   account.filterRuleActions.add(created);
@@ -163,11 +164,37 @@ test("OWA: The error that the server gives for a rule", async () => {
   await expect(account.saveServerFilterRules()).rejects.toThrow("The folder doesn't exist.");
 });
 
+test("OWA: A local rule for a tag does not move to the server, because OWA cannot check categories", async () => {
+  let account = newTestAccount();
+  let local = new LocalFilterRule(account);
+  local.name = "Family";
+  local.criteria.tags.add(getTagByName("Family"));
+  local.markAsRead = true;
+
+  expect(local.cannotRunOnServer).toContain("Family");
+  expect(() => local.runBy(true, account.filterRuleActions)).toThrow("Family");
+  local.criteria.tags.clear();
+  expect(local.runBy(true, account.filterRuleActions)).toBeInstanceOf(OWAFilterRule);
+});
+
+test("OWA: After a restart, the server rules are OWA rules, and saving them changes nothing", async () => {
+  let account = newTestAccount();
+  await account.refreshServerFilterRules();
+
+  let restarted = newTestAccount();
+  restarted.fromConfigJSON(JSON.parse(JSON.stringify(account.toConfigJSON())));
+
+  expect(restarted.filterRuleActions.contents.every(rule => rule instanceof OWAFilterRule)).toBe(true);
+  expect(rule(restarted, "Newsletters").toFolder?.name).toBe("Newsletters");
+  await restarted.saveServerFilterRules();
+  expect(restarted.changes).toEqual([]);
+});
+
 test("OWA: The parts of a rule that we can't show are listed as text", async () => {
   let account = newTestAccount();
   await account.refreshServerFilterRules();
 
-  let parts = rule(account, "Newsletters").serverRule.unknownParts;
+  let parts = rule(account, "Newsletters").unknownParts;
 
   expect(parts.length).toBe(3); // my name in To, the exception, stop processing
   expect(parts.some(part => part.includes("urgent"))).toBe(true);
@@ -193,8 +220,8 @@ test("OWA: A rule with all the parameters that Exchange Online sends is understo
   expect(testMail.criteria.bodyText).toBe("Test Mail");
   expect(testMail.toFolder?.name).toBe("Test Mails");
   expect(testMail.copy).toBe(true);
-  expect(testMail.readOnlyReason).toBeNull();
-  expect(testMail.serverRule.unknownParts).toEqual([]);
+  expect(testMail.readonly).toBeNull();
+  expect(testMail.unknownParts).toEqual([]);
 });
 
 test("OWA: A rule for the word 0 is understood, not dropped", async () => {
@@ -212,12 +239,11 @@ test("OWA: A rule from Exchange Online with a part that we can't show still list
   await account.refreshServerFilterRules();
   let testMail = rule(account, "Test Mail");
 
-  let parts = testMail.serverRule.unknownParts;
+  let parts = testMail.unknownParts;
   expect(parts.length).toBe(2);
   expect(parts.join()).toContain("bob@example.com");
   expect(parts.join()).toContain("High");
-  testMail.server = false;
-  await expect(account.saveServerFilterRules()).rejects.toThrow("Test Mail");
+  expect(() => testMail.runBy(false, account.filterRuleActions)).toThrow("Test Mail");
 });
 
 /** A rule from classic Outlook with a category, exceptions and a desktop alert, as Exchange Online sends it */
@@ -245,7 +271,7 @@ test("OWA: The category of a rule from Exchange Online is a criterion", async ()
   let testRule = rule(account, "test rule");
 
   expect(testRule.criteria.tags.contents.map(tag => tag.name)).toEqual(["Rote Kategorie"]);
-  expect(testRule.serverRule.unknownParts.join()).not.toContain("Rote Kategorie");
+  expect(testRule.unknownParts.join()).not.toContain("Rote Kategorie");
 });
 
 test("OWA: Exchange Online can check a category, Exchange on premises cannot", async () => {
@@ -265,7 +291,7 @@ test("OWA: The parts that we can't show are listed as conditions, exceptions and
   let account = newTestAccountWithOutlookRule();
   await account.refreshServerFilterRules();
 
-  let parts = rule(account, "test rule").serverRule.unknownParts;
+  let parts = rule(account, "test rule").unknownParts;
 
   expect(parts.length).toBe(8);
   expect(parts.filter(part => part.startsWith("Conditions: ")).length).toBe(3); // header, message type, importance
@@ -281,7 +307,7 @@ test("OWA: A folder that we can't find by its name is not shown, and stays", asy
   let newsletters = rule(account, "Newsletters");
 
   expect(newsletters.toFolderID).toBeNull();
-  expect(newsletters.serverRule.unknownParts.join()).toContain("Old newsletters");
+  expect(newsletters.unknownParts.join()).toContain("Old newsletters");
 
   newsletters.criteria.bodyText = "acme";
   await account.saveServerFilterRules();
@@ -302,7 +328,7 @@ test("OWA: While Outlook keeps its own copy of the rules, the server rules becom
   rule(account, "Invoices").markAsRead = null;
 
   await expect(account.saveServerFilterRules()).rejects.toThrow(/Outlook/);
-  expect(rule(account, "Newsletters").readOnlyReason).toMatch(/Outlook/);
+  expect(rule(account, "Newsletters").readonly).toMatch(/Outlook/);
 });
 
 test("OWA: When Outlook's copy of the rules has no rules of its own, the server rules stay editable, and Exchange may delete the copy", async () => {
@@ -310,7 +336,7 @@ test("OWA: When Outlook's copy of the rules has no rules of its own, the server 
   account.outlookRulesStreams = [outlookRulesStream([{ name: "Newsletters" }, { name: "Invoices" }])];
 
   await account.refreshServerFilterRules();
-  expect(rule(account, "Invoices").readOnlyReason).toBeNull();
+  expect(rule(account, "Invoices").readonly).toBeNull();
   expect(account.serverFilterRulesNotice).toMatch(/Outlook/);
 
   rule(account, "Invoices").criteria.bodyText = "bill";
@@ -337,7 +363,7 @@ test("OWA: The rules that only Outlook's copy of the rules has keep the server r
 
   await account.refreshServerFilterRules();
 
-  let reason = rule(account, "Invoices").readOnlyReason;
+  let reason = rule(account, "Invoices").readonly;
   expect(reason).toContain("Cc my boss");
   expect(reason).not.toContain("Newsletters");
   expect(account.serverFilterRulesNotice).toBeNull();
@@ -354,7 +380,7 @@ test("OWA: If we can't look for Outlook's copy of the rules, the server asks bef
   };
 
   await account.refreshServerFilterRules();
-  expect(rule(account, "Invoices").readOnlyReason).toBeNull();
+  expect(rule(account, "Invoices").readonly).toBeNull();
   expect(account.dataErrors.length).toBe(1);
 
   rule(account, "Invoices").criteria.bodyText = "bill";

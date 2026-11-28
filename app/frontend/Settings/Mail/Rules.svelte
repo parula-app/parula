@@ -34,16 +34,16 @@
                   label={$t`Delete rule`}
                   icon={DeleteIcon}
                   onClick={onDelete}
-                  disabled={readOnlyReason}
+                  disabled={readonly}
                   />
               </hbox>
               <vbox class="content">
                 <grid class="name-grid">
                   <label for="name">{$t`Rule name`}</label>
-                  <input type="text" bind:value={rule.name} name="name" autofocus inert={!!readOnlyReason} />
+                  <input type="text" bind:value={rule.name} name="name" autofocus inert={!!readonly} />
 
                   <label for="when">{$t`When`}</label>
-                  <select bind:value={rule.when} inert={!!readOnlyReason}>
+                  <select bind:value={rule.when} inert={!!readonly}>
                     <option value={FilterMoment.IncomingBeforeSpam}>{$t`New mail arrives`}</option>
                     <option value={FilterMoment.IncomingAfterSpam}>{$t`New mail arrives, after spam filtering`}</option>
                     <option value={FilterMoment.Outgoing}>{$t`I send mail`}</option>
@@ -53,11 +53,11 @@
                     <label>{$t`Run by *=> Who runs the rule: this app, or the mail server`}</label>
                     <hbox class="run-by">
                       <label class="radio" title={cannotRunHere || null}>
-                        <input type="radio" value={false} bind:group={rule.server} disabled={!!cannotRunHere} />
+                        <input type="radio" name="run-by" checked={!rule.server} on:change={() => catchErrors(() => onRunBy(false))} disabled={!!cannotRunHere} />
                         {appName}
                       </label>
                       <label class="radio" title={cannotRunOnServer || null}>
-                        <input type="radio" value={true} bind:group={rule.server} disabled={!!cannotRunOnServer} />
+                        <input type="radio" name="run-by" checked={rule.server} on:change={() => catchErrors(() => onRunBy(true))} disabled={!!cannotRunOnServer} />
                         {$t`The mail server`}
                       </label>
                     </hbox>
@@ -85,14 +85,14 @@
 
             <HeaderGroupBox>
               <hbox slot="header">{$t`Criteria`}</hbox>
-              <vbox class="content" inert={!!readOnlyReason}>
+              <vbox class="content" inert={!!readonly}>
                 <SearchCriteria search={rule.criteria} showAccount={false} />
               </vbox>
             </HeaderGroupBox>
 
             <HeaderGroupBox>
               <hbox slot="header">{$t`Action`}</hbox>
-              <vbox class="content" inert={!!readOnlyReason}>
+              <vbox class="content" inert={!!readonly}>
                 <RuleActions {rule} />
               </vbox>
             </HeaderGroupBox>
@@ -103,7 +103,7 @@
             icon={SaveIcon}
             label={$t`Save`}
             onClick={onSave}
-            disabled={readOnlyReason}
+            disabled={readonly}
           />
         </hbox>
       {/if}
@@ -113,7 +113,7 @@
 
 <script lang="ts">
   import { MailAccount } from "../../../logic/Mail/MailAccount";
-  import { FilterRuleAction } from "../../../logic/Mail/FilterRules/FilterRuleAction";
+  import { FilterRuleAction, LocalFilterRule } from "../../../logic/Mail/FilterRules/FilterRuleAction";
   import { FilterMoment } from "../../../logic/Mail/FilterRules/FilterMoments";
   import SearchCriteria from "../../Mail/Search/SearchCriteria.svelte";
   import RuleActions from "../../Mail/Search/RuleActions.svelte";
@@ -143,15 +143,19 @@
   }
 
   $: account, catchErrors(() => account.refreshServerFilterRules());
-  $: readOnlyReason = $account && $rule ? rule.readOnlyReason : null;
-  $: unknownParts = $rule?.server ? rule.serverRule?.unknownParts ?? [] : [];
+  $: readonly = $account && $rule ? rule.readonly : null;
+  $: unknownParts = $rule?.unknownParts ?? [];
   $: notice = $rule?.server ? $account.serverFilterRulesNotice : null;
-  $: cannotRunHere = readOnlyReason ?? (unknownParts.length ? $t`${appName} cannot run all parts of this rule` : null);
-  $: cannotRunOnServer = readOnlyReason ?? ($rule?.server ? null : $account.serverFilterRulesReadOnlyReason);
+  $: cannotRunHere = readonly ?? (unknownParts.length ? $t`${appName} cannot run all parts of this rule` : null);
+  $: cannotRunOnServer = readonly ?? ($rule?.server || !$account.canServerFilterRules ? null : $rule?.cannotRunOnServer);
 
   function onAdd() {
-    rule = new FilterRuleAction(account);
+    rule = new LocalFilterRule(account);
     rule.name = "-";
+  }
+
+  function onRunBy(server: boolean) {
+    rule = rule.runBy(server, rules);
   }
 
   async function onDelete() {

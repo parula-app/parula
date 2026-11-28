@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 import { appGlobal } from "../../../../logic/app.ts"; // defeats circular import
 import { EWSAccount } from "../../../../logic/Mail/EWS/EWSAccount";
-import { FilterRuleAction } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { EWSFilterRule } from "../../../../logic/Mail/EWS/EWSFilterRule";
+import { FilterRuleAction, LocalFilterRule } from "../../../../logic/Mail/FilterRules/FilterRuleAction";
+import { FilterMoment } from "../../../../logic/Mail/FilterRules/FilterMoments";
 import { AuthMethod } from "../../../../logic/Abstract/Account";
 import { Person } from "../../../../logic/Abstract/Person";
 import { outlookRulesStream, base64 } from "./outlookRulesStream";
@@ -137,7 +139,7 @@ function newTestAccount(rules: string[]) {
 }
 
 function localRule(account: EWSAccount, name: string): FilterRuleAction {
-  let rule = new FilterRuleAction(account);
+  let rule = new LocalFilterRule(account);
   rule.name = name;
   rule.markAsRead = true;
   account.filterRuleActions.add(rule);
@@ -217,7 +219,7 @@ test("EWS: Create, delete and reorder server rules", async () => {
   account.filterRuleActions.remove(rule(account, "Newsletters"));
   let created = localRule(account, "Created");
   created.criteria.bodyText = "offer";
-  created.server = true;
+  created = created.runBy(true, account.filterRuleActions);
   server.onUpdate = () => server.rules = [
     kInvoicesRule.replace("<Priority>2", "<Priority>1"),
     kInvoicesRule.replace("rule-2", "rule-3").replace("Invoices", "Created"), // with a new ID
@@ -242,17 +244,21 @@ test("EWS: Create, delete and reorder server rules", async () => {
 });
 
 test("EWS: A rule that the user made local again is deleted on the server", async () => {
-  let { account, updates } = newTestAccount([kNewslettersRule, kInvoicesRule]);
+  let { account, updates, server } = newTestAccount([kNewslettersRule, kInvoicesRule]);
   await account.refreshServerFilterRules();
   let invoices = rule(account, "Invoices");
+  server.onUpdate = () => server.rules = [kNewslettersRule];
 
-  invoices.server = false;
+  invoices = invoices.runBy(false, account.filterRuleActions);
   await account.saveServerFilterRules();
 
   let deleted = updates[0].getElementsByTagName("t:DeleteRuleOperation");
   expect([...deleted].map(operation => operation.textContent.trim())).toEqual(["rule-2"]);
+  expect(invoices.server).toBe(false);
   expect(invoices.serverID).toBeNull();
+  expect(invoices.criteria.bodyText).toBe("invoice");
   expect(account.filterRuleActions.contents).toContain(invoices);
+  expect(account.filterRuleActions.contents.filter(rule => rule.server).map(rule => rule.name)).toEqual(["Newsletters"]);
 });
 
 test("EWS: A criterion that Exchange cannot check is not saved to the server", async () => {
@@ -299,7 +305,7 @@ test("EWS: The parts of a rule that we can't show are listed as text", async () 
   let { account } = newTestAccount([kNewslettersRule]);
   await account.refreshServerFilterRules();
 
-  let parts = rule(account, "Newsletters").serverRule.unknownParts;
+  let parts = rule(account, "Newsletters").unknownParts;
 
   expect(parts.length).toBe(3); // sent to me, the exception, stop processing
   expect(parts.some(part => part.includes("urgent"))).toBe(true);
@@ -313,7 +319,7 @@ test("EWS: A condition with several senders is not shown as one sender, and stay
   let family = rule(account, "Family");
 
   expect(family.criteria.includesPersonEMail).toBeNull();
-  expect(family.serverRule.unknownParts.join()).toContain("dad@example.com");
+  expect(family.unknownParts.join()).toContain("dad@example.com");
 
   family.name = "Parents";
   await account.saveServerFilterRules();
@@ -337,8 +343,8 @@ test("EWS: A rule that Exchange does not support is read-only, but can move", as
   let { account, updates } = newTestAccount([kInvoicesRule.replace("<Priority>2", "<Priority>1"), unsupported.replace("<Priority>1", "<Priority>2")]);
   await account.refreshServerFilterRules();
   let family = rule(account, "Family");
-  expect(family.readOnlyReason).toBeTruthy();
-  expect(rule(account, "Invoices").readOnlyReason).toBeNull();
+  expect(family.readonly).toBeTruthy();
+  expect(rule(account, "Invoices").readonly).toBeNull();
   await account.saveServerFilterRules();
   expect(updates).toEqual([]);
 
@@ -360,13 +366,14 @@ test("EWS: While Outlook keeps its own copy of the rules, the server rules are r
 
   await account.refreshServerFilterRules();
 
-  expect(account.serverFilterRulesReadOnlyReason).toMatch(/Outlook/);
-  expect(rule(account, "Invoices").readOnlyReason).toBe(account.serverFilterRulesReadOnlyReason);
-  expect(local.readOnlyReason).toBeNull();
+  expect(account.serverFilterRulesReadonly).toMatch(/Outlook/);
+  expect(rule(account, "Invoices").readonly).toBe(account.serverFilterRulesReadonly);
+  expect(local.readonly).toBeNull();
+  expect(local.cannotRunOnServer).toBe(account.serverFilterRulesReadonly);
 
   server.outlookRulesExist = false;
   await account.refreshServerFilterRules();
-  expect(rule(account, "Invoices").readOnlyReason).toBeNull();
+  expect(rule(account, "Invoices").readonly).toBeNull();
 });
 
 test("EWS: When Outlook's copy of the rules has no rules of its own, the server rules stay editable, and Exchange may delete the copy", async () => {
@@ -375,7 +382,7 @@ test("EWS: When Outlook's copy of the rules has no rules of its own, the server 
   server.outlookRulesStreams = [outlookRulesStream([{ name: "Newsletters" }, { name: "Invoices" }])];
 
   await account.refreshServerFilterRules();
-  expect(rule(account, "Invoices").readOnlyReason).toBeNull();
+  expect(rule(account, "Invoices").readonly).toBeNull();
   expect(account.serverFilterRulesNotice).toMatch(/Outlook/);
 
   rule(account, "Invoices").criteria.bodyText = "bill";
@@ -401,12 +408,12 @@ test("EWS: The rules that only Outlook's copy of the rules has keep the server r
 
   await account.refreshServerFilterRules();
 
-  let reason = rule(account, "Invoices").readOnlyReason;
+  let reason = rule(account, "Invoices").readonly;
   expect(reason).toContain("Cc my boss");
   expect(reason).toContain("Old");
   expect(reason).not.toContain("Newsletters");
   expect(account.serverFilterRulesNotice).toBeNull();
-  expect(local.readOnlyReason).toBeNull();
+  expect(local.readonly).toBeNull();
 });
 
 test("EWS: When Outlook adds a rule for sent mail after we read its copy of the rules, the change is refused", async () => {
@@ -420,7 +427,7 @@ test("EWS: When Outlook adds a rule for sent mail after we read its copy of the 
 
   await expect(account.saveServerFilterRules()).rejects.toThrow("Cc my boss");
   expect(updates).toEqual([]);
-  expect(rule(account, "Invoices").readOnlyReason).toContain("Cc my boss");
+  expect(rule(account, "Invoices").readonly).toContain("Cc my boss");
 });
 
 test("EWS: A copy of the rules that we can't read keeps the server rules read-only", async () => {
@@ -430,7 +437,7 @@ test("EWS: A copy of the rules that we can't read keeps the server rules read-on
 
   await account.refreshServerFilterRules();
 
-  expect(rule(account, "Invoices").readOnlyReason).toMatch(/Outlook/);
+  expect(rule(account, "Invoices").readonly).toMatch(/Outlook/);
   expect(account.dataErrors.length).toBe(1);
 });
 
@@ -454,11 +461,63 @@ test("EWS: A copy of a server rule keeps the parts that we can't show", async ()
 test("EWS: A rule with parts that we can't run does not move to us", async () => {
   let { account, updates } = newTestAccount([kNewslettersRule]);
   await account.refreshServerFilterRules();
+  let newsletters = rule(account, "Newsletters");
 
-  rule(account, "Newsletters").server = false;
+  expect(() => newsletters.runBy(false, account.filterRuleActions)).toThrow("Newsletters");
 
-  await expect(account.saveServerFilterRules()).rejects.toThrow();
+  expect(account.filterRuleActions.contents).toEqual([newsletters]);
+  await account.saveServerFilterRules();
   expect(updates).toEqual([]);
+});
+
+test("EWS: A local rule that Exchange cannot run does not move to the server, and the other rules still save", async () => {
+  let { account, updates } = newTestAccount([kInvoicesRule]);
+  await account.refreshServerFilterRules();
+  let unread = localRule(account, "Unread");
+  unread.criteria.isRead = false;
+  let sent = localRule(account, "Sent");
+  sent.when = FilterMoment.Outgoing;
+
+  expect(unread.cannotRunOnServer).toContain("Unread");
+  expect(sent.cannotRunOnServer).toContain("Sent");
+  expect(() => unread.runBy(true, account.filterRuleActions)).toThrow("Unread");
+
+  expect(account.filterRuleActions.contents).toContain(unread);
+  rule(account, "Invoices").criteria.bodyText = "bill";
+  await account.saveServerFilterRules();
+  expect(updates.length).toBe(1);
+});
+
+test("EWS: After a restart, the server rules are EWS rules with the parts that we can't show, and the local rules are local", async () => {
+  let { account, updates } = newTestAccount([kNewslettersRule, kInvoicesRule]);
+  await account.refreshServerFilterRules();
+  localRule(account, "Local");
+
+  let restarted = new EWSAccount();
+  restarted.fromConfigJSON(JSON.parse(JSON.stringify(account.toConfigJSON())));
+
+  let [newsletters, invoices, local] = restarted.filterRuleActions.contents;
+  expect(newsletters).toBeInstanceOf(EWSFilterRule);
+  expect(newsletters.serverID).toBe("rule-1");
+  expect(newsletters.unknownParts.join()).toContain("urgent");
+  expect(newsletters.toFolderID).toBe("folder-newsletters");
+  expect(invoices).toBeInstanceOf(EWSFilterRule);
+  expect(local).toBeInstanceOf(LocalFilterRule);
+  expect(local.markAsRead).toBe(true);
+  await restarted.saveServerFilterRules();
+  expect(updates).toEqual([]);
+});
+
+test("EWS: A refresh changes the server rules in place, so that the selected rule stays", async () => {
+  let { account, server } = newTestAccount([kNewslettersRule, kInvoicesRule]);
+  await account.refreshServerFilterRules();
+  let invoices = rule(account, "Invoices");
+
+  server.rules = [kNewslettersRule, kInvoicesRule.replace("<String>invoice</String>", "<String>bill</String>")];
+  await account.refreshServerFilterRules();
+
+  expect(rule(account, "Invoices")).toBe(invoices);
+  expect(invoices.criteria.bodyText).toBe("bill");
 });
 
 /** A rule from classic Outlook with a category, exceptions and a desktop alert. Exchange does not support the alert,
@@ -489,7 +548,7 @@ test("EWS: A rule with parts that Exchange leaves out says so, and lists all its
   let testRule = rule(account, "test rule");
 
   expect(testRule.criteria.tags.contents.map(tag => tag.name)).toEqual(["Rote Kategorie"]);
-  let parts = testRule.serverRule.unknownParts;
+  let parts = testRule.unknownParts;
   expect(parts.length).toBe(6); // 3 conditions, 2 exceptions, and that the server does not report all parts
   expect(parts.filter(part => part.startsWith("Exceptions: ")).length).toBe(2);
   expect(parts.join()).toMatch(/does not report/);
@@ -530,7 +589,7 @@ test("EWS: A sender that Exchange gives as X.500 address is the person with the 
   let colleagues = rule(account, "Colleagues");
 
   expect(colleagues.criteria.includesPerson?.emailAddresses.first?.value).toBe("bob@example.com");
-  expect(colleagues.serverRule.unknownParts.join()).not.toMatch(/from addresses/i);
+  expect(colleagues.unknownParts.join()).not.toMatch(/from addresses/i);
 
   await account.saveServerFilterRules();
   expect(updates).toEqual([]);
@@ -542,7 +601,7 @@ test("EWS: Several senders that Exchange gives as X.500 address are listed with 
   let colleagues = rule(account, "Colleagues");
 
   expect(colleagues.criteria.includesPersonEMail).toBeNull();
-  let parts = colleagues.serverRule.unknownParts.join();
+  let parts = colleagues.unknownParts.join();
   expect(parts).toContain("bob@example.com");
   expect(parts).toContain("carol@example.com");
   expect(parts).not.toContain(kBobDN);
@@ -564,7 +623,7 @@ test("EWS: Recipients that Exchange gives as X.500 address are listed with their
       </Actions>
     </Rule>`]);
   await account.refreshServerFilterRules();
-  let parts = rule(account, "To Bob").serverRule.unknownParts.join();
+  let parts = rule(account, "To Bob").unknownParts.join();
 
   expect(parts).toContain("bob@example.com");
   expect(parts).toContain("carol@example.com");
