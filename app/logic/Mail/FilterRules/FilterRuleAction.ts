@@ -30,7 +30,7 @@ export class FilterRuleAction extends Observable {
   serverID: string | null = null;
 
   /** Why the user cannot change this rule. null, if they can. */
-  get readOnlyReason(): string | null {
+  get readonly(): string | null {
     return null;
   }
 
@@ -41,7 +41,7 @@ export class FilterRuleAction extends Observable {
 
   /** Why the mail server cannot run this rule. null, if it can. */
   get cannotRunOnServer(): string | null {
-    return this.account.serverFilterRulesReadOnlyReason ?? this.account.newServerFilterRule(null).unsupportedReason(this);
+    return this.account.serverFilterRulesReadonly ?? this.account.newServerFilterRule(null).unsupported(this);
   }
 
   /** The following actions cannot be combined:

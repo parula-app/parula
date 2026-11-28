@@ -963,7 +963,7 @@ export class OWAAccount extends ExchangeMailAccount {
       if (ex instanceof OWAError && kPromptUser.includes(ex.type)) {
         // The only question of the rule commands: Delete the copy of the rules that Outlook keeps?
         this.setOutlookRulesExist(true);
-        throw new UserError(this.serverFilterRulesReadOnlyReason);
+        throw new UserError(this.serverFilterRulesReadonly);
       }
       throw ex;
     }

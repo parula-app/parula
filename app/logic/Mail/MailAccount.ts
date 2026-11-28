@@ -52,7 +52,7 @@ export class MailAccount extends TCPAccount {
   protected knownServerFilterRuleIDs = new Set<string>();
   /** Why the user cannot change the rules on the server. null, if they can. */
   @notifyChangedProperty
-  serverFilterRulesReadOnlyReason: string | null = null;
+  serverFilterRulesReadonly: string | null = null;
   setup: SetupInfo;
 
   readonly rootFolders: Collection<Folder> = new ArrayColl<Folder>();

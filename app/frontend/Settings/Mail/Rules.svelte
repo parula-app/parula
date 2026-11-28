@@ -34,16 +34,16 @@
                   label={$t`Delete rule`}
                   icon={DeleteIcon}
                   onClick={onDelete}
-                  disabled={readOnlyReason}
+                  disabled={readonly}
                   />
               </hbox>
               <vbox class="content">
                 <grid class="name-grid">
                   <label for="name">{$t`Rule name`}</label>
-                  <input type="text" bind:value={rule.name} name="name" autofocus inert={!!readOnlyReason} />
+                  <input type="text" bind:value={rule.name} name="name" autofocus inert={!!readonly} />
 
                   <label for="when">{$t`When`}</label>
-                  <select bind:value={rule.when} inert={!!readOnlyReason}>
+                  <select bind:value={rule.when} inert={!!readonly}>
                     <option value={FilterMoment.IncomingBeforeSpam}>{$t`New mail arrives`}</option>
                     <option value={FilterMoment.IncomingAfterSpam}>{$t`New mail arrives, after spam filtering`}</option>
                     <option value={FilterMoment.Outgoing}>{$t`I send mail`}</option>
@@ -83,14 +83,14 @@
 
             <HeaderGroupBox>
               <hbox slot="header">{$t`Criteria`}</hbox>
-              <vbox class="content" inert={!!readOnlyReason}>
+              <vbox class="content" inert={!!readonly}>
                 <SearchCriteria search={rule.criteria} showAccount={false} />
               </vbox>
             </HeaderGroupBox>
 
             <HeaderGroupBox>
               <hbox slot="header">{$t`Action`}</hbox>
-              <vbox class="content" inert={!!readOnlyReason}>
+              <vbox class="content" inert={!!readonly}>
                 <RuleActions {rule} />
               </vbox>
             </HeaderGroupBox>
@@ -101,7 +101,7 @@
             icon={SaveIcon}
             label={$t`Save`}
             onClick={onSave}
-            disabled={readOnlyReason}
+            disabled={readonly}
           />
         </hbox>
       {/if}
@@ -141,10 +141,10 @@
   }
 
   $: account, catchErrors(() => account.refreshServerFilterRules());
-  $: readOnlyReason = $account && $rule ? rule.readOnlyReason : null;
+  $: readonly = $account && $rule ? rule.readonly : null;
   $: unknownParts = $rule?.unknownParts ?? [];
-  $: cannotRunHere = readOnlyReason ?? (unknownParts.length ? $t`${appName} cannot run all parts of this rule` : null);
-  $: cannotRunOnServer = readOnlyReason ?? ($rule?.server || !$account.canServerFilterRules ? null : $rule?.cannotRunOnServer);
+  $: cannotRunHere = readonly ?? (unknownParts.length ? $t`${appName} cannot run all parts of this rule` : null);
+  $: cannotRunOnServer = readonly ?? ($rule?.server || !$account.canServerFilterRules ? null : $rule?.cannotRunOnServer);
 
   function onAdd() {
     rule = new LocalFilterRule(account);

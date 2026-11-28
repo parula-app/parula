@@ -321,8 +321,8 @@ test("EWS: A rule that Exchange does not support is read-only, but can move", as
   let { account, updates } = newTestAccount([kInvoicesRule.replace("<Priority>2", "<Priority>1"), unsupported.replace("<Priority>1", "<Priority>2")]);
   await account.refreshServerFilterRules();
   let family = rule(account, "Family");
-  expect(family.readOnlyReason).toBeTruthy();
-  expect(rule(account, "Invoices").readOnlyReason).toBeNull();
+  expect(family.readonly).toBeTruthy();
+  expect(rule(account, "Invoices").readonly).toBeNull();
   await account.saveServerFilterRules();
   expect(updates).toEqual([]);
 
@@ -344,14 +344,14 @@ test("EWS: While Outlook keeps its own copy of the rules, the server rules are r
 
   await account.refreshServerFilterRules();
 
-  expect(account.serverFilterRulesReadOnlyReason).toMatch(/Outlook/);
-  expect(rule(account, "Invoices").readOnlyReason).toBe(account.serverFilterRulesReadOnlyReason);
-  expect(local.readOnlyReason).toBeNull();
-  expect(local.cannotRunOnServer).toBe(account.serverFilterRulesReadOnlyReason);
+  expect(account.serverFilterRulesReadonly).toMatch(/Outlook/);
+  expect(rule(account, "Invoices").readonly).toBe(account.serverFilterRulesReadonly);
+  expect(local.readonly).toBeNull();
+  expect(local.cannotRunOnServer).toBe(account.serverFilterRulesReadonly);
 
   server.outlookRulesExist = false;
   await account.refreshServerFilterRules();
-  expect(rule(account, "Invoices").readOnlyReason).toBeNull();
+  expect(rule(account, "Invoices").readonly).toBeNull();
 });
 
 test("EWS: A copy of a server rule keeps the parts that we can't show", async () => {

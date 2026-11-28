@@ -46,8 +46,8 @@ export class ServerFilterRule extends FilterRuleAction {
     return false;
   }
 
-  get readOnlyReason(): string | null {
-    return this.account.serverFilterRulesReadOnlyReason ??
+  get readonly(): string | null {
+    return this.account.serverFilterRulesReadonly ??
       (this.isReadOnly ? gt`The mail server does not allow changes to this rule` : null);
   }
 
@@ -100,7 +100,7 @@ export class ServerFilterRule extends FilterRuleAction {
   /** The server rule, changed as the user changed `rule`. `this` is as the server sent it.
    * Leaves the parts of the server rule as they are that the user did not change. */
   withChangesFrom(rule: FilterRuleAction, priority: number): ServerFilterRule {
-    let unsupported = this.unsupportedReason(rule);
+    let unsupported = this.unsupported(rule);
     if (unsupported) {
       throw new NotSupported(unsupported);
     }
@@ -145,7 +145,7 @@ export class ServerFilterRule extends FilterRuleAction {
   }
 
   /** Why the server cannot run `rule` as the user defined it. null, if it can. */
-  unsupportedReason(rule: FilterRuleAction): string | null {
+  unsupported(rule: FilterRuleAction): string | null {
     let criteria = rule.criteria;
     if (rule.when == FilterMoment.Outgoing ||
         booleanHasValue(criteria.isOutgoing) || booleanHasValue(criteria.isRead) || booleanHasValue(criteria.isReplied) ||

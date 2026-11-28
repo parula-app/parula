@@ -1422,7 +1422,7 @@ export class EWSAccount extends ExchangeMailAccount implements EWSSubscribable {
     } catch (ex) {
       if (ex.type == "ErrorOutlookRuleBlobExists") {
         this.setOutlookRulesExist(true);
-        throw new UserError(this.serverFilterRulesReadOnlyReason);
+        throw new UserError(this.serverFilterRulesReadonly);
       }
       throw ex;
     }

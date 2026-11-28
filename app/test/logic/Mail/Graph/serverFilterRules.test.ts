@@ -169,7 +169,7 @@ test("Graph: A read-only rule is neither changed nor moved", async () => {
   account.rules[1].isReadOnly = true; // "Newsletters", which runs first
   await account.refreshServerFilterRules();
   let newsletters = rule(account, "Newsletters");
-  expect(newsletters.readOnlyReason).toBeTruthy();
+  expect(newsletters.readonly).toBeTruthy();
 
   account.filterRuleActions.replaceAll([rule(account, "Invoices"), newsletters]);
   await account.saveServerFilterRules();

@@ -319,7 +319,7 @@ test("When the server rules become read-only while the page is open, the page sh
   expect(target.querySelector("input[name=name]").hasAttribute("inert")).toBe(false);
 
   // e.g. the server says that classic Outlook keeps its own copy of the rules
-  account.serverFilterRulesReadOnlyReason = "Outlook keeps a copy";
+  account.serverFilterRulesReadonly = "Outlook keeps a copy";
   flushSync();
 
   expect(target.textContent).toContain("Outlook keeps a copy");
@@ -340,7 +340,7 @@ test("A server rule with parts that we can't show stays editable, but can't move
 test("While the server rules can't change, a new rule says why the mail server can't run it", () => {
   account.hasServerRules = true;
   // e.g. classic Outlook has rules that the server doesn't have
-  account.serverFilterRulesReadOnlyReason = "Outlook keeps a copy";
+  account.serverFilterRulesReadonly = "Outlook keeps a copy";
   showRulesPage();
 
   click(target.querySelector("button[title='Add new rule']"));

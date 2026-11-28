@@ -209,7 +209,7 @@ test("OWA: A rule with all the parameters that Exchange Online sends is understo
   expect(testMail.criteria.bodyText).toBe("Test Mail");
   expect(testMail.toFolder?.name).toBe("Test Mails");
   expect(testMail.copy).toBe(true);
-  expect(testMail.readOnlyReason).toBeNull();
+  expect(testMail.readonly).toBeNull();
   expect(testMail.unknownParts).toEqual([]);
 });
 
@@ -317,5 +317,5 @@ test("OWA: While Outlook keeps its own copy of the rules, the server rules becom
   rule(account, "Invoices").markAsRead = null;
 
   await expect(account.saveServerFilterRules()).rejects.toThrow(/Outlook/);
-  expect(rule(account, "Newsletters").readOnlyReason).toMatch(/Outlook/);
+  expect(rule(account, "Newsletters").readonly).toMatch(/Outlook/);
 });
