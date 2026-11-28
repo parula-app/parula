@@ -40,6 +40,14 @@
         onClick={() => { $openCalendarProperties = { calendar: $selectedCalendar, tab: "permissions" }; }}
         disabled={!isShareable && $t`This calendar cannot be shared`} />
     </RibbonGroup>
+    <RibbonGroup label={$t`Tags`}>
+      <RibbonMenuButton label={$t`Categorize *=> Assign a category to the event`} icon={CategorizeIcon}
+        disabled={!series && $t`Select an event first`}>
+        {#if series}
+          <EventCategorizeMenuItems event={series} onAllCategories={() => { isColorCategoriesOpen = true; }} />
+        {/if}
+      </RibbonMenuButton>
+    </RibbonGroup>
     <RibbonGroup label={$t`Find *=> Ribbon group with search commands`}>
       <SearchPeopleBox on:select={event => ContactActions.show(event.detail)} />
       <RibbonButton label={$t`Address Book`} icon={AddressBookIcon} shortCutInfo={$t`Ctrl+Shift+B *=> Keyboard shortcut`} size="small"
@@ -158,6 +166,9 @@
 {#if isViewSettingsOpen}
   <ViewSettingsDialog on:close={() => isViewSettingsOpen = false} />
 {/if}
+{#if isColorCategoriesOpen}
+  <ColorCategoriesDialog items={[series]} on:close={() => isColorCategoriesOpen = false} />
+{/if}
 
 <script lang="ts">
   import type { Calendar } from "../../logic/Calendar/Calendar";
@@ -168,7 +179,7 @@
   import { calendarColors } from "./CalendarColors";
   import { MailAccount } from "../../logic/Mail/MailAccount";
   import { openSettingsDialog, openOptions } from "../Settings/SettingsDialogs";
-  import { selectedCalendar, selectedDate, startDate } from "../../frontend/Calendar/selected";
+  import { selectedCalendar, selectedDate, selectedEvent, startDate } from "../../frontend/Calendar/selected";
   import { calendarSearchOptions, isGoToDateOpen, openCalendarProperties, CalendarCurrentView, CalendarFolderPane } from "./selected";
   import type { CalendarViewType } from "../../frontend/Calendar/CalendarRange";
   import { EventTable, EventTableColumn, EventTableGrouping } from "./ListView/EventTable";
@@ -195,6 +206,8 @@
   import OpenCalendarMenuItems from "./OpenCalendarMenuItems.svelte";
   import ViewSettingsDialog from "./ViewSettings/ViewSettingsDialog.svelte";
   import RenameDialog from "../Settings/Shared/RenameDialog.svelte";
+  import EventCategorizeMenuItems from "./DisplayEvent/EventCategorizeMenuItems.svelte";
+  import ColorCategoriesDialog from "../Shared/Tag/ColorCategoriesDialog.svelte";
   import ChangeViewIcon from "lucide-svelte/icons/layout-template";
   import CalendarViewIcon from "lucide-svelte/icons/calendar-days";
   import PreviewViewIcon from "lucide-svelte/icons/scan-text";
@@ -225,6 +238,7 @@
   import ReadingPaneIcon from "lucide-svelte/icons/panel-right";
   import type { ReadingPanePosition } from "../Mail/3pane/3Pane.svelte";
   import ViewSettingsIcon from "lucide-svelte/icons/sliders-horizontal";
+  import CategorizeIcon from "lucide-svelte/icons/tag";
   import { t } from "../../l10n/l10n";
 
   export let view: CalendarViewType;
@@ -255,6 +269,8 @@
   $: isShareable = canShare($selectedCalendar);
   let renamingCalendar: Calendar | null = null;
   let isViewSettingsOpen = false;
+  let isColorCategoriesOpen = false;
+  $: series = $selectedEvent?.parentEvent ?? $selectedEvent; // Like Outlook, an occurrence has the categories of its series
   $: overlayDisabled = view == "schedule" && $t`Overlay is available in the Day, Work Week, Week and Month views`;
 
   // <copied from="CalendarPropertiesDialog.svelte">
