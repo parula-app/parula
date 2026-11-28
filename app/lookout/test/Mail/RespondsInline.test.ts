@@ -8,11 +8,14 @@ import { selectedMessage, selectedMessages } from "../../../frontend/Mail/Select
 import { selectedApp } from "../../../frontend/AppsBar/selectedApp";
 import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
 import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
+import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
 import { ArrayColl } from "svelte-collections";
 import { afterEach, expect, test, vi } from "vitest";
 
 afterEach(() => {
   AppWindow["acting"] = null;
+  getLocalStorage("mail.send.newWindow", false).value = false;
+  getLocalStorage("lookout.mail.compose.repliesInNewWindow", false).value = false;
   vi.restoreAllMocks();
 });
 
@@ -37,12 +40,35 @@ test("Replies are inline in the main window, but not in the window of a single e
   expect(MessageActions.respondsInline(message)).toBe(false);
 });
 
+test("With the setting to always open the composer in a new window, replies are not inline", () => {
+  let message = { subject: "Shown" } as EMail;
+  selectedApp.set(mailMustangApp);
+  selectedMessage.set(message);
+  selectedMessages.set(new ArrayColl([message]));
+  getLocalStorage("mail.send.newWindow", false).value = true;
+  expect(MessageActions.respondsInline(message)).toBe(false);
+});
+
 test("A reply in the window of a single email opens Lookout's composer in a new window", async () => {
   let open = vi.spyOn(AppWindow.prototype, "open").mockImplementation(async () => null);
   let writeMail = vi.spyOn(mailMustangApp, "writeMail").mockImplementation(() => {});
   let message = { subject: "Shown" } as EMail;
   let reply = { subject: "Re: Shown" } as EMail;
   AppWindow["acting"] = new EMailWindow();
+  await MessageActions.respond(message, reply);
+  expect(open).toHaveBeenCalledWith(ComposerWindow, { mail: reply }, 1000);
+  expect(writeMail).not.toHaveBeenCalled();
+});
+
+test("With the setting to open replies and forwards in a new window, a reply in the main window opens Lookout's composer in a new window", async () => {
+  let open = vi.spyOn(AppWindow.prototype, "open").mockImplementation(async () => null);
+  let writeMail = vi.spyOn(mailMustangApp, "writeMail").mockImplementation(() => {});
+  let message = { subject: "Shown" } as EMail;
+  let reply = { subject: "Re: Shown" } as EMail;
+  selectedApp.set(mailMustangApp);
+  selectedMessage.set(message);
+  selectedMessages.set(new ArrayColl([message]));
+  getLocalStorage("lookout.mail.compose.repliesInNewWindow", false).value = true;
   await MessageActions.respond(message, reply);
   expect(open).toHaveBeenCalledWith(ComposerWindow, { mail: reply }, 1000);
   expect(writeMail).not.toHaveBeenCalled();

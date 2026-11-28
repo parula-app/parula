@@ -3,6 +3,7 @@ import type { TJMAPCalendarEvent, TJSCalendarAlert, TJSCalendarRecurrenceRule, T
 import { Frequency, RecurrenceRule, type RecurrenceInit } from "../RecurrenceRule";
 import { InvitationResponse } from "../Invitation/InvitationStatus";
 import { Participant } from "../Participant";
+import { getTagByName } from "../../Abstract/Tag";
 import { k1DayS, k1HourS, k1MinuteS } from "../../util/date";
 import { sanitize } from "../../../../lib/util/sanitizeDatatypes";
 import { NotImplemented, assert, getOwnProperty, setOwnProperty } from "../../util/util";
@@ -87,6 +88,7 @@ export class JSCalendarEvent {
     }
 
     event.color = sanitize.nonemptystring(jmap.color, null);
+    event.tags.replaceAll(Object.keys(jmap.keywords ?? {}).map(keyword => getTagByName(keyword)));
   }
 
   static fromEvent(event: Event, jmap: TJMAPCalendarEvent) {
@@ -288,6 +290,7 @@ export class JSCalendarEvent {
     }
 
     jmap.color = event.color;
+    jmap.keywords = event.tags.hasItems ? Object.fromEntries(event.tags.contents.map(tag => [tag.name, true])) : null;
 
     if (event.parentEvent) {
       // `jmap` is the override of this occurrence, a PatchObject. It started as the server's override in `event.original`.

@@ -26,7 +26,7 @@
   .island :global(button:not(:last-of-type)) {
     margin-inline-end: var(--island-overlap);
   }
-  .island.faint :global(button.selected:not(.hover)) {
+  .island.faint :global(button.selected:not(:hover)) {
     background-color: var(--offset-bg);
     color: var(--offset-fg);
     border: none;
@@ -34,6 +34,10 @@
   .island.specific :global(button:not(.selected)) {
     background-color: transparent;
     border: none;
+  }
+  .island.specific :global(button:not(.selected):hover:not(.disabled)) {
+    background-color: var(--hover-bg);
+    color: var(--hover-fg);
   }
   .island :global(button:hover) {
     z-index: 1;

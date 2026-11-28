@@ -45,6 +45,7 @@
   import { getLocalStorage } from "../../../frontend/Util/LocalStorage";
   import { openApp } from "../../../frontend/AppsBar/selectedApp";
   import { mailMustangApp } from "../../../frontend/Mail/MailMustangApp";
+  import { selectedCategory } from "../../../frontend/Settings/Window/selected";
   import { appGlobal } from "../../../logic/app";
   import { appName, defaultFrontend } from "../../../logic/build";
   import { catchErrors } from "../../../frontend/Util/error";
@@ -68,6 +69,7 @@
   let frontend = frontendSetting.value;
   function onSaveFrontend() {
     openApp(mailMustangApp, {});
+    $selectedCategory = null; // The other frontend has its own settings categories
     frontendSetting.value = frontend;
   }
   // </copied>

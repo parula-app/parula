@@ -228,6 +228,8 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
             }, {
               FieldURI: "item:Attachments",
             }, {
+              FieldURI: "item:Categories",
+            }, {
               FieldURI: "item:ReminderIsSet",
             }, {
               FieldURI: "item:ReminderMinutesBeforeStart",

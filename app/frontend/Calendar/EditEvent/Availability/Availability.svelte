@@ -93,6 +93,7 @@
   import { FreeBusy } from "../../../../logic/Calendar/FreeBusy";
   import { calendarMustangApp, CalendarEventMustangApp } from "../../CalendarMustangApp";
   import { selectedApp } from "../../../AppsBar/selectedApp";
+  import { AppWindow } from "../../../MainWindow/AppWindow";
   import { isDemo } from "../../../AppsBar/demo";
   import FreeSlots from "./FreeSlots.svelte";
   import ParticipantsDayView from "./ParticipantsDayView.svelte";
@@ -118,6 +119,7 @@
    * in/out */
   export let enlarged = false;
 
+  const appWindow = AppWindow.current();
   let view: AvailabilityView = "free";
   let poll: SMLData | null = null;
   /** Whether the user expanded or collapsed the availability.
@@ -132,7 +134,7 @@
   $: participants = event.participants;
   $: invitees = participants.filterObservable(participant => participant.response != InvitationResponse.Organizer);
   $: showHours = enlarged ? 10 : 5;
-  $: isInSidebar = !($selectedApp instanceof CalendarEventMustangApp);
+  $: isInSidebar = appWindow.isMainWindow && !($selectedApp instanceof CalendarEventMustangApp);
 
   function onEnlarge() {
     if (isInSidebar) {

@@ -92,6 +92,9 @@
   {#if $openSharedCalendar}
     <OpenCalendarDialog fromAddressBook={$openSharedCalendar.fromAddressBook} on:close={() => $openSharedCalendar = null} />
   {/if}
+  {#if $openColorCategories}
+    <ColorCategoriesDialog items={$openColorCategories} on:close={() => $openColorCategories = null} />
+  {/if}
   {#if $eventPeek}
     {#key $eventPeek}
       <EventPeek peek={$eventPeek} />
@@ -109,7 +112,7 @@
   import { openEvent } from "../../frontend/Calendar/open";
   import { openComposer } from "../../frontend/Mail/open";
   import { IncomingInvitation } from "../../logic/Calendar/Invitation/IncomingInvitation";
-  import { eventPeek, inlineTitle, selectedSlots, updatingCount, isGoToDateOpen, openCalendarProperties, openSharedCalendar, CalendarCurrentView, CalendarFolderPane, calendarSearchOptions, listedEvents, allListedEvents, CalendarSearchScope, type SlotSelection } from "./selected";
+  import { eventPeek, inlineTitle, selectedSlots, updatingCount, isGoToDateOpen, openCalendarProperties, openSharedCalendar, openColorCategories, CalendarCurrentView, CalendarFolderPane, calendarSearchOptions, listedEvents, allListedEvents, CalendarSearchScope, type SlotSelection } from "./selected";
   import { selectedCalendar, selectedDate, selectedEvent, shownCalendars, shownCalendarEvents, startDate } from "../../frontend/Calendar/selected";
   import { appGlobal } from "../../logic/app";
   import { getToday } from "../../logic/util/date";
@@ -136,6 +139,7 @@
   import GoToDateDialog from "./GoToDateDialog.svelte";
   import CalendarPropertiesDialog from "./CalendarPropertiesDialog.svelte";
   import OpenCalendarDialog from "./OpenCalendarDialog.svelte";
+  import ColorCategoriesDialog from "../Shared/Tag/ColorCategoriesDialog.svelte";
   import AdjacentEventTabs from "./AdjacentEventTabs.svelte";
   import ListView from "./ListView/ListView.svelte";
   import CalendarSearchTab from "./ListView/CalendarSearchTab.svelte";

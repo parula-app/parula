@@ -90,8 +90,8 @@ test("The audience in any casing", async () => {
   for (let [audience, expected] of [
     ["ContactsOnly", AutoResponderAudience.Contacts],
     ["All", AutoResponderAudience.All],
-    ["none", AutoResponderAudience.None],
-    ["friends", AutoResponderAudience.None],
+    ["none", AutoResponderAudience.Internal],
+    ["friends", AutoResponderAudience.Internal],
   ]) {
     response = { ...kSettings, externalAudience: audience };
     await autoResponder.load();
@@ -142,6 +142,16 @@ test("Without time range, there are no times", async () => {
   autoResponder.isOn = false;
   await autoResponder.save();
   expect(calls[1].options.json.automaticRepliesSetting.status).toBe("disabled");
+});
+
+test("Only inside the organization is Graph's none", async () => {
+  let account = setupAccount();
+  let autoResponder = account.autoResponder;
+  autoResponder.isOn = true;
+  autoResponder.externalAudience = AutoResponderAudience.Internal;
+  await autoResponder.save();
+
+  expect(calls[0].options.json.automaticRepliesSetting.externalAudience).toBe("none");
 });
 
 test("A login without the permission asks to allow it", async () => {

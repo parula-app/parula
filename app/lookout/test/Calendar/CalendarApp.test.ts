@@ -7,6 +7,8 @@ import { appGlobal } from "../../../logic/app";
 import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
 import { InvitationResponse } from "../../../logic/Calendar/Invitation/InvitationStatus";
 import { Frequency } from "../../../logic/Calendar/RecurrenceRule";
+import { DummyCalendarStorage } from "../../../logic/Calendar/SQL/DummyCalendarStorage";
+import { getTagByName } from "../../../logic/Abstract/Tag";
 import CalendarApp from "../../Calendar/CalendarApp.svelte";
 import { CalendarActions } from "../../Calendar/CalendarActions";
 import { eventPeek, inlineTitle, selectedSlots } from "../../Calendar/selected";
@@ -606,5 +608,31 @@ test("The + on a day asks for the calendar when several are shown, and the new a
   } finally {
     shownCalendars.show(work, true);
     appGlobal.calendars.removeAll([work, family]);
+  }
+});
+
+test("Categorize in the context menu of an occurrence tags the whole series right away", async () => {
+  let work = newCalendar("Work", [14]);
+  let series = work.events.first;
+  series.newRecurrenceRule(Frequency.Daily);
+  let saved: Event[] = [];
+  work.storage = new DummyCalendarStorage();
+  work.storage.saveEvent = async event => { saved.push(event); };
+  getTagByName("Customer");
+  appGlobal.calendars.add(work);
+  try {
+    flushSync();
+    let occurrence = document.querySelector<HTMLElement>(".time-grid .event-block");
+    occurrence.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    flushSync();
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".lo-menu .lo-menuitem"))
+      .find(item => item.textContent.trim() == "Categorize").click();
+    flushSync();
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".lo-menu .lo-menuitem"))
+      .find(item => item.textContent.trim() == "Customer").click();
+    await vi.waitFor(() => expect(saved).toContain(series));
+    expect(series.tags.contents.map(tag => tag.name)).toContain("Customer");
+  } finally {
+    appGlobal.calendars.remove(work);
   }
 });

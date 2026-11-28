@@ -28,7 +28,7 @@ export function generateDeviceSignature(companionIdentityPriv: Uint8Array, detai
   return xeddsaSign(companionIdentityPriv, message);
 }
 
-/** Verifies the advSecret-keyed HMAC envelope wrapping the device identity. */
+/** Verifies the advSecret-keyed HMAC envelope wrapping the device identity, all of it, because it proves that the phone that scanned our QR code sent it */
 export function verifyDeviceIdentityHMAC(advSecret: Uint8Array, details: Uint8Array, hmac: Uint8Array): boolean {
-  return bytesEqual(hmacSHA256(advSecret, details).subarray(0, hmac.length), hmac);
+  return bytesEqual(hmacSHA256(advSecret, details), hmac);
 }

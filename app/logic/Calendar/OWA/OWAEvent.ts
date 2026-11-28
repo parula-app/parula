@@ -18,6 +18,7 @@ import { owaCreateAttachmentRequest, owaDeleteAttachmentsRequest, owaGetAttachme
 import { owaCreateExclusionRequest, owaCreateMultipleExclusionsRequest, owaGetEventUIDsRequest, owaOnlineMeetingDescriptionRequest, owaOnlineMeetingURLRequest, owaGetCalendarEventsRequest, owaGetEventsRequest, owaGetOccurrenceIdRequest } from "./Request/OWAEventRequests";
 import { getEmailAddressOrX400 } from "../../Mail/EWS/EWSEMail";
 import { ContentDisposition } from "../../Abstract/Attachment";
+import { getTagByName } from "../../Abstract/Tag";
 import { Provider } from "../../Auth/OAuth2URLs";
 import { k1MinuteMS } from "../../util/date";
 import { ArrayColl } from "svelte-collections";
@@ -125,6 +126,7 @@ export class OWAEvent extends ExchangeEvent {
     if (json.LastModifiedTime) {
       this.lastMod = sanitize.date(json.LastModifiedTime);
     }
+    this.tags.replaceAll(ensureArray(json.Categories).map(name => getTagByName(sanitize.string(name))));
     this.attachmentsFromJSON(json);
   }
 
@@ -262,6 +264,7 @@ export class OWAEvent extends ExchangeEvent {
     let isOffice365 = this.calendar.account.provider() == Provider.Office365;
     let request = isOffice365 ? this.getOffice365SaveRequest() : this.getExchangeSaveRequest(withoutAttendees);
     if (this.isIncomingMeeting) {
+      request.addField("CalendarItem", "Categories", this.tags.contents.map(tag => tag.name), "item:Categories");
       request.addField("CalendarItem", "ReminderIsSet", this.alarm != null, "item:ReminderIsSet");
       request.addField("CalendarItem", "ReminderMinutesBeforeStart", this.alarmMinutesBeforeStart(), "item:ReminderMinutesBeforeStart");
       await this.calendar.callOWA(request);
@@ -269,6 +272,7 @@ export class OWAEvent extends ExchangeEvent {
     }
     request.addField("CalendarItem", "Subject", this.title, "item:Subject");
     request.addField("CalendarItem", "Body", this.rawHTMLDangerous ? { __type: "BodyContentType:#Exchange", BodyType: "HTML", Value: this.rawHTMLDangerous } : { __type: "BodyContentType:#Exchange", BodyType: "Text", Value: this.descriptionText }, "item:Body");
+    request.addField("CalendarItem", "Categories", this.tags.contents.map(tag => tag.name), "item:Categories");
     request.addField("CalendarItem", "ReminderIsSet", this.alarm != null, "item:ReminderIsSet");
     request.addField("CalendarItem", "ReminderMinutesBeforeStart", this.alarmMinutesBeforeStart(), "item:ReminderMinutesBeforeStart");
     if (!this.parentEvent) { // Exchange requires not to write the `Recurrence` prop for recurrence instances

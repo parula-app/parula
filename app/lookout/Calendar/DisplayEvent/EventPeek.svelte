@@ -1,5 +1,5 @@
 <Popup bind:popupOpen popupAnchor={anchor} placement="right-start" boundaryElSel=".calendar-page">
-  <vbox class="event-peek lo-card" style="--event-color: {$event.color ?? $calendar?.color ?? "var(--lo-accent)"}"
+  <vbox class="event-peek lo-card" style="--event-color: {$event.tags.first?.color ?? $event.color ?? $calendar?.color ?? "var(--lo-accent)"}"
     on:keydown={onKeyDown} role="dialog" aria-label={look.title} tabindex="-1">
     <hbox class="header">
       <hbox class="calendar-name" flex>

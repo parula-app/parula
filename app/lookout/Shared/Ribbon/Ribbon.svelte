@@ -185,6 +185,9 @@
   }
 
   function onSelectTab(tab: RibbonTabInfo) {
+    if (appWindow.isMainWindow) {
+      $isBackstageOpen = false;
+    }
     if (isCollapsed) {
       $isTempOpen = !($isTempOpen && tab == $selectedTab);
     }

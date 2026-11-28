@@ -1,6 +1,6 @@
 <vbox flex class="event-reading-pane lo-card">
   {#if event}
-    <vbox class="header" style="--event-color: {$event.color ?? $calendar?.color ?? "var(--lo-accent)"}">
+    <vbox class="header" style="--event-color: {$event.tags.first?.color ?? $event.color ?? $calendar?.color ?? "var(--lo-accent)"}">
       <hbox class="calendar-name">
         <span class="dot" />
         <span>{$calendar?.name ?? ""}</span>

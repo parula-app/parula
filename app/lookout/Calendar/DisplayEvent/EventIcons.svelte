@@ -12,6 +12,10 @@
     <RecurringIcon size="12" />
   </span>
 {/if}
+<!-- Like Outlook: The first category colors the event, the others are small rectangles -->
+{#each $tags.contents.slice(1) as tag (tag)}
+  <span class="category" style:background-color={tag.color} title={tag.name} />
+{/each}
 
 <script lang="ts">
   import { RecurrenceCase, type Event } from "../../../logic/Calendar/Event";
@@ -22,6 +26,8 @@
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
+
+  $: tags = event.tags;
 
   // <copied to="../DayView/EventContainer.svelte">
   const kJoinableBeforeStartMS = 15 * k1MinuteMS;
@@ -36,6 +42,13 @@
     display: flex;
     flex: none;
     align-items: center;
+  }
+  .category {
+    flex: none;
+    width: 6px;
+    height: 11px;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    border-radius: 1px;
   }
   .exception::after {
     content: "";

@@ -73,12 +73,15 @@ export class XMPPChat extends ChatRoom {
       }
       if (plaintext != null) {
         json.body = plaintext;
+        // OMEMO encrypts only the body, so the server could change the plaintext XHTML-IM body and OOB links
+        delete json.html;
+        delete json.links;
         encrypted = true;
       }
     }
 
     if (json.retract) {
-      this.receiveRetraction(json.retract.id);
+      this.receiveRetraction(json, encrypted);
       return null;
     }
     if (json.reactions) {
@@ -93,7 +96,7 @@ export class XMPPChat extends ChatRoom {
       this.updateDeliveryStatus(json.marker.id, DeliveryStatus.Seen, true);
       return null;
     }
-    if (json.replace && this.receiveCorrection(json)) {
+    if (json.replace && this.receiveCorrection(json, encrypted)) {
       return null;
     }
     if (json.chatState && !this.hasContent(json)) {
@@ -176,9 +179,12 @@ export class XMPPChat extends ChatRoom {
       .catch(this.account.errorCallback);
   }
 
-  protected receiveRetraction(targetID: string): void {
-    let target = this.findMessage(targetID);
-    if (!(target instanceof XMPPChatMessage)) {
+  /** Applies a XEP-0424 retraction (delete) to the message it references.
+   * Only from its author, and for an OMEMO message only encrypted, as in Conversations. */
+  protected receiveRetraction(json: Message, encrypted: boolean): void {
+    let target = this.findMessage(json.retract!.id);
+    if (!(target instanceof XMPPChatMessage) ||
+        target.from != this.messageSender(json) || target.encrypted && !encrypted) {
       return;
     }
     target.retracted = true;
@@ -188,10 +194,14 @@ export class XMPPChat extends ChatRoom {
   }
 
   /** Applies a XEP-0308 correction (edit) to the message it replaces.
-   * @returns false if we don't have the original (caller shows it as new) */
-  protected receiveCorrection(json: Message): boolean {
+   * Only from its author, and for an OMEMO message only encrypted, as in Conversations,
+   * so that other room members or the server can't change what somebody wrote.
+   * @returns false if we don't have the original, or the correction may not change it
+   *   (caller shows it as new) */
+  protected receiveCorrection(json: Message, encrypted: boolean): boolean {
     let target = this.findMessage(json.replace!);
-    if (!(target instanceof XMPPChatMessage)) {
+    if (!(target instanceof XMPPChatMessage) ||
+        target.from != this.messageSender(json) || target.encrypted && !encrypted) {
       return false;
     }
     target.text = sanitize.string(json.body, "");

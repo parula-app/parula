@@ -50,6 +50,14 @@
         <hbox />
       </vbox>
     </hbox>
+
+    <hbox class="strip-signatures">
+      <input type="checkbox" bind:checked={stripSignaturesSetting.value} id="strip-signatures"
+        disabled={quoteSetting.value == "none"} />
+      <label for="strip-signatures">
+        {$t`Remove signatures from the quoted message`}
+      </label>
+    </hbox>
   </vbox>
 </HeaderGroupBox>
 
@@ -107,6 +115,14 @@
       {$t`Spell check`}
     </label>
   </hbox>
+  {#if !appGlobal.isMobile}
+    <hbox class="new-window">
+      <input type="checkbox" bind:checked={newWindowSetting.value} id="new-window" />
+      <label for="new-window">
+        {$t`Always open the composer in a new window`}
+      </label>
+    </hbox>
+  {/if}
 </HeaderGroupBox>
 
 <script lang="ts">
@@ -114,10 +130,13 @@
   import { getLocalStorage } from "../../Util/LocalStorage";
   import { t } from "../../../l10n/l10n";
   import Paper from "../../Shared/Paper.svelte";
+  import { appGlobal } from "../../../logic/app";
 
   let formatSetting = getLocalStorage("mail.send.format", "html");
   let quoteSetting = getLocalStorage("mail.send.quote", "below");
+  let stripSignaturesSetting = getLocalStorage("mail.send.quote.stripSignatures", true);
   let spellcheckEnabledSetting = getLocalStorage("mail.send.spellcheck.enabled", false);
+  let newWindowSetting = getLocalStorage("mail.send.newWindow", false);
 </script>
 
 <style>
@@ -134,6 +153,11 @@
   }
   .format img {
     margin: 16px 32px 24px 28px;
+  }
+  .strip-signatures,
+  .new-window {
+    align-items: center;
+    margin-block-start: 16px;
   }
   label.spellcheck {
     text-decoration: underline;

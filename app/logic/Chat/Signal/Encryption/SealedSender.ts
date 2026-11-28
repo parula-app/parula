@@ -17,7 +17,7 @@
  * the lone exception is the v2 wire `e_pub`, which is the bare 32-byte key. */
 import { KeyPair } from "../Crypto/KeyPair";
 import { sharedSecret, djbEncode, djbDecode, xeddsaSign, xeddsaVerify } from "../Crypto/curve";
-import { hkdfSHA256, hmacSHA256, bytesEqual, randomBytes, concatBytes, base64Decode } from "../Crypto/primitives";
+import { hkdfSHA256, hmacSHA256, bytesEqual, randomBytes, concatBytes } from "../Crypto/primitives";
 import { hexToBytes } from "@noble/hashes/utils.js";
 import { aesGcmSivEncrypt, aesGcmSivDecrypt } from "./aesGcmSiv";
 import * as proto from "../Proto/sealedSender";
@@ -79,10 +79,6 @@ export interface SenderCertificate {
   /** sender identity public key, 32 raw bytes */
   key: Uint8Array;
   signer: ServerCertificate;
-  /** For a by-id signer (resolved from KNOWN_SERVER_CERTIFICATES), the trust root that
-   * signed that cert — validate against it instead of the caller's global root. Undefined
-   * for an embedded signer (use the global trust root). */
-  signerTrustRoot?: Uint8Array;
   /** serialized inner Certificate, exactly as signed */
   certificate: Uint8Array;
   /** server-key XEdDSA signature over `certificate` */
@@ -127,30 +123,23 @@ export function validateServerCertificate(cert: ServerCertificate, trustRoot: Ui
 
 /** libsignal's hardcoded server certificates (sealed_sender.rs KNOWN_SERVER_CERTIFICATES),
  * which a SenderCertificate may reference by id (the `signer` oneof's `id = 8`) instead
- * of embedding the whole ServerCertificate. Each is `(id, trustRoot, serialized cert)`;
- * the trust root is the one that signed THAT cert — id 3 (production) uses a different
- * root than the embedded-cert trust root in trustRoot.ts — so a by-id cert is validated
- * against its paired root, not the caller's global one. */
-const kKnownServerCertificates: { id: number, trustRootDjb: string, certHex: string }[] = [
-  { id: 2, trustRootDjb: "BYhU6tPjqP46KGZEzRs1OL4U39V5dlPJ/X09ha4rErkm",
-    certHex: "0a25080212210539450d63ebd0752c0fd4038b9d07a916f5e174b756d409b5ca79f4c97400631e124064c5a38b1e927497d3d4786b101a623ab34a7da3954fae126b04dba9d7a3604ed88cdc8550950f0d4a9134ceb7e19b94139151d2c3d6e1c81e9d1128aafca806" },
-  { id: 3, trustRootDjb: "BUkY0I+9+oPgDCn4+Ac6Iu813yvqkDr/ga8DzLxFxuk6",
-    certHex: "0a250803122105bc9d1d290be964810dfa7e94856480a3f7060d004c9762c24c575a1522353a5a1240c11ec3c401eb0107ab38f8600e8720a63169e0e2eb8a3fae24f63099f85ea319c3c1c46d3454706ae2a679d1fee690a488adda98a2290b66c906bb60295ed781" },
-  { id: 0x7357C357, trustRootDjb: "BS/lfaNHzWJDFSjarF+7KQcw//aEr8TPwu2QmV9Yyzt0",
-    certHex: "0a2908d786df9a07122105847c0d2c375234f365e660955187a3735a0f7613d1609d3a6a4d8c53aeaa5a221240e0b9ebacdfc3aa2827f7924b697784d1c25e44ca05dd433e1a38dc6382eb2730d419ca9a250b1be9d5a9463e61efd6781777a91b83c97b844d014206e2829785" },
+ * of embedding the whole ServerCertificate. As in libsignal, a by-id certificate must be
+ * signed by one of the caller's trust roots, the same as an embedded one, because id 2
+ * is signed by the staging root, and anybody can sign with the test certificate 0x7357C357. */
+const kKnownServerCertificates: { id: number, certHex: string }[] = [
+  { id: 2, certHex: "0a25080212210539450d63ebd0752c0fd4038b9d07a916f5e174b756d409b5ca79f4c97400631e124064c5a38b1e927497d3d4786b101a623ab34a7da3954fae126b04dba9d7a3604ed88cdc8550950f0d4a9134ceb7e19b94139151d2c3d6e1c81e9d1128aafca806" },
+  { id: 3, certHex: "0a250803122105bc9d1d290be964810dfa7e94856480a3f7060d004c9762c24c575a1522353a5a1240c11ec3c401eb0107ab38f8600e8720a63169e0e2eb8a3fae24f63099f85ea319c3c1c46d3454706ae2a679d1fee690a488adda98a2290b66c906bb60295ed781" },
+  { id: 0x7357C357, certHex: "0a2908d786df9a07122105847c0d2c375234f365e660955187a3735a0f7613d1609d3a6a4d8c53aeaa5a221240e0b9ebacdfc3aa2827f7924b697784d1c25e44ca05dd433e1a38dc6382eb2730d419ca9a250b1be9d5a9463e61efd6781777a91b83c97b844d014206e2829785" },
 ];
 
-let gKnownServerCerts: Map<number, { cert: ServerCertificate, trustRoot: Uint8Array }> | null = null;
+let gKnownServerCerts: Map<number, ServerCertificate> | null = null;
 
 /** Resolve a known server certificate by id (the by-id `signer` form). */
-function knownServerCertificate(id: number): { cert: ServerCertificate, trustRoot: Uint8Array } | undefined {
+function knownServerCertificate(id: number): ServerCertificate | undefined {
   if (!gKnownServerCerts) {
     gKnownServerCerts = new Map();
     for (let entry of kKnownServerCertificates) {
-      gKnownServerCerts.set(entry.id, {
-        cert: deserializeServerCertificate(hexToBytes(entry.certHex)),
-        trustRoot: djbDecode(base64Decode(entry.trustRootDjb)),
-      });
+      gKnownServerCerts.set(entry.id, deserializeServerCertificate(hexToBytes(entry.certHex)));
     }
   }
   return gKnownServerCerts.get(id);
@@ -173,7 +162,6 @@ export function deserializeSenderCertificate(data: Uint8Array): SenderCertificat
     throw new Error("SenderCertificate has no sender UUID");
   }
   let signer: ServerCertificate;
-  let signerTrustRoot: Uint8Array | undefined;
   if (inner.signerCertificate) {
     signer = deserializeServerCertificate(inner.signerCertificate);
   } else if (inner.signerId != null) {
@@ -181,8 +169,7 @@ export function deserializeSenderCertificate(data: Uint8Array): SenderCertificat
     if (!known) {
       throw new Error(`Unknown sealed-sender server certificate id ${inner.signerId}`);
     }
-    signer = known.cert;
-    signerTrustRoot = known.trustRoot;
+    signer = known;
   } else {
     throw new Error("SenderCertificate has no signer (neither embedded nor by id)");
   }
@@ -193,17 +180,15 @@ export function deserializeSenderCertificate(data: Uint8Array): SenderCertificat
     expiration: inner.expires,
     key: djbDecode(inner.identityKey),
     signer,
-    signerTrustRoot,
     certificate: pb.certificate,
     signature: pb.signature,
   };
 }
 
-/** Validate the full chain: the signer is signed by `trustRoot`, the signer's key
- * signed this certificate, and it is not expired at `validationTimeMs`. */
-export function validateSenderCertificate(cert: SenderCertificate, trustRoot: Uint8Array, validationTimeMs: bigint): boolean {
-  // A by-id signer is anchored by its own (hardcoded) trust root, not the global one.
-  if (!validateServerCertificate(cert.signer, cert.signerTrustRoot ?? trustRoot)) {
+/** Validate the full chain: the signer is signed by one of `trustRoots`, the signer's
+ * key signed this certificate, and it is not expired at `validationTimeMs`. */
+export function validateSenderCertificate(cert: SenderCertificate, trustRoots: Uint8Array[], validationTimeMs: bigint): boolean {
+  if (!trustRoots.some(trustRoot => validateServerCertificate(cert.signer, trustRoot))) {
     return false;
   }
   if (!xeddsaVerify(cert.signer.key, cert.certificate, cert.signature)) {
@@ -546,17 +531,17 @@ export interface SealedSenderResult {
 }
 
 /** Decrypt a sealed-sender blob (v1 or v2) and validate the sender certificate
- * chain against `trustRoot`. Returns the sender info plus the still-encrypted
+ * chain against `trustRoots`. Returns the sender info plus the still-encrypted
  * inner CiphertextMessage `content` (to be handed to the Double-Ratchet /
  * sender-key layer per `type`). */
 export function sealedSenderDecrypt(
   ciphertext: Uint8Array,
   ourIdentity: KeyPair,
-  trustRoot: Uint8Array,
+  trustRoots: Uint8Array[],
   validationTimeMs: bigint,
 ): SealedSenderResult {
   let usmc = sealedSenderDecryptToUSMC(ciphertext, ourIdentity);
-  if (!validateSenderCertificate(usmc.sender, trustRoot, validationTimeMs)) {
+  if (!validateSenderCertificate(usmc.sender, trustRoots, validationTimeMs)) {
     throw new Error("Sealed sender: trust root validation failed");
   }
   return {

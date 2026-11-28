@@ -6,6 +6,7 @@ import { SpecialFolder, MailShareCombinedPermissions, type Folder, type MailShar
 import { OWAFolder } from "./OWAFolder";
 import { OWASearchEMail } from "./OWASearchEMail";
 import { OWAAutoResponder } from "./OWAAutoResponder";
+import { OWATags } from "./OWATags";
 import { OWAError } from "./OWAError";
 import type { OWANotifications } from "./Notification/OWANotifications";
 import { OWAExchangeNotifications } from "./Notification/OWAExchangeNotifications";
@@ -84,6 +85,10 @@ export class OWAAccount extends ExchangeMailAccount {
 
   newAutoResponder(): OWAAutoResponder {
     return new OWAAutoResponder(this);
+  }
+
+  newTags(): OWATags {
+    return new OWATags(this);
   }
 
   /**
@@ -209,6 +214,8 @@ export class OWAAccount extends ExchangeMailAccount {
         if (!appGlobal.searchOnlyAddressbooks.some(ab => ab.mainAccount == this)) {
           appGlobal.searchOnlyAddressbooks.add(new OWAGAL(this));
         }
+        this.tags.load()
+          .catch(logErrorToServer);
 
         await this.callOWA(new OWASubscribeToHierarchyNotificationRequest());
         this.listenForNotifications();
@@ -344,7 +351,7 @@ export class OWAAccount extends ExchangeMailAccount {
         })), null);
       }
       if (email.inReplyTo) {
-        request.addField("Message", "InReplyTo", email.inReplyTo, "item:InReplyTo");
+        request.addField("Message", "InReplyTo", "<" + email.inReplyTo + ">", "item:InReplyTo");
       }
       if (email.replyTo) {
         addRecipients(request, "ReplyTo", [email.replyTo]);

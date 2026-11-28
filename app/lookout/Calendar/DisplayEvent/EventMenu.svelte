@@ -26,6 +26,10 @@
 {/if}
 {#if !event.isReadOnly}
   <MenuDivider />
+  <SubMenu label={$t`Categorize *=> Assign a category to the event`} icon={CategorizeIcon}>
+    <EventCategorizeMenuItems event={series} onAllCategories={() => { $openColorCategories = [series]; }} />
+  </SubMenu>
+  <MenuDivider />
   {#if event.isCancelled}
     <MenuItem label={$t`Remove from Calendar`} icon={DeleteIcon}
       onClick={() => CalendarActions.deleteOccurrence(event)} />
@@ -69,6 +73,8 @@
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
   import SubMenu from "../../Shared/Menu/SubMenu.svelte";
   import ResponseMenuItems from "../Invitation/ResponseMenuItems.svelte";
+  import EventCategorizeMenuItems from "./EventCategorizeMenuItems.svelte";
+  import { openColorCategories } from "../selected";
   import OpenIcon from "lucide-svelte/icons/square-pen";
   import AcceptIcon from "lucide-svelte/icons/check";
   import TentativeIcon from "lucide-svelte/icons/circle-help";
@@ -78,6 +84,7 @@
   import ReplyAllIcon from "lucide-svelte/icons/reply-all";
   import CancelIcon from "lucide-svelte/icons/calendar-x-2";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
+  import CategorizeIcon from "lucide-svelte/icons/tag";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -88,4 +95,5 @@
     { value: InvitationResponse.Decline, label: $t`Decline *=> Decline the invitation to the meeting`, icon: DeclineIcon, classes: "decline" },
   ] as { value: InvitationResponseInMessage, label: string, icon: typeof AcceptIcon, classes: string }[];
   $: isRecurring = event.recurrenceCase == RecurrenceCase.Instance || event.recurrenceCase == RecurrenceCase.Exception;
+  $: series = event.parentEvent ?? event; // Like Outlook, an occurrence has the categories of its series
 </script>

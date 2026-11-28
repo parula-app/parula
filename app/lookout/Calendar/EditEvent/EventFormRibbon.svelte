@@ -33,11 +33,11 @@
             onClick={onDelete} />
         {/if}
         <RibbonButton label={$t`Reply`} icon={ReplyIcon}
-          onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, false))} />
+          onClick={() => MessageActions.writeMail(IncomingInvitation.replyToEventByMail(event, false))} />
         <RibbonButton label={$t`Reply All`} icon={ReplyAllIcon}
-          onClick={() => openComposer(IncomingInvitation.replyToEventByMail(event, true))} />
+          onClick={() => MessageActions.writeMail(IncomingInvitation.replyToEventByMail(event, true))} />
         <RibbonButton label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
-          onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
+          onClick={async () => MessageActions.writeMail(await IncomingInvitation.forwardEventByMail(event))} />
       </RibbonGroup>
       <RibbonGroup label={$t`Calendar`}>
         <RibbonButton label={$t`Calendar… *=> Show this day in the calendar`} icon={CalendarIcon}
@@ -79,7 +79,7 @@
         {/if}
         <RibbonButton label={$t`Forward`} icon={ForwardIcon} shortCutInfo={$t`Ctrl+F *=> Keyboard shortcut`}
           disabled={!flow.isSaved && (isMeeting ? $t`Send the meeting first` : $t`Save the appointment first`)}
-          onClick={async () => openComposer(await IncomingInvitation.forwardEventByMail(event))} />
+          onClick={async () => MessageActions.writeMail(await IncomingInvitation.forwardEventByMail(event))} />
       </RibbonGroup>
       <RibbonGroup label={$t`Online Meeting`}>
         {#if $event.isOnline}
@@ -130,6 +130,11 @@
           onClick={onEditRecurrence} />
       </RibbonGroup>
     {/if}
+    <RibbonGroup label={$t`Tags`}>
+      <RibbonMenuButton label={$t`Categorize *=> Assign a category to the event`} icon={CategorizeIcon}>
+        <EventCategorizeMenuItems {event} onAllCategories={() => { isColorCategoriesOpen = true; }} />
+      </RibbonMenuButton>
+    </RibbonGroup>
   </RibbonTab>
 
   {#if !isIncoming}
@@ -157,7 +162,7 @@
     <InsertTab {editor} bind:openedTool onAttachFile={onAddAttachment} bind:showEmojis>
       <svelte:fragment slot="include">
         <RibbonMenuButton label={$t`Signature`} icon={SignatureIcon}>
-          <SignatureMenuItems identity={null} {editor} on:editSignatures={onEditSignatures} />
+          <SignatureMenuItems identity={null} {editor} />
         </RibbonMenuButton>
       </svelte:fragment>
     </InsertTab>
@@ -166,6 +171,9 @@
   {/if}
 </Ribbon>
 <FileSelector bind:this={fileSelector} />
+{#if isColorCategoriesOpen}
+  <ColorCategoriesDialog items={[event]} on:close={() => isColorCategoriesOpen = false} />
+{/if}
 
 <script lang="ts">
   import type { Event } from "../../../logic/Calendar/Event";
@@ -191,12 +199,16 @@
   import { IncomingInvitation } from "../../../logic/Calendar/Invitation/IncomingInvitation";
   import { openExternalURL } from "../../../logic/util/os-integration";
   import { appGlobal } from "../../../logic/app";
-  import { openComposer } from "../../../frontend/Mail/open";
+  import { MessageActions } from "../../Mail/MessageActions";
+  import { openEvent } from "../../../frontend/Calendar/open";
+  import { AppWindow } from "../../../frontend/MainWindow/AppWindow";
   import { selectedDate, selectedEvent, startDate } from "../../../frontend/Calendar/selected";
   import { askYesNo } from "../../Shared/Dialog/MessageBox";
   import MenuItem from "../../Shared/Menu/MenuItem.svelte";
   import ResponseMenuItems from "../Invitation/ResponseMenuItems.svelte";
   import MenuDivider from "../../Shared/Menu/MenuDivider.svelte";
+  import ColorCategoriesDialog from "../../Shared/Tag/ColorCategoriesDialog.svelte";
+  import EventCategorizeMenuItems from "../DisplayEvent/EventCategorizeMenuItems.svelte";
   import SaveIcon from "lucide-svelte/icons/save";
   import DeleteIcon from "lucide-svelte/icons/trash-2";
   import CancelIcon from "lucide-svelte/icons/calendar-x-2";
@@ -219,8 +231,9 @@
   import ReminderIcon from "lucide-svelte/icons/bell";
   import RecurrenceIcon from "lucide-svelte/icons/repeat-2";
   import RefreshIcon from "lucide-svelte/icons/refresh-cw";
-  import SignatureIcon from "lucide-svelte/icons/pen-line";
+  import SignatureIcon from "lucide-svelte/icons/stamp";
   import CopyIcon from "lucide-svelte/icons/clipboard-copy";
+  import CategorizeIcon from "lucide-svelte/icons/tag";
   import { t } from "../../../l10n/l10n";
 
   export let event: Event;
@@ -238,7 +251,8 @@
   export let onSelectAttendees: () => void;
   export let onCheckNames: () => Promise<void>;
   export let onRefreshAvailability: () => void;
-  export let onEditSignatures: () => void;
+
+  const appWindow = AppWindow.current();
 
   $: participants = event.participants;
   $: isMeeting = $participants.hasItems;
@@ -251,6 +265,7 @@
   $: reminderChoices = reminderChoicesWith(reminderMinutes);
   $: saveDisabled = ($event && flow.missingPropsReason) ?? false;
   const meetAccounts = appGlobal.meetAccounts.filterObservable(account => account.canCreateURL);
+  let isColorCategoriesOpen = false;
 
   function onOnline(account: MeetAccount | null) {
     event.createOnlineMeetingWithAccount = account;
@@ -311,6 +326,10 @@
   function showInCalendar() {
     let day = new Date(event.startTime);
     flow.close();
+    if (!appWindow.isMainWindow) {
+      openEvent(event, false); // The event's own window closed, so in its main window
+      return;
+    }
     $selectedEvent = event;
     $selectedDate = day;
     $startDate = day;

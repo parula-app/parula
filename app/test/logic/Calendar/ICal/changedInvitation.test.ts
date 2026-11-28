@@ -10,6 +10,7 @@ import { IMAPAccount } from "../../../../logic/Mail/IMAP/IMAPAccount";
 import type { EMail } from "../../../../logic/Mail/EMail";
 import { SpecialFolder } from "../../../../logic/Mail/Folder";
 import { MailIdentity } from "../../../../logic/Mail/MailIdentity";
+import { getTagByName } from "../../../../logic/Abstract/Tag";
 import { afterEach, beforeAll, expect, test } from "vitest";
 
 /* The organizer changes a meeting that the user already accepted, and sends
@@ -286,6 +287,29 @@ test("The reminder moves together with the meeting", async () => {
   await receive(setupResult, { stamp: "20260902T100000Z", sequence: 1, start: newStart });
 
   expect(event.alarm).toEqual(new Date(newStart.getTime() - 15 * 60 * 1000));
+});
+
+test("A change of the meeting keeps the tags that I gave it", async () => {
+  let setupResult = await acceptedMeeting();
+  let { event } = setupResult;
+  event.tags.add(getTagByName("Customer"));
+
+  await receive(setupResult, { stamp: "20260902T100000Z", sequence: 1, location: "Room 2" });
+
+  expect(event.location).toEqual("Room 2");
+  expect(event.tags.contents.map(tag => tag.name)).toEqual(["Customer"]);
+});
+
+test("Answering the invitation again in the email keeps the tags that I gave the meeting", async () => {
+  let setupResult = await acceptedMeeting();
+  let { calendar, event } = setupResult;
+  event.tags.add(getTagByName("Customer"));
+  let email = await receive(setupResult, { stamp: "20260901T100000Z" });
+
+  await calendar.getIncomingInvitationForEMail(email).respondToInvitationFromMail(InvitationResponse.Tentative);
+
+  expect(event.myParticipation).toEqual(InvitationResponse.Tentative);
+  expect(event.tags.contents.map(tag => tag.name)).toEqual(["Customer"]);
 });
 
 test("A change of a meeting that I did not answer yet does not add it to the calendar", async () => {

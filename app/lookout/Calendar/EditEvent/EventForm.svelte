@@ -26,6 +26,10 @@
           <span class="row-label">{$t`Online meeting`}</span>
           <OnlineMeetingBox {event} />
         {/if}
+        {#if $tags.hasItems}
+          <span class="row-label">{$t`Categories *=> Colored labels to organize emails and other items`}</span>
+          <EventCategories {event} />
+        {/if}
       </grid>
     </hbox>
     {#if $attachments.hasItems}
@@ -52,6 +56,7 @@
   import type { InfoMessage } from "./EventFormInfo";
   import { addFilesAsAttachments } from "../../../logic/Abstract/Attachment";
   import InfoBar from "./InfoBar.svelte";
+  import EventCategories from "./EventCategories.svelte";
   import SendButton from "./SendButton.svelte";
   import TimeBox from "./TimeBox.svelte";
   import ParticipantsBox from "./ParticipantsBox.svelte";
@@ -83,6 +88,7 @@
   $: participants = event.participants;
   $: isMeeting = $participants.hasItems;
   $: attachments = event.attachments;
+  $: tags = event.tags;
 
   let isShown = false;
   onMount(() => {

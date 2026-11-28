@@ -85,8 +85,23 @@ test("Reads the settings from the server", async () => {
   expect(autoResponder.startTime.toISOString()).toBe("2026-10-05T07:00:00.000Z");
   expect(autoResponder.endTime.toISOString()).toBe("2026-10-19T16:00:00.000Z");
   expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Contacts);
+  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.Contacts);
   expect(autoResponder.internalHTML).toBe("sanitized:<html><body><p>Back on the <b>19th</b>.</p></body></html>");
   expect(autoResponder.externalHTML).toBe("sanitized:<p>I am out of office.</p>");
+});
+
+test("Without the admin's OK, there are no replies outside, although Exchange reports an audience", async () => {
+  let account = newAccount();
+  // Set-Mailbox -ExternalOofOptions InternalOnly, after the user chose All
+  account.response = kGetResponse
+    .replace("<ExternalAudience>Known", "<ExternalAudience>All")
+    .replace("<AllowExternalOof>Known", "<AllowExternalOof>None");
+  let autoResponder = account.autoResponder;
+  await autoResponder.load();
+
+  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.Internal);
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Internal);
+  expect(autoResponder.externalHTML).toContain("I am out of office.");
 });
 
 test("Old dates of a disabled responder are not kept", async () => {
@@ -99,21 +114,23 @@ test("Old dates of a disabled responder are not kept", async () => {
 
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
-  expect(autoResponder.startTime.getTime()).toBeGreaterThan(Date.now());
+  expect(autoResponder.endTime.getTime()).toBeGreaterThan(Date.now());
   expect(autoResponder.endTime.getTime()).toBeGreaterThan(autoResponder.startTime.getTime());
 });
 
-test("Unknown values are read as off", async () => {
+test("Unknown values are read as off, without admin limit", async () => {
   let account = newAccount();
   account.response = kGetResponse
     .replace("<OofState>Scheduled", "<OofState>Sometimes")
-    .replace("<ExternalAudience>Known", "<ExternalAudience>Friends");
+    .replace("<ExternalAudience>Known", "<ExternalAudience>Friends")
+    .replace("<AllowExternalOof>Known", "<AllowExternalOof>constructor");
   let autoResponder = account.autoResponder;
   await autoResponder.load();
 
   expect(autoResponder.isOn).toBe(false);
   expect(autoResponder.scheduled).toBe(false);
-  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.None);
+  expect(autoResponder.externalAudience).toBe(AutoResponderAudience.Internal);
+  expect(autoResponder.maxAudience).toBe(AutoResponderAudience.All);
 });
 
 test("Writes the settings to the server, in schema order", async () => {

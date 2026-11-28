@@ -22,7 +22,11 @@ export class OWAAutoResponder extends ExchangeAutoResponder {
   fromOWA(options: any) {
     this.oofState = sanitize.integerRange(options.AutoReplyState, 0, 2, OOFState.Disabled);
     this.setTimes(sanitize.date(options.StartTime, null), sanitize.date(options.EndTime, null));
-    this.externalAudience = this.sanitizeAudience(options.ExternalAudience, AutoResponderAudience.None);
+    this.externalAudience = sanitize.translate(options.ExternalAudience, {
+      0: AutoResponderAudience.Internal,
+      1: AutoResponderAudience.Contacts,
+      2: AutoResponderAudience.All,
+    }, AutoResponderAudience.Internal);
     this.internalHTML = sanitizeHTML(options.InternalMessage);
     this.externalHTML = sanitizeHTML(options.ExternalMessage);
   }
@@ -33,7 +37,11 @@ export class OWAAutoResponder extends ExchangeAutoResponder {
       AutoReplyState: this.oofState,
       StartTime: this.scheduled ? this.startTime.toISOString() : undefined,
       EndTime: this.scheduled ? this.endTime.toISOString() : undefined,
-      ExternalAudience: this.oofAudience,
+      ExternalAudience: sanitize.translate(this.externalAudience, {
+        [AutoResponderAudience.Internal]: 0,
+        [AutoResponderAudience.Contacts]: 1,
+        [AutoResponderAudience.All]: 2,
+      }),
       InternalMessage: this.stripEmptyParagraph(this.internalHTML),
       ExternalMessage: this.stripEmptyParagraph(this.externalHTML),
     };

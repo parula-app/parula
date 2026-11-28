@@ -1,4 +1,4 @@
-import { EMail } from "../EMail";
+import { EMail, msgIDWithoutBrackets } from "../EMail";
 import type { GraphFolder } from "./GraphFolder";
 import type { GraphAccount } from "./GraphAccount";
 import { SpecialFolder } from "../Folder";
@@ -33,7 +33,7 @@ export class GraphEMail extends EMail {
     if (this.downloadComplete) {
       return;
     }
-    this.id = sanitize.nonemptystring(json.internetMessageId, this.pID);
+    this.id = msgIDWithoutBrackets(json.internetMessageId) ?? this.pID;
     this.subject = sanitize.string(json.subject, null);
     this.received = sanitize.date(json.receivedDateTime, this.received ?? new Date());
     this.sent = sanitize.date(json.sentDateTime, this.received);
@@ -76,7 +76,7 @@ export class GraphEMail extends EMail {
     for (let header of headers) {
       this.headers.set(header.name, header.value);
     }
-    this.inReplyTo = this.headers.get("In-Reply-To")?.split(" ")[0]; // TODO remove <>
+    this.inReplyTo = msgIDWithoutBrackets(this.headers.get("In-Reply-To")?.split(" ")[0]);
   }
 
   static getGraphCategories(email: EMail): string[] {
@@ -116,7 +116,7 @@ export class GraphEMail extends EMail {
     let e: TGraphEMail = {
       id: undefined,
       subject: email.subject,
-      internetMessageId: email.messageID,
+      internetMessageId: "<" + email.messageID + ">",
       from: GraphEMail.getGraphEmailAddress(email.from),
       replyTo: email.replyTo ? [GraphEMail.getGraphEmailAddress(email.replyTo)] : undefined,
       toRecipients: GraphEMail.getGraphEmailAddresses(email.to),
@@ -252,6 +252,9 @@ export class GraphEMail extends EMail {
 
   async addTagOnServer(tag: Tag) {
     await this.setFlagServer(tag.name, true);
+    let account = this.folder.account;
+    account.tags.add(tag)
+      .catch(account.errorCallback);
   }
 
   async removeTagOnServer(tag: Tag) {

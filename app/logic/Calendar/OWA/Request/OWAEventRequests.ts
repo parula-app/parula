@@ -31,6 +31,9 @@ export function owaGetEventsRequest(eventIDs: string[]): OWARequest {
         FieldURI: "item:Attachments",
       }, {
         __type: "PropertyUri:#Exchange",
+        FieldURI: "item:Categories",
+      }, {
+        __type: "PropertyUri:#Exchange",
         FieldURI: "item:ReminderIsSet",
       }, {
         __type: "PropertyUri:#Exchange",

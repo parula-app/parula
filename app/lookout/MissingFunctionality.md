@@ -83,7 +83,7 @@ New message, reply and forward, with the Message, Insert, Options and Format Tex
 | Direct Replies To, Save Sent Item To | Options tab > More Options | A per-message `replyTo` and sent folder in `send()` |
 | Sensitivity (Private, Confidential), Do Not Forward, sensitivity labels | Options tab; Message tab | A sensitivity header; rights management |
 | HTML / Plain Text / Rich Text per message | Format Text tab > Format | A per-message override of the `mail.send.format` setting in `CreateMIME` and the protocol senders; RTF / TNEF for Rich Text |
-| Several named signatures per account (New, Rename, Delete), "Choose default signature" for new messages and for replies / forwards, the own signature visible in the editor, Personal Stationery | Signature menu > Signatures… | Named signatures per `MailIdentity` with defaults for new mail and replies, inserted when composing. Today each identity has one `signatureHTML`, appended when sending. Lookout's Signature menu lists one signature per identity and inserts the others; Signatures… edits them. |
+| Signature names, "Choose default signature" for replies / forwards apart from new messages, Personal Stationery | Signature menu > Signatures… | Names for the signatures of a `MailIdentity`, and a separate default for replies. Today each identity has a default `signatureHTML` and more `altSignatures`. The Signature menu lists them by their text and swaps the picked one in; Signatures… opens the Identities page of the account settings. |
 | Font family, color, highlight, alignment, paragraph indent, line spacing | Message tab > Basic Text; Format Text tab | Editor extensions (`@tiptap/extension-text-style` is installed), and a sanitizer that keeps these styles |
 | Tables, online pictures, shapes, icons, screenshots, Quick Parts, equations | Insert tab | Editor features. Lookout offers Attach File, Pictures, Link, Date & Time, Symbol, Horizontal Line and Emoji. |
 | Attach Item: a message, a business card, a calendar | Insert tab > Include | Attaching an `EMail` as `.eml`, a `Person` as vCard, a calendar range as iCalendar |
@@ -113,12 +113,11 @@ Rules and Alerts and Create Rule. All Mustang rules are client rules that run wh
 
 ## Automatic Replies (Out of Office)
 
-Not built: Mustang has no automatic-reply logic for any protocol.
-
 | Outlook feature | Where in Outlook | What the logic would need |
 |---|---|---|
-| Automatic replies on / off, messages for inside and outside the organization, time range, "My contacts only" | File > Info > Automatic Replies | Server auto-reply settings per protocol: EWS `GetUserOofSettings` / `SetUserOofSettings`, Graph `automaticRepliesSetting`, JMAP `VacationResponse`, ManageSieve `vacation` for IMAP |
-| "Automatic replies are being sent for this account" InfoBar with Turn Off | Below the ribbon | Reading the state above at start and periodically |
+| Automatic replies for IMAP accounts | File > Info > Automatic Replies | ManageSieve `vacation`, as an `AutoResponder` subclass |
+| Font, size, color, underline and indent for the messages | Automatic Replies dialog | More buttons in the editor toolbar, which has bold, italic, strike-through, lists, headings and links. Underline works with Ctrl+U. |
+| Updating the bar while the app runs | Below the ribbon | A periodic `autoResponder.load()`. Lookout reads the state when you go to the account. |
 | Automatic Reply Rules | Automatic Replies > Rules | Exchange OOF rules |
 | Block my calendar, decline new invitations, cancel my meetings during the period | Automatic replies (new Outlook) | Calendar integration of the above |
 | Auto reply for IMAP and POP accounts without server support | Rules Wizard: "reply using a specific template" | A reply action in rules |
@@ -131,7 +130,6 @@ Date navigator, calendar list, Day / Work Week / Week / Month and split view.
 |---|---|---|
 | Show As (Free, Working Elsewhere, Tentative, Busy, Out of Office), with its patterns on the event blocks | Event blocks; Appointment tab > Options; context menu | `Event.showAs`, mapped to EWS `LegacyFreeBusyStatus`, JMAP `freeBusyStatus`, iCalendar `TRANSP` / `X-MICROSOFT-CDO-BUSYSTATUS`. Lookout shows own events as Busy, and invitations by their response. |
 | Private appointments (lock icon) | Event blocks; Appointment tab > Tags | `Event.isPrivate` (EWS `Sensitivity`, iCalendar `CLASS`, JSCalendar `privacy`) |
-| Categories with colors on events | Event blocks; Categorize; Appointment tab > Tags | `Event.categories` and category colors per account. Only JMAP has `Event.color`, which Lookout uses like `frontend/`. |
 | First day of the week, first week of the year | File > Options > Calendar > Work time | A week start setting. `logic/util/date.ts getWeekStart()` always starts the week on Monday. |
 | Work hours: off-work time shaded per calendar (also in the Schedule View and for shared calendars), the Work Week view with the work days, scrolling to the work start, new events at the work start; editing the work hours per weekday | Calendar views; File > Options > Calendar > Work time | Work hours per calendar, read from and saved on the server: PR #1495. Lookout's code for it is commented out until #1495 is in master; `Calendar/WorkingHours.ts`, `Settings/Calendar/WorkHours.svelte` and `test/Calendar/WorkingHours.test.ts` come back from the branch history (fe7fd83f8). Until then, Lookout shades no off-work time, the Work Week is Monday to Friday, and new events and the scroll position start at 8:00. |
 | Changing the calendar's own time zone; Swap Time Zones | File > Options > Calendar > Time zones | A display time zone other than the system's. `logic/` and Lookout compute days, all-day events and times in the time zone of the operating system (JS `Date`), as Outlook does with the Windows time zone. Lookout shows that zone in Options and adds the second and third time zone as rulers. |
@@ -154,7 +152,7 @@ Appointment and meeting form, recurrence, Scheduling Assistant and Tracking.
 
 | Outlook feature | Where in Outlook | What the logic would need |
 |---|---|---|
-| High / Low Importance of events (Show As, Private and Categorize: see Calendar views) | Appointment tab > Tags | `Event.importance` (EWS `Importance`, iCalendar `PRIORITY`) |
+| High / Low Importance of events (Show As and Private: see Calendar views) | Appointment tab > Tags | `Event.importance` (EWS `Importance`, iCalendar `PRIORITY`) |
 | Optional attendees and resources (rooms) | Optional field; Scheduling Assistant | `Participant.role` mapped to EWS `OptionalAttendees` / `Resources`, iCalendar `ROLE` / `CUTYPE`, JSCalendar `roles` / `kind`. Lookout has one Required field. |
 | Room Finder, Add Rooms, location suggestions | Location; Scheduling Assistant | A room list API (EWS `GetRoomLists` / `GetRooms`) |
 | AutoPick, suggested times | Scheduling Assistant | Availability suggestions (EWS `GetUserAvailability` with suggestions) |

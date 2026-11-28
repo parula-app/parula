@@ -135,3 +135,9 @@ export interface TGraphDateTimeZone {
   /** E.g. "UTC" */
   timeZone: string,
 }
+
+export interface TGraphCategory {
+  id?: UUID,
+  displayName: string,
+  color: string,
+}

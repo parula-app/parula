@@ -4,6 +4,7 @@ import { Event } from "../../../../logic/Calendar/Event";
 import { Participant } from "../../../../logic/Calendar/Participant";
 import { InvitationResponse } from "../../../../logic/Calendar/Invitation/InvitationStatus";
 import { EventLook } from "../../../Calendar/DisplayEvent/EventLook";
+import { getTagByName } from "../../../../logic/Abstract/Tag";
 import { expect, test } from "vitest";
 
 function newEvent(start = new Date(2026, 9, 15, 9), end = new Date(2026, 9, 15, 10)): Event {
@@ -66,4 +67,14 @@ test("Time text and tooltip", () => {
   let twoDays = newEvent(new Date(2026, 9, 15), new Date(2026, 9, 17));
   twoDays.allDay = true;
   expect(new EventLook(twoDays).timeText("en-US")).toMatch(/^Thu, Oct 15\s–\sFri, Oct 16$/);
+});
+
+test("The tooltip names the categories, which the event shows only as colors", () => {
+  let event = newEvent();
+  event.tags.addAll([getTagByName("Customer"), getTagByName("Travel")]);
+
+  let tooltip = new EventLook(event).tooltip("en-US");
+
+  expect(tooltip).toContain("Customer");
+  expect(tooltip).toContain("Travel");
 });
