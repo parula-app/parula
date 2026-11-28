@@ -29,6 +29,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
   }
 
   newEvent(parentEvent?: EWSEvent): EWSEvent {
+    assert(!this.hasLimitedDetails, gt`You can only see the appointments in the calendar ${this.name}`);
     return new EWSEvent(this, parentEvent);
   }
 
@@ -42,7 +43,7 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
 
   async syncOnStartup(): Promise<void> {
     await super.syncOnStartup();
-    if (this.username != this.account.username) {
+    if (this.username != this.account.username && !this.hasLimitedDetails) {
       await this.account.subscribeToNotificationsForSubaccount(this);
     }
   }
@@ -100,6 +101,10 @@ export class EWSCalendar extends ExchangeCalendar implements EWSSubscribable {
   }
 
   protected async listEventsFromServer() {
+    if (this.hasLimitedDetails) {
+      await this.listEventsFromAvailability();
+      return;
+    }
     await this.syncFolder();
     await this.save();
   }

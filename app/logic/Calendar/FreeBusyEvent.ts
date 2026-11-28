@@ -1,4 +1,6 @@
 import { Event, FreeBusyStatus, freeBusyStatusLabels } from "./Event";
+import { UserError } from "../util/util";
+import { gt } from "../../l10n/l10n";
 
 export { FreeBusyStatus, freeBusyStatusLabels };
 
@@ -24,5 +26,21 @@ export class FreeBusyEvent extends Event {
 
   get statusLabel(): string {
     return freeBusyStatusLabels[this._busyStatus];
+  }
+
+  get isReadOnly(): boolean {
+    return true;
+  }
+
+  async save(): Promise<never> {
+    throw this.readOnlyError();
+  }
+
+  async deleteIt(): Promise<never> {
+    throw this.readOnlyError();
+  }
+
+  protected readOnlyError(): UserError {
+    return new UserError(gt`You can only see the appointments in the calendar ${this.calendar?.name ?? ""}`);
   }
 }

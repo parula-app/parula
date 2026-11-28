@@ -50,6 +50,10 @@ export class Calendar extends Account {
     return true; // for local calendar
   }
 
+  get isReadOnly(): boolean {
+    return false;
+  }
+
   /** Calculated from `events`. Returns
    * - Single events
    * - Recurring instances generated

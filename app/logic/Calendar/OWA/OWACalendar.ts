@@ -37,7 +37,8 @@ export class OWACalendar extends ExchangeCalendar {
   }
 
   callOWA(aRequest: any) {
-    return this.username == this.account.username
+    // With limited details, we may not open the colleague's mailbox, only ask for their availability
+    return this.username == this.account.username || this.hasLimitedDetails
       ? this.account.callOWA(aRequest)
       : this.account.callOWA(aRequest, this.username);
   }
@@ -49,6 +50,7 @@ export class OWACalendar extends ExchangeCalendar {
   }
 
   newEvent(parentEvent?: OWAEvent): OWAEvent {
+    assert(!this.hasLimitedDetails, gt`You can only see the appointments in the calendar ${this.name}`);
     return new OWAEvent(this, parentEvent);
   }
 
@@ -75,8 +77,8 @@ export class OWACalendar extends ExchangeCalendar {
           .filter(event => this.freeBusyStatus(event.FreeBusyType))
           .map(event => {
             let appointment = new FreeBusyEvent(
-              new Date(event.Start + "Z"),
-              new Date(event.End + "Z"),
+              sanitize.date(sanitize.nonemptystring(event.Start) + "Z"),
+              sanitize.date(sanitize.nonemptystring(event.End) + "Z"),
               this.freeBusyStatus(event.FreeBusyType));
             let details = hasDetails && event.Sensitivity != "Private" ? event : null;
             appointment.title = sanitize.label(details?.Subject, null);
@@ -93,6 +95,10 @@ export class OWACalendar extends ExchangeCalendar {
   }
 
   protected async listEventsFromServer() {
+    if (this.hasLimitedDetails) {
+      await this.listEventsFromAvailability();
+      return;
+    }
     await this.listEventsRunOnce.runOnce(() => this.listEventsSlow());
   }
 

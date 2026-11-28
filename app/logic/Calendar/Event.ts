@@ -649,7 +649,12 @@ export class Event extends Observable implements TaggableObject {
   }
 
   get isEditable(): boolean {
-    return !this.isIncomingMeeting;
+    return !this.isIncomingMeeting && !this.isReadOnly;
+  }
+
+  /** We may only see this event, but not change, delete or answer it */
+  get isReadOnly(): boolean {
+    return false;
   }
 
   get isIncomingMeeting(): boolean {
