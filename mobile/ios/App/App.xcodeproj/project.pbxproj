@@ -18,6 +18,7 @@
 		DD0EE6332DD26625002B679D /* NodeMobile.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD0EE6322DD26625002B679D /* NodeMobile.xcframework */; };
 		DD0EE6342DD26625002B679D /* NodeMobile.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = DD0EE6322DD26625002B679D /* NodeMobile.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DD0EE6362DD26665002B679D /* NodeMobile.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD0EE6322DD26625002B679D /* NodeMobile.xcframework */; };
+		5D2B8B022EB5A22300B2C3D4 /* WebPagePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D2B8B012EB5A22300B2C3D4 /* WebPagePlugin.swift */; };
 		DD0EE6392DD28787002B679D /* NodeRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0EE6382DD28781002B679D /* NodeRunner.swift */; };
 		4C1A7A0E2EB4F11200A1B2C3 /* LinkTapPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C1A7A0D2EB4F11200A1B2C3 /* LinkTapPlugin.swift */; };
 		DD0EE6432DD29A3E002B679D /* nodejs-project in Resources */ = {isa = PBXBuildFile; fileRef = DD0EE6422DD29A3E002B679D /* nodejs-project */; };
@@ -50,6 +51,7 @@
 		AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_App.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
 		DD0EE6322DD26625002B679D /* NodeMobile.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = NodeMobile.xcframework; path = resources/NodeMobile.xcframework; sourceTree = "<group>"; };
+		5D2B8B012EB5A22300B2C3D4 /* WebPagePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebPagePlugin.swift; sourceTree = "<group>"; };
 		DD0EE6382DD28781002B679D /* NodeRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeRunner.swift; sourceTree = "<group>"; };
 		4C1A7A0D2EB4F11200A1B2C3 /* LinkTapPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkTapPlugin.swift; sourceTree = "<group>"; };
 		DD0EE6422DD29A3E002B679D /* nodejs-project */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "nodejs-project"; path = "App/nodejs-project"; sourceTree = "<group>"; };
@@ -129,6 +131,7 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				5D2B8B012EB5A22300B2C3D4 /* WebPagePlugin.swift */,
 				DD0EE6382DD28781002B679D /* NodeRunner.swift */,
 				4C1A7A0D2EB4F11200A1B2C3 /* LinkTapPlugin.swift */,
 				DD0EE6372DD26C52002B679D /* nodejs-project */,
@@ -294,6 +297,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				5D2B8B022EB5A22300B2C3D4 /* WebPagePlugin.swift in Sources */,
 				DD0EE6392DD28787002B679D /* NodeRunner.swift in Sources */,
 				4C1A7A0E2EB4F11200A1B2C3 /* LinkTapPlugin.swift in Sources */,
 			);

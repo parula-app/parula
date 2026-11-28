@@ -40,6 +40,30 @@ export async function openOSAppForFile(filePath: string) {
 }
 
 // #if [MOBILE]
+/** Android and iOS: Shows a web page in a native WebView over our app, jailed, with its own
+ * cookies and storage, see `WebPagePlugin` in `mobile/` and `showNativePage()` in `WebView.svelte`.
+ * A page stays alive while it's hidden. */
+export const webPagePlugin = registerPlugin<WebPagePlugin>("WebPage");
+
+interface WebPagePlugin {
+  /**
+   * Creates the page, if it's new, and shows or hides it.
+   * @param id Our name for the page
+   * @param url Loaded only when the page is new
+   * @param profile The cookies and storage, e.g. of one account.
+   *   Kept across app restarts, but on iOS 15 and 16 only until our app ends.
+   * @param hidden Not over our app
+   * @throws code "UNAVAILABLE", if Android System WebView is too old for profiles
+   */
+  open(options: { id: string, url: string, profile: string, hidden: boolean }): Promise<void>;
+  /** Ends the page */
+  close(options: { id: string }): Promise<void>;
+  /** The user went back to our app. The page is hidden, but stays alive. */
+  addListener(eventName: "hide", listener: (page: { id: string }) => void): Promise<PluginListenerHandle>;
+  /** A link that the page can't show, e.g. `mailto:` */
+  addListener(eventName: "link", listener: (link: { url: string }) => void): Promise<PluginListenerHandle>;
+}
+
 /** Android and iOS: The native app doesn't open a link that the user tapped on,
  * but gives it to us, see `LinkTapPlugin` in `mobile/` and `WebView.svelte`. */
 export const linkTapPlugin = registerPlugin<LinkTapPlugin>("LinkTap");

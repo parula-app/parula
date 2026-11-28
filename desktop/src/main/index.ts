@@ -384,6 +384,7 @@ function restrictWebViews(webContents: WebContents) {
  * and in the login window, get only what web apps need for calls and notifications.
  * They must not e.g. start other apps with an `openExternal` URL, read the clipboard,
  * or know where the user is. Our app keeps all permissions.
+ * Android and iOS: Web pages get at most these, see `WebPagePlugin` in `mobile/`.
  * Links that the user clicks in a `<webview>` don't need `openExternal`: `WebView.svelte` opens them
  * with `openExternalURL()` in `desktop/backend/backend.ts`, which allows only some URL schemes. */
 function restrictPermissions(session: Session) {
